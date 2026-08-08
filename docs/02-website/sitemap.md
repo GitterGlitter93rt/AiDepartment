@@ -355,7 +355,7 @@ Request an SEO Review
 **Primary keyword themes:**
 
 - Outsourced AI department
-- Fractional AI department
+- Managed AI Department
 - Managed AI services
 - AI advisory services
 - Ongoing AI consulting

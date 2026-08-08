@@ -90,7 +90,7 @@ Prospective clients commonly face the following problems:
 
 Strategic guidance for leadership teams regarding AI adoption, tool selection, workflow redesign, governance, implementation, and measurement.
 
-### AI Readiness Assessment
+### AI Department Assessment
 
 A structured evaluation of a company's leadership, employees, workflows, systems, data, governance, and opportunities.
 

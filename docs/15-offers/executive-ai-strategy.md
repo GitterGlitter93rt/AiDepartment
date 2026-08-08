@@ -1,4 +1,4 @@
-# Executive AI Strategy Workshop™
+# Executive AI Strategy™
 
 Status: Draft
 
@@ -8,7 +8,7 @@ Version: 1.0
 
 # PAGE TITLE
 
-Executive AI Strategy Workshop™
+Executive AI Strategy™
 
 ---
 
@@ -184,5 +184,5 @@ Custom pricing available based on company size and workshop scope.
 
 # PRIMARY CTA
 
-Book Executive AI Strategy Workshop™
+Discuss Executive AI Strategy
 

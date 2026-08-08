@@ -22,7 +22,7 @@ Your AI Department operates through four connected delivery models:
 1. AI consulting
 2. AI implementation
 3. AI-powered growth and marketing
-4. Fractional AI department services
+4. Managed AI Department services
 
 Clients may enter through any one of these services, but the long-term goal is to become their ongoing AI strategy and execution partner.
 
@@ -177,7 +177,7 @@ This operational background allows Your AI Department to connect AI strategy wit
 Prospects may first engage through:
 
 - AI consulting
-- AI readiness assessment
+- AI Department Assessment
 - Executive workshop
 - Employee training
 - AI implementation

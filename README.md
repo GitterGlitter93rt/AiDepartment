@@ -13,7 +13,7 @@ Your AI Department helps companies adopt and implement artificial intelligence t
 
 - AI consulting
 - Executive and employee training
-- AI readiness assessments
+- AI Department Assessments
 - Workflow automation
 - AI implementation
 - Google Ads and Meta advertising
