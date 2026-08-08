@@ -1,117 +1,263 @@
 # Website Navigation
 
-**Status:** Working Draft  
-**Version:** 0.1  
-**Last Updated:** 2026-07-12  
-**Owner:** Michael Chanata
+Status: Draft
+Version: 1.0
+Launch Priority: Critical
 
 ---
 
-## Desktop Navigation
+# PRIMARY NAVIGATION
 
-### Logo
+The V1 website should use a clear navigation structure designed around conversion rather than exposing every future SEO page.
 
-Your AI Department
+Recommended desktop navigation:
 
-Links to:
+Home
 
-`/`
+Solutions
 
----
+Services
 
-### Solutions
+Industries
 
-- AI Consulting
-- AI Implementation
-- AI Automation
-- AI Training
-- AI Phone Agents
-- AI-Powered Marketing
-- Google Ads Management
-- Meta Ads Management
-- Managed AI Department
-- View All Solutions
+The AI Department Method
 
----
+About
 
-### Industries
+Contact
 
-- Collision Repair
-- Roofing
-- HVAC
-- Construction
-- Restaurants
-- Law Firms
-- Insurance
-- Medical and Dental
-- Real Estate
-- View All Industries
+[Get Your AI Department Score]
+
+The assessment CTA should appear as a visually prominent button in the header.
 
 ---
 
-### Use Cases
+# SOLUTIONS DROPDOWN
 
-- Lead Generation
-- Sales
-- Marketing
-- Customer Service
-- Operations
-- Human Resources
-- Finance
-- View All Use Cases
+## AI Consulting
 
----
+Recommended URL:
 
-### AI Assessment
+/ai-consulting/
 
-Direct link to:
+Description:
 
-`/ai-assessment/`
+Identify where AI, automation, better software, and improved workflows can create measurable business value.
 
 ---
 
-### Resources
+## AI Implementation
 
-- Blog
-- Case Studies
-- AI Guides
-- The AI Department Method
+Recommended URL:
 
----
+/ai-implementation/
 
-### About
+Description:
 
-- About Us
-- The AI Department Method
-- Contact
+Build AI agents, automations, integrations, internal assistants, and other practical AI systems.
 
 ---
 
-## Header Calls to Action
+## AI Growth Systems
 
-### Secondary CTA
+Recommended URL:
 
-Book a Strategy Call
+/ai-growth-systems/
 
-### Primary CTA
+Description:
 
-Get Your AI Assessment
+Connect marketing, CRM, lead response, automation, sales follow-up, and attribution into a smarter growth system.
 
 ---
 
-## Mobile Navigation
+## Managed AI Department
 
-The mobile navigation should include:
+Recommended URL:
 
-- Home
-- Solutions
-- Industries
-- Use Cases
-- AI Assessment
+/managed-ai-department/
+
+Description:
+
+Ongoing AI strategy, implementation oversight, training, opportunity discovery, and optimization.
+
+---
+
+# SERVICES DROPDOWN
+
+## Google Ads
+
+Recommended URL:
+
+/google-ads/
+
+## Meta Ads
+
+Recommended URL:
+
+/meta-ads/
+
+## SEO
+
+Recommended URL:
+
+/seo/
+
+## AI Training
+
+Recommended URL:
+
+/ai-training/
+
+## AI Workshops
+
+Recommended URL:
+
+/ai-workshops/
+
+## Executive AI Coaching
+
+Recommended URL:
+
+/executive-ai-coaching/
+
+---
+
+# INDUSTRIES DROPDOWN
+
+Initial V1 priority:
+
+## Collision Repair
+
+/industries/collision-repair/
+
+## Law Firms
+
+/industries/law-firms/
+
+## Roofing
+
+/industries/roofing/
+
+## HVAC
+
+/industries/hvac/
+
+## Construction
+
+/industries/construction/
+
+## Professional Services
+
+/industries/professional-services/
+
+Do not expose empty industry pages in production navigation.
+
+Additional industry pages should be added as real content is completed.
+
+---
+
+# THE AI DEPARTMENT METHOD
+
+Recommended URL:
+
+/ai-department-method/
+
+This should be a direct primary navigation item rather than hidden inside another menu.
+
+Its purpose is to explain the company's methodology and establish credibility.
+
+---
+
+# ABOUT
+
+Recommended URL:
+
+/about/
+
+---
+
+# CONTACT
+
+Recommended URL:
+
+/contact/
+
+---
+
+# PRIMARY HEADER CTA
+
+Button:
+
+Get Your AI Department Score
+
+URL:
+
+/ai-assessment/
+
+This is the primary site-wide CTA.
+
+---
+
+# MOBILE NAVIGATION
+
+Recommended order:
+
+Home
+
+Assessment
+
+Solutions
+
+Services
+
+Industries
+
+The AI Department Method
+
+About
+
+Contact
+
+The assessment CTA should remain highly visible on mobile.
+
+---
+
+# HEADER BEHAVIOR
+
+Recommended:
+
+Sticky header on desktop and mobile.
+
+The header should become compact while scrolling.
+
+Do not allow an oversized navigation system to dominate the page.
+
+Primary objective:
+
+Make it easy to understand the company and reach the assessment.
+
+---
+
+# UTILITY NAVIGATION
+
+Do not overload the main header with:
+
 - Resources
-- About
-- Contact
+- Case Studies
+- Blog
+- Careers
+- Partner pages
+- Every individual use case
 
-The primary mobile CTA should remain visible:
+These can be introduced later when sufficient content exists.
 
-> Get Your AI Assessment
+---
+
+# NAVIGATION PRINCIPLE
+
+The repository contains significantly more planned content than the V1 website should expose.
+
+Navigation should reflect pages that actually exist and are ready for customers.
+
+Never link a production navigation item to an empty placeholder page.
+
