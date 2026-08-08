@@ -261,3 +261,35 @@ Navigation should reflect pages that actually exist and are ready for customers.
 
 Never link a production navigation item to an empty placeholder page.
 
+
+---
+
+# ENTERPRISE NAVIGATION ADDENDUM
+
+Enterprise should be a top-level navigation destination.
+
+Recommended desktop navigation:
+
+Solutions
+
+Services
+
+Industries
+
+Enterprise
+
+About
+
+Resources
+
+Primary CTA:
+
+Get Your AI Department Score
+
+Enterprise visitors should have a dedicated CTA on the Enterprise page:
+
+Discuss an Enterprise Engagement
+
+Recommended URL:
+
+/enterprise/

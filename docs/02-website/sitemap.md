@@ -639,3 +639,17 @@ Search result
 → Executive or employee training  
 → AI roadmap  
 → Implementation and ongoing support
+
+---
+
+# ENTERPRISE
+
+/enterprise/
+
+Purpose:
+
+Dedicated entry point for large organizations requiring enterprise AI strategy, governance, transformation, implementation coordination, training, and ongoing advisory.
+
+Primary CTA:
+
+Discuss an Enterprise Engagement
