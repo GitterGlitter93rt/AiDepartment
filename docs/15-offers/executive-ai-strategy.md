@@ -1,188 +1,141 @@
-# Executive AI Strategy™
+# Executive AI Strategy
 
-Status: Draft
-
-Version: 1.0
-
----
-
-# PAGE TITLE
-
-Executive AI Strategy™
+Status: Canonical Paid Strategy Offer
+Version: 2.0
 
 ---
 
-# HERO
+# POSITIONING
 
-Headline
+Executive AI Strategy is a paid strategic engagement designed to help leadership determine where AI, automation, better systems, and improved workflows can create the most business value.
 
-A One-Day Executive Workshop That Builds Your Company's AI Roadmap.
+It is not simply a one-day workshop.
 
-Subheadline
+Workshops may be used as part of the engagement, but the commercial offer is broader.
 
-Spend one day with Your AI Department to identify your highest-value AI opportunities, prioritize implementation, and leave with a practical roadmap designed specifically for your business.
+---
 
-Primary CTA
+# INDICATIVE STARTING PRICE
+
+Approximately $5,000+
+
+Final pricing depends on:
+
+- Company size
+- Number of departments
+- Number of locations
+- Complexity
+- Discovery requirements
+- Technology environment
+- Required deliverables
+
+---
+
+# POTENTIAL SCOPE
+
+Executive discovery
+
+Department analysis
+
+Workflow analysis
+
+Technology review
+
+AI opportunity discovery
+
+Automation analysis
+
+Marketing and sales analysis
+
+Employee productivity analysis
+
+Data readiness
+
+Governance considerations
+
+ROI modeling
+
+Opportunity prioritization
+
+Implementation planning
+
+90-day roadmap
+
+Longer-term roadmap
+
+---
+
+# PRIMARY OBJECTIVE
+
+Answer:
+
+Where should this company use AI?
+
+What should be automated?
+
+What should remain human?
+
+Which opportunities have the strongest economics?
+
+What should be implemented first?
+
+What technology is required?
+
+What should leadership do over the next 90 days?
+
+---
+
+# ENGAGEMENT PATH
+
+AI Department Assessment
+
+↓
+
+Strategy Call
+
+↓
+
+Executive AI Strategy
+
+↓
+
+AI Implementation
+
+↓
+
+Managed AI Department
+
+Not every client must follow every stage.
+
+---
+
+# DELIVERABLES
+
+Potential deliverables may include:
+
+- Executive findings
+- AI opportunity map
+- Prioritized initiative list
+- Business-case scenarios
+- Technology recommendations
+- Governance recommendations
+- 90-day roadmap
+- Longer-term roadmap
+- Implementation recommendations
+
+Exact deliverables should be defined in the engagement scope.
+
+---
+
+# CTA
+
+Primary:
+
+Discuss Executive AI Strategy
+
+Do not use:
 
 Book Executive Workshop
 
-Secondary CTA
-
-Schedule AI Assessment
-
----
-
-# WHO THIS IS FOR
-
-Business Owners
-
-CEOs
-
-Presidents
-
-Managing Partners
-
-Executive Leadership Teams
-
-Operations Leaders
-
-Growing Businesses
-
-Companies Preparing For AI Adoption
-
----
-
-# WHAT HAPPENS DURING THE WORKSHOP
-
-Executive Discovery
-
-Business Process Review
-
-Sales Analysis
-
-Marketing Review
-
-Operations Review
-
-Customer Service Review
-
-Technology Assessment
-
-Employee Readiness
-
-AI Opportunity Identification
-
-Roadmap Development
-
-Executive Q&A
-
----
-
-# WHAT WE REVIEW
-
-Leadership
-
-Marketing
-
-Sales
-
-CRM
-
-Customer Experience
-
-Operations
-
-Technology
-
-Software Stack
-
-Employee Workflows
-
-Reporting
-
-Data
-
-Automation Opportunities
-
-Artificial Intelligence
-
-Future Growth
-
----
-
-# WHAT YOU RECEIVE
-
-Executive AI Report
-
-AI Department Score™
-
-Priority Opportunity List
-
-90-Day Roadmap
-
-12-Month Strategic Roadmap
-
-Implementation Recommendations
-
-Technology Recommendations
-
-Marketing Recommendations
-
-Operational Recommendations
-
-Executive Presentation
-
----
-
-# COMMON OUTCOMES
-
-Reduce Administrative Work
-
-Improve Lead Response
-
-Increase Revenue
-
-Improve Marketing ROI
-
-Reduce Costs
-
-Train Employees
-
-Automate Repetitive Tasks
-
-Improve Customer Experience
-
-Prepare For Future AI Adoption
-
----
-
-# AFTER THE WORKSHOP
-
-Clients may choose to:
-
-Implement internally
-
-Hire Your AI Department
-
-Use an existing vendor
-
-Phase implementation over time
-
-There is no obligation to continue.
-
----
-
-# INVESTMENT
-
-Starting at
-
-$5,000
-
-Custom pricing available based on company size and workshop scope.
-
----
-
-# PRIMARY CTA
-
-Discuss Executive AI Strategy
+as the canonical CTA.
 

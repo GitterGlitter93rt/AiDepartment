@@ -784,3 +784,37 @@ When the economics make sense, we help implement the solution.
 
 When ongoing leadership and optimization make sense, we become the company's Managed AI Department.
 
+
+---
+
+# ENTERPRISE ADDENDUM
+
+Enterprise is part of the V1 architecture.
+
+Canonical Enterprise offer:
+
+Enterprise AI Transformation
+
+Public route:
+
+/enterprise/
+
+Primary CTA:
+
+Discuss an Enterprise Engagement
+
+Enterprise prospects should not be forced into the free public assessment funnel.
+
+Enterprise engagements may include:
+
+- Enterprise AI Discovery
+- Enterprise AI Strategy
+- Governance
+- Department transformation
+- AI pilots
+- Implementation oversight
+- Enterprise training
+- Program management
+- Ongoing Enterprise AI Advisory
+
+Do not claim Fortune 500 experience or enterprise results that are not factual.

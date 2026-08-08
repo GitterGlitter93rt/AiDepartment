@@ -1,260 +1,39 @@
-# The AI Department Assessment™
+# AI Department Assessment
 
-Status: Draft
-
-Version: 1.0
-
----
-
-# PAGE TITLE
-
-The AI Department Assessment™
+Status: Canonical Public Assessment Reference
+Version: 2.0
 
 ---
 
-# HERO
+# IMPORTANT
 
-Headline
+This file previously described an older paid AI readiness assessment concept.
 
-Discover Exactly How AI Can Transform Your Business.
+That model is deprecated.
 
-Subheadline
+The canonical public offer is now:
 
-The AI Department Assessment is a comprehensive executive assessment designed to identify where artificial intelligence can increase revenue, reduce costs, improve employee productivity, and create long-term competitive advantage.
+AI Department Assessment
 
-Primary CTA
+Price:
 
-Schedule Your Assessment
+FREE
 
-Secondary CTA
+Primary CTA:
 
-Book Executive Strategy Call
+Get Your AI Department Score
 
----
+The full website landing-page copy is maintained in:
 
-# WHAT IS THE AI DEPARTMENT ASSESSMENT?
+docs/02-website/ai-assessment.md
 
-This is not a generic AI quiz.
+The assessment architecture is maintained in:
 
-The AI Department Assessment is a structured executive consulting engagement designed to evaluate every major area of your business and identify the highest-return opportunities for AI adoption.
+docs/04-assessment/
 
-Our assessment examines leadership, marketing, sales, customer service, operations, finance, technology, employee readiness, and business workflows.
+The deeper paid strategic engagement is:
 
-The result is a practical roadmap—not a list of AI tools.
+Executive AI Strategy
 
----
-
-# WHAT WE EVALUATE
-
-Executive Leadership
-
-Business Strategy
-
-Sales
-
-Marketing
-
-Google Ads
-
-Meta Ads
-
-SEO
-
-Lead Generation
-
-Customer Service
-
-Operations
-
-Employee Productivity
-
-Knowledge Management
-
-Technology Stack
-
-CRM
-
-Workflow Automation
-
-Reporting
-
-Data
-
-AI Readiness
-
-Future Growth Opportunities
-
----
-
-# WHAT YOU RECEIVE
-
-Executive Summary
-
-AI Department Score™
-
-Department Scores
-
-Business Opportunity Analysis
-
-Quick Wins
-
-High ROI Opportunities
-
-90-Day Roadmap
-
-12-Month AI Roadmap
-
-Technology Recommendations
-
-Implementation Priorities
-
-Estimated ROI Opportunities
-
-Executive Presentation
-
----
-
-# WHO SHOULD SCHEDULE AN ASSESSMENT?
-
-Business Owners
-
-CEOs
-
-Presidents
-
-Managing Partners
-
-Operations Directors
-
-Marketing Directors
-
-Companies with 10–250 Employees
-
-Growing Businesses
-
-Professional Service Firms
-
-Contractors
-
-Collision Repair Facilities
-
-Medical Practices
-
-Restaurants
-
-Law Firms
-
-Insurance Agencies
-
----
-
-# OUR PROCESS
-
-Step 1
-
-Executive Discovery
-
-↓
-
-Step 2
-
-Business Assessment
-
-↓
-
-Step 3
-
-AI Opportunity Analysis
-
-↓
-
-Step 4
-
-Executive Strategy Session
-
-↓
-
-Step 5
-
-Implementation Roadmap
-
-↓
-
-Step 6
-
-Implementation
-
-↓
-
-Step 7
-
-Managed AI Department
-
----
-
-# WHY BUSINESSES CHOOSE THIS ASSESSMENT
-
-Most companies know AI is important.
-
-Few know:
-
-Where to begin.
-
-What to automate.
-
-What software to choose.
-
-How to train employees.
-
-How to measure ROI.
-
-We answer those questions.
-
----
-
-# COMMON OUTCOMES
-
-Higher Revenue
-
-Lower Costs
-
-Better Customer Experience
-
-Improved Marketing
-
-Employee Productivity
-
-Workflow Automation
-
-AI Adoption Strategy
-
-Executive Alignment
-
----
-
-# FREQUENTLY ASKED QUESTIONS
-
-How long does the assessment take?
-
-Who should attend?
-
-Do employees participate?
-
-What happens afterward?
-
-Can you implement the recommendations?
-
-Do you provide ongoing support?
-
----
-
-# PRIMARY CTA
-
-Schedule Your AI Department Assessment™
-
----
-
-# SECONDARY CTA
-
-Speak With An AI Strategist
+and should not be confused with the free public assessment.
 

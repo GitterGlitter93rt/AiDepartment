@@ -1,326 +1,180 @@
 # The AI Department Method
 
-**Status:** Working Draft  
-**Version:** 0.1  
-**Last Updated:** 2026-07-12  
-**Owner:** Michael Chanata
+Status: Canonical Internal Method
+Version: 2.0
 
 ---
 
-## Overview
+# PURPOSE
 
-The AI Department Method is our structured framework for helping businesses adopt AI, improve operations, increase revenue, train employees, and implement practical systems.
+The AI Department Method is the internal methodology used by Your AI Department to identify, prioritize, implement, and optimize practical AI opportunities.
 
-The method prevents companies from purchasing disconnected tools without a clear strategy.
+The canonical six stages are:
 
-Every engagement follows seven stages:
-
-1. Discover
-2. Assess
-3. Strategize
+1. Assess
+2. Discover
+3. Prioritize
 4. Implement
-5. Train
+5. Adopt
 6. Optimize
-7. Manage
+
+Managed AI Department is an ongoing commercial relationship, not a seventh methodology stage.
 
 ---
 
-## 1. Discover
+# 1. ASSESS
 
-We begin by understanding how the company operates.
+Understand the current business.
 
-This includes:
-
-- How the business generates revenue
-- Products and services
-- Customer acquisition
-- Sales process
-- Marketing systems
-- Customer service
-- Operations
-- Employee responsibilities
-- Existing software
-- Reporting
-- Bottlenecks
-- Repetitive work
-- Leadership priorities
-
-### Objective
-
-Understand the business before recommending technology.
-
-### Outputs
-
-- Discovery notes
-- Current-system overview
-- Initial problem list
-- Stakeholder priorities
-- Preliminary opportunity list
-
----
-
-## 2. Assess
-
-We evaluate the company's current AI readiness and identify opportunities across departments.
-
-Areas may include:
+Evaluate areas such as:
 
 - Leadership
-- Sales
+- AI strategy
 - Marketing
+- Sales
 - Customer service
 - Operations
-- Human resources
-- Finance
+- Employee productivity
 - Technology
 - Data
-- Security
-- Governance
-- Employee adoption
+- Finance and administration
+- Existing AI adoption
 
-### Objective
-
-Identify where AI, automation, marketing, and improved systems can create the greatest measurable value.
-
-### Outputs
-
-- AI Department Score
-- Department-level scores
-- Opportunity analysis
-- Risk analysis
-- Readiness gaps
-- Preliminary ROI estimates
+The goal is to identify where meaningful business problems and opportunities exist.
 
 ---
 
-## 3. Strategize
+# 2. DISCOVER
 
-We convert the assessment into a practical roadmap.
+Understand how the business actually works.
 
-Opportunities are prioritized according to:
+Potential discovery includes:
 
-- Revenue impact
-- Cost savings
-- Time savings
-- Implementation difficulty
+- Workflow mapping
+- Department interviews
+- Software review
+- Data review
+- Customer journey
+- Lead flow
+- Administrative work
+- Reporting
+- Employee responsibilities
+- Financial impact
+
+Discovery should separate assumptions from reality.
+
+---
+
+# 3. PRIORITIZE
+
+Not every opportunity should be implemented.
+
+Prioritize based on:
+
+- Business value
+- Feasibility
+- Time to value
 - Risk
-- Available data
-- Employee readiness
-- Speed to value
-- Long-term strategic importance
+- Data readiness
+- Employee impact
+- Customer impact
+- Implementation complexity
+- Strategic importance
 
-### Objective
-
-Create a realistic implementation plan instead of pursuing disconnected AI projects.
-
-### Outputs
-
-- AI strategy
-- Prioritized project list
-- 30-, 60-, and 90-day roadmap
-- Recommended technology
-- Budget guidance
-- Training plan
-- Governance recommendations
-- Success metrics
+Focus first on high-value opportunities with defensible economics.
 
 ---
 
-## 4. Implement
+# 4. IMPLEMENT
 
-We deploy the agreed systems and improvements.
+Turn validated opportunities into working systems.
 
-Implementation may include:
+Potential solutions include:
 
-- AI assistants
+- AI agents
 - Workflow automation
 - CRM automation
+- Software integration
+- Internal AI assistants
 - AI phone agents
-- Chatbots
-- Internal knowledge bases
-- Lead qualification
-- Email and SMS follow-up
-- Reporting dashboards
-- Google Ads
-- Meta Ads
-- Landing pages
-- Conversion tracking
+- Growth systems
+- Reporting systems
 - Custom software
-- Third-party integrations
 
-Implementation may be completed internally, through approved development partners, or through specialized vendors managed by Your AI Department.
-
-### Objective
-
-Turn strategy into functioning business systems.
-
-### Outputs
-
-- Configured systems
-- Integrations
-- Automations
-- Documentation
-- Testing
-- Deployment plan
-- Performance baseline
+Use the simplest reliable solution that solves the business problem.
 
 ---
 
-## 5. Train
+# 5. ADOPT
 
-Technology only creates value when leadership and employees understand how to use it.
+Technology creates value only when people use it.
 
-Training may include:
+Adoption may include:
 
-- Executive AI coaching
-- Leadership workshops
 - Employee training
-- Department-specific workflows
-- Prompt libraries
-- Tool demonstrations
-- AI policies
-- Security guidance
-- Standard operating procedures
-- Recorded training materials
-
-### Objective
-
-Increase adoption, consistency, safety, and measurable use of the systems being implemented.
-
-### Outputs
-
-- Training sessions
-- Employee guides
-- Prompt and workflow libraries
-- Policies
+- Executive training
+- Documentation
 - SOPs
-- Recorded lessons
-- Adoption tracking
+- Prompt libraries
+- AI policies
+- Change management
+- Support
+- Ownership
+
+Human oversight should remain where appropriate.
 
 ---
 
-## 6. Optimize
+# 6. OPTIMIZE
 
-After deployment, we review performance and improve the systems.
+Measure what happened.
 
-Optimization may include:
+Potential measurements include:
 
-- Reviewing conversion rates
-- Improving lead response time
-- Updating workflows
-- Refining prompts
-- Reducing errors
-- Improving advertisements
-- Adjusting CRM automations
-- Adding new integrations
-- Measuring employee adoption
-- Comparing results with the original baseline
+- Revenue
+- Conversion
+- Employee capacity
+- Response time
+- Cycle time
+- Cost
+- Customer experience
+- Adoption
+- Error rates
+- Marketing efficiency
+- Hiring avoidance
+- Reporting speed
 
-### Objective
-
-Ensure the systems continue producing measurable business value.
-
-### Outputs
-
-- Performance reports
-- Optimization recommendations
-- Updated workflows
-- New tests
-- Revised KPIs
-- Expansion opportunities
+Use real performance data to improve the system and identify the next opportunity.
 
 ---
 
-## 7. Manage
+# CONTINUOUS CYCLE
 
-For clients who need ongoing support, Your AI Department becomes their outsourced AI strategy and execution function.
+Assess
 
-Managed services may include:
+↓
 
-- Monthly executive strategy meetings
-- Ongoing AI consulting
-- Employee support
-- New automation projects
-- AI tool evaluation
-- Marketing optimization
-- Vendor coordination
-- Governance updates
-- Training
-- Reporting
-- Roadmap management
+Discover
 
-### Objective
+↓
 
-Provide the company with an ongoing AI capability without requiring it to build a full internal department.
+Prioritize
 
-### Outputs
+↓
 
-- Monthly roadmap
-- Executive reporting
-- Ongoing implementation
-- Employee support
-- Continuous optimization
-- Quarterly business reviews
+Implement
 
----
+↓
 
-## Client Journey
+Adopt
 
-A typical client journey follows this path:
+↓
 
-Discovery  
-↓  
-AI Department Assessment  
-↓  
-Strategy and Roadmap  
-↓  
-Implementation  
-↓  
-Training  
-↓  
-Optimization  
-↓  
-Managed AI Department
+Optimize
 
-Clients may enter at different stages depending on their needs, but the complete framework provides the greatest long-term value.
+↓
 
----
+Assess again
 
-## Core Principles
+The method is continuous.
 
-1. Understand the business before recommending technology.
-2. Diagnose before prescribing.
-3. Prioritize measurable business outcomes.
-4. Implement practical systems, not demonstrations.
-5. Train the people who will use the systems.
-6. Measure results against a baseline.
-7. Improve continuously.
-8. Maintain appropriate security, privacy, and governance.
-9. Avoid exaggerated promises.
-10. Build long-term AI capability inside the client organization.
-
----
-
-## Website Summary
-
-### Headline
-
-A Practical System for Becoming an AI-Powered Business
-
-### Supporting Copy
-
-The AI Department Method guides your company from initial assessment through strategy, implementation, training, optimization, and ongoing support.
-
-### Seven Website Steps
-
-- Discover your business
-- Assess opportunities
-- Build the roadmap
-- Implement the systems
-- Train your team
-- Optimize performance
-- Manage AI adoption
-
-### Primary Call to Action
-
-Schedule an AI Assessment

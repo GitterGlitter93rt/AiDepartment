@@ -1294,3 +1294,23 @@ A high-converting sales funnel
 A maintainable codebase
 
 A platform capable of growing with Your AI Department.
+
+---
+
+# ENTERPRISE ROUTE ADDENDUM
+
+The V1 production build must include:
+
+/enterprise/
+
+Use:
+
+docs/02-website/enterprise.md
+
+and:
+
+docs/15-offers/enterprise-ai-transformation.md
+
+as source material.
+
+Enterprise uses a direct executive-inquiry conversion path rather than requiring the free assessment.

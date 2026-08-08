@@ -622,3 +622,25 @@ The website exists to generate business.
 
 Technology should support that objective.
 
+
+---
+
+# ENTERPRISE
+
+Enterprise is part of V1.
+
+Route:
+
+/enterprise/
+
+Canonical offer:
+
+Enterprise AI Transformation
+
+Primary Enterprise CTA:
+
+Discuss an Enterprise Engagement
+
+Do not force enterprise visitors through the public assessment funnel.
+
+Do not invent enterprise clients, results, case studies, or logos.
