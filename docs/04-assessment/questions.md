@@ -854,3 +854,527 @@ After completion, show:
 Do not automatically display aggressive pricing.
 
 The goal is to create curiosity and move qualified prospects into an executive conversation.
+
+---
+
+# Section 10 - Detailed Sales Process
+
+These questions should display when the company has a meaningful sales process, sales team, inbound leads, or outbound sales activity.
+
+## Q43. How many employees are directly involved in sales or lead handling?
+
+Type: Single select
+
+Options:
+
+- 0
+- 1
+- 2-5
+- 6-10
+- 11-25
+- 26+
+
+Internal Use:
+
+Sales automation opportunity sizing.
+
+---
+
+## Q44. How are new leads assigned to salespeople?
+
+Type: Single select
+
+Options:
+
+- Manually
+- Whoever answers first
+- Spreadsheet
+- CRM assignment
+- Automated routing
+- AI-assisted qualification and routing
+- We do not have a consistent process
+
+Potential Recommendations:
+
+- CRM automation
+- Lead routing
+- AI lead qualification
+- Sales workflow implementation
+
+---
+
+## Q45. Does your team use a documented sales process?
+
+Type: Single select
+
+Options:
+
+- No
+- Mostly informal
+- Partially documented
+- Yes
+- Yes, and performance is measured consistently
+
+---
+
+## Q46. How much salesperson time is spent on administrative work instead of selling?
+
+Type: Single select
+
+Options:
+
+- Very little
+- Under 5 hours per week
+- 5-10 hours per week
+- 10-20 hours per week
+- More than 20 hours per week
+- We do not know
+
+Potential Recommendations:
+
+- CRM automation
+- AI sales assistant
+- Automated meeting notes
+- Proposal automation
+- Follow-up automation
+
+---
+
+## Q47. Which sales tasks are still primarily manual?
+
+Type: Select all that apply
+
+Options:
+
+- Lead qualification
+- Lead assignment
+- Follow-up emails
+- Follow-up text messages
+- Calling leads
+- Scheduling
+- CRM data entry
+- Meeting notes
+- Proposal creation
+- Estimate creation
+- Pipeline reporting
+- Sales forecasting
+- Lost-lead follow-up
+- Customer reactivation
+- None
+
+---
+
+## Q48. Does your company systematically follow up with old leads or past customers?
+
+Type: Single select
+
+Options:
+
+- No
+- Occasionally
+- Manually
+- Some automation
+- Yes, consistently with automated campaigns
+
+Potential Recommendations:
+
+- Reactivation campaigns
+- AI follow-up
+- Email automation
+- SMS automation
+- CRM automation
+
+---
+
+# Section 11 - Finance and Accounting
+
+Display these questions when the company handles meaningful bookkeeping, invoicing, accounts receivable, financial reporting, or internal accounting work.
+
+## Q49. How is bookkeeping and accounting handled?
+
+Type: Single select
+
+Options:
+
+- Business owner handles it
+- Internal bookkeeper
+- Internal accounting department
+- External bookkeeper
+- External accounting firm
+- Combination of internal and external
+- Other
+
+---
+
+## Q50. How many internal employees spend meaningful time on bookkeeping, accounting, billing, collections, or financial administration?
+
+Type: Single select
+
+Options:
+
+- 0
+- 1
+- 2-3
+- 4-10
+- 11+
+- We do not know
+
+Internal Use:
+
+Labor-efficiency opportunity sizing.
+
+---
+
+## Q51. Which finance or accounting activities require significant manual work?
+
+Type: Select all that apply
+
+Options:
+
+- Invoice processing
+- Invoice creation
+- Expense categorization
+- Receipt processing
+- Accounts receivable follow-up
+- Accounts payable
+- Payment reconciliation
+- Data entry
+- Financial reporting
+- Management reports
+- Budget preparation
+- Forecasting
+- Document collection
+- Payroll administration
+- Expense approvals
+- None
+- We do not know
+
+Potential Recommendations:
+
+- Document automation
+- Accounts receivable automation
+- Reporting automation
+- Internal finance assistant
+- Data integration
+- Workflow automation
+
+---
+
+## Q52. How long does it typically take leadership to receive accurate monthly financial reporting?
+
+Type: Single select
+
+Options:
+
+- Real time or near real time
+- 1-3 days
+- 4-7 days
+- 1-2 weeks
+- More than 2 weeks
+- Reporting is inconsistent
+- We do not know
+
+---
+
+## Q53. How much time is spent manually chasing customers for unpaid invoices?
+
+Type: Single select
+
+Options:
+
+- Almost none
+- Under 2 hours per week
+- 2-5 hours per week
+- 5-10 hours per week
+- More than 10 hours per week
+- We do not know
+
+Potential Recommendations:
+
+- Automated collections
+- AI-assisted accounts receivable
+- Email and SMS workflows
+
+---
+
+## Q54. Does leadership have easy access to cash flow, profitability, receivables, expenses, and other key financial KPIs?
+
+Type: Single select
+
+Options:
+
+- No
+- Mostly through spreadsheets
+- Available monthly
+- Dashboard exists
+- Real-time or near-real-time visibility
+
+Potential Recommendations:
+
+- Executive dashboard
+- Accounting integration
+- Automated financial reporting
+
+---
+
+# Section 12 - Administrative Work and Employee Capacity
+
+## Q55. Which departments currently feel understaffed or overloaded?
+
+Type: Select all that apply
+
+Options:
+
+- Executive / Leadership
+- Sales
+- Marketing
+- Customer Service
+- Operations
+- Accounting / Finance
+- Human Resources
+- Administration
+- IT
+- Scheduling / Dispatch
+- No major capacity problems
+- Other
+
+---
+
+## Q56. Are employees regularly working overtime because of administrative or repetitive workload?
+
+Type: Single select
+
+Options:
+
+- No
+- Occasionally
+- Some departments
+- Frequently
+- Yes, across multiple departments
+
+---
+
+## Q57. If repetitive work could be automated, what would your company most likely do with the additional capacity?
+
+Type: Select all that apply
+
+Options:
+
+- Handle more customers
+- Increase sales activity
+- Improve customer service
+- Reduce overtime
+- Avoid future hiring
+- Reassign employees to higher-value work
+- Reduce headcount where appropriate
+- Improve reporting
+- Expand the business
+- Unsure
+
+Internal Use:
+
+Business case and ROI framing.
+
+---
+
+## Q58. Is your company currently planning to hire additional administrative, customer service, sales support, bookkeeping, or operations employees?
+
+Type: Single select
+
+Options:
+
+- No
+- Possibly within 12 months
+- Yes, within 6-12 months
+- Yes, within 3-6 months
+- Yes, currently hiring
+
+Potential Recommendation:
+
+Evaluate whether AI automation can increase capacity before adding headcount.
+
+---
+
+## Q59. Approximately what does your company spend annually on administrative and support labor?
+
+Type: Single select
+
+Options:
+
+- Under $50,000
+- $50,000-$150,000
+- $150,000-$300,000
+- $300,000-$500,000
+- $500,000-$1 million
+- $1 million+
+- We do not know
+
+Internal Use:
+
+Automation ROI potential.
+
+---
+
+# Section 13 - AI Agent Opportunities
+
+## Q60. Does your company currently use any AI agents or AI-powered automation?
+
+Type: Single select
+
+Options:
+
+- No
+- We are experimenting
+- One or two workflows
+- Several workflows
+- AI agents are used throughout the business
+- We do not know
+
+---
+
+## Q61. Which AI-powered capabilities would be most valuable to your company?
+
+Type: Select all that apply
+
+Options:
+
+- AI phone receptionist
+- AI customer service agent
+- AI sales assistant
+- AI lead qualification
+- AI appointment scheduling
+- AI employee assistant
+- AI knowledge base
+- AI accounting assistant
+- AI reporting assistant
+- AI marketing assistant
+- AI proposal or estimate generation
+- AI document processing
+- AI recruiting assistant
+- AI training assistant
+- Custom AI agent
+- Unsure
+
+---
+
+## Q62. How much employee time is spent answering repetitive internal questions?
+
+Examples may include questions about procedures, pricing, policies, products, customers, or company information.
+
+Type: Single select
+
+Options:
+
+- Very little
+- A few hours per week
+- 5-10 hours per week
+- 10-25 hours per week
+- More than 25 hours per week
+- We do not know
+
+Potential Recommendations:
+
+- Internal AI assistant
+- Company knowledge base
+- Employee AI agent
+
+---
+
+## Q63. How much time do employees spend searching for information across emails, documents, shared drives, software, or internal systems?
+
+Type: Single select
+
+Options:
+
+- Very little
+- Under 5 hours per week company-wide
+- 5-20 hours per week
+- 20-50 hours per week
+- More than 50 hours per week
+- We do not know
+
+Potential Recommendations:
+
+- AI knowledge base
+- Enterprise search
+- Internal assistant
+- Data integration
+
+---
+
+## Q64. Which repetitive communications could potentially be automated?
+
+Type: Select all that apply
+
+Options:
+
+- New lead responses
+- Appointment reminders
+- Customer status updates
+- Frequently asked questions
+- Sales follow-up
+- Review requests
+- Collections reminders
+- Employee questions
+- Vendor communications
+- Recruiting communications
+- Internal reports
+- None
+- Unsure
+
+---
+
+# Branching Logic
+
+The website assessment should not show every question to every user.
+
+Recommended logic:
+
+If paid advertising spend is greater than zero:
+Show deeper marketing questions.
+
+If lead volume is meaningful:
+Show detailed sales-process questions.
+
+If the business handles inbound phone calls:
+Show phone and AI receptionist questions.
+
+If internal accounting or bookkeeping exists:
+Show finance and accounting questions.
+
+If administrative workload is moderate or higher:
+Show employee-capacity questions.
+
+If the company has more than 10 employees:
+Show employee training and internal AI questions.
+
+If software systems are disconnected:
+Show integration questions.
+
+If the company has multiple locations:
+Increase emphasis on standardization, reporting, and centralized automation.
+
+If leadership indicates high AI urgency:
+Increase Commercial Opportunity Score.
+
+The target completion time should remain approximately 7-12 minutes despite branching.
+
+---
+
+# Core Diagnostic Principle
+
+Every question should help answer at least one of these:
+
+1. Where is the company losing revenue?
+2. Where is the company wasting labor?
+3. Where are employees overloaded?
+4. Where are customers waiting?
+5. Where is repetitive work occurring?
+6. Where is information difficult to access?
+7. Where can AI increase employee capacity?
+8. Where can automation prevent future hiring?
+9. Where can AI improve marketing or sales?
+10. Where can AI improve management visibility?
+11. Where can AI agents perform or assist repetitive workflows?
+12. Which opportunities have enough financial value to justify implementation?
+
