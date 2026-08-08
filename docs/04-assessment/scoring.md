@@ -606,3 +606,21 @@ The public-facing experience should focus on:
 - practical recommendations
 - measurable improvement
 
+
+---
+
+# V1 IMPLEMENTATION AUTHORITY
+
+The conceptual scoring guidance in this document is implemented deterministically in:
+
+docs/04-assessment/implementation-spec.md
+
+For V1 software behavior, implementation-spec.md controls exact:
+
+- Question scoring
+- Branching
+- Commercial score formulas
+- Opportunity flag triggers
+- Recommendation eligibility
+
+Do not invent missing scoring behavior during development.

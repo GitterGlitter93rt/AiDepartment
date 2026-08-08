@@ -644,3 +644,29 @@ Discuss an Enterprise Engagement
 Do not force enterprise visitors through the public assessment funnel.
 
 Do not invent enterprise clients, results, case studies, or logos.
+
+---
+
+# ASSESSMENT IMPLEMENTATION AUTHORITY
+
+Before implementing the AI Department Assessment, read:
+
+docs/04-assessment/implementation-spec.md
+
+This is the canonical V1 implementation specification for:
+
+- Question scoring
+- Branching logic
+- Internal commercial scoring
+- Opportunity flags
+- Recommendation eligibility
+
+Do NOT infer or invent assessment logic from prose.
+
+Do NOT hard-code each question into separate UI components.
+
+Implement the assessment from structured typed configuration.
+
+Deterministic scoring controls results.
+
+AI may later explain results but must not independently determine scores or financial estimates.
