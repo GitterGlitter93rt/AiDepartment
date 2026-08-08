@@ -141,7 +141,7 @@ Sell long-term fractional AI leadership and managed services.
 
 ---
 
-## Executive AI Strategy Workshop
+## Executive AI Strategy
 
 Primary source:
 

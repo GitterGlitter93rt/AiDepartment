@@ -136,7 +136,7 @@ Disconnected software:
 - Reporting dashboard
 
 No AI strategy:
-- Executive AI Strategy Workshop
+- Executive AI Strategy
 - AI roadmap
 - Managed AI Department
 
@@ -152,7 +152,7 @@ Receives score and recommendations
 
 Books strategy call
 
-Executive AI Strategy Workshop
+Executive AI Strategy
 
 Implementation Project
 

@@ -170,7 +170,7 @@ Options:
 
 Potential Recommendation:
 
-Executive AI Strategy Workshop
+Executive AI Strategy
 
 Managed AI Department
 

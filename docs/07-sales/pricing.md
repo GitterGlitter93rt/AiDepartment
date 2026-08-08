@@ -1,208 +1,400 @@
-# Pricing Strategy
+# Pricing and Engagement Model
 
 Status: Draft
-
-Version: 1.0
-
----
-
-# Philosophy
-
-We price based on business value, implementation complexity, company size, and expected return on investment.
-
-We do not compete on hourly pricing.
-
-We sell business outcomes.
+Version: 2.0
 
 ---
 
-# Offer Ladder
+# PURPOSE
 
-## AI Department Assessment™
+This file defines the current internal pricing architecture for Your AI Department.
 
-Investment
+If older pricing references conflict with:
 
-Starting at:
+docs/00-company/launch-decisions.md
 
-$495
-
-Purpose
-
-Business discovery
-
-Lead qualification
-
-Executive AI score
-
-Quick wins
-
-Roadmap preview
-
-CTA
-
-Schedule Assessment
+the launch decisions file controls.
 
 ---
 
-## Executive AI Strategy Workshop™
+# AI DEPARTMENT ASSESSMENT
 
-Investment
+Canonical Offer:
 
-Starting at:
+AI Department Assessment
 
-$5,000
+Price:
 
-Includes
+FREE
 
-Executive Workshop
+The public AI Department Assessment is a lead-generation and diagnostic tool.
 
-Business Analysis
+It is not a $495 paid product.
 
-Department Review
+Any older references to a $495 public assessment are deprecated.
 
-Marketing Review
+Primary purpose:
 
-Operations Review
+- Generate qualified leads
+- Identify AI opportunities
+- Identify automation opportunities
+- Identify marketing opportunities
+- Identify productivity opportunities
+- Identify sales opportunities
+- Qualify prospects
+- Generate strategy conversations
 
-Sales Review
+Primary CTA:
 
-Technology Review
-
-90-Day Roadmap
-
-12-Month Roadmap
-
-ROI Opportunities
-
-Executive Presentation
-
-CTA
-
-Book Strategy Workshop
+Get Your AI Department Score
 
 ---
 
-## AI Implementation
+# EXECUTIVE AI STRATEGY
 
-Investment
+Canonical Offer:
+
+Executive AI Strategy
+
+Indicative Starting Price:
+
+Approximately $5,000+
+
+Final pricing depends on:
+
+- Company size
+- Number of departments
+- Number of locations
+- Workflow complexity
+- Technology complexity
+- Discovery requirements
+- Required deliverables
+- Financial modeling requirements
+
+Potential deliverables may include:
+
+- Executive discovery
+- Department analysis
+- Workflow analysis
+- Technology review
+- AI opportunity map
+- Automation opportunity map
+- Marketing and sales analysis
+- Employee productivity analysis
+- ROI modeling
+- Prioritized implementation roadmap
+- 90-day plan
+- Longer-term roadmap
+
+Do not describe this simply as a workshop.
+
+Workshops may be part of the engagement, but the commercial offer is:
+
+Executive AI Strategy
+
+---
+
+# AI IMPLEMENTATION
+
+Indicative Range:
+
+Approximately $5,000-$50,000+
+
+Projects may exceed this range when justified by:
+
+- Complexity
+- Number of integrations
+- Custom development
+- Number of departments
+- Data requirements
+- Business value
+- Ongoing responsibility
+
+Potential implementation includes:
+
+- AI agents
+- Workflow automation
+- CRM automation
+- AI phone agents
+- Internal AI assistants
+- Software integrations
+- API integrations
+- Reporting systems
+- Custom AI applications
+- Custom software
+
+Do not treat $50,000 as a hard ceiling.
+
+---
+
+# AI GROWTH SYSTEMS
+
+Pricing:
 
 Custom
 
-Typical Projects
+Potential pricing structure:
 
-$5,000–$50,000+
+- Audit fee
+- Strategy fee
+- Setup fee
+- Implementation fee
+- Landing-page development
+- CRM implementation
+- Automation implementation
+- Google Ads management
+- Meta Ads management
+- SEO retainer
+- Monthly optimization
 
-Examples
+Advertising spend is separate from management fees unless specifically agreed otherwise.
 
-AI Phone Agents
+Pricing should consider:
 
-CRM Automation
-
-Workflow Automation
-
-Knowledge Bases
-
-Reporting Dashboards
-
-Marketing Systems
-
-Executive Dashboards
-
-AI Assistants
-
-Custom Integrations
-
-CTA
-
-Discuss Your Project
+- Monthly advertising spend
+- Number of campaigns
+- Number of locations
+- Lead volume
+- CRM complexity
+- Sales process complexity
+- Tracking requirements
+- Automation requirements
+- Reporting requirements
+- Business value
 
 ---
 
-## AI Growth Systems™
+# MANAGED AI DEPARTMENT
 
-Investment
+Canonical Offer:
+
+Managed AI Department
+
+Pricing:
+
+Custom monthly retainer
+
+Do not publish a fixed monthly price until intentionally approved.
+
+Potential retainer responsibilities may include:
+
+- AI strategy
+- Executive advisory
+- Opportunity discovery
+- Roadmap management
+- Vendor evaluation
+- Implementation oversight
+- Employee training
+- AI governance
+- Technology review
+- Performance measurement
+- Optimization
+
+Large implementation projects may be priced separately.
+
+---
+
+# AI TRAINING
+
+Pricing:
 
 Custom
 
-Includes
+Potential pricing formats:
 
-Google Ads
+- Per session
+- Half-day workshop
+- Full-day workshop
+- Department package
+- Company-wide program
+- Ongoing training retainer
 
-Meta Ads
+Pricing depends on:
 
-SEO
-
-Landing Pages
-
-CRM
-
-Lead Follow-Up
-
-AI Automation
-
-Reporting
-
-Conversion Optimization
-
-CTA
-
-Schedule Growth Assessment
+- Number of employees
+- Number of departments
+- Customization
+- Delivery format
+- Travel
+- Preparation
+- Materials
+- Follow-up support
 
 ---
 
-## Managed AI Department™
+# AI WORKSHOPS
 
-Investment
+Pricing:
 
-Custom Monthly Retainer
+Custom
 
-Designed For
+Potential structure:
 
-Growing Businesses
+- Executive workshop
+- Department workshop
+- Half-day session
+- Full-day session
+- Multi-session program
 
-Professional Services
+Do not publish standardized packages until intentionally approved.
 
-Multi-location Companies
+---
 
-Businesses Without Internal AI Leadership
+# EXECUTIVE AI COACHING
 
-Includes
+Potential structures:
 
-Monthly Executive Meetings
+- Individual session
+- Coaching package
+- Monthly advisory retainer
 
-Roadmap Updates
+Pricing:
 
-Implementation Oversight
+Custom
 
-Employee Training
+---
+
+# GOOGLE ADS
+
+Pricing may include:
+
+- Audit
+- Setup
+- Campaign rebuild
+- Tracking implementation
+- Landing-page development
+- Monthly management
+
+Pricing should reflect:
+
+- Advertising spend
+- Number of campaigns
+- Number of markets
+- Number of locations
+- Tracking requirements
+- Reporting
+- Account complexity
+
+---
+
+# META ADS
+
+Pricing may include:
+
+- Audit
+- Setup
+- Creative strategy
+- Campaign implementation
+- Tracking
+- Landing pages
+- Monthly management
+
+Custom pricing.
+
+---
+
+# SEO
+
+Pricing may include:
+
+- SEO audit
+- Technical implementation
+- Service-page development
+- Local SEO
+- Content strategy
+- Ongoing SEO management
+
+Custom pricing.
+
+---
+
+# PRICING PHILOSOPHY
+
+Do not compete primarily on being the lowest-cost provider.
+
+Pricing should reflect:
+
+- Business value
+- Scope
+- Complexity
+- Expertise required
+- Implementation effort
+- Risk
+- Ongoing responsibility
+
+Where appropriate, understand the economics of the opportunity before setting final project pricing.
+
+---
+
+# ROI
+
+Do not inflate ROI to justify fees.
+
+Do not guarantee:
+
+- Revenue
+- Savings
+- Lead volume
+- Rankings
+- Advertising performance
+- Labor reduction
+
+Where ROI estimates are used:
+
+- Explain assumptions
+- Use actual client data where possible
+- Use ranges when uncertainty is significant
+- Clearly label scenarios as estimates
+
+---
+
+# SALES FLEXIBILITY
+
+Not every client must begin with Executive AI Strategy.
+
+Possible entry points include:
+
+AI Department Assessment
+
+Google Ads Audit
 
 Marketing Review
 
-Vendor Management
+AI Training
 
-AI Strategy
+AI Workshop
 
-Quarterly Business Reviews
+Defined AI Implementation
 
-CTA
+Executive AI Strategy
 
-Build Your AI Department
+Managed AI Department
 
----
-
-# Why We Don't Publish Fixed Pricing
-
-Every business is different.
-
-Every implementation is different.
-
-Every opportunity is different.
-
-We first understand your business before recommending the right engagement.
+The recommended entry point should reflect the prospect's actual problem.
 
 ---
 
-# Primary CTA
+# INTERNAL GUIDANCE
 
-Schedule Your AI Department Assessment™
+Indicative commercial architecture:
+
+AI Department Assessment:
+FREE
+
+Executive AI Strategy:
+Approximately $5,000+
+
+AI Implementation:
+Approximately $5,000-$50,000+
+
+AI Growth Systems:
+Setup / implementation + monthly management
+
+Managed AI Department:
+Monthly retainer
+
+Training / Workshops / Coaching:
+Custom
+
+These are internal starting points, not promises or rigid public price lists.
 

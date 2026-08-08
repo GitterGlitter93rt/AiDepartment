@@ -89,7 +89,7 @@ Create a company-wide AI roadmap identifying the highest-value opportunities, im
 
 ## Recommended Service
 
-Executive AI Strategy Workshop
+Executive AI Strategy
 
 Potential deliverables:
 

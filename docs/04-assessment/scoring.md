@@ -114,7 +114,7 @@ The company has meaningful opportunities for AI adoption but lacks consistent st
 Recommended focus:
 
 - AI Department Assessment
-- Executive AI Strategy Workshop
+- Executive AI Strategy
 - Workflow automation
 - Employee training
 - Marketing and sales improvements
