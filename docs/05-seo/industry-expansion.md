@@ -186,3 +186,34 @@ Every new industry page must define before build:
 
 Do not use a generic industry template with only the industry name replaced.
 
+
+---
+
+## Insurance — Vertical Transformation Direction
+
+Insurance should be treated as more than a generic industry landing page.
+
+The long-term opportunity includes transformation of communication, service, claims-adjacent administration, document workflows, internal knowledge, analytics, and system orchestration.
+
+Potential areas include:
+
+- claims intake and routing
+- policyholder communication
+- contact-center workflows
+- AI-assisted messaging
+- document classification and extraction
+- internal knowledge assistants
+- agent/producer support
+- service automation
+- operational analytics
+- workflow orchestration
+- integration with existing insurance systems
+- human escalation and governance
+
+The page and supporting resources should demonstrate understanding of the operational workflow rather than simply listing generic AI capabilities.
+
+Specialized vertical technology companies such as Hi Marley may be studied as examples of how focused workflow problems can support meaningful software and transformation businesses.
+
+Do not imply partnership, customer relationships, competitive equivalence, or carrier usage without factual evidence.
+
+Long-term strategy may include implementing specialized third-party platforms when appropriate, building custom workflow systems where gaps exist, and developing reusable vertical IP only after repeated business demand validates the opportunity.
