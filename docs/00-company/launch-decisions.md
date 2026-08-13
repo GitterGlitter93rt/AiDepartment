@@ -818,3 +818,150 @@ Enterprise engagements may include:
 - Ongoing Enterprise AI Advisory
 
 Do not claim Fortune 500 experience or enterprise results that are not factual.
+
+---
+
+## Scheduling and Booking — V1 Decision
+
+Status: Approved
+
+Scheduling provider:
+
+Calendly
+
+Payment provider for paid appointments:
+
+Stripe
+
+Approved V1 booking architecture:
+
+- AI Strategy Call — Free — 30 minutes
+- Executive AI Advisory Session — $750 USD — 60 minutes
+- Enterprise Engagement Discussion — Free — 30–45 minutes
+- AI Training Consultation — Free — 30 minutes
+- AI Workshop — Paid — pricing and payment structure TBD
+
+### AI Strategy Call
+
+The complimentary AI Strategy Call is a discovery and qualification conversation.
+
+Its purpose is to determine:
+
+- what the company wants to improve
+- whether meaningful AI or automation opportunities exist
+- whether Your AI Department is a fit
+- what engagement should come next
+
+It is not a substitute for paid consulting.
+
+It does not include a formal written strategy, detailed implementation architecture, or consulting deliverable.
+
+### Executive AI Advisory Session
+
+The Executive AI Advisory Session is a paid consulting engagement.
+
+Price:
+
+$750 USD
+
+Duration:
+
+60 minutes
+
+Includes:
+
+- pre-session intake
+- review of the executive's stated business situation or questions
+- 60-minute private advisory session
+- post-session Executive Action Brief
+
+The Executive Action Brief should provide concise standalone value and may include:
+
+- Situation
+- Key Observations
+- Priority Opportunities
+- Risks and Constraints
+- Recommended Next Actions
+
+### Enterprise Engagement Discussion
+
+Enterprise engagement discussions remain complimentary.
+
+Duration:
+
+30–45 minutes
+
+The purpose is to qualify and scope potentially significant enterprise AI transformation, implementation, governance, advisory, or managed-services engagements.
+
+Enterprise prospects should not be charged merely to discuss a potentially substantial engagement.
+
+### AI Training Consultation
+
+AI Training consultations are complimentary.
+
+Duration:
+
+30 minutes
+
+The purpose is to scope:
+
+- team size
+- roles/departments
+- current AI usage
+- training objectives
+- governance requirements
+- delivery format
+
+before pricing the actual training engagement.
+
+### AI Workshop
+
+AI Workshops are paid engagements.
+
+V1 workshop pricing and payment structure remain TBD.
+
+Do not collect workshop payment until duration, preparation requirements, audience, deliverables, and pricing are formally approved.
+
+### Booking Architecture
+
+A dedicated booking route is planned:
+
+/book/
+
+The booking experience should route visitors according to intent rather than forcing every prospect into one generic calendar.
+
+Calendly event URLs must be centralized in application configuration.
+
+Do not hardcode Calendly URLs throughout pages or components.
+
+### Scheduling Integration Status
+
+Calendly:
+
+Approved
+
+Stripe for paid Executive AI Advisory Session:
+
+Approved
+
+Exact Calendly event URLs:
+
+Not yet configured
+
+Calendly embed approach:
+
+TBD
+
+Cancellation/rescheduling policy:
+
+TBD
+
+Workshop pricing:
+
+TBD
+
+Scheduling implementation should not begin until the required Calendly event types and URLs are configured.
+
+Canonical scheduling specification:
+
+docs/02-website/scheduling-and-booking.md
