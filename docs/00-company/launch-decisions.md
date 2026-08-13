@@ -965,3 +965,70 @@ Scheduling implementation should not begin until the required Calendly event typ
 Canonical scheduling specification:
 
 docs/02-website/scheduling-and-booking.md
+
+---
+
+## Business Transformation Positioning — Approved V1 Direction
+
+Status: Approved
+
+Your AI Department is positioned as a business transformation company that uses AI, automation, software, marketing, training, and improved business systems to create meaningful business value.
+
+The company should not be positioned primarily as:
+
+- an AI software company
+- an AI agency
+- a marketing agency
+- a chatbot company
+- an AI-agent vendor
+
+The company begins with the business problem and determines what combination of:
+
+- AI
+- automation
+- software
+- integrations
+- marketing
+- training
+- process improvement
+- governance
+- human judgment
+
+is appropriate.
+
+### Primary Decision-Maker Audiences
+
+Content and commercial pages should primarily serve people capable of influencing or approving business transformation initiatives, including:
+
+- owners
+- founders
+- CEOs
+- presidents
+- COOs
+- CIOs
+- CTOs
+- operations leaders
+- IT leaders
+- marketing and growth leaders
+- department executives
+- enterprise transformation stakeholders
+
+Technical content may support implementation evaluation, but the primary editorial voice should remain understandable to business decision-makers.
+
+### Founder Perspective
+
+The company may publish selected opinion and thought-leadership content under founder bylines.
+
+Strong, defensible viewpoints are encouraged where appropriate.
+
+Examples of acceptable positioning themes:
+
+- Most businesses do not need another AI tool.
+- The AI agent is not the strategy.
+- Automating a bad process can make the problem worse faster.
+- Not every workflow should be automated.
+- AI investment should begin with business economics.
+- Human judgment should remain where accountability and professional judgment matter.
+
+Founder content must remain factual and must not manufacture experience, customers, results, credentials, or authority that does not exist.
+

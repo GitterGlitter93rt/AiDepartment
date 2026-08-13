@@ -163,3 +163,54 @@ AI-generated content must not be automatically published without:
 - metadata review
 - human approval
 
+
+---
+
+## Resources Hub — Approved Direction
+
+The public educational content section will use:
+
+/resources/
+
+Public label:
+
+Resources
+
+The section should function as a business knowledge center rather than a chronological company blog.
+
+Primary audiences include:
+
+- business owners
+- CEOs and executives
+- operations leaders
+- CIOs and CTOs
+- IT leaders
+- marketing and growth leaders
+- transformation decision-makers
+
+Content may include:
+
+- Guides
+- Frameworks
+- Founder Perspective
+- Downloadable tools and checklists
+
+Future content may include industry-specific resources supporting approved industry pages.
+
+The Resources architecture should use Astro content capabilities rather than requiring WordPress.
+
+Each resource must have deliberate:
+
+- URL slug
+- SEO title
+- meta description
+- H1
+- search intent
+- author
+- audience
+- category
+- related commercial destination
+- internal links
+- CTA
+- schema where appropriate
+

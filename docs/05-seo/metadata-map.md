@@ -163,3 +163,82 @@ Before creating a resource, document:
 
 Avoid resource cannibalization.
 
+
+---
+
+## Planned Industry Expansion
+
+### Healthcare
+
+Route:
+
+/industries/healthcare/
+
+Primary intent:
+
+AI consulting, automation, workflow improvement, governance, and business transformation for healthcare organizations.
+
+### Insurance
+
+Route:
+
+/industries/insurance/
+
+Primary intent:
+
+AI consulting, automation, administrative workflow improvement, integration, and transformation for insurance companies.
+
+### Manufacturing
+
+Route:
+
+/industries/manufacturing/
+
+Primary intent:
+
+AI consulting, automation, operational workflow improvement, employee productivity, integration, and transformation for manufacturing companies.
+
+### Defense & Aerospace
+
+Route:
+
+/industries/defense-aerospace/
+
+Status:
+
+Planning only until final public-build approval.
+
+Primary intent:
+
+AI strategy, governance, automation, integration, and operational transformation for defense and aerospace organizations.
+
+### Financial Services
+
+Route:
+
+/industries/financial-services/
+
+Status:
+
+Future industry.
+
+### Logistics & Transportation
+
+Route:
+
+/industries/logistics-transportation/
+
+Status:
+
+Future industry.
+
+### Energy
+
+Route:
+
+/industries/energy/
+
+Status:
+
+Future industry.
+
