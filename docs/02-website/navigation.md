@@ -293,3 +293,107 @@ Discuss an Enterprise Engagement
 Recommended URL:
 
 /enterprise/
+
+---
+
+## V1 Navigation Architecture Addendum
+
+Status: Approved
+
+The V1 website will use a compact top-level navigation with dropdowns for grouped commercial pages.
+
+### Desktop Top-Level Navigation
+
+- Solutions
+- Services
+- Industries
+- Enterprise
+- About
+- Contact
+- Get Your AI Department Score
+
+### Solutions Dropdown
+
+The Solutions menu should expose the primary solution pages directly:
+
+- AI Consulting
+- AI Implementation
+- AI Growth Systems
+- Managed AI Department
+
+The AI Department Method should remain readily accessible through contextual navigation and the Company/footer structure unless a later approved navigation revision places it directly within the Solutions dropdown.
+
+### Services Dropdown
+
+The Services menu should expose the approved service pages as they become available, including:
+
+- Google Ads
+- Meta Ads
+- SEO
+- AI Training
+- AI Workshops
+- Executive AI Coaching
+
+Do not link to pages that do not exist or are not approved for launch.
+
+### Industries Dropdown
+
+The Industries menu should expose the approved industry landing pages as they are built.
+
+Initial approved industries include:
+
+- Collision Repair
+- Law Firms
+- Roofing
+- HVAC
+- Construction
+- Professional Services
+
+Do not expose broken or placeholder industry routes.
+
+### Enterprise
+
+Enterprise remains a top-level navigation item because it serves a distinct buyer and conversion path.
+
+### About and Contact
+
+About and Contact remain top-level items.
+
+### Primary Header CTA
+
+Get Your AI Department Score
+
+Route:
+
+/ai-assessment/
+
+### Navigation Principle
+
+Important revenue pages must not be discoverable only through the footer.
+
+The header should remain visually compact while allowing users to reach important commercial pages through accessible dropdown navigation.
+
+Do not place every individual solution, service, or industry page directly across the top-level header.
+
+### Mobile Navigation
+
+The mobile hamburger menu should mirror the same information architecture.
+
+Use expandable groups for:
+
+- Solutions
+- Services
+- Industries
+
+Enterprise, About, Contact, and the primary assessment CTA should remain clearly accessible.
+
+### Accessibility
+
+Dropdown and mobile navigation must support:
+
+- keyboard navigation
+- visible focus states
+- appropriate ARIA/state handling
+- Escape-to-close behavior where appropriate
+- reliable pointer and touch interaction
+
