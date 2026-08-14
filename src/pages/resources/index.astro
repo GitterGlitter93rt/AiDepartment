@@ -1,0 +1,125 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const allResources = await getCollection('resources');
+const sorted = allResources.sort((a, b) => a.data.title.localeCompare(b.data.title));
+---
+
+<BaseLayout
+  title="Resources | Your AI Department"
+  description="Practical guides on identifying AI opportunities, lead response, marketing attribution, and where automation does and doesn't belong in your business."
+  path="/resources/"
+>
+  <Section tone="dark">
+    <Container>
+      <span class="eyebrow res-eyebrow">Resources</span>
+      <h1 class="res-hub-h1">Practical Guides for Business Leaders Evaluating AI</h1>
+      <p class="res-hub-support">No invented statistics, no case studies, no guarantees — just practical frameworks for thinking through AI, automation, and growth systems decisions.</p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <div class="res-grid">
+        {sorted.map((resource) => (
+          <a href={`/resources/${resource.id}/`} class="res-card">
+            <h2>{resource.data.title}</h2>
+            <p>{resource.data.description}</p>
+            <span class="res-card-link">Read the guide &rarr;</span>
+          </a>
+        ))}
+      </div>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Not Sure Where to Start?"
+    support="Take the free AI Department Assessment to see where AI, automation, and better systems may create value in your specific business."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .res-eyebrow {
+    color: var(--color-signal-cyan);
+    display: inline-block;
+    margin-bottom: 14px;
+  }
+
+  .res-hub-h1 {
+    color: var(--color-pure-white);
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    line-height: 1.15;
+    max-width: 760px;
+    margin-bottom: 16px;
+  }
+
+  .res-hub-support {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+
+  .res-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .res-card {
+    display: block;
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 24px 22px;
+    box-shadow: 0 2px 8px -4px rgba(17, 24, 39, 0.06);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .res-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-light);
+  }
+
+  .res-card h2 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    color: var(--color-near-black);
+  }
+
+  .res-card p {
+    font-size: 0.9rem;
+    color: var(--color-slate-gray);
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+
+  .res-card-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--color-electric-blue);
+  }
+
+  @media (min-width: 768px) {
+    .res-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .res-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>
