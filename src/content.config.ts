@@ -1,5 +1,6 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
 
 // Resources collection — supporting educational/SEO content.
 // Source of truth for content: docs/05-seo/resource-briefs/*.md
