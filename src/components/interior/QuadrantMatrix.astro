@@ -1,0 +1,137 @@
+---
+interface Quadrant {
+  label: string;
+  description: string;
+}
+
+interface Props {
+  xAxisLabel: string;
+  yAxisLabel: string;
+  topLeft: Quadrant;
+  topRight: Quadrant;
+  bottomLeft: Quadrant;
+  bottomRight: Quadrant;
+}
+
+const { xAxisLabel, yAxisLabel, topLeft, topRight, bottomLeft, bottomRight } = Astro.props;
+---
+
+<div class="qm-wrap">
+  <span class="qm-y-label">{yAxisLabel}</span>
+  <div class="qm-grid">
+    <div class="qm-cell qm-top-left">
+      <span class="qm-cell-label">{topLeft.label}</span>
+      <p class="qm-cell-desc">{topLeft.description}</p>
+    </div>
+    <div class="qm-cell qm-top-right qm-highlight">
+      <span class="qm-cell-label">{topRight.label}</span>
+      <p class="qm-cell-desc">{topRight.description}</p>
+    </div>
+    <div class="qm-cell qm-bottom-left">
+      <span class="qm-cell-label">{bottomLeft.label}</span>
+      <p class="qm-cell-desc">{bottomLeft.description}</p>
+    </div>
+    <div class="qm-cell qm-bottom-right">
+      <span class="qm-cell-label">{bottomRight.label}</span>
+      <p class="qm-cell-desc">{bottomRight.description}</p>
+    </div>
+  </div>
+  <span class="qm-x-label">{xAxisLabel}</span>
+</div>
+
+<style>
+  .qm-wrap {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 10px;
+    max-width: 640px;
+    margin-inline: auto;
+  }
+
+  .qm-y-label {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-slate-gray);
+  }
+
+  .qm-x-label {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-slate-gray);
+  }
+
+  .qm-grid {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .qm-cell {
+    border-radius: var(--radius-panel);
+    padding: 18px 16px;
+    border: 1px solid var(--color-border-light);
+    background-color: var(--color-cloud-white);
+  }
+
+  .qm-highlight {
+    background-color: rgba(37, 99, 235, 0.05);
+    border-color: rgba(37, 99, 235, 0.3);
+    border-width: 2px;
+  }
+
+  .qm-cell-label {
+    display: block;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.92rem;
+    margin-bottom: 6px;
+  }
+
+  .qm-highlight .qm-cell-label {
+    color: var(--color-electric-blue);
+  }
+
+  .qm-cell-desc {
+    font-size: 0.82rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+  }
+
+  @media (max-width: 480px) {
+    .qm-y-label {
+      font-size: 0.68rem;
+    }
+
+    .qm-cell {
+      padding: 14px 12px;
+    }
+
+    .qm-cell-label {
+      font-size: 0.85rem;
+    }
+
+    .qm-cell-desc {
+      font-size: 0.78rem;
+    }
+  }
+</style>

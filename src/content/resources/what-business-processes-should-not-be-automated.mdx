@@ -1,0 +1,69 @@
+---
+title: "What Business Processes Should Not Be Automated?"
+seoTitle: "What Business Processes Should Not Be Automated? | Your AI Department"
+description: "Automation isn't automatically beneficial. Here's how to think about which parts of a process should stay with people — and which parts technology should handle."
+publishDate: "2026-08-14"
+primaryDestination:
+  label: "Explore AI Implementation"
+  href: "/ai-implementation/"
+secondaryDestinations:
+  - label: "AI Consulting"
+    href: "/ai-consulting/"
+  - label: "AI Training"
+    href: "/ai-training/"
+  - label: "Enterprise"
+    href: "/enterprise/"
+relatedResources:
+  - "where-should-a-business-start-with-ai"
+  - "how-to-identify-high-value-ai-opportunities"
+---
+
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+
+Automation should not be treated as automatically beneficial. Some workflows require human judgment, accountability, empathy, context, legal review, or careful escalation. The goal is not maximum automation — the goal is the right division of work between people and technology.
+
+## Automation Is a Business Decision, Not a Technology Goal
+
+Maximum automation can create real risk: poor customer experiences, operational fragility, and decisions made without the context a person would have brought to them. Automation should be evaluated the same way any other business decision is — by weighing its benefits against its risks — rather than pursued simply because it's technically possible.
+
+## High-Stakes Decisions Need Human Accountability
+
+Legal decisions, financial approvals, hiring or termination decisions, safety-critical decisions, major contractual commitments, and sensitive customer disputes typically need a person who is accountable for the outcome. This is not legal advice — it's a general principle that high-consequence decisions usually benefit from a human decision-maker, whatever your specific legal and regulatory obligations require.
+
+## Ambiguous Situations Often Need Human Judgment
+
+AI performs best where the task and context are sufficiently well-defined. When a situation is unusual or uncertain, the safer default is to escalate it to a person rather than let a system guess.
+
+## Sensitive Customer Conversations May Need People
+
+Complaints, escalations, emotionally difficult conversations, situations with large financial consequences, and complex negotiations are often better handled by a person. AI can still help — by assisting with preparation or routing the conversation to the right person — without replacing the human interaction itself.
+
+## Do Not Automate a Process You Do Not Understand
+
+Before automating anything, it helps to document the process as it actually works: its inputs, the decisions being made, the exceptions that come up, who owns it, what output is expected, and how it fails when something goes wrong. Automating a process nobody fully understands tends to produce a faster version of the same problems.
+
+## Poor Data Can Make Automation Dangerous
+
+Automation built on top of inaccurate, incomplete, outdated, or inconsistent data doesn't fix the underlying data problem — it just executes on bad information faster and with less scrutiny than a person would have applied.
+
+## Some Tasks Should Be AI-Assisted, Not AI-Controlled
+
+A useful pattern is to have AI handle the first pass and a person handle the judgment: AI drafts, a human reviews and approves; AI summarizes, a human interprets; AI recommends, a human decides; AI flags, a human investigates. This keeps the efficiency benefit of AI without removing human accountability from the outcome.
+
+## Use Escalation Thresholds
+
+Systems should have clearly defined cases where they stop and request human intervention — uncertainty, a policy exception, a large financial impact, sensitive information, an unusual customer request, or a low-confidence output are all reasonable triggers for escalation rather than letting the system proceed on its own.
+
+## A Better Question Than "Can We Automate This?"
+
+A more useful question than "can we automate this?" is: "Which parts of this process should technology handle, and which parts require human judgment?"
+
+<CapabilityGrid
+  tone="light"
+  columns={3}
+  items={[
+    { icon: 'zap', title: 'AI Handles', description: 'Repetitive, structured, and assistive work — drafting, summarizing, retrieving, and flagging.' },
+    { icon: 'users', title: 'Shared', description: 'Review, recommendation, and escalation — AI prepares, a person decides how to proceed.' },
+    { icon: 'shield-check', title: 'Human Owns', description: 'Judgment, approval, and accountability — the decisions with real consequences stay with a person.' },
+  ]}
+/>

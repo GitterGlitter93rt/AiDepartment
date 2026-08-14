@@ -128,6 +128,7 @@ export const FOOTER_LINKS = {
   ],
   company: [
     { label: 'The AI Department Method', href: '/ai-department-method/' },
+    { label: 'Resources', href: '/resources/' },
     { label: 'Enterprise', href: '/enterprise/' },
     { label: 'About', href: '/about/' },
     { label: 'Contact', href: '/contact/' },
