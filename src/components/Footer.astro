@@ -1,0 +1,164 @@
+---
+import Container from './Container.astro';
+import { FOOTER_LINKS } from '../lib/site';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <Container wide>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <p class="brand-name">YOUR AI DEPARTMENT</p>
+        <p class="brand-position">AI Strategy. Implementation. Growth. Ongoing Leadership.</p>
+      </div>
+
+      <nav aria-label="Solutions">
+        <h2>Solutions</h2>
+        <ul>
+          {FOOTER_LINKS.solutions.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+
+      <nav aria-label="Services">
+        <h2>Services</h2>
+        <ul>
+          {FOOTER_LINKS.services.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+
+      <nav aria-label="Industries">
+        <h2>Industries</h2>
+        <ul>
+          {FOOTER_LINKS.industries.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+
+      <nav aria-label="Company">
+        <h2>Company</h2>
+        <ul>
+          {FOOTER_LINKS.company.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+
+    <div class="footer-bottom">
+      <p class="copyright">&copy; {year} Your AI Department. All rights reserved.</p>
+      <nav aria-label="Legal">
+        <ul class="legal-links">
+          {FOOTER_LINKS.legal.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  </Container>
+</footer>
+
+<style>
+  .site-footer {
+    background-color: var(--color-midnight-navy);
+    color: var(--color-dark-muted-text);
+    padding-block: 36px 20px;
+  }
+
+  .footer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px 16px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--color-border-dark);
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
+
+  .brand-name {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--color-pure-white);
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+
+  .brand-position {
+    font-size: 0.85rem;
+    max-width: 300px;
+    line-height: 1.55;
+  }
+
+  .footer-grid h2 {
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--color-pure-white);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+
+  .footer-grid ul {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .footer-grid a {
+    font-size: 0.85rem;
+    transition: color var(--transition-fast);
+  }
+
+  .footer-grid a:hover {
+    color: var(--color-pure-white);
+  }
+
+  .footer-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 16px;
+    font-size: 0.8rem;
+  }
+
+  .legal-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+
+  .legal-links a:hover {
+    color: var(--color-pure-white);
+  }
+
+  @media (min-width: 640px) {
+    .footer-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .footer-grid {
+      grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+    }
+
+    .footer-brand {
+      grid-column: auto;
+    }
+
+    .footer-bottom {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+</style>

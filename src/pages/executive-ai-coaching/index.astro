@@ -1,0 +1,116 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const primaryCta = { label: 'Schedule an Executive AI Consultation', href: '/contact/' };
+
+const engagementGroups = [
+  { label: 'Start', steps: [{ text: 'AI Department Assessment', icon: 'clipboard-check' }] },
+  { label: 'Consultation', steps: [{ text: 'Executive Consultation', icon: 'users' }] },
+  { label: 'Advisory', steps: [{ text: 'Executive Coaching or Executive AI Strategy', icon: 'compass' }] },
+  { label: 'Execution', steps: [{ text: 'Implementation', icon: 'hammer' }, { text: 'Managed AI Department', icon: 'users-round' }] },
+];
+
+const questionAreas = [
+  { icon: 'search', title: 'AI Opportunity Identification', description: 'Where could AI realistically help your specific business.' },
+  { icon: 'activity', title: 'Executive Productivity', description: 'Practical AI use for your own day-to-day work as a leader.' },
+  { icon: 'compass', title: 'AI Decision-Making', description: 'How to evaluate whether an AI initiative is worth pursuing.' },
+  { icon: 'server', title: 'Vendor Evaluation', description: 'How to assess AI vendors and avoid unnecessary contracts.' },
+  { icon: 'scale', title: 'Build vs. Buy', description: 'When custom development makes sense versus existing software.' },
+  { icon: 'shield-check', title: 'AI Governance', description: 'Establishing policy and oversight before problems occur, not after.' },
+];
+
+const faqs = [
+  { question: 'Do I need technical experience?', answer: 'No. Executive AI Coaching is designed for business leaders, not technologists — the focus is on decisions, not code.' },
+  { question: 'How is this different from Executive AI Strategy?', answer: 'Coaching is an ongoing, personal advisory relationship focused on your development as a leader. Executive AI Strategy is a structured engagement that produces a documented company-wide roadmap.' },
+  { question: 'How is this different from a Managed AI Department?', answer: 'Coaching focuses on you as a decision-maker. A Managed AI Department is the ongoing operational relationship that handles strategy, implementation, and training across the company.' },
+  { question: 'Why would I need an outside AI advisor?', answer: 'An outside advisor can offer perspective without internal politics, has visibility across many businesses and vendors, and can help you avoid decisions driven by hype rather than evidence.' },
+];
+---
+
+<BaseLayout
+  title="Executive AI Coaching | Your AI Department"
+  description="One-on-one AI coaching for business owners, CEOs, and senior leaders who want to understand AI, make better technology decisions, and lead AI adoption."
+  path="/executive-ai-coaching/"
+>
+  <InteriorHero
+    eyebrow="Executive AI Coaching"
+    headline="Become the AI Leader Your Company Needs"
+    support="AI is changing faster than most executives have time to follow. Your AI Department provides one-on-one AI coaching for business owners, CEOs, executives, and senior leaders who want to understand AI, make better technology decisions, identify opportunities, and lead AI adoption inside their organizations."
+    primaryCta={primaryCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Questions We Can Work Through"
+        heading="The Questions Keeping You Up at Night"
+        support="AI is now a leadership issue, not just a technology issue."
+      />
+      <CapabilityGrid items={questionAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Engagement Path"
+        heading="A Relationship, Not a Single Session"
+        support="Not every executive needs every stage. The goal is to recommend the most appropriate next step."
+      />
+      <GroupedFlow groups={engagementGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={primaryCta.href} class="mid-cta-link">Schedule an Executive AI Consultation &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Coaching vs. Strategy vs. Managed Department"
+        heading="Three Different Relationships, One Model"
+        support="Coaching is personal and ongoing, focused on you as a decision-maker. Executive AI Strategy is a structured engagement producing a company-wide roadmap. A Managed AI Department is the full operational relationship. Many clients start with coaching and move into a broader engagement as clarity develops."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="compass"
+    heading="Schedule an Executive AI Consultation"
+    support="A confidential conversation about where AI fits into your business and your role as a leader."
+    primaryCta={primaryCta}
+    microcopy="Prefer to start broader? Take the free AI Department Assessment instead."
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

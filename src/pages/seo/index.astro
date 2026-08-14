@@ -1,0 +1,189 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const primaryCta = { label: 'Request an SEO Assessment', href: '/contact/' };
+
+const searchToRevenueGroups = [
+  { label: 'Discovery', steps: [{ text: 'Search Demand', icon: 'search' }, { text: 'Visibility', icon: 'eye' }] },
+  { label: 'Experience', steps: [{ text: 'Relevant Page', icon: 'layout-grid' }, { text: 'Conversion', icon: 'check-circle-2' }] },
+  { label: 'Pipeline', steps: [{ text: 'CRM / Lead', icon: 'database' }, { text: 'Sales Outcome', icon: 'handshake' }] },
+  { label: 'Measurement', steps: [{ text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const capabilities = [
+  { icon: 'search', title: 'SEO Audit', description: 'A comprehensive review of technical foundations, content, and site structure.' },
+  { icon: 'target', title: 'Keyword Research', description: 'Identify what your best prospects are actually searching for.' },
+  { icon: 'layout-grid', title: 'Service & Industry Pages', description: 'Dedicated pages built to rank for the searches that matter most to your business.' },
+  { icon: 'map-pin', title: 'Local SEO', description: 'Google Business Profile optimization and local search visibility for geographic markets.' },
+  { icon: 'file-text', title: 'Content Strategy', description: 'Content built to support actual business goals, accelerated with AI-assisted drafting.' },
+  { icon: 'link-2', title: 'Technical SEO', description: 'Site speed, structure, internal linking, and the technical foundations search engines require.' },
+];
+
+const faqs = [
+  { question: 'How long does SEO take?', answer: 'SEO is a longer-term investment. Meaningful improvement in organic visibility typically takes months, not weeks, and depends on competition, market, and starting position.' },
+  { question: 'Do you guarantee rankings?', answer: 'No. Search engine rankings depend on many factors outside any agency\'s direct control. We focus on measurable improvement in visibility, traffic quality, and conversion.' },
+  { question: 'Should we do SEO or paid ads?', answer: 'Often both — paid media produces faster results, while SEO builds durable, lower-cost visibility over time. Many businesses benefit from running them together as part of one AI Growth System.' },
+  { question: 'Do you use AI to write content?', answer: 'AI can accelerate research and drafting, but content should reflect real expertise and be reviewed before publishing — not published without human oversight.' },
+];
+---
+
+<BaseLayout
+  title="SEO Services for Business | Your AI Department"
+  description="Build long-term search visibility that generates qualified leads through technical SEO, content strategy, local SEO, and conversion-focused website improvements."
+  path="/seo/"
+>
+  <InteriorHero
+    eyebrow="SEO Services"
+    headline="Build Long-Term Search Visibility That Generates Qualified Leads"
+    support="Your AI Department helps businesses improve organic search visibility through better technical foundations, stronger service pages, local SEO, content strategy, internal linking, and conversion-focused website improvements. SEO should not exist just to increase traffic — it should help attract the right prospects and turn search visibility into measurable business opportunities."
+    primaryCta={primaryCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Can Help With"
+        heading="From Technical Foundations to Conversion"
+        support="Traffic alone isn't the goal — attracting the right prospects and converting them is."
+      />
+      <CapabilityGrid items={capabilities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="How It Connects"
+        heading="Visibility Alone Doesn't Grow a Business"
+        support="Search traffic only creates value when it moves through a complete, connected path to a sales outcome."
+      />
+      <GroupedFlow groups={searchToRevenueGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={primaryCta.href} class="mid-cta-link">Request an SEO Assessment &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="SEO + AI Growth Systems"
+        heading="Visibility Only Matters If the System Behind It Converts"
+        support="A page that ranks well but converts poorly, or a lead that arrives but waits hours for a response, limits what SEO can actually produce for your business. SEO works best as part of a coordinated AI Growth System — connected to landing pages, CRM, and lead response, not built in isolation."
+        tone="dark"
+      />
+      <p class="growth-systems-link"><a href="/ai-growth-systems/">Explore AI Growth Systems &rarr;</a></p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Is SEO Right for You?"
+      />
+      <div class="fit-panel">
+        <p class="fit-panel-lead">This service may be appropriate for businesses that:</p>
+        <ul>
+          <li>Want durable, lower-cost lead generation</li>
+          <li>Are willing to invest for the medium-to-long term</li>
+          <li>Want organic visibility connected to real conversion, not just traffic</li>
+        </ul>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="search"
+    heading="Request an SEO Assessment"
+    support="We'll review your site's technical foundations, content, and visibility — and tell you honestly what we find."
+    primaryCta={primaryCta}
+    microcopy="Not sure if SEO is your biggest opportunity? Take the free AI Department Assessment instead."
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+
+  .growth-systems-link {
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .growth-systems-link a {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--color-signal-cyan);
+  }
+
+  .fit-panel {
+    max-width: 620px;
+    margin-inline: auto;
+    background-color: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 22px 24px;
+  }
+
+  .fit-panel-lead {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--color-near-black);
+    margin-bottom: 12px;
+  }
+
+  .fit-panel ul {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    list-style: none;
+    padding: 0;
+  }
+
+  .fit-panel li {
+    font-size: 0.9rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+    padding-left: 18px;
+    position: relative;
+  }
+
+  .fit-panel li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-electric-blue);
+  }
+</style>

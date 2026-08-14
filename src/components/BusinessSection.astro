@@ -1,0 +1,204 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+
+// Connected nodes per website-design-system.md "Light Business Section"
+// Angles are computed evenly around the circle to guarantee no overlap
+// regardless of how many nodes are listed here.
+const nodeDefs = [
+  { label: 'Strategy', icon: 'target' },
+  { label: 'Marketing', icon: 'megaphone' },
+  { label: 'Sales', icon: 'handshake' },
+  { label: 'Operations', icon: 'settings-2' },
+  { label: 'Employees', icon: 'users' },
+  { label: 'Technology', icon: 'cpu' },
+  { label: 'Automation', icon: 'workflow' },
+];
+
+const nodes = nodeDefs.map((def, i) => ({
+  ...def,
+  angle: -90 + (360 / nodeDefs.length) * i,
+}));
+
+const radius = 210;
+const center = 250;
+
+function pos(angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    x: center + radius * Math.cos(rad),
+    y: center + radius * Math.sin(rad),
+  };
+}
+---
+
+<Section tone="light" id="business-first" class="business-section">
+  <Container wide>
+    <div class="business-grid">
+      <div class="business-copy">
+        <h2>
+          AI Isn't the Strategy.<br />
+          <span class="accent">Improving the Business Is.</span>
+        </h2>
+        <p class="body-lg">
+          AI only creates value when it's connected to the right goals, the right processes, and
+          the right systems. That's where we come in.
+        </p>
+        <Button href="/ai-consulting/" variant="secondary-light" size="large">See How We Help</Button>
+      </div>
+
+      <div class="business-visual">
+        <svg viewBox="0 0 500 500" role="img" aria-label="Diagram showing Your Business at the center, connected to Strategy, Marketing, Sales, Operations, Employees, Technology, and Automation.">
+          {nodes.map((node) => {
+            const p = pos(node.angle);
+            return (
+              <line
+                x1={center}
+                y1={center}
+                x2={p.x}
+                y2={p.y}
+                class="network-line"
+              />
+            );
+          })}
+        </svg>
+
+        <div class="network-center">
+          <span>YOUR<br />BUSINESS</span>
+        </div>
+
+        {nodes.map((node) => {
+          const p = pos(node.angle);
+          const leftPct = (p.x / 500) * 100;
+          const topPct = (p.y / 500) * 100;
+          return (
+            <div
+              class="network-node"
+              style={`left: ${leftPct}%; top: ${topPct}%;`}
+            >
+              <span class="node-icon"><Icon name={node.icon} size={22} /></span>
+              <span class="node-label">{node.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  :global(section.business-section) {
+    padding-block: 40px !important;
+  }
+
+  .business-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: center;
+  }
+
+  .business-copy h2 {
+    font-size: var(--fs-h2);
+    margin-bottom: 16px;
+  }
+
+  .business-copy .accent {
+    color: var(--color-electric-blue);
+  }
+
+  .body-lg {
+    font-size: 1rem;
+    color: var(--color-slate-gray);
+    max-width: 440px;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .business-visual {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    aspect-ratio: 1;
+    margin-inline: auto;
+  }
+
+  @media (max-width: 479px) {
+    .business-visual {
+      max-width: 260px;
+    }
+  }
+
+  .business-visual svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .network-line {
+    stroke: var(--color-border-light);
+    stroke-width: 2.5;
+  }
+
+  .network-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 94px;
+    height: 94px;
+    border-radius: 50%;
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.12);
+  }
+
+  .network-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 88px;
+    text-align: center;
+  }
+
+  .node-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-pure-white);
+    border: 1.5px solid var(--color-border-light);
+    border-radius: 50%;
+    color: var(--color-electric-blue);
+    box-shadow: var(--shadow-card-light);
+  }
+
+  .node-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--color-near-black);
+    letter-spacing: 0.01em;
+  }
+
+  @media (min-width: 960px) {
+    .business-grid {
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 40px;
+    }
+  }
+</style>

@@ -1,0 +1,72 @@
+/*
+  Design tokens for Your AI Department.
+  Source of truth: docs/01-brand/website-design-system.md
+  Do not hand-roll one-off colors/spacing in components — extend tokens here instead.
+*/
+
+:root {
+  /* ---- Brand colors ---- */
+  --color-midnight-navy: #08111F;
+  --color-deep-slate: #111C2E;
+  --color-dark-secondary-bg: #0D1728; /* secondary dark section background */
+  --color-electric-blue: #2563EB;
+  --color-electric-blue-hover: #1D4ED8;
+  --color-signal-cyan: #22D3EE;
+  --color-cloud-white: #F7F9FC;
+  --color-pure-white: #FFFFFF;
+  --color-near-black: #111827;
+  --color-slate-gray: #64748B;
+  --color-dark-muted-text: #94A3B8;
+  --color-emerald: #10B981;
+  --color-amber: #F59E0B;
+
+  --color-border-dark: rgba(148, 163, 184, 0.18);
+  --color-border-light: #E2E8F0;
+  --color-border-selected: #2563EB;
+
+  --gradient-primary: linear-gradient(135deg, #2563EB, #22D3EE);
+
+  /* ---- Typography ---- */
+  --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --fs-h1: clamp(1.9rem, 2.85vw, 2.6rem);
+  --fs-h2: clamp(1.7rem, 2.35vw, 2.35rem);
+  --fs-h3: clamp(1.25rem, 1.5vw, 1.6rem);
+  --fs-body-lg: clamp(1rem, 1.05vw, 1.15rem);
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+  --fs-micro: 0.78rem;
+
+  --lh-heading: 1.12;
+  --lh-body: 1.55;
+
+  /* ---- Layout ---- */
+  --content-max-width: 1280px;
+  --content-max-width-wide: 1320px;
+  --prose-max-width: 620px;
+
+  --section-padding-desktop: 64px;
+  --section-padding-tablet: 52px;
+  --section-padding-mobile: 44px;
+
+  --container-padding-inline: 24px;
+
+  /* ---- Radius ---- */
+  --radius-button: 8px;
+  --radius-card: 14px;
+  --radius-panel: 18px;
+  --radius-pill: 999px;
+
+  /* ---- Motion ---- */
+  --transition-fast: 180ms ease;
+  --transition-base: 250ms ease;
+
+  /* ---- Shadows (restrained, primarily for light cards) ---- */
+  --shadow-card-light: 0 8px 24px -12px rgba(17, 24, 39, 0.12);
+  --shadow-panel-dark: 0 20px 60px -20px rgba(0, 0, 0, 0.55);
+
+  /* ---- Z-index scale ---- */
+  --z-header: 100;
+  --z-mobile-nav: 200;
+}

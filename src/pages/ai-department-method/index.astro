@@ -1,0 +1,223 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import ProcessSteps from '../../components/interior/ProcessSteps.astro';
+import FlowChain from '../../components/interior/FlowChain.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
+
+const overviewSteps = [
+  { icon: 'search', title: 'Assess', description: 'Understand where you are today.' },
+  { icon: 'lightbulb', title: 'Discover', description: 'Understand how the business actually works.' },
+  { icon: 'star', title: 'Prioritize', description: 'Find the opportunities worth pursuing.' },
+  { icon: 'layout-grid', title: 'Implement', description: 'Turn the strategy into working systems.' },
+  { icon: 'users', title: 'Adopt', description: 'Technology only creates value when people use it.' },
+  { icon: 'trending-up', title: 'Optimize', description: 'Measure what happened, then improve it.' },
+];
+
+const stageDetails = [
+  {
+    n: 1,
+    title: 'Assess',
+    heading: 'Understand Where You Are Today',
+    body: 'The process begins by understanding the current business — leadership and AI strategy, marketing, sales, customer service, operations, employee productivity, finance, technology, and existing AI adoption. The goal is not to find AI for the sake of AI. The goal is to identify business problems and opportunities.',
+    detail: 'The public AI Department Assessment provides an initial diagnostic, helping identify AI readiness, operational bottlenecks, manual processes, sales weaknesses, marketing opportunities, and potential AI use cases.',
+  },
+  {
+    n: 2,
+    title: 'Discover',
+    heading: 'Understand How the Business Actually Works',
+    body: "High-value AI implementation requires more than an online questionnaire. Deeper engagements examine department workflows, employee responsibilities, software, data, customer journeys, and reporting — looking for where time and revenue are being lost, where employees are overloaded, and where systems are disconnected.",
+    detail: 'A workflow may be mapped as: trigger → information received → employee action → software action → decision → follow-up → outcome. Then we ask which steps require human judgment, which are repetitive, and which can be automated or AI-assisted.',
+  },
+  {
+    n: 3,
+    title: 'Prioritize',
+    heading: 'Find the Opportunities Worth Pursuing',
+    body: 'Not every automation deserves to be built. Not every AI tool deserves to be purchased. Opportunities are prioritized based on financial impact, employee time, revenue potential, implementation cost and difficulty, data availability, risk, and speed to value.',
+    detail: 'Opportunities are classified as Quick Wins (high value, low complexity — implement first), Strategic Projects (high value, higher complexity — plan carefully), Efficiency Improvements (moderate value, low complexity), or Low-Priority Experiments (uncertain ROI — should not distract from better opportunities).',
+  },
+  {
+    n: 4,
+    title: 'Implement',
+    heading: 'Turn the Strategy Into Working Systems',
+    body: 'Once an opportunity is validated, implementation begins — AI agents, workflow automation, CRM automation, software integration, internal AI assistants, reporting dashboards, or custom software, depending on what the business problem actually requires.',
+    detail: 'Before custom development, we evaluate whether existing software can solve the problem, whether it can be configured differently, or whether systems can simply be connected through APIs. Custom software should be built when the business case justifies it, not because it sounds impressive.',
+  },
+  {
+    n: 5,
+    title: 'Adopt',
+    heading: 'Technology Only Creates Value When People Use It',
+    body: 'Implementation is not finished when software goes live. Employees may need training, documentation, prompt libraries, SOPs, and AI usage policies. Adoption should be treated as part of implementation, not an afterthought.',
+    detail: 'Leadership must understand why the system exists, what it should improve, what employees are expected to do, and who owns the process. Without ownership, AI initiatives can become abandoned experiments.',
+  },
+  {
+    n: 6,
+    title: 'Optimize',
+    heading: 'Measure What Happened',
+    body: 'After implementation, we evaluate results — hours saved, response time, lead conversion, adoption, error rates, and revenue impact. AI systems should not be treated as one-time projects: models change, software changes, and businesses change.',
+    detail: 'That creates a cycle: Assess → Discover → Prioritize → Implement → Adopt → Measure → Optimize → Identify the next opportunity.',
+  },
+];
+
+const clientJourney = [
+  'Take the AI Department Assessment',
+  'Review your opportunities',
+  'Strategy conversation',
+  'Executive discovery when appropriate',
+  'Build the AI roadmap',
+  'Implement priority projects',
+  'Train employees and leadership',
+  'Measure results',
+  'Optimize and identify the next opportunity',
+];
+---
+
+<BaseLayout
+  title="The AI Department Method | AI Strategy & Implementation Framework"
+  description="Discover a practical framework for identifying, prioritizing, implementing, and measuring AI opportunities across your business."
+  path="/ai-department-method/"
+>
+  <InteriorHero
+    eyebrow="Our Framework"
+    headline="A Practical System for Turning AI Into Business Results"
+    support="Most businesses do not need more AI tools. They need a process for determining where AI can actually create value, what should be implemented first, how it connects to the business, and whether the investment is producing results. The AI Department Method is our framework for moving from opportunity to implementation."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Six Stages"
+        heading="Assess. Discover. Prioritize. Implement. Adopt. Optimize."
+        support="Every business problem moves through the same framework — reducing random AI experimentation and focusing resources on the opportunities most likely to improve the business."
+      />
+      <div class="method-overview-wrap">
+        <ProcessSteps steps={overviewSteps} />
+      </div>
+    </Container>
+  </Section>
+
+  {stageDetails.map((stage, i) => (
+    <Section tone={i % 2 === 0 ? 'dark' : 'light'}>
+      <Container>
+        <div class="stage-detail">
+          <div class="stage-number">
+            <span>{stage.n}</span>
+          </div>
+          <div class="stage-copy">
+            <span class="stage-label">Stage {stage.n} — {stage.title}</span>
+            <h2>{stage.heading}</h2>
+            <p class="stage-body">{stage.body}</p>
+            <p class="stage-detail-text">{stage.detail}</p>
+          </div>
+        </div>
+      </Container>
+    </Section>
+  ))}
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="What Makes It Different"
+        heading="It Begins With the Business. Not the Tool."
+        support="What is the problem? What is it costing? What would improvement be worth? What is the simplest practical solution? How will employees use it? How will we measure whether it worked? That keeps AI connected to business outcomes."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Client Journey"
+        heading="From Assessment to Ongoing Optimization"
+        support="Not every company needs every step."
+      />
+      <FlowChain steps={clientJourney} tone="accent" />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Get Your AI Department Score"
+    support="Take the assessment to identify where AI, automation, better systems, and improved marketing may create value in your business."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Have a specific business problem instead? Schedule a strategy conversation."
+  />
+</BaseLayout>
+
+<style>
+  .method-overview-wrap {
+    background-color: var(--color-midnight-navy);
+    border-radius: var(--radius-panel);
+    padding: 40px 24px;
+  }
+
+  .stage-detail {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: start;
+    max-width: 820px;
+    margin-inline: auto;
+  }
+
+  .stage-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+  }
+
+  .stage-label {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-electric-blue);
+    margin-bottom: 8px;
+  }
+
+  :global(.section.dark) .stage-label {
+    color: var(--color-signal-cyan);
+  }
+
+  .stage-copy h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+  }
+
+  .stage-body {
+    font-size: 0.95rem;
+    line-height: 1.65;
+    margin-bottom: 14px;
+  }
+
+  .stage-detail-text {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    opacity: 0.85;
+  }
+
+  @media (min-width: 640px) {
+    .stage-detail {
+      grid-template-columns: 56px 1fr;
+    }
+  }
+</style>

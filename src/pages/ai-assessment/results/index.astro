@@ -1,0 +1,485 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Your AI Department Score | Your AI Department"
+  description="Your personalized AI Department Score, category breakdown, and recommended next steps."
+  path="/ai-assessment/results/"
+>
+  <section class="results-page">
+    <div id="results-root" class="r-mount">
+      <p class="r-loading">Loading your results&hellip;</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import { loadResultRaw } from '../../../lib/assessment/persistence';
+  import type { FullAssessmentResult } from '../../../data/assessment/types';
+
+  function escapeHtml(input: string): string {
+    return input
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  const root = document.getElementById('results-root');
+  const raw = loadResultRaw();
+
+  if (!root) {
+    // nothing to render into
+  } else if (!raw) {
+    root.innerHTML = `
+      <div class="r-empty">
+        <h1>No results found</h1>
+        <p>It looks like you haven't completed the assessment yet, or your results have expired from this browser.</p>
+        <a class="r-btn r-btn-primary" href="/ai-assessment/">Take the Assessment</a>
+      </div>
+    `;
+  } else {
+    const result: FullAssessmentResult = JSON.parse(raw);
+    const pub = result.public;
+    const isEnterprise = result.flags.includes('ENTERPRISE_CANDIDATE');
+
+    const strongest = pub.strongestAreas
+      .map((cat) => pub.categories.find((c) => c.category === cat))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c));
+
+    const topRecommendations = pub.recommendations.slice(0, 5);
+
+    root.innerHTML = `
+      <div class="r-shell">
+        <div class="r-header">
+          <span class="r-eyebrow">Your Results</span>
+          <h1>Your AI Department Score</h1>
+        </div>
+
+        <div class="r-score-panel">
+          <div class="r-score-ring">
+            <div class="r-score-number">${pub.overallScore}</div>
+            <div class="r-score-max">/ 100</div>
+          </div>
+          <div class="r-score-detail">
+            <p class="r-stage">${escapeHtml(pub.stage)}</p>
+            <p class="r-stage-note">This score reflects your company's current AI readiness and opportunity profile across seven business areas.</p>
+          </div>
+        </div>
+
+        <div class="r-categories">
+          <h2>Category Scores</h2>
+          <ul>
+            ${pub.categories
+              .map(
+                (c) => `
+                <li>
+                  <div class="r-cat-row">
+                    <span>${escapeHtml(c.label)}</span>
+                    <span>${c.answeredCount > 0 ? c.scorePercent : '\u2013'}</span>
+                  </div>
+                  <div class="r-cat-track"><div class="r-cat-fill" style="width:${c.answeredCount > 0 ? c.scorePercent : 0}%"></div></div>
+                </li>
+              `
+              )
+              .join('')}
+          </ul>
+        </div>
+
+        ${
+          strongest.length > 0
+            ? `
+          <div class="r-strongest">
+            <h2>Your Strongest Areas</h2>
+            <ul>${strongest.map((c) => `<li>${escapeHtml(c.label)}</li>`).join('')}</ul>
+          </div>`
+            : ''
+        }
+
+        <div class="r-recommendations">
+          <h2>Recommended Next Steps</h2>
+          ${
+            topRecommendations.length === 0
+              ? `<p class="r-no-rec">Your results show a mature AI foundation. A strategy conversation can help identify what to scale next.</p>`
+              : topRecommendations
+                  .map(
+                    (rec) => `
+                <div class="r-rec-card">
+                  <span class="r-rec-priority">Priority ${rec.priority}</span>
+                  <h3>${escapeHtml(rec.title)}</h3>
+                  <p>${escapeHtml(rec.finding)}</p>
+                  <p class="r-rec-action"><strong>Recommended action:</strong> ${escapeHtml(rec.recommendedAction)}</p>
+                </div>
+              `
+                  )
+                  .join('')
+          }
+        </div>
+
+        ${
+          result.roi.some((r) => r.available)
+            ? `
+          <div class="r-roi">
+            <h2>Opportunity Sizing</h2>
+            ${result.roi
+              .filter((r) => r.available)
+              .map(
+                (r: any) => `
+                <div class="r-roi-card">
+                  <h3>${escapeHtml(r.title)}</h3>
+                  <p class="r-roi-estimate">${escapeHtml(r.estimateLabel)}: <strong>${
+                    typeof r.estimateLow === 'number'
+                      ? r.unit === 'currency'
+                        ? `$${r.estimateLow.toLocaleString()}`
+                        : `${r.estimateLow.toLocaleString()} hours`
+                      : ''
+                  }</strong></p>
+                  <p>${escapeHtml(r.summary)}</p>
+                  <p class="r-roi-note">Estimate only — not a guaranteed outcome.</p>
+                </div>
+              `
+              )
+              .join('')}
+          </div>`
+            : ''
+        }
+
+        <div class="r-cta">
+          <h2>${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Ready to Discuss Your Opportunities?'}</h2>
+          <p>${isEnterprise ? 'Given the scale of your organization, an enterprise conversation is the appropriate next step to explore AI opportunities in depth.' : 'Schedule a free strategy call to review your results and discuss what to prioritize first.'}</p>
+          <a class="r-btn r-btn-primary" href="/contact/">${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Schedule a Strategy Call'}</a>
+        </div>
+
+        <p class="r-disclaimer">This assessment provides an initial diagnostic based on your responses. It does not replace a full executive discovery process.</p>
+      </div>
+    `;
+  }
+</script>
+
+<style>
+  .results-page {
+    background-color: var(--color-cloud-white);
+    min-height: 70vh;
+    padding-block: 40px 64px;
+  }
+
+  .r-mount {
+    max-width: 800px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+
+  .r-loading {
+    text-align: center;
+    color: var(--color-slate-gray);
+    padding-block: 64px;
+  }
+
+  :global(.r-empty) {
+    text-align: center;
+    padding-block: 64px;
+  }
+
+  :global(.r-empty h1) {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+  }
+
+  :global(.r-empty p) {
+    color: var(--color-slate-gray);
+    margin-bottom: 24px;
+  }
+
+  :global(.r-eyebrow) {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-electric-blue);
+    margin-bottom: 8px;
+  }
+
+  :global(.r-header h1) {
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 800;
+    margin-bottom: 24px;
+  }
+
+  :global(.r-score-panel) {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+    border-radius: var(--radius-panel);
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  :global(.r-score-ring) {
+    flex-shrink: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  :global(.r-score-number) {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--color-signal-cyan);
+  }
+
+  :global(.r-score-max) {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+  }
+
+  :global(.r-stage) {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+  }
+
+  :global(.r-stage-note) {
+    font-size: 0.85rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.5;
+  }
+
+  :global(.r-categories),
+  :global(.r-strongest),
+  :global(.r-recommendations),
+  :global(.r-roi) {
+    margin-bottom: 32px;
+  }
+
+  :global(.r-categories h2),
+  :global(.r-strongest h2),
+  :global(.r-recommendations h2),
+  :global(.r-roi h2) {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  :global(.r-categories ul) {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    list-style: none;
+    padding: 0;
+  }
+
+  :global(.r-cat-row) {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  :global(.r-cat-track) {
+    height: 8px;
+    background-color: var(--color-border-light);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+
+  :global(.r-cat-fill) {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-pill);
+  }
+
+  :global(.r-strongest ul) {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  :global(.r-strongest li) {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: var(--radius-pill);
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  :global(.r-rec-card) {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-card-light);
+  }
+
+  :global(.r-rec-priority) {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-electric-blue);
+    margin-bottom: 6px;
+  }
+
+  :global(.r-rec-card h3) {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  :global(.r-rec-card p) {
+    font-size: 0.88rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  :global(.r-rec-action) {
+    color: var(--color-near-black) !important;
+  }
+
+  :global(.r-no-rec) {
+    color: var(--color-slate-gray);
+    font-size: 0.9rem;
+  }
+
+  :global(.r-roi-card) {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  :global(.r-roi-card h3) {
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+
+  :global(.r-roi-estimate) {
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+
+  :global(.r-roi-card p) {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+  }
+
+  :global(.r-roi-note) {
+    font-size: 0.72rem !important;
+    color: var(--color-slate-gray) !important;
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  :global(.r-cta) {
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+    border-radius: var(--radius-panel);
+    padding: 28px 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  :global(.r-cta h2) {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+
+  :global(.r-cta p) {
+    color: var(--color-dark-muted-text);
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+  }
+
+  :global(.r-btn) {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 13px 26px;
+    border-radius: var(--radius-button);
+    text-decoration: none;
+  }
+
+  :global(.r-btn-primary) {
+    background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+  }
+
+  :global(.r-disclaimer) {
+    font-size: 0.75rem;
+    color: var(--color-slate-gray);
+    text-align: center;
+  }
+
+  /* ---------------- Mobile-only density refinement ---------------- */
+  /* Tightens spacing only — no text content is shortened or removed. */
+  @media (max-width: 767px) {
+    .r-mount {
+      padding-inline: 16px;
+    }
+
+    :global(.r-header h1) {
+      margin-bottom: 16px;
+    }
+
+    :global(.r-score-panel) {
+      padding: 18px;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    :global(.r-score-number) {
+      font-size: 2.4rem;
+    }
+
+    :global(.r-categories),
+    :global(.r-strongest),
+    :global(.r-recommendations),
+    :global(.r-roi) {
+      margin-bottom: 24px;
+    }
+
+    :global(.r-categories ul) {
+      gap: 10px;
+    }
+
+    :global(.r-rec-card) {
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    :global(.r-rec-card h3) {
+      margin-bottom: 6px;
+    }
+
+    :global(.r-rec-card p) {
+      margin-bottom: 5px;
+    }
+
+    :global(.r-roi-card) {
+      padding: 13px;
+      margin-bottom: 10px;
+    }
+
+    :global(.r-cta) {
+      padding: 22px 18px;
+    }
+  }
+</style>

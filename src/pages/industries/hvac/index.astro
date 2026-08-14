@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const callGroups = [
+  { label: 'Call Handling', steps: [{ text: 'Call Received', icon: 'phone' }, { text: 'AI-Assisted Answering', icon: 'bot' }] },
+  { label: 'Scheduling & Dispatch', steps: [{ text: 'Appointment Booked', icon: 'calendar' }, { text: 'Confirmation & Reminder', icon: 'message-square' }, { text: 'Technician Dispatched', icon: 'truck' }] },
+  { label: 'Completion', steps: [{ text: 'Customer Update', icon: 'zap' }, { text: 'Job Complete', icon: 'check-circle-2' }] },
+];
+
+const opportunities = [
+  { icon: 'phone', title: 'Phone Handling', description: 'AI receptionist and call routing so urgent service calls never go unanswered.' },
+  { icon: 'megaphone', title: 'Google Ads & Local SEO', description: 'Advertising and local visibility connected to real booked-job tracking.' },
+  { icon: 'calendar', title: 'Scheduling & Dispatch', description: 'Reduce friction between inbound calls, scheduling, and technician dispatch.' },
+  { icon: 'zap', title: 'Lead & Estimate Follow-Up', description: 'Faster response to service and estimate requests before customers call a competitor.' },
+  { icon: 'repeat', title: 'Customer Reactivation', description: 'Re-engage past customers for maintenance, service agreements, and seasonal tune-ups.' },
+  { icon: 'users', title: 'Technician Support', description: 'Reduce administrative burden on technicians and office staff alike.' },
+];
+---
+
+<BaseLayout
+  title="AI for HVAC Companies | Your AI Department"
+  description="Help your HVAC company capture more calls, book more jobs, and improve operational efficiency with practical AI and automation."
+  path="/industries/hvac/"
+>
+  <InteriorHero
+    eyebrow="HVAC"
+    headline="Help Your HVAC Company Capture More Calls, Book More Jobs, and Improve Operational Efficiency"
+    support="Your AI Department helps HVAC companies identify opportunities involving AI, automation, Google Ads, CRM, phone handling, scheduling, dispatch, customer follow-up, employee productivity, reporting, and marketing."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Opportunities May Exist"
+        heading="HVAC Is a Speed-Driven Business"
+        support="Emergency repairs and time-sensitive service calls mean every missed call or slow follow-up is a real, measurable cost."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Call to Completion"
+        heading="Speed Matters at Every Step"
+        support="From the moment the phone rings to the moment the job is done, each handoff is a place where a customer can be lost — or kept."
+      />
+      <GroupedFlow groups={callGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={PRIMARY_CTA.href} class="mid-cta-link">Get Your AI Department Score &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Reviews & Reputation"
+        heading="Service Quality Should Translate Into Visible Reputation"
+        support="Automated, well-timed review requests can help ensure strong service work actually shows up in your online reputation, not just in customer satisfaction."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Out Where AI Can Help Your Company"
+    support="Take the free AI Department Assessment to see your opportunities across phone handling, scheduling, and marketing."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

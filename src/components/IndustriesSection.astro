@@ -1,0 +1,174 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+
+// Six launch industries per launch-decisions.md §20 and sitemap.md.
+// Outcome lines are directional/illustrative descriptions of the opportunity
+// area, not claims of results delivered to any actual client.
+const industries = [
+  { name: 'Collision Repair', icon: 'car', outcome: 'More leads, better follow-up, and smoother operations.', href: '/industries/collision-repair/' },
+  { name: 'Law Firms', icon: 'scale', outcome: 'Faster intake, stronger marketing, and more clients.', href: '/industries/law-firms/' },
+  { name: 'Roofing', icon: 'home', outcome: 'Capture more jobs and respond faster to every opportunity.', href: '/industries/roofing/' },
+  { name: 'HVAC', icon: 'snowflake', outcome: 'Book more calls, improve scheduling, and grow profitably.', href: '/industries/hvac/' },
+  { name: 'Construction', icon: 'hard-hat', outcome: 'Reduce admin work and improve project and communication flow.', href: '/industries/construction/' },
+  { name: 'Professional Services', icon: 'briefcase', outcome: 'Increase employee capacity and deliver more value.', href: '/industries/professional-services/' },
+];
+---
+
+<Section tone="light" id="industries" class="industries-section">
+  <Container wide>
+    <div class="industries-header">
+      <h2>Industries We Serve</h2>
+      <p>We work with growth-oriented businesses ready to improve.</p>
+    </div>
+
+    <ul class="industries-grid">
+      {industries.map((ind) => (
+        <li class="industry-card">
+          <span class="industry-icon"><Icon name={ind.icon} size={24} /></span>
+          <p class="industry-name">{ind.name}</p>
+          <p class="industry-outcome">{ind.outcome}</p>
+          <a href={ind.href} class="industry-link">
+            Learn More
+            <Icon name="arrow-right" size={12} />
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <div class="industries-cta">
+      <Button href="/industries/" variant="primary">View All Industries</Button>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  :global(section.industries-section) {
+    padding-block: 24px !important;
+  }
+
+  .industries-header {
+    text-align: center;
+    max-width: 560px;
+    margin-inline: auto;
+    margin-bottom: 16px;
+  }
+
+  .industries-header h2 {
+    font-size: var(--fs-h2);
+    margin-bottom: 4px;
+  }
+
+  .industries-header p {
+    color: var(--color-slate-gray);
+    font-size: 0.9rem;
+  }
+
+  .industries-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .industry-card {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    padding: 18px 14px;
+    text-align: center;
+    box-shadow: 0 2px 8px -4px rgba(17, 24, 39, 0.06);
+    transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+  }
+
+  .industry-card:hover,
+  .industry-card:focus-within {
+    transform: translateY(-3px);
+    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: var(--shadow-card-light);
+  }
+
+  .industry-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-electric-blue);
+    margin-bottom: 10px;
+  }
+
+  .industry-name {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.92rem;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .industry-outcome {
+    font-size: 0.8rem;
+    color: var(--color-slate-gray);
+    line-height: 1.45;
+    margin-bottom: 8px;
+  }
+
+  .industry-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-electric-blue);
+  }
+
+  .industries-cta {
+    text-align: center;
+  }
+
+  @media (max-width: 479px) {
+    .industries-grid {
+      gap: 8px;
+    }
+
+    .industry-card {
+      padding: 13px 16px;
+    }
+
+    .industry-icon {
+      margin-bottom: 6px;
+    }
+
+    .industry-name {
+      margin-bottom: 3px;
+    }
+
+    .industry-outcome {
+      margin-bottom: 5px;
+      line-height: 1.4;
+    }
+  }
+
+  @media (min-width: 480px) {
+    .industries-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 900px) {
+    .industries-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .industries-grid {
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+
+    .industry-card {
+      padding: 16px 12px;
+    }
+  }
+</style>

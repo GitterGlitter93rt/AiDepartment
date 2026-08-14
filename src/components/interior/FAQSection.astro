@@ -1,0 +1,100 @@
+---
+interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+interface Props {
+  items: FAQItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="faq-list">
+  {items.map((item) => (
+    <details class="faq-item">
+      <summary class="faq-question">
+        {item.question}
+        <span class="faq-toggle" aria-hidden="true"></span>
+      </summary>
+      <p class="faq-answer">{item.answer}</p>
+    </details>
+  ))}
+</div>
+
+<style>
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+
+  .faq-item {
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    padding: 4px 20px;
+    background-color: var(--color-pure-white);
+  }
+
+  .faq-question {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 16px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-near-black);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .faq-question::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-toggle {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    position: relative;
+  }
+
+  .faq-toggle::before,
+  .faq-toggle::after {
+    content: '';
+    position: absolute;
+    background-color: var(--color-electric-blue);
+    transition: transform var(--transition-fast);
+  }
+
+  .faq-toggle::before {
+    top: 9px;
+    left: 3px;
+    width: 14px;
+    height: 2px;
+  }
+
+  .faq-toggle::after {
+    top: 3px;
+    left: 9px;
+    width: 2px;
+    height: 14px;
+  }
+
+  .faq-item[open] .faq-toggle::after {
+    transform: rotate(90deg);
+    opacity: 0;
+  }
+
+  .faq-answer {
+    font-size: 0.88rem;
+    color: var(--color-slate-gray);
+    line-height: 1.6;
+    padding-bottom: 18px;
+  }
+</style>

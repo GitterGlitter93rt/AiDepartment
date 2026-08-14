@@ -1,0 +1,140 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import ProcessSteps from '../../components/interior/ProcessSteps.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { ENTERPRISE_CTA } from '../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'target', title: 'Strategy', description: 'Executive alignment and an enterprise-wide AI opportunity portfolio.' },
+  { icon: 'megaphone', title: 'Marketing & Sales', description: 'Customer acquisition, conversion, and revenue attribution at scale.' },
+  { icon: 'headset', title: 'Customer Service', description: 'Coordinated, measurable customer response across departments.' },
+  { icon: 'settings-2', title: 'Operations', description: 'Workflow standardization and automation across business units.' },
+  { icon: 'receipt', title: 'Finance & Accounting', description: 'Reporting, reconciliation, and administrative workflow improvement.' },
+  { icon: 'users', title: 'Human Resources', description: 'Enablement, training coordination, and change management support.' },
+  { icon: 'server', title: 'IT', description: 'Integration, data access, and technology environment evaluation.' },
+  { icon: 'scale', title: 'Legal', description: 'Governance-appropriate use of AI in legal and compliance-adjacent workflows.' },
+  { icon: 'file-text', title: 'Knowledge Management', description: 'Turning scattered organizational knowledge into an accessible, governed asset.' },
+];
+
+const frameworkStages = [
+  { icon: 'search', title: 'Discover', description: 'Understand business priorities, workflows, technology, data, and existing AI activity.' },
+  { icon: 'map', title: 'Map', description: 'Create an enterprise portfolio of AI and automation opportunities.' },
+  { icon: 'list-checks', title: 'Prioritize', description: 'Rank initiatives based on value, feasibility, risk, and strategic importance.' },
+  { icon: 'flask-conical', title: 'Pilot', description: 'Test high-potential opportunities with defined success criteria.' },
+  { icon: 'hammer', title: 'Implement', description: 'Build, integrate, configure, or coordinate the required solution.' },
+  { icon: 'graduation-cap', title: 'Adopt', description: 'Train employees and embed the technology into real workflows.' },
+  { icon: 'activity', title: 'Measure', description: 'Compare outcomes against defined baselines.' },
+  { icon: 'expand', title: 'Scale', description: 'Expand successful systems across appropriate departments or business units.' },
+  { icon: 'trending-up', title: 'Optimize', description: 'Continue discovering and improving opportunities as technology evolves.' },
+];
+
+const governanceAreas = [
+  { icon: 'shield-check', title: 'Approved AI Tools', description: 'A defined set of vetted platforms rather than ungoverned tool sprawl.' },
+  { icon: 'lock', title: 'Data Handling', description: 'Clear rules for what information can and cannot be used with AI systems.' },
+  { icon: 'user-check', title: 'Human Review', description: 'Defined checkpoints for decisions that require professional or regulatory oversight.' },
+  { icon: 'clipboard-list', title: 'Vendor Evaluation', description: 'A consistent process for assessing new AI vendors before adoption.' },
+];
+---
+
+<BaseLayout
+  title="Enterprise AI Transformation | Your AI Department"
+  description="Build a coordinated enterprise AI capability across strategy, governance, employees, workflows, technology, and implementation with Your AI Department."
+  path="/enterprise/"
+>
+  <InteriorHero
+    eyebrow="Your AI Department for Enterprise"
+    headline="Turn AI Experimentation Into an Enterprise Capability"
+    support="Your AI Department helps leadership teams identify where AI can create meaningful value across the organization, prioritize the right opportunities, establish practical governance, coordinate implementation, and build the capabilities required to adopt AI at scale."
+    primaryCta={ENTERPRISE_CTA}
+    secondaryCta={{ label: 'Explore Our Approach', href: '/ai-department-method/' }}
+    supportCopy="From individual AI pilots to enterprise-wide transformation, the objective is the same: create measurable business value."
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Challenge"
+        heading="AI Is Already Entering the Enterprise"
+        support="Employees are experimenting. Departments are purchasing tools. Vendors are making promises. Leadership is asking questions. Without a clear enterprise approach, organizations risk fragmented adoption, duplicate technology, uncontrolled data usage, and disconnected pilots that never scale."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Opportunity Discovery"
+        heading="An Enterprise Portfolio, Not a Collection of Ideas"
+        support="We help leadership examine where AI and automation may create value across the organization — building a coordinated opportunity portfolio rather than isolated department pilots."
+        tone="dark"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={3} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="The Framework"
+        heading="From Pilot to Production"
+        support="A promising demonstration is not the same as a successful enterprise implementation."
+      />
+      <div class="dark-process-wrap">
+        <ProcessSteps steps={frameworkStages} />
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Governance"
+        heading="Move Quickly Without Creating Unnecessary Risk"
+        support="Governance should enable responsible adoption rather than stop useful experimentation."
+        tone="dark"
+      />
+      <CapabilityGrid items={governanceAreas} columns={4} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Working Together"
+        heading="We Work With Your Existing Teams"
+        support="Your AI Department can work alongside executive leadership, IT, data, security, legal, HR, finance, marketing, operations, and existing consultants or technology vendors. Our role adapts to the organization — we are not asking you to replace what already works."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Measurement"
+        heading="We Do Not Manufacture ROI to Justify AI Projects"
+        support="Potential measures include revenue, employee capacity, cycle time, response time, customer experience, cost, conversion, and hiring avoidance. The correct metrics depend on the opportunity, and we say so plainly when sufficient data does not exist to support a claim."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="compass"
+    heading="Build Your Enterprise AI Roadmap"
+    support="Let's discuss where AI can create meaningful value across your organization and what it would take to implement it responsibly."
+    primaryCta={ENTERPRISE_CTA}
+  />
+</BaseLayout>
+
+<style>
+  .dark-process-wrap {
+    background-color: var(--color-midnight-navy);
+    border-radius: var(--radius-panel);
+    padding: 40px 24px;
+  }
+</style>

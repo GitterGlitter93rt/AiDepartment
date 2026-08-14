@@ -1,0 +1,138 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import FlowChain from '../../components/interior/FlowChain.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
+
+const systemComponents = [
+  { icon: 'search', title: 'Google Ads', description: 'Campaign structure, tracking, and conversion paths built to improve return on ad spend.' },
+  { icon: 'megaphone', title: 'Meta Ads', description: 'Facebook and Instagram advertising connected to real lead and revenue tracking.' },
+  { icon: 'trending-up', title: 'SEO', description: 'Organic visibility and content strategy as a durable, lower-cost lead source.' },
+  { icon: 'layout-grid', title: 'Landing Pages', description: 'Conversion-focused pages designed to turn traffic into qualified leads.' },
+  { icon: 'database', title: 'CRM & Lead Routing', description: 'Centralized lead capture, source tracking, and assignment to the right person.' },
+  { icon: 'zap', title: 'AI Follow-Up', description: 'Immediate SMS and email response, appointment scheduling, and nurture sequences.' },
+  { icon: 'repeat', title: 'Lead Reactivation', description: 'Automated campaigns to re-engage old leads and past customers already in your database.' },
+  { icon: 'bar-chart-3', title: 'Attribution & Reporting', description: 'Conversion tracking and revenue attribution so ad spend can be evaluated by actual results.' },
+];
+
+const connectedFlow = [
+  'Traffic', 'Landing Page', 'Lead Capture', 'CRM / Routing',
+  'Immediate Follow-Up', 'Sales Process', 'Conversion', 'Attribution / Reporting',
+];
+---
+
+<BaseLayout
+  title="AI Growth Systems | Marketing, Sales & Conversion | Your AI Department"
+  description="Connect advertising, lead response, sales follow-up, and attribution into one system with AI Growth Systems from Your AI Department."
+  path="/ai-growth-systems/"
+>
+  <InteriorHero
+    eyebrow="AI Growth Systems"
+    headline="One Connected System for Acquiring and Converting Customers"
+    support="Advertising, lead response, sales follow-up, and reporting are often built and managed as disconnected pieces. AI Growth Systems connects them into a single, coordinated customer-acquisition and conversion system — powered by the same AI Department model as everything else we do."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What's Included"
+        heading="Growth Is a System, Not a Collection of Vendors"
+        support="Individual services may also be sold independently, but AI Growth Systems positions these capabilities as one connected customer-acquisition and conversion system."
+      />
+      <div class="growth-caps-wrap">
+        <CapabilityGrid items={systemComponents} columns={4} tone="light" />
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="white" class="growth-flow-section">
+    <Container wide>
+      <SectionHeading
+        eyebrow="How It Connects"
+        heading="One Path From Traffic to Revenue"
+        support="This is the system AI Growth Systems builds and manages — not eight separate vendors, but one connected path a prospect moves through."
+      />
+      <div class="growth-flow-wrap">
+        <FlowChain steps={connectedFlow} tone="accent" direction="horizontal" />
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Why It's Different"
+        heading="Growth Is Part of the AI Department Model"
+        support="A company may have strong AI tools but weak customer acquisition — or strong advertising with no system to follow up quickly. For some companies, improving the growth system creates more immediate value than a complex AI implementation project."
+        tone="dark"
+      />
+      <ul class="growth-list">
+        <li><strong>Speed to lead.</strong> A lead that waits too long for a response is a lead a competitor may win first.</li>
+        <li><strong>Attribution.</strong> If you cannot see which channel produced a paying customer, you cannot confidently invest more in it.</li>
+        <li><strong>Reactivation.</strong> Most businesses already own a database of past leads and customers that isn't being consistently followed up with.</li>
+        <li><strong>Automation, not just ads.</strong> Better creative and targeting matter less if the lead is never contacted quickly after it arrives — see how <a href="/ai-implementation/">AI Implementation</a> connects to lead response.</li>
+      </ul>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="target"
+    heading="Find Out Where Your Growth System Is Leaking Value"
+    support="Take the free AI Department Assessment to see how your marketing, sales, and follow-up compare — and where the highest-value opportunities are."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .growth-list {
+    max-width: 720px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    list-style: none;
+    padding: 0;
+  }
+
+  .growth-list li {
+    color: var(--color-dark-muted-text);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    padding-left: 20px;
+    border-left: 2px solid var(--color-border-dark);
+  }
+
+  .growth-list strong {
+    color: var(--color-pure-white);
+  }
+
+  .growth-list a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  /* Mobile-only density tightening, scoped to this page's capability grid
+     instance only — the shared CapabilityGrid component itself is
+     untouched, so its other 17 users are unaffected. */
+  @media (max-width: 767px) {
+    .growth-caps-wrap :global(.cap-grid) {
+      gap: 10px;
+    }
+
+    .growth-caps-wrap :global(.cap-card) {
+      padding: 17px 16px;
+    }
+
+    :global(.growth-flow-section) {
+      padding-block: 32px !important;
+    }
+  }
+</style>

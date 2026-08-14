@@ -1,0 +1,269 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import Icon from '../../components/Icon.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const primaryCta = { label: 'Request a Meta Ads Audit', href: '/contact/' };
+
+const attentionSteps = [
+  { text: 'Impressions', icon: 'eye' },
+  { text: 'Clicks', icon: 'mouse-pointer-click' },
+  { text: 'Form Submissions', icon: 'file-text' },
+  { text: 'Low-Cost Leads', icon: 'tag' },
+];
+const conversionSteps = [
+  { text: 'Qualified Lead', icon: 'check-circle-2' },
+  { text: 'Contacted Immediately', icon: 'zap' },
+  { text: 'Appointment Scheduled', icon: 'calendar' },
+  { text: 'Customer', icon: 'handshake' },
+  { text: 'Revenue Attributed', icon: 'bar-chart-3' },
+];
+
+const capabilities = [
+  { icon: 'search', title: 'Meta Ads Audit', description: 'A detailed review of campaign structure, creative, targeting, tracking, and lead quality.' },
+  { icon: 'rocket', title: 'Setup & Creative Testing', description: 'Campaign architecture, offer development, and ongoing creative testing to find what converts.' },
+  { icon: 'layout-grid', title: 'Landing Pages', description: 'Conversion-focused pages built around specific offers and campaigns.' },
+  { icon: 'zap', title: 'Speed to Lead', description: 'AI-assisted lead qualification and immediate follow-up so leads don\'t go cold.' },
+  { icon: 'repeat', title: 'Retargeting & Reactivation', description: 'Stay in front of warm audiences and re-engage past leads and customers already in your database.' },
+  { icon: 'bar-chart-3', title: 'Tracking & Attribution', description: 'Connect advertising data to actual revenue, not just clicks and leads.' },
+];
+
+const faqs = [
+  { question: 'Do you work with existing Meta Ads accounts?', answer: 'Yes. We can audit, restructure, optimize, or manage an existing account.' },
+  { question: 'Do you handle both Facebook and Instagram?', answer: 'Yes, Meta Ads campaigns typically run across both placements as appropriate for the business.' },
+  { question: 'Do you guarantee results?', answer: 'No. Advertising performance depends on many factors including offer quality, creative, market demand, and sales follow-up. We focus on measurable improvement and transparent reporting.' },
+  { question: 'Can you connect Meta Ads to our CRM?', answer: 'In many cases, yes, depending on your CRM and technical environment.' },
+  { question: 'Should we run Meta Ads or Google Ads?', answer: 'It depends on your business and buyer behavior. Many businesses benefit from both, coordinated as part of one AI Growth System.' },
+];
+---
+
+<BaseLayout
+  title="Meta and Facebook Ads Management | Your AI Department"
+  description="Turn Meta advertising into a complete customer acquisition system with better creative, tracking, landing pages, and automated lead follow-up."
+  path="/meta-ads/"
+>
+  <InteriorHero
+    eyebrow="Meta & Facebook Ads"
+    headline="Turn Meta Advertising Into a Complete Customer Acquisition System"
+    support="Your AI Department helps businesses build and scale Facebook and Instagram advertising with better creative, stronger offers, conversion-focused landing pages, accurate tracking, automated lead follow-up, and measurable sales attribution. We don't stop at generating leads — we help build the system that turns those leads into customers."
+    primaryCta={primaryCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Can Help With"
+        heading="From Creative to Customer"
+        support="Generating a lead is only the beginning. The value is in what happens next."
+      />
+      <CapabilityGrid items={capabilities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="The Real Distinction"
+        heading="Attention Is Not the Same as a Customer"
+        support="A campaign can look successful by generating cheap impressions and clicks while producing no profitable customers. The system has to carry attention all the way to revenue."
+      />
+      <div class="ac-panels">
+        <div class="ac-panel ac-panel-muted">
+          <span class="ac-panel-tag">Generating Attention</span>
+          <div class="ac-panel-steps">
+            {attentionSteps.map((step) => (
+              <div class="ac-step">
+                <span class="ac-step-icon"><Icon name={step.icon} size={16} /></span>
+                <span>{step.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <span class="ac-vs" aria-hidden="true">vs</span>
+        <div class="ac-panel ac-panel-accent">
+          <span class="ac-panel-tag ac-panel-tag-accent">Converting to Revenue</span>
+          <div class="ac-panel-steps">
+            {conversionSteps.map((step) => (
+              <div class="ac-step ac-step-accent">
+                <span class="ac-step-icon ac-step-icon-accent"><Icon name={step.icon} size={16} /></span>
+                <span>{step.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div class="mid-cta">
+        <a href={primaryCta.href} class="mid-cta-link">Request a Meta Ads Audit &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Meta + Google"
+        heading="Often, the Answer Is Both — Coordinated"
+        support="Meta Ads and Google Ads solve different problems: intent-based search versus interruption-based discovery. Many businesses benefit from running both as part of one coordinated AI Growth System, rather than treating them as competing budgets."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Is Meta Ads Management Right for You?"
+        support="This service may be appropriate for businesses that already run Meta Ads, want to start, generate leads that go cold before sales follow-up happens, or cannot connect ad spend to actual revenue."
+      />
+      <div class="pricing-note">
+        <p><strong>Pricing:</strong> Depends on monthly advertising spend, number of campaigns, number of locations, creative requirements, and CRM/automation requirements. Custom pricing.</p>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="megaphone"
+    heading="Request a Meta Ads Audit"
+    support="We'll review your campaigns, creative, tracking, and follow-up — and tell you honestly what we find."
+    primaryCta={primaryCta}
+    microcopy="Not sure if Meta Ads is your biggest opportunity? Take the free AI Department Assessment instead."
+  />
+</BaseLayout>
+
+<style>
+  .pricing-note {
+    max-width: 640px;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .pricing-note p {
+    font-size: 0.9rem;
+    color: var(--color-slate-gray);
+    line-height: 1.6;
+  }
+
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+
+  .ac-panels {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    align-items: center;
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+
+  .ac-panel {
+    border-radius: var(--radius-panel);
+    padding: 22px 20px;
+  }
+
+  .ac-panel-muted {
+    background-color: var(--color-cloud-white);
+    border: 1px dashed var(--color-border-light);
+  }
+
+  .ac-panel-accent {
+    background-color: rgba(37, 99, 235, 0.04);
+    border: 2px solid var(--color-electric-blue);
+    box-shadow: 0 8px 24px -12px rgba(37, 99, 235, 0.25);
+  }
+
+  .ac-panel-tag {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-slate-gray);
+    margin-bottom: 14px;
+  }
+
+  .ac-panel-tag-accent {
+    color: var(--color-electric-blue);
+  }
+
+  .ac-panel-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ac-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-slate-gray);
+  }
+
+  .ac-step-accent {
+    font-weight: 700;
+    color: var(--color-near-black);
+    border-color: rgba(37, 99, 235, 0.25);
+  }
+
+  .ac-step-icon {
+    display: inline-flex;
+    color: var(--color-slate-gray);
+    flex-shrink: 0;
+  }
+
+  .ac-step-icon-accent {
+    color: var(--color-electric-blue);
+  }
+
+  .ac-vs {
+    display: none;
+    text-align: center;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    text-transform: uppercase;
+  }
+
+  @media (min-width: 860px) {
+    .ac-panels {
+      grid-template-columns: 1fr auto 1fr;
+      gap: 24px;
+    }
+
+    .ac-vs {
+      display: block;
+    }
+  }
+</style>

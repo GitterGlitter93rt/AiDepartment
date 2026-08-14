@@ -1,0 +1,130 @@
+---
+import Container from '../Container.astro';
+import Button from '../Button.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  icon?: string;
+  heading: string;
+  support: string;
+  primaryCta: { label: string; href: string };
+  microcopy?: string;
+}
+
+const { icon = 'clipboard-check', heading, support, primaryCta, microcopy } = Astro.props;
+---
+
+<section class="cta-band">
+  <div class="cta-band-bg" aria-hidden="true"></div>
+  <Container wide class="cta-band-inner">
+    <div class="cta-band-copy">
+      <span class="cta-band-icon"><Icon name={icon} size={24} /></span>
+      <div>
+        <h2>{heading}</h2>
+        <p>{support}</p>
+      </div>
+    </div>
+    <div class="cta-band-actions">
+      <Button href={primaryCta.href} variant="primary" size="large">{primaryCta.label}</Button>
+      {microcopy && <p class="cta-band-microcopy">{microcopy}</p>}
+    </div>
+  </Container>
+</section>
+
+<style>
+  .cta-band {
+    position: relative;
+    background-color: var(--color-dark-secondary-bg);
+    padding-block: 48px;
+    overflow: hidden;
+    border-top: 1px solid var(--color-border-dark);
+    border-bottom: 1px solid var(--color-border-dark);
+  }
+
+  .cta-band-bg {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 75% 20%, rgba(34, 211, 238, 0.12), transparent 55%);
+    pointer-events: none;
+  }
+
+  /* At narrow widths, content stacks into a single tall column that spans
+     the full section width — that's true anywhere below this component's
+     own row-layout breakpoint (960px), not just on phones. The decorative
+     glow above was tuned for the wider, two-column desktop layout, where
+     it sits safely to the side of the copy block. Below 960px it can end
+     up positioned behind the headline/support text instead, hurting
+     contrast. Mobile and tablet readability matter more than preserving
+     this flourish everywhere, so it's disabled below the same breakpoint
+     where the layout actually becomes row-based — everything else
+     (background, icon, headline, copy, button, microcopy) is untouched. */
+  @media (max-width: 959px) {
+    .cta-band-bg {
+      display: none;
+    }
+  }
+
+  :global(.cta-band-inner) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .cta-band-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    color: var(--color-pure-white);
+  }
+
+  .cta-band-icon {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(37, 99, 235, 0.16);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    color: var(--color-signal-cyan);
+  }
+
+  .cta-band-copy h2 {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+  }
+
+  .cta-band-copy p {
+    color: var(--color-dark-muted-text);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    max-width: 520px;
+  }
+
+  .cta-band-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cta-band-microcopy {
+    font-size: 0.8rem;
+    color: var(--color-slate-gray);
+  }
+
+  @media (min-width: 960px) {
+    :global(.cta-band-inner) {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+
+    .cta-band-actions {
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+  }
+</style>

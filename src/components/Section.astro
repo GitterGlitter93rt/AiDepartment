@@ -1,0 +1,53 @@
+---
+interface Props {
+  tone?: 'dark' | 'dark-secondary' | 'light' | 'white';
+  id?: string;
+  class?: string;
+  as?: 'section' | 'div';
+}
+
+const { tone = 'light', id, class: className = '', as = 'section' }: Props = Astro.props;
+const Tag = as;
+---
+
+<Tag id={id} class:list={['section', tone, className]}>
+  <slot />
+</Tag>
+
+<style>
+  .section {
+    padding-block: var(--section-padding-mobile);
+  }
+
+  @media (min-width: 768px) {
+    .section {
+      padding-block: var(--section-padding-tablet);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .section {
+      padding-block: var(--section-padding-desktop);
+    }
+  }
+
+  .section.dark {
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+  }
+
+  .section.dark-secondary {
+    background-color: var(--color-dark-secondary-bg);
+    color: var(--color-pure-white);
+  }
+
+  .section.light {
+    background-color: var(--color-cloud-white);
+    color: var(--color-near-black);
+  }
+
+  .section.white {
+    background-color: var(--color-pure-white);
+    color: var(--color-near-black);
+  }
+</style>

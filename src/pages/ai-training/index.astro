@@ -1,0 +1,96 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import FlowChain from '../../components/interior/FlowChain.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const primaryCta = { label: 'Schedule AI Training', href: '/contact/' };
+
+const adoptionProgression = ['Understanding', 'Safe Usage', 'Role-Specific Application', 'Workflow Adoption', 'Measurement / Improvement'];
+
+const trainingAreas = [
+  { icon: 'users', title: 'Employee AI Training', description: 'Practical, day-to-day AI use built around real workflows.' },
+  { icon: 'handshake', title: 'Sales Training', description: 'Prospect research, follow-up drafting, meeting summaries, and proposal outlines.' },
+  { icon: 'megaphone', title: 'Marketing Training', description: 'Content briefs, ad concepts, customer research, and campaign analysis.' },
+  { icon: 'headset', title: 'Customer Service Training', description: 'Response drafting, escalation summaries, and FAQ creation.' },
+  { icon: 'settings-2', title: 'Operations Training', description: 'SOP drafting, process analysis, meeting summaries, and report creation.' },
+  { icon: 'compass', title: 'Executive AI Training', description: 'Strategic analysis, decision preparation, and scenario planning for leadership.' },
+];
+
+const policyAreas = [
+  { icon: 'shield-check', title: 'AI Verification', description: 'Teaching employees to verify AI output rather than accept it blindly.' },
+  { icon: 'lock', title: 'Privacy & Security', description: 'What information should and should not be shared with AI tools.' },
+  { icon: 'file-text', title: 'AI Usage Policy', description: 'Documented guidance on approved tools, sensitive data, and human review requirements.' },
+];
+---
+
+<BaseLayout
+  title="AI Training for Businesses | Your AI Department"
+  description="Help your team use AI safely, practically, and productively with role-specific training built around real business workflows."
+  path="/ai-training/"
+>
+  <InteriorHero
+    eyebrow="AI Training"
+    headline="Help Your Team Use AI Safely, Practically, and Productively"
+    support="Your AI Department helps companies train employees and leadership teams to use AI in real business workflows. Training is designed around the work your employees actually do — not generic AI literacy."
+    primaryCta={primaryCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Training By Function"
+        heading="Role-Specific, Not Generic"
+        support="Training is most effective when it's built around what a specific role actually does each day."
+      />
+      <CapabilityGrid items={trainingAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="How Adoption Actually Happens"
+        heading="From Understanding to Measurable Change"
+        support="Training is not a single event — it's a progression that ends in changed behavior and measured results."
+      />
+      <FlowChain steps={adoptionProgression} tone="accent" direction="horizontal" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Governance"
+        heading="Safe Use Matters as Much as Productive Use"
+        support="Employees using AI without guidance can expose sensitive information or make decisions based on unverified output. We help build the guardrails alongside the skills."
+        tone="dark"
+      />
+      <CapabilityGrid items={policyAreas} columns={3} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Format"
+        heading="Delivered However Your Team Learns Best"
+        support="Training may be delivered as executive sessions, department workshops, company-wide training, virtual or on-site sessions, small-group training, one-on-one coaching, or recurring office hours. Engagement types range from a single Executive AI Session to a full Train-the-Trainer Program."
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="graduation-cap"
+    heading="Schedule AI Training for Your Team"
+    support="Tell us about your team and what you want them to be able to do — we'll recommend the right format."
+    primaryCta={primaryCta}
+    microcopy="Not sure where to start? Take the free AI Department Assessment instead."
+  />
+</BaseLayout>

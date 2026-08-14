@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import ProcessSteps from '../../components/interior/ProcessSteps.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const primaryCta = { label: 'Book an AI Workshop', href: '/contact/' };
+
+const workshopFlow = [
+  { icon: 'clipboard-list', title: 'Pre-Workshop Discovery', description: 'We collect company information, workflows, and goals to make the session specific to your business.' },
+  { icon: 'users', title: 'Executive Discussion', description: 'Workflow review and open discussion with leadership and the room.' },
+  { icon: 'lightbulb', title: 'Live Demonstrations', description: 'Use-case identification through hands-on demonstration, not slides.' },
+  { icon: 'list-checks', title: 'Opportunity Prioritization', description: 'Rank identified opportunities by value and feasibility.' },
+  { icon: 'map', title: 'Next-Step Roadmap', description: 'Leave with a clear, prioritized set of next steps.' },
+];
+
+const workshopTypes = [
+  { icon: 'compass', title: 'Executive AI Workshop', description: 'For leadership teams evaluating where AI fits into company strategy.' },
+  { icon: 'users', title: 'Department AI Workshop', description: 'Focused on one department\'s specific workflows and opportunities.' },
+  { icon: 'handshake', title: 'Sales AI Workshop', description: 'Practical AI use for prospecting, follow-up, and pipeline management.' },
+  { icon: 'megaphone', title: 'Marketing AI Workshop', description: 'Content, campaigns, and customer research use cases.' },
+  { icon: 'settings-2', title: 'Operations AI Workshop', description: 'Process documentation, analysis, and workflow automation opportunities.' },
+  { icon: 'receipt', title: 'Finance & Admin AI Workshop', description: 'Reporting, document processing, and administrative use cases.' },
+];
+
+const faqs = [
+  { question: 'How long is an AI workshop?', answer: 'Workshop length depends on scope and audience — from a focused executive session to a full-day department workshop.' },
+  { question: 'What\'s the difference between a workshop and training?', answer: 'A workshop is typically a focused, single session for opportunity discovery and initial skill-building. Training is a broader, often recurring engagement for building deeper capability over time.' },
+  { question: 'What\'s the difference between a workshop and Executive AI Strategy?', answer: 'A workshop is a session; Executive AI Strategy is a structured engagement that produces a documented roadmap. A workshop can be a useful entry point before a full strategy engagement.' },
+  { question: 'Can workshops be customized to our business?', answer: 'Yes. Workshops are built around your business, industry, and the specific teams attending.' },
+];
+---
+
+<BaseLayout
+  title="AI Workshops for Business Teams | Your AI Department"
+  description="Practical AI workshops built around your business for executives, departments, and teams that want to identify opportunities and build real capability."
+  path="/ai-workshops/"
+>
+  <InteriorHero
+    eyebrow="AI Workshops"
+    headline="Practical AI Workshops Built Around Your Business"
+    support="Your AI Department delivers focused AI workshops for executives, departments, and teams that want to understand where AI can improve productivity, automate work, support growth, and create measurable business value."
+    primaryCta={primaryCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Workshop Types"
+        heading="Built Around Who's in the Room"
+        support="Each workshop is focused on the specific audience and their actual work."
+      />
+      <CapabilityGrid items={workshopTypes} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Workshop Flow"
+        heading="A Focused Working Session, Not a Presentation"
+        support="The workshop is built around your business — not a generic slide deck about artificial intelligence."
+      />
+      <div class="dark-process-wrap">
+        <ProcessSteps steps={workshopFlow} />
+      </div>
+      <div class="mid-cta">
+        <a href={primaryCta.href} class="mid-cta-link">Book an AI Workshop &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="What You Leave With"
+        heading="Not Just a Conversation About AI"
+        support="A workshop is designed to produce concrete next steps — identified opportunities, initial skills, and clarity on what's worth pursuing further, whether that's a workshop follow-up, training, or a full strategy engagement."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="lightbulb"
+    heading="Book an AI Workshop for Your Team"
+    support="Tell us who's attending and what you want to walk away with — we'll build the workshop around it."
+    primaryCta={primaryCta}
+    microcopy="Not sure where to start? Take the free AI Department Assessment instead."
+  />
+</BaseLayout>
+
+<style>
+  .dark-process-wrap {
+    background-color: var(--color-midnight-navy);
+    border-radius: var(--radius-panel);
+    padding: 40px 24px;
+  }
+
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

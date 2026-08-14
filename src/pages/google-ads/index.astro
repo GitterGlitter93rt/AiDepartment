@@ -1,0 +1,143 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+const primaryCta = { label: 'Request a Google Ads Audit', href: '/contact/' };
+
+const acquisitionGroups = [
+  { label: 'Acquisition', steps: [{ text: 'Search Intent', icon: 'search' }, { text: 'Ad', icon: 'megaphone' }] },
+  { label: 'Conversion', steps: [{ text: 'Landing Page', icon: 'layout-grid' }, { text: 'Lead Capture', icon: 'inbox' }] },
+  { label: 'Operations', steps: [{ text: 'CRM', icon: 'database' }, { text: 'Immediate Response', icon: 'zap' }] },
+  { label: 'Business Outcome', steps: [{ text: 'Sales Outcome', icon: 'handshake' }, { text: 'Revenue Attribution', icon: 'bar-chart-3' }] },
+];
+
+const capabilities = [
+  { icon: 'search', title: 'Google Ads Audit', description: 'A detailed review of account structure, keywords, ad copy, conversion tracking, landing pages, and lead quality.' },
+  { icon: 'rocket', title: 'Campaign Setup', description: 'Campaign architecture, keyword research, conversion setup, call tracking, and CRM integration for new accounts.' },
+  { icon: 'settings-2', title: 'Ongoing Management', description: 'Optimization, search-term review, bid management, ad testing, and performance reporting.' },
+  { icon: 'bar-chart-3', title: 'Conversion Tracking', description: 'Connect advertising data to actual business outcomes — which campaigns produce paying customers.' },
+  { icon: 'layout-grid', title: 'Landing Page Optimization', description: 'Evaluate and improve the pages your ad traffic actually lands on, not just the campaigns themselves.' },
+  { icon: 'zap', title: 'Lead Response', description: 'Immediate SMS and email response, CRM assignment, and follow-up automation for every lead generated.' },
+];
+
+const faqs = [
+  { question: 'Do you work with existing Google Ads accounts?', answer: 'Yes. We can audit, restructure, optimize, or manage an existing account.' },
+  { question: 'Can you set up Google Ads from scratch?', answer: 'Yes. We can help build the campaign structure, tracking, landing-page strategy, and lead-handling systems.' },
+  { question: 'Do you guarantee results?', answer: 'No. Advertising performance depends on many factors including market demand, competition, offer quality, pricing, sales performance, website conversion, and budget. We focus on measurable improvement and transparent reporting.' },
+  { question: 'Can you track phone calls?', answer: 'Yes. When appropriate, call tracking can help identify which campaigns and keywords generate phone leads.' },
+  { question: 'Can you connect Google Ads to our CRM?', answer: 'In many cases, yes. The exact setup depends on your CRM and technical environment.' },
+  { question: 'Do you build landing pages?', answer: 'Yes. We can build or coordinate landing pages designed around specific campaigns and offers.' },
+];
+---
+
+<BaseLayout
+  title="Google Ads Management for Growth-Focused Businesses | Your AI Department"
+  description="Turn Google Ads into a measurable revenue system with better tracking, stronger landing pages, faster lead response, and clear visibility into which ad spend produces customers."
+  path="/google-ads/"
+>
+  <InteriorHero
+    eyebrow="Google Ads Management"
+    headline="Turn Google Ads Into a Measurable Revenue System"
+    support="Your AI Department helps businesses build, repair, and scale Google Ads campaigns with better tracking, stronger landing pages, faster lead response, and clearer visibility into which advertising dollars actually produce customers."
+    primaryCta={primaryCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Can Help With"
+        heading="From Account Audit to Ongoing Management"
+        support="One of the biggest problems in paid advertising is incomplete attribution — knowing you generated 100 leads is not the same as knowing which campaign, which kept them, and how much revenue they produced."
+      />
+      <CapabilityGrid items={capabilities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="The Full Path"
+        heading="Google Ads Is One Step in a Revenue System"
+        support="We evaluate the entire journey from search to sale as connected stages — not just the advertising account in isolation."
+      />
+      <GroupedFlow groups={acquisitionGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={primaryCta.href} class="mid-cta-link">Request a Google Ads Audit &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Our Difference"
+        heading="We Don't Stop at the Advertising Platform"
+        support="Traditional PPC agencies often stop at the advertising platform. Your AI Department can evaluate advertising, landing pages, CRM, lead response, AI automation, sales follow-up, call handling, reporting, and revenue attribution — because problems that affect ad performance often exist outside the ad account itself."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Is Google Ads Management Right for You?"
+        support="This service may be appropriate for businesses that already spend on Google Ads, want to start paid search, have poor tracking or high cost per lead, cannot connect advertising to revenue, have slow lead response, or want stronger CRM integration."
+      />
+      <div class="pricing-note">
+        <p><strong>Pricing:</strong> Based on advertising spend, number of campaigns, number of locations, market complexity, tracking requirements, and CRM/automation requirements. Custom pricing — no fixed rate is published.</p>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="search"
+    heading="Request a Google Ads Audit"
+    support="We'll review your account structure, tracking, and lead quality — and tell you honestly what we find."
+    primaryCta={primaryCta}
+    microcopy="Not sure if Google Ads is your biggest opportunity? Take the free AI Department Assessment instead."
+  />
+</BaseLayout>
+
+<style>
+  .pricing-note {
+    max-width: 640px;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .pricing-note p {
+    font-size: 0.9rem;
+    color: var(--color-slate-gray);
+    line-height: 1.6;
+  }
+
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

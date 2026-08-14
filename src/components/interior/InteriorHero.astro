@@ -1,0 +1,115 @@
+---
+import Container from '../Container.astro';
+import Button from '../Button.astro';
+
+interface Props {
+  eyebrow: string;
+  headline: string;
+  support: string;
+  primaryCta: { label: string; href: string };
+  secondaryCta?: { label: string; href: string };
+  supportCopy?: string;
+}
+
+const { eyebrow, headline, support, primaryCta, secondaryCta, supportCopy } = Astro.props;
+---
+
+<section class="i-hero">
+  <div class="i-hero-bg" aria-hidden="true">
+    <svg class="i-hero-grid" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <pattern id="i-hero-dot-grid" width="4" height="4" patternUnits="userSpaceOnUse">
+          <circle cx="0.5" cy="0.5" r="0.35" fill="rgba(148,163,184,0.3)" />
+        </pattern>
+      </defs>
+      <rect width="100" height="100" fill="url(#i-hero-dot-grid)" />
+    </svg>
+  </div>
+  <Container wide class="i-hero-inner">
+    <span class="eyebrow i-hero-eyebrow">{eyebrow}</span>
+    <h1 class="i-hero-headline">{headline}</h1>
+    <p class="i-hero-support">{support}</p>
+    <div class="i-hero-ctas">
+      <Button href={primaryCta.href} variant="primary" size="large">{primaryCta.label}</Button>
+      {secondaryCta && <Button href={secondaryCta.href} variant="secondary-dark" size="large">{secondaryCta.label}</Button>}
+    </div>
+    {supportCopy && <p class="i-hero-support-copy">{supportCopy}</p>}
+  </Container>
+</section>
+
+<style>
+  .i-hero {
+    position: relative;
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+    padding-block: 56px 48px;
+    overflow: hidden;
+  }
+
+  .i-hero-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.26), transparent 48%),
+      radial-gradient(circle at 85% 8%, rgba(34, 211, 238, 0.16), transparent 42%);
+    pointer-events: none;
+  }
+
+  .i-hero-grid {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.45;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 70%);
+  }
+
+  :global(.i-hero-inner) {
+    position: relative;
+    max-width: 760px;
+  }
+
+  .i-hero-eyebrow {
+    display: inline-block;
+    color: var(--color-signal-cyan);
+    background-color: rgba(34, 211, 238, 0.12);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    padding: 7px 15px;
+    border-radius: var(--radius-pill);
+    margin-bottom: 18px;
+  }
+
+  .i-hero-headline {
+    font-size: var(--fs-h1);
+    line-height: 1.12;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin-bottom: 18px;
+  }
+
+  .i-hero-support {
+    font-size: 1rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.6;
+    max-width: 640px;
+    margin-bottom: 28px;
+  }
+
+  .i-hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .i-hero-support-copy {
+    font-size: 0.82rem;
+    color: var(--color-slate-gray);
+  }
+
+  @media (min-width: 768px) {
+    .i-hero {
+      padding-block: 76px 64px;
+    }
+  }
+</style>

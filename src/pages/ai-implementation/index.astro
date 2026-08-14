@@ -1,0 +1,234 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import ProcessSteps from '../../components/interior/ProcessSteps.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import FlowChain from '../../components/interior/FlowChain.astro';
+import { PRIMARY_CTA, IMPLEMENTATION_CTA } from '../../lib/site';
+
+const whatWeImplement = [
+  { icon: 'bot', title: 'AI Agents & Phone Systems', description: 'AI receptionists, lead qualification agents, sales assistants, and after-hours coverage.' },
+  { icon: 'workflow', title: 'Workflow Automation', description: 'CRM automation, marketing automation, and customer service automation.' },
+  { icon: 'link-2', title: 'Software Integration', description: 'API integrations connecting CRM, accounting, phone, email, and operational systems.' },
+  { icon: 'brain', title: 'Internal AI Assistants', description: 'Employee copilots built around approved company knowledge, SOPs, and policies.' },
+  { icon: 'bar-chart-3', title: 'Reporting & Business Intelligence', description: 'Dashboards and recurring reports that consolidate information from multiple systems.' },
+  { icon: 'file-text', title: 'Document Automation', description: 'Classification, extraction, validation, and routing for repetitive document workflows.' },
+];
+
+const processSteps = [
+  { icon: 'target', title: 'Define', description: 'Clarify the business problem, current workflow, and success metrics.' },
+  { icon: 'pencil-ruler', title: 'Design', description: 'Determine the future workflow, technology, and AI vs. human responsibilities.' },
+  { icon: 'hammer', title: 'Build', description: 'Configure or develop automations, integrations, agents, and reporting.' },
+  { icon: 'flask-conical', title: 'Test', description: 'Evaluate accuracy, reliability, edge cases, and user experience.' },
+  { icon: 'rocket', title: 'Deploy', description: 'Move the solution into the live business environment, staged as needed.' },
+  { icon: 'graduation-cap', title: 'Train', description: 'Provide documentation, SOPs, and usage guidance to the team.' },
+  { icon: 'activity', title: 'Measure', description: 'Track time saved, adoption, conversion, and other relevant metrics.' },
+  { icon: 'trending-up', title: 'Optimize', description: 'Use actual performance data to continually improve the system.' },
+];
+
+const leadResponseBefore = [
+  'Lead submits website form',
+  'Email notification goes to salesperson',
+  'Salesperson is busy',
+  'Lead waits',
+  'Prospect contacts a competitor',
+];
+
+const leadResponseAfter = [
+  'Lead submits form',
+  'CRM record created automatically',
+  'Immediate SMS + email response',
+  'Salesperson notified, AI qualification begins',
+  'Follow-up sequence + outcome tracked',
+];
+
+const faqs = [
+  { question: 'Can you build custom AI agents?', answer: 'Yes. When a custom agent is the appropriate solution, we can help design and implement it.' },
+  { question: 'Can you integrate AI with our existing software?', answer: 'Often, yes. Integration depends on the software, available APIs, permissions, and technical environment.' },
+  { question: 'Do we need to replace our existing systems?', answer: 'Not necessarily. We prefer to evaluate existing systems before recommending replacement.' },
+  { question: 'Can AI completely replace employees?', answer: 'Some workflows can become highly automated, while others require significant human involvement. We evaluate the actual work rather than making broad assumptions about job replacement.' },
+  { question: 'How long does implementation take?', answer: 'It depends on scope. A focused workflow may be implemented relatively quickly. Complex multi-system projects require more planning, development, testing, and deployment.' },
+  { question: 'Do you guarantee ROI?', answer: 'No. We can estimate potential value and measure results, but business outcomes depend on many factors.' },
+];
+---
+
+<BaseLayout
+  title="AI Implementation Services for Business | Your AI Department"
+  description="Turn AI opportunities into working business systems. Your AI Department designs, builds, integrates, and optimizes AI agents, automation, and custom software."
+  path="/ai-implementation/"
+>
+  <InteriorHero
+    eyebrow="AI Implementation"
+    headline="Turn AI Opportunities Into Working Business Systems"
+    support="Knowing where AI can help is only the beginning. Your AI Department helps businesses design, build, integrate, deploy, and optimize AI and automation systems that solve real operational and revenue problems."
+    primaryCta={IMPLEMENTATION_CTA}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Implement"
+        heading="From AI Agents to Custom Integrations"
+        support="The appropriate solution depends on the business problem — not the other way around."
+      />
+      <CapabilityGrid items={whatWeImplement} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Example"
+        heading="Lead Response, Before and After"
+        support="The value is not the AI itself. The value is improving the business outcome."
+        tone="dark"
+      />
+      <div class="before-after">
+        <div>
+          <p class="ba-label">Before</p>
+          <FlowChain steps={leadResponseBefore} tone="muted" />
+        </div>
+        <div>
+          <p class="ba-label ba-label-accent">After</p>
+          <FlowChain steps={leadResponseAfter} tone="accent-dark" />
+        </div>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Implementation Process"
+        heading="From Definition to Optimization"
+      />
+      <div class="dark-process-wrap">
+        <ProcessSteps steps={processSteps} />
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Is AI Implementation the Right Next Step?"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="Implementation may be a fit if you"
+        fitItems={[
+          'Have identified a valuable AI opportunity',
+          'Have repetitive workflows or disconnected software',
+          'Need faster lead response or want AI agents',
+          'Need CRM automation or internal AI assistants',
+          'Have completed AI strategy work',
+          'Already know the specific problem you want solved',
+        ]}
+        notFitHeading="We may recommend against building when"
+        notFitItems={[
+          'The business case is weak',
+          'The process changes too frequently',
+          'Existing software already solves the problem',
+          'Human judgment dominates the workflow',
+        ]}
+      />
+      <p class="indicative-range">Indicative project range: approximately $5,000–$50,000+ depending on scope. More complex implementations may exceed this range. Final scope and pricing are determined after understanding the business requirements.</p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions About Implementation" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="wrench"
+    heading="Have an AI or Automation Opportunity?"
+    support="Tell us what you want to improve, and we'll help determine the right implementation path."
+    primaryCta={IMPLEMENTATION_CTA}
+    microcopy="Not sure what to implement? Start with the free AI Department Assessment instead."
+  />
+</BaseLayout>
+
+<style>
+  .before-after {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+
+  @media (max-width: 767px) {
+    .before-after {
+      gap: 22px;
+    }
+  }
+
+  .ba-label {
+    text-align: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-slate-gray);
+    margin-bottom: 16px;
+  }
+
+  .ba-label-accent {
+    color: var(--color-signal-cyan);
+  }
+
+  .dark-process-wrap {
+    background-color: var(--color-midnight-navy);
+    border-radius: var(--radius-panel);
+    padding: 40px 24px;
+  }
+
+  /* Mobile-only density tightening, scoped to this page's instance only —
+     the shared ProcessSteps component itself is untouched, so its other
+     users (The AI Department Method, Enterprise) are unaffected. */
+  @media (max-width: 767px) {
+    .dark-process-wrap {
+      padding: 26px 18px;
+    }
+
+    .dark-process-wrap :global(.ps-steps) {
+      gap: 22px 16px;
+    }
+
+    .dark-process-wrap :global(.ps-icon-wrap) {
+      margin-bottom: 10px;
+    }
+
+    .dark-process-wrap :global(.ps-title) {
+      margin-bottom: 4px;
+    }
+  }
+
+  .indicative-range {
+    text-align: center;
+    max-width: 640px;
+    margin: 32px auto 0;
+    font-size: 0.85rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.6;
+  }
+
+  @media (min-width: 768px) {
+    .before-after {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

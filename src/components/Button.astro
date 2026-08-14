@@ -1,0 +1,84 @@
+---
+interface Props {
+  href?: string;
+  variant?: 'primary' | 'secondary-dark' | 'secondary-light';
+  size?: 'default' | 'large';
+  class?: string;
+  type?: 'button' | 'submit';
+}
+
+const {
+  href,
+  variant = 'primary',
+  size = 'default',
+  class: className = '',
+  type = 'button',
+} = Astro.props;
+
+const Tag = href ? 'a' : 'button';
+---
+
+<Tag
+  href={href}
+  type={!href ? type : undefined}
+  class:list={['btn', variant, size, className]}
+>
+  <slot />
+</Tag>
+
+<style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 12px 22px;
+    border-radius: var(--radius-button);
+    border: 1px solid transparent;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .btn.large {
+    padding: 13px 24px;
+    font-size: 0.95rem;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  /* Primary — Electric Blue, works on dark or light */
+  .btn.primary {
+    background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+  }
+
+  .btn.primary:hover {
+    background-color: var(--color-electric-blue-hover);
+  }
+
+  /* Secondary on dark backgrounds — outlined cyan */
+  .btn.secondary-dark {
+    background-color: transparent;
+    border-color: rgba(34, 211, 238, 0.55);
+    color: var(--color-pure-white);
+  }
+
+  .btn.secondary-dark:hover {
+    background-color: rgba(34, 211, 238, 0.08);
+  }
+
+  /* Secondary on light backgrounds — solid dark */
+  .btn.secondary-light {
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+  }
+
+  .btn.secondary-light:hover {
+    background-color: var(--color-deep-slate);
+  }
+</style>

@@ -1,0 +1,137 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const transformationAreas = [
+  { icon: 'file-text', title: 'Claims Operations', description: 'Intake-adjacent administrative support, routing, communication, document collection, adjuster support, and escalation.' },
+  { icon: 'message-square', title: 'Policyholder Service', description: 'Messaging, routine service workflows, information collection, proactive notifications, routing, and human handoff.' },
+  { icon: 'headset', title: 'Contact Center', description: 'Intent classification, summarization, queue routing, employee assistance, workflow initiation, and escalation.' },
+  { icon: 'inbox', title: 'Document Workflows', description: 'Classification, extraction, validation, routing, summarization, and human verification.' },
+  { icon: 'brain', title: 'Internal Knowledge', description: 'Approved policy and procedure retrieval, workflow guidance, and employee support.' },
+  { icon: 'users', title: 'Agent / Producer Support', description: 'Research support, communication assistance, summaries, follow-up, and workflow support.' },
+  { icon: 'bar-chart-3', title: 'Operational Analytics', description: 'Workflow visibility, response times, cycle times, workload, queue volume, and service bottlenecks.' },
+  { icon: 'shield-check', title: 'Governance / Human Review', description: 'Professional judgment boundaries, escalation, auditability, sensitive information, and approved AI usage.' },
+];
+
+const workflowGroups = [
+  { label: 'Contact', steps: [{ text: 'Policyholder Contact', icon: 'inbox' }, { text: 'Identity / Context', icon: 'user-check' }, { text: 'Intent Classification', icon: 'search' }] },
+  { label: 'Workflow', steps: [{ text: 'Relevant Claim or Service Workflow', icon: 'workflow' }, { text: 'Routine / Approved Request?', icon: 'list-checks' }, { text: 'AI-Assisted Response or Workflow', icon: 'zap' }] },
+  { label: 'Resolution', steps: [{ text: 'Human Escalation Where Required', icon: 'users' }, { text: 'Follow-Up / Document Collection', icon: 'file-text' }, { text: 'Core System Updated', icon: 'database' }, { text: 'Outcome Tracked', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Does Your AI Department implement a specific insurance platform?', answer: 'Sometimes the correct solution involves an existing specialized platform, sometimes it requires integrations between existing systems, and sometimes custom workflow development makes sense. Our job is to solve the business problem rather than force a specific technology.' },
+  { question: 'Can AI replace adjusters or underwriters?', answer: 'No. Insurance is a regulated, high-consequence environment. AI-assisted workflows should explicitly define human ownership, escalation thresholds, and professional judgment boundaries — not replace licensed professionals.' },
+  { question: 'Do you have insurance carrier clients or results to share?', answer: 'We do not publish client names, carrier relationships, or performance results. Our positioning is based on how insurance operations typically work and where AI-assisted workflows may create value — not case studies.' },
+  { question: 'Can you help with claims, service, and marketing all together?', answer: 'Yes, where it makes sense. Many insurance organizations benefit from connecting claims-adjacent workflows, policyholder communication, and growth systems under one coordinated approach.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting & Automation for Insurance Companies"
+  description="Practical AI and automation for insurance claims-adjacent workflows, policyholder communication, contact center operations, and document processing — with human review and governance built in."
+  path="/industries/insurance/"
+>
+  <InteriorHero
+    eyebrow="Insurance"
+    headline="AI-Assisted Workflows for Insurance Operations"
+    support="Insurance organizations manage high volumes of communication, documentation, claims-adjacent administrative work, and service requests across multiple systems. Your AI Department helps identify where AI, automation, and integration may reduce administrative burden and improve service — while keeping licensed professionals and human judgment in control of the decisions that require them."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Transformation Areas"
+        heading="Where Operational Opportunity Typically Exists"
+        support="For carriers, P&C organizations, claims and service leaders, and technology leaders evaluating where AI-assisted workflows fit."
+      />
+      <CapabilityGrid items={transformationAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Conceptual Example"
+        heading="A Typical Policyholder Communication Workflow"
+        support="This is a conceptual transformation pattern, not a promise that every insurer should implement the same architecture."
+        tone="dark"
+      />
+      <GroupedFlow groups={workflowGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Our Approach"
+        heading="We Solve the Business Problem, Not Sell a Specific Technology"
+        support="Sometimes the correct solution involves an existing specialized platform built for insurance workflows. Sometimes it requires integrating systems you already have. Sometimes custom workflow development makes sense. We remain technology-agnostic and evaluate the business problem first."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Review and Governance"
+        heading="Professional Judgment Stays With Licensed Professionals"
+        support="AI-assisted workflows should explicitly define human ownership, escalation thresholds, approved data usage, sensitive information handling, validation requirements, and auditability. We do not imply that AI replaces adjusters, underwriters, licensed professionals, or legal review."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/enterprise/">Enterprise</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Insurance Operations"
+    support="Take the free AI Department Assessment to see opportunities across service, communication, and administrative workflows."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,202 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
+
+const principles = [
+  { icon: 'gem', title: 'Business Value First', description: 'AI should create measurable or clearly identifiable business value.' },
+  { icon: 'circle-check', title: 'Practical Over Impressive', description: 'The best solution may be a simple automation rather than an elaborate AI agent.' },
+  { icon: 'eye', title: 'Honest Diagnosis', description: 'Not every company needs a massive transformation project. Sometimes the right recommendation is to fix the process first, or do nothing yet.' },
+  { icon: 'user-check', title: 'Human Judgment Still Matters', description: 'AI should support appropriate professionals rather than automatically replace judgment.' },
+  { icon: 'hammer', title: 'Implementation Matters', description: 'A strategy document is not enough. We help move from opportunity to implementation to measurement to optimization.' },
+  { icon: 'refresh-cw', title: 'AI Is Continuous', description: 'The best approach today may not be the best approach next year. Businesses need a system for continuously evaluating new opportunities.' },
+];
+
+const helpAreas = [
+  { icon: 'target', title: 'AI Strategy', description: 'Opportunity discovery, executive analysis, AI roadmaps, and vendor evaluation.' },
+  { icon: 'hammer', title: 'AI Implementation', description: 'AI agents, workflow automation, internal assistants, CRM automation, and integrations.' },
+  { icon: 'trending-up', title: 'AI Growth Systems', description: 'Google Ads, Meta Ads, SEO, landing pages, CRM, lead follow-up, and revenue attribution.' },
+  { icon: 'graduation-cap', title: 'AI Training', description: 'Employee training, executive training, department workshops, and AI usage policies.' },
+  { icon: 'users-round', title: 'Managed AI Department', description: 'Ongoing strategy, opportunity discovery, implementation oversight, training, and governance.' },
+];
+
+const faqs = [
+  { question: 'Are you an AI software company?', answer: 'No. We help businesses determine which technologies and systems make sense, and we can help coordinate or implement solutions.' },
+  { question: 'Are you a marketing agency?', answer: 'Marketing is one capability within Your AI Department, but the company is broader than a traditional marketing agency.' },
+  { question: 'Do you build custom AI systems?', answer: 'Yes, when custom development is justified by the use case and business economics.' },
+  { question: 'Can you work with our existing vendors?', answer: 'Yes. We can work with internal teams and outside specialists.' },
+  { question: 'Do you only work with companies that already use AI?', answer: 'No. Many companies may begin with little or no formal AI adoption.' },
+  { question: 'Do you replace employees with AI?', answer: 'Our primary objective is to improve business performance. AI may increase employee productivity, reduce repetitive work, or change certain workflows. Workforce decisions remain the responsibility of company leadership.' },
+];
+---
+
+<BaseLayout
+  title="About Your AI Department | Practical AI for Business"
+  description="Learn how Your AI Department helps businesses identify and implement practical AI, automation, marketing, productivity, and growth opportunities."
+  path="/about/"
+>
+  <InteriorHero
+    eyebrow="About Us"
+    headline="Practical AI for Real Business Problems"
+    support="Your AI Department helps businesses identify, prioritize, implement, and manage practical opportunities involving AI, automation, better systems, employee productivity, marketing, sales, customer service, and operations. We focus on one question: where can technology create meaningful business value?"
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why We Exist"
+        heading="The Challenge Is No Longer Access to AI"
+        support="Businesses are being flooded with AI tools, vendors, software, agents, and promises. The challenge is knowing what matters, what should be implemented, what should remain human, and which projects will actually create value. Your AI Department exists to help leadership make those decisions more intelligently."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Our Position"
+        heading="We Are Not Simply a Software Company, Agency, or Vendor"
+        support="We combine strategy, implementation, training, growth, and ongoing advisory support around the business problem. The exact solution may involve AI, automation, better software, better marketing, better processes, employee training, or custom development. The technology should serve the business."
+        tone="dark"
+      />
+      <div class="model-equation" role="img" aria-label="Your AI Department equals Strategy plus Implementation plus Growth plus Training plus Ongoing Leadership">
+        <span class="model-term">Strategy</span>
+        <span class="model-op">+</span>
+        <span class="model-term">Implementation</span>
+        <span class="model-op">+</span>
+        <span class="model-term">Growth</span>
+        <span class="model-op">+</span>
+        <span class="model-term">Training</span>
+        <span class="model-op">+</span>
+        <span class="model-term">Ongoing Leadership</span>
+        <span class="model-op model-equals">=</span>
+        <span class="model-result">Your AI Department</span>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Our Principles"
+        heading="How We Approach Every Engagement"
+      />
+      <CapabilityGrid items={principles} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Help With"
+        heading="Five Areas, One Coordinated Relationship"
+        tone="dark"
+      />
+      <CapabilityGrid items={helpAreas} columns={3} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Fit"
+        heading="Who We Work Best With"
+      />
+      <WhoItsFor
+        fitHeading="We work best with leadership teams that"
+        fitItems={[
+          'Want to improve the business',
+          'Are willing to examine current workflows',
+          'Can provide relevant information',
+          'Are open to change',
+          'Care about measurable outcomes',
+        ]}
+        notFitHeading="We may not be the right fit for companies that"
+        notFitItems={[
+          'Want AI only because it is fashionable',
+          'Expect guaranteed results',
+          'Refuse to change broken processes',
+          'Do not have a meaningful business problem to solve',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Our View of ROI"
+        heading="We Do Not Manufacture Large Numbers to Sell Projects"
+        support="We believe AI investments should be justified whenever practical. If sufficient information does not exist to estimate value credibly, we say so."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Out Where AI Can Create Value in Your Business"
+    support="Take the free AI Department Assessment, or schedule a strategy call if you already have a specific opportunity in mind."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .model-equation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .model-term {
+    padding: 10px 18px;
+    border-radius: 8px;
+    background-color: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    color: var(--color-pure-white);
+    font-weight: 700;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .model-op {
+    color: var(--color-slate-gray);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .model-equals {
+    color: var(--color-signal-cyan);
+  }
+
+  .model-result {
+    padding: 10px 20px;
+    border-radius: 8px;
+    background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+    font-weight: 800;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+</style>

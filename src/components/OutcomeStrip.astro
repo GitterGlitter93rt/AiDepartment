@@ -1,0 +1,98 @@
+---
+import Container from './Container.astro';
+import Icon from './Icon.astro';
+
+const outcomes = [
+  { icon: 'trending-up', title: 'More Revenue', desc: 'Capture more opportunities' },
+  { icon: 'tag', title: 'Lower Costs', desc: 'Reduce wasted time and resources' },
+  { icon: 'users-round', title: 'Happier Teams', desc: 'Empower employees with better tools' },
+  { icon: 'link-2', title: 'Stronger Systems', desc: 'Build a business that scales' },
+];
+---
+
+<section class="outcome-strip">
+  <Container wide>
+    <ul class="outcome-grid">
+      {outcomes.map((item) => (
+        <li>
+          <span class="outcome-icon"><Icon name={item.icon} size={22} /></span>
+          <div>
+            <p class="outcome-title">{item.title}</p>
+            <p class="outcome-desc">{item.desc}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </Container>
+</section>
+
+<style>
+  .outcome-strip {
+    background-color: var(--color-dark-secondary-bg);
+    color: var(--color-pure-white);
+    padding-block: 26px;
+    border-top: 1px solid var(--color-border-dark);
+    border-bottom: 1px solid var(--color-border-dark);
+  }
+
+  .outcome-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .outcome-grid li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .outcome-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-signal-cyan);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 8px;
+  }
+
+  .outcome-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .outcome-desc {
+    font-size: 0.84rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.45;
+  }
+
+  @media (min-width: 640px) {
+    .outcome-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .outcome-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .outcome-grid li {
+      padding-inline-start: 20px;
+      border-left: 1px solid var(--color-border-dark);
+    }
+
+    .outcome-grid li:first-child {
+      padding-inline-start: 0;
+      border-left: none;
+    }
+  }
+</style>

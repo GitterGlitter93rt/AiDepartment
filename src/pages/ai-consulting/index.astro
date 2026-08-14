@@ -1,0 +1,172 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import FlowChain from '../../components/interior/FlowChain.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'handshake', title: 'Sales', description: 'Lead qualification, faster response, follow-up, CRM administration, and pipeline reporting.' },
+  { icon: 'megaphone', title: 'Marketing', description: 'Campaign analysis, advertising optimization, SEO, content workflows, and marketing reporting.' },
+  { icon: 'headset', title: 'Customer Service', description: 'AI receptionists, customer questions, scheduling, call summaries, and knowledge retrieval.' },
+  { icon: 'settings-2', title: 'Operations', description: 'Workflow automation, SOP creation, document processing, and internal reporting.' },
+  { icon: 'receipt', title: 'Finance & Administration', description: 'Invoice workflows, accounts receivable follow-up, document processing, and reporting.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'Research, writing, analysis, summarization, and reducing repetitive administrative work.' },
+];
+
+const diagnosticProcess = [
+  'Business Problem', 'Opportunity Discovery', 'Prioritization', 'Recommendation / Roadmap', 'Implementation Decision',
+];
+
+const engagementPath = [
+  'AI Department Assessment',
+  'Strategy Call',
+  'Executive AI Strategy',
+  'AI Implementation',
+  'Managed AI Department',
+];
+
+const faqs = [
+  { question: 'What does an AI consultant actually do?', answer: 'An AI consultant helps a company identify where AI and automation may create value, evaluate technology options, prioritize opportunities, and develop an implementation strategy. Your AI Department can also help implement recommended systems.' },
+  { question: 'Do we need to know what AI solution we want?', answer: 'No. In many cases, determining what should be implemented is part of the engagement.' },
+  { question: 'Can you help us identify tasks that could be automated?', answer: 'Yes. Workflow and automation opportunity identification are major parts of our consulting process.' },
+  { question: 'Can you help us determine whether AI could reduce hiring needs?', answer: 'We can analyze workloads and workflows to determine whether automation or AI could increase employee capacity. That does not mean every role can or should be replaced.' },
+  { question: 'Can you work with our existing software?', answer: 'Yes. We prefer to evaluate existing systems before recommending unnecessary replacements.' },
+  { question: 'Do you guarantee ROI?', answer: 'No. We can develop business cases and estimate potential impact when sufficient data exists, but business outcomes cannot be guaranteed.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting Services for Business | Your AI Department"
+  description="Identify where AI, automation, better software, and improved workflows can create measurable business value with practical AI consulting from Your AI Department."
+  path="/ai-consulting/"
+>
+  <InteriorHero
+    eyebrow="AI Consulting"
+    headline="Stop Guessing Where AI Fits in Your Business"
+    support="AI creates thousands of possibilities. Your business does not need thousands of possibilities. It needs to know which opportunities can increase revenue, reduce repetitive work, improve employee productivity, strengthen customer experience, or help the company scale more efficiently."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="The Real Question"
+        heading="It's No Longer “Should We Use AI?”"
+        support="The harder questions are where to use it, what to automate, where labor is being wasted, where leads are being lost, and which investments will actually produce a return. That is where AI consulting should begin."
+      />
+      <CapabilityGrid items={opportunityAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Our Approach"
+        heading="Start With the Business Problem, Not the Technology"
+        support="A company may believe it needs an AI agent. After reviewing the workflow, the better solution might be a CRM automation, a software integration, better reporting, or employee AI training. We start with the problem and work backward toward the technology."
+        tone="dark"
+      />
+      <div class="consulting-principle">
+        <p>We look for problems with measurable consequences — employees spending hundreds of hours on repetitive work, sales teams failing to follow up consistently, advertising producing leads nobody contacts quickly, or thousands of old leads sitting untouched in a CRM. Those problems create a real business case for improvement.</p>
+      </div>
+      <div class="diagnostic-flow">
+        <FlowChain steps={diagnosticProcess} tone="accent-dark" direction="horizontal" />
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Engagement Path"
+        heading="A Typical Relationship"
+        support="Not every company needs every stage. The goal is to recommend the most appropriate next step for your business."
+      />
+      <FlowChain steps={engagementPath} tone="accent" />
+      <p class="engagement-note">Ready to skip ahead? <a href="/ai-implementation/">See how AI Implementation works</a> or explore the <a href="/managed-ai-department/">Managed AI Department</a>.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Is AI Consulting Right for Your Business?"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="AI consulting may be a fit if you"
+        fitItems={[
+          'Know AI matters but do not know where to begin',
+          'Have employees already experimenting with AI',
+          'Want to reduce repetitive work or improve productivity',
+          'Are considering AI agents',
+          'Need better software integration',
+          'Want an AI roadmap tied to business economics',
+        ]}
+        notFitHeading="It may not be a fit if"
+        notFitItems={[
+          'Leadership has no interest in changing existing processes',
+          'There is no meaningful business problem to solve',
+          'The company expects guaranteed financial results',
+          'Relevant business information cannot be shared',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions About AI Consulting" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Out Where AI Can Create Value in Your Business"
+    support="Take the free AI Department Assessment and receive your initial AI Department Score and opportunity analysis."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .consulting-principle {
+    max-width: 720px;
+    margin-inline: auto;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .diagnostic-flow {
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .consulting-principle p {
+    color: var(--color-dark-muted-text);
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  .engagement-note {
+    text-align: center;
+    margin-top: 28px;
+    font-size: 0.9rem;
+    color: var(--color-slate-gray);
+  }
+
+  .engagement-note a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

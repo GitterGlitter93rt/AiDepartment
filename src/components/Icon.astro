@@ -1,0 +1,42 @@
+---
+// Inlines a Lucide icon as raw SVG so it inherits color via currentColor
+// and requires no client-side JS or icon font.
+interface Props {
+  name: string;
+  size?: number;
+  class?: string;
+}
+
+const { name, size = 24, class: className = '' } = Astro.props;
+
+const icons = import.meta.glob('/node_modules/lucide-static/icons/*.svg', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+const iconPath = `/node_modules/lucide-static/icons/${name}.svg`;
+let svg = icons[iconPath];
+
+if (!svg) {
+  throw new Error(`Icon "${name}" not found in lucide-static.`);
+}
+
+// Normalize size and allow currentColor to inherit from parent
+svg = svg
+  .replace(/width="24"/, `width="${size}"`)
+  .replace(/height="24"/, `height="${size}"`);
+---
+
+<span class:list={['icon', className]} set:html={svg} />
+
+<style>
+  .icon {
+    display: inline-flex;
+    line-height: 0;
+  }
+
+  .icon :global(svg) {
+    display: block;
+  }
+</style>

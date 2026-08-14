@@ -1,0 +1,66 @@
+---
+interface Props {
+  eyebrow?: string;
+  heading: string;
+  support?: string;
+  align?: 'left' | 'center';
+  tone?: 'dark' | 'light';
+}
+
+const { eyebrow, heading, support, align = 'center', tone = 'light' } = Astro.props;
+---
+
+<div class:list={['sh', align, tone]}>
+  {eyebrow && <span class="eyebrow sh-eyebrow">{eyebrow}</span>}
+  <h2 class="sh-heading">{heading}</h2>
+  {support && <p class="sh-support">{support}</p>}
+</div>
+
+<style>
+  .sh {
+    max-width: 640px;
+    margin-bottom: 40px;
+  }
+
+  .sh.center {
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .sh.left {
+    text-align: left;
+  }
+
+  .sh-eyebrow {
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+
+  .sh.dark .sh-eyebrow {
+    color: var(--color-signal-cyan);
+  }
+
+  .sh.light .sh-eyebrow {
+    color: var(--color-electric-blue);
+  }
+
+  .sh-heading {
+    font-size: var(--fs-h2);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+
+  .sh-support {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .sh.dark .sh-support {
+    color: var(--color-dark-muted-text);
+  }
+
+  .sh.light .sh-support {
+    color: var(--color-slate-gray);
+  }
+</style>

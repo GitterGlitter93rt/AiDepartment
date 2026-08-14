@@ -1,0 +1,100 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const stormGroups = [
+  { label: 'Trigger', steps: [{ text: 'Storm Event', icon: 'cloud-lightning' }] },
+  { label: 'Demand Generation', steps: [{ text: 'Campaign Activated', icon: 'megaphone' }, { text: 'Landing Pages Updated', icon: 'layout-grid' }] },
+  { label: 'Lead Capture', steps: [{ text: 'Leads Captured', icon: 'inbox' }, { text: 'Immediate Response', icon: 'zap' }] },
+  { label: 'Sales', steps: [{ text: 'Qualification', icon: 'check-circle-2' }, { text: 'Inspection Scheduled', icon: 'calendar' }, { text: 'Sales Rep Assigned', icon: 'user-check' }] },
+  { label: 'Follow-Up + Measurement', steps: [{ text: 'Follow-Up Automation', icon: 'repeat' }, { text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const opportunities = [
+  { icon: 'megaphone', title: 'Google & Meta Ads', description: 'Advertising connected to real lead tracking, including storm-response campaigns.' },
+  { icon: 'phone', title: 'Missed Calls', description: 'AI-assisted phone answering so storm-season call volume never simply goes unanswered.' },
+  { icon: 'zap', title: 'Sales Follow-Up', description: 'Faster response to estimate requests and consistent follow-up on proposals.' },
+  { icon: 'file-text', title: 'Estimates & Proposals', description: 'Streamline estimate and proposal workflows to move jobs forward faster.' },
+  { icon: 'repeat', title: 'Old Lead Reactivation', description: 'Re-engage past leads and customers already sitting in your CRM.' },
+  { icon: 'settings-2', title: 'Operations', description: 'Reduce administrative work across scheduling, crews, and job tracking.' },
+];
+---
+
+<BaseLayout
+  title="AI for Roofing Companies | Your AI Department"
+  description="Help your roofing company capture more leads, respond faster, and scale without adding unnecessary overhead."
+  path="/industries/roofing/"
+>
+  <InteriorHero
+    eyebrow="Roofing"
+    headline="Help Your Roofing Company Capture More Leads, Respond Faster, and Scale Without Adding Unnecessary Overhead"
+    support="Your AI Department helps roofing companies improve lead generation, Google Ads, Meta Ads, missed-call handling, CRM, estimate follow-up, scheduling, customer communication, employee productivity, and workflow automation."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Opportunities May Exist"
+        heading="Roofing Companies Have a Lead-Speed Problem"
+        support="Storm season, insurance claims, and urgent repairs create demand spikes that overwhelm phones and follow-up capacity."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Storm Response"
+        heading="Handle Demand Spikes Without Overloading Your Team"
+        support="Severe weather can create sudden surges in demand. A connected pipeline helps handle temporary spikes without relying entirely on additional administrative staff."
+      />
+      <GroupedFlow groups={stormGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={PRIMARY_CTA.href} class="mid-cta-link">Get Your AI Department Score &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Multi-Location Roofing Companies"
+        heading="Standardized Systems Matter More With Multiple Crews"
+        support="For multi-location roofing companies, consistent lead handling, shared CRM systems, and standardized reporting across territories become increasingly valuable at scale."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Out Where AI Can Help Your Company"
+    support="Take the free AI Department Assessment to see your opportunities across lead speed, marketing, and operations."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

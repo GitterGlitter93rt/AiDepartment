@@ -1,0 +1,202 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import Icon from '../../components/Icon.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import FlowChain from '../../components/interior/FlowChain.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
+
+const responsibilities = [
+  { icon: 'search', title: 'Continuous Opportunity Discovery', description: 'Ongoing evaluation of where AI and automation can create new value as your business and the technology landscape change.' },
+  { icon: 'clipboard-check', title: 'Implementation Oversight', description: 'Management of AI and automation projects from definition through deployment and measurement.' },
+  { icon: 'graduation-cap', title: 'Employee Training', description: 'Leadership coaching, employee workshops, prompt libraries, and role-specific AI guidance.' },
+  { icon: 'server', title: 'Vendor & Technology Management', description: 'Evaluation of AI tools and vendors so you avoid unnecessary contracts and redundant software.' },
+  { icon: 'trending-up', title: 'Marketing & Growth Systems', description: 'Google Ads, Meta Ads, SEO, landing pages, and lead-generation improvements as part of the same relationship.' },
+  { icon: 'shield-check', title: 'AI Governance & Best Practices', description: 'Usage guidelines covering approved tools, confidential information, and human review requirements.' },
+  { icon: 'bar-chart-3', title: 'Reporting & Optimization', description: 'Monthly reporting, KPI reviews, and continuous refinement of what is already in production.' },
+  { icon: 'compass', title: 'Strategic Advisory', description: 'Monthly executive strategy meetings and a continuously updated AI roadmap.' },
+];
+
+const cadence = ['Discover', 'Prioritize', 'Implement', 'Train', 'Measure', 'Optimize'];
+
+const comparisonRows = [
+  { alt: 'A one-time consultant', gap: 'Delivers a report or roadmap, then the relationship ends.', us: 'Stays engaged as opportunities, technology, and the business itself continue to change.' },
+  { alt: 'Hiring a single AI employee', gap: 'One person cannot cover strategy, implementation, marketing, and training simultaneously.', us: 'Provides access to a coordinated set of capabilities without building the full function internally.' },
+  { alt: 'Buying random software', gap: 'Tools accumulate without a coordinating strategy or adoption plan.', us: 'Evaluates and coordinates technology around a single roadmap.' },
+  { alt: 'Disconnected freelancers or agencies', gap: 'Each vendor optimizes their own piece without seeing the whole business.', us: 'Coordinates strategy, implementation, marketing, and training under one ongoing relationship.' },
+];
+---
+
+<BaseLayout
+  title="Managed AI Department | Ongoing AI Strategy & Implementation | Your AI Department"
+  description="Your outsourced AI department. Ongoing strategy, implementation oversight, training, governance, and optimization through a single monthly engagement."
+  path="/managed-ai-department/"
+>
+  <InteriorHero
+    eyebrow="Managed AI Department"
+    headline="Your Outsourced AI Department, Not Another One-Time Project"
+    support="Instead of hiring an internal AI department, gain ongoing access to executive AI strategy, implementation oversight, employee training, automation expertise, marketing guidance, and continuous optimization — through a single monthly relationship."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What's Included"
+        heading="One Ongoing Relationship, Eight Areas of Responsibility"
+        support="Most firms provide one service. The Managed AI Department combines strategy, implementation, training, automation, marketing, and governance under one relationship."
+      />
+      <CapabilityGrid items={responsibilities} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="How It's Different"
+        heading="Not a Consultant. Not a Hire. Not a Pile of Software."
+        tone="dark"
+      />
+      <div class="comparison-table" role="table">
+        <div class="comparison-row comparison-header" role="row">
+          <span role="columnheader">Instead of…</span>
+          <span role="columnheader">The gap</span>
+          <span role="columnheader">The Managed AI Department</span>
+        </div>
+        {comparisonRows.map((row) => (
+          <div class="comparison-row" role="row">
+            <span class="comparison-alt" role="cell">{row.alt}</span>
+            <span class="comparison-gap" role="cell">{row.gap}</span>
+            <span class="comparison-us" role="cell"><Icon name="check" size={14} /> {row.us}</span>
+          </div>
+        ))}
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="How It Works"
+        heading="An Ongoing Operating Cadence, Not a One-Time Project"
+        support="The relationship follows a recurring cycle rather than a single deliverable."
+      />
+      <FlowChain steps={cadence} tone="accent" direction="horizontal" loop />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Growing, Owner-Operated Businesses"
+        support="Ideal clients typically have 10–250 employees, are actively investing in growth, carry repetitive workflows, and do not yet have an internal AI team."
+      />
+      <div class="outcomes-note">
+        <p>Clients should expect improvements in revenue, employee productivity, marketing performance, lead response time, operational efficiency, customer experience, reporting, and decision-making — measured against your own baseline, not a generic promise.</p>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Investment"
+        heading="Custom Monthly Retainer"
+        support="Pricing depends on company size, scope, and the number of areas being actively managed. We do not publish a fixed price until scope is understood — and we do not compete primarily on being the cheapest option."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="users-round"
+    heading="See Whether a Managed AI Department Makes Sense for You"
+    support="Start with the free AI Department Assessment, or schedule a strategy call if you already know this is the right fit."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free Assessment • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .comparison-table {
+    max-width: 920px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background-color: var(--color-border-dark);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+
+  .comparison-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    background-color: var(--color-deep-slate);
+    padding: 16px 18px;
+  }
+
+  .comparison-header {
+    background-color: var(--color-midnight-navy);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-dark-muted-text);
+    display: none;
+  }
+
+  .comparison-alt {
+    font-weight: 700;
+    color: var(--color-pure-white);
+    font-size: 0.92rem;
+  }
+
+  .comparison-gap {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+  }
+
+  .comparison-us {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--color-emerald);
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .outcomes-note {
+    max-width: 720px;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .outcomes-note p {
+    color: var(--color-slate-gray);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  @media (min-width: 768px) {
+    .comparison-header {
+      display: grid;
+    }
+
+    .comparison-row {
+      grid-template-columns: 1fr 1.3fr 1.3fr;
+      gap: 20px;
+      align-items: center;
+    }
+  }
+</style>

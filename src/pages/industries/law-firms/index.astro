@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const intakeGroups = [
+  { label: 'Intake', steps: [{ text: 'Lead Arrives', icon: 'inbox' }, { text: 'Immediate Response', icon: 'zap' }] },
+  { label: 'Qualification', steps: [{ text: 'Intake & Information Collection', icon: 'clipboard-list' }, { text: 'Consultation Scheduled', icon: 'calendar' }] },
+  { label: 'Case / Attribution', steps: [{ text: 'CRM Entry & Source Attribution', icon: 'database' }, { text: 'Follow-Up', icon: 'repeat' }] },
+];
+
+const opportunities = [
+  { icon: 'zap', title: 'Lead Intake', description: 'Immediate response, intake automation, lead routing, and source attribution for every inquiry.' },
+  { icon: 'phone', title: 'Missed Calls', description: 'AI-assisted phone answering and after-hours intake so a potential client never simply goes to a competitor.' },
+  { icon: 'file-text', title: 'Document Workflows', description: 'Reduce repetitive document preparation and processing work.' },
+  { icon: 'brain', title: 'Internal Knowledge', description: 'Faster access to firm knowledge, procedures, and case information.' },
+  { icon: 'megaphone', title: 'Google Ads & SEO', description: 'Marketing connected to real intake tracking, not just impressions and clicks.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Know which channels actually produce signed clients, not just leads.' },
+];
+---
+
+<BaseLayout
+  title="AI for Law Firms | Your AI Department"
+  description="Help your law firm respond faster, reduce administrative work, and build a smarter growth system with practical AI and automation."
+  path="/industries/law-firms/"
+>
+  <InteriorHero
+    eyebrow="Law Firms"
+    headline="Help Your Law Firm Respond Faster, Reduce Administrative Work, and Build a Smarter Growth System"
+    support="Your AI Department helps law firms identify practical opportunities involving AI, automation, intake, marketing, employee productivity, document workflows, reporting, and client communication."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Opportunities May Exist"
+        heading="AI Should Solve Real Law Firm Problems"
+        support="A valuable legal lead may arrive through phone, website, ads, referral, or search — slow or inconsistent intake can turn expensive marketing into lost opportunities."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Lead Intake"
+        heading="An Unanswered Call Can Represent a Lost Case"
+        support="Potential clients often contact multiple firms. A consistent, tracked intake path matters as much as the marketing that generated the lead."
+      />
+      <GroupedFlow groups={intakeGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={PRIMARY_CTA.href} class="mid-cta-link">Get Your AI Department Score &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="AI Should Support the Practice of Law, Not Replace It"
+        support="AI systems should clearly identify when human involvement is required. The goal is reducing lost opportunities and repetitive work — not automating professional judgment."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Out Where AI Can Help Your Firm"
+    support="Take the free AI Department Assessment to see your opportunities across intake, marketing, and operations."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

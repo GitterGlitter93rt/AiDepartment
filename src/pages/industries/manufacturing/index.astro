@@ -1,0 +1,127 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const transformationAreas = [
+  { icon: 'megaphone', title: 'Sales & RFQ Workflows', description: 'RFQ intake, information extraction, quote preparation support, routing, follow-up, and CRM integration.' },
+  { icon: 'headset', title: 'Customer Service', description: 'Inquiries, order and status communication, information retrieval, and routing.' },
+  { icon: 'file-text', title: 'Documentation', description: 'Document classification, extraction, specification handling, SOP support, and repetitive documentation.' },
+  { icon: 'brain', title: 'Internal Knowledge', description: 'Employee knowledge retrieval, procedures, technical documentation access, and approved internal assistants.' },
+  { icon: 'clipboard-list', title: 'Operations / Administration', description: 'Reporting, manual handoffs, repetitive workflows, and workflow orchestration.' },
+  { icon: 'link-2', title: 'System Integration', description: 'Connecting CRM, ERP, quoting, email, operational, and reporting systems.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'Research, summaries, drafting, workflow assistance, and reporting.' },
+  { icon: 'shield-check', title: 'Governance', description: 'Appropriate AI usage, sensitive information, human approval, accuracy, and controlled adoption.' },
+];
+
+const rfqGroups = [
+  { label: 'Intake', steps: [{ text: 'Customer RFQ', icon: 'inbox' }, { text: 'Document Intake', icon: 'file-text' }, { text: 'Information Extraction', icon: 'search' }] },
+  { label: 'Preparation', steps: [{ text: 'ERP / System Lookup', icon: 'database' }, { text: 'Draft Quote / Workflow Support', icon: 'clipboard-list' }, { text: 'Human Review', icon: 'user-check' }] },
+  { label: 'Outcome', steps: [{ text: 'Customer Response', icon: 'message-square' }, { text: 'Follow-Up', icon: 'repeat' }, { text: 'Outcome Tracking', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Is this about robots or factory-floor automation?', answer: 'No. This is about broader business transformation — sales, RFQ workflows, documentation, customer service, and administration — not factory-floor robotics or predictive maintenance.' },
+  { question: 'Can AI actually prepare accurate quotes?', answer: 'AI may assist with information extraction, drafting, and workflow support, but human review remains part of the process before a quote goes to a customer.' },
+  { question: 'Do you have manufacturing clients or results to share?', answer: 'We do not publish client names or performance results. Our positioning is based on how manufacturing sales and operations workflows typically work — not case studies.' },
+  { question: 'Can you integrate with our ERP or CRM?', answer: 'Often, yes. Integration depends on the specific systems, available APIs, and your technical environment — this is evaluated during discovery.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting & Automation for Manufacturing Companies"
+  description="Practical AI and automation for manufacturing sales, RFQ workflows, documentation, and operations — beyond the factory floor, with human review built into every workflow."
+  path="/industries/manufacturing/"
+>
+  <InteriorHero
+    eyebrow="Manufacturing"
+    headline="AI-Assisted Workflows for Manufacturing Sales and Operations"
+    support="Manufacturing opportunity extends well beyond the factory floor. Your AI Department helps identify where AI, automation, and integration may improve RFQ response, customer communication, documentation, internal knowledge, and administrative workflows across your business."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Transformation Areas"
+        heading="Where Operational Opportunity Typically Exists"
+        support="For owners, executives, operations leaders, and technology leaders evaluating where AI-assisted workflows fit — broader business transformation, not just the plant floor."
+      />
+      <CapabilityGrid items={transformationAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Conceptual Example"
+        heading="A Typical RFQ Workflow"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every manufacturer."
+        tone="dark"
+      />
+      <GroupedFlow groups={rfqGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Governance"
+        heading="Human Review Stays Part of the Process"
+        support="Appropriate AI usage, sensitive information handling, human approval, accuracy checks, and controlled adoption should be defined before any workflow goes live — not added afterward."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/enterprise/">Enterprise</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Manufacturing Business"
+    support="Take the free AI Department Assessment to see opportunities across sales, operations, and employee productivity."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,29 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import OutcomeStrip from '../components/OutcomeStrip.astro';
+import BusinessSection from '../components/BusinessSection.astro';
+import MethodSection from '../components/MethodSection.astro';
+import IndustriesSection from '../components/IndustriesSection.astro';
+import ManagedSection from '../components/ManagedSection.astro';
+import FinalCTA from '../components/FinalCTA.astro';
+
+// Content authority: docs/02-website/homepage.md
+// Visual authority: assets/mockups/homepage-dark-approved.jpg
+// Structure authority: docs/01-brand/website-design-system.md "Approved General Direction"
+---
+
+<BaseLayout
+  title="Your AI Department | AI Consulting, Implementation & Growth"
+  description="Identify and implement high-value AI opportunities across marketing, sales, operations, employee productivity, automation, and customer experience with Your AI Department."
+  path="/"
+  includeOrgSchema
+>
+  <Hero />
+  <OutcomeStrip />
+  <BusinessSection />
+  <MethodSection />
+  <IndustriesSection />
+  <ManagedSection />
+  <FinalCTA />
+</BaseLayout>

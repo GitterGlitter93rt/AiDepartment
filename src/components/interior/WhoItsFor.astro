@@ -1,0 +1,106 @@
+---
+import Icon from '../Icon.astro';
+
+interface Props {
+  fitHeading: string;
+  fitItems: string[];
+  notFitHeading: string;
+  notFitItems: string[];
+}
+
+const { fitHeading, fitItems, notFitHeading, notFitItems } = Astro.props;
+---
+
+<div class="fit-grid">
+  <div class="fit-col fit-yes">
+    <h3><Icon name="check-circle-2" size={18} /> {fitHeading}</h3>
+    <ul>
+      {fitItems.map((item) => <li>{item}</li>)}
+    </ul>
+  </div>
+  <div class="fit-col fit-no">
+    <h3><Icon name="circle-minus" size={18} /> {notFitHeading}</h3>
+    <ul>
+      {notFitItems.map((item) => <li>{item}</li>)}
+    </ul>
+  </div>
+</div>
+
+<style>
+  .fit-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .fit-col {
+    border-radius: var(--radius-card);
+    padding: 24px 22px;
+    border: 1px solid var(--color-border-light);
+  }
+
+  .fit-col h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .fit-yes {
+    background-color: rgba(16, 185, 129, 0.05);
+  }
+
+  .fit-yes h3 {
+    color: #047857;
+  }
+
+  .fit-no {
+    background-color: var(--color-cloud-white);
+  }
+
+  .fit-no h3 {
+    color: var(--color-slate-gray);
+  }
+
+  .fit-col ul {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    list-style: none;
+    padding: 0;
+  }
+
+  .fit-col li {
+    font-size: 0.88rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+    padding-left: 20px;
+    position: relative;
+  }
+
+  .fit-col li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .fit-yes li::before {
+    background-color: var(--color-emerald);
+  }
+
+  .fit-no li::before {
+    background-color: var(--color-slate-gray);
+  }
+
+  @media (min-width: 768px) {
+    .fit-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

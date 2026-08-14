@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const estimateGroups = [
+  { label: 'Trigger', steps: [{ text: 'Estimate Created', icon: 'file-text' }, { text: 'Customer Leaves', icon: 'log-out' }] },
+  { label: 'Automated Follow-Up', steps: [{ text: 'SMS Reminder', icon: 'message-square' }, { text: 'Email Follow-Up', icon: 'mail' }] },
+  { label: 'Conversion', steps: [{ text: 'Estimator Task Created', icon: 'clipboard-check' }, { text: 'Response Tracked', icon: 'bar-chart-3' }, { text: 'Job Scheduled', icon: 'calendar' }] },
+];
+
+const opportunities = [
+  { icon: 'zap', title: 'Lead Response', description: 'Faster response to web, Google Ads, and Meta leads with automated SMS, email, and CRM routing.' },
+  { icon: 'phone', title: 'Phone Handling', description: 'AI receptionist, call routing, after-hours answering, and missed-call follow-up.' },
+  { icon: 'repeat', title: 'Estimate Follow-Up', description: 'Systematic follow-up on estimates so unsold work doesn\'t simply disappear.' },
+  { icon: 'file-text', title: 'Insurance & Admin Work', description: 'Reduce repetitive administrative work tied to insurance and claims processing.' },
+  { icon: 'megaphone', title: 'Google & Meta Ads', description: 'Advertising connected to real lead tracking and follow-up, including hail-damage opportunities.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'SOPs, knowledge systems, and reduced repetitive work for front-office and production staff.' },
+];
+---
+
+<BaseLayout
+  title="AI for Collision Repair Businesses | Your AI Department"
+  description="Help your body shop capture more jobs, reduce administrative work, and improve customer communication with practical AI and automation."
+  path="/industries/collision-repair/"
+>
+  <InteriorHero
+    eyebrow="Collision Repair"
+    headline="Help Your Body Shop Capture More Jobs, Reduce Administrative Work, and Improve Customer Communication"
+    support="Your AI Department helps collision repair businesses identify and implement practical opportunities involving AI, automation, Google Ads, Meta Ads, CRM, customer communication, employee productivity, reporting, and workflow improvement."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Opportunities May Exist"
+        heading="Collision Repair Is an Operationally Intense Business"
+        support="Estimates, insurance coordination, parts, production, and customer updates all compete for the same front-office attention."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Estimate Follow-Up"
+        heading="Unsold Estimates Are Lost Revenue"
+        support="Many estimate opportunities are lost simply because follow-up is inconsistent. A connected sequence keeps every estimate moving toward a decision."
+      />
+      <GroupedFlow groups={estimateGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={PRIMARY_CTA.href} class="mid-cta-link">Get Your AI Department Score &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Multi-Location Operators"
+        heading="Standardization Matters More at Scale"
+        support="For multi-location collision repair operators, standardized reporting, consistent lead handling, and shared systems across shops become increasingly valuable as the business grows."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Out Where AI Can Help Your Shop"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, marketing, and operations."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

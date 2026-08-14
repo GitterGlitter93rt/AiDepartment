@@ -1,0 +1,116 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const capacityGroups = [
+  { label: 'Request', steps: [{ text: 'Client Request', icon: 'inbox' }] },
+  { label: 'AI-Assisted Work', steps: [{ text: 'Research & Drafting', icon: 'brain' }, { text: 'Human Review', icon: 'user-check' }] },
+  { label: 'Outcome', steps: [{ text: 'Delivery', icon: 'check-circle-2' }, { text: 'Capacity Freed for New Work', icon: 'trending-up' }] },
+];
+
+const opportunities = [
+  { icon: 'brain', title: 'Employee Productivity', description: 'Reduce time spent on repetitive drafting, research, summaries, and administration for knowledge workers.' },
+  { icon: 'database', title: 'Internal Knowledge', description: 'Make company knowledge, policies, and past work easier for employees to find and use.' },
+  { icon: 'file-text', title: 'Proposals & Deliverables', description: 'Streamline proposal creation and client deliverable workflows.' },
+  { icon: 'megaphone', title: 'Marketing & Lead Follow-Up', description: 'Google Ads, SEO, CRM, and automation to support consistent, measurable growth.' },
+  { icon: 'users', title: 'Client Communication', description: 'Faster, more consistent communication across meetings, updates, and reporting.' },
+  { icon: 'shield-check', title: 'AI Governance', description: 'Usage guidelines appropriate for client confidentiality and professional obligations.' },
+];
+
+const faqs = [
+  { question: 'Can AI replace professional expertise?', answer: 'AI can assist with research, drafting, analysis, and administration, but professional judgment remains important.' },
+  { question: 'Can AI increase employee productivity?', answer: 'Potentially. Knowledge workers may use AI to reduce time spent on repetitive drafting, research, summaries, and administration.' },
+  { question: 'Can you build an internal AI knowledge assistant?', answer: 'Yes, when the firm\'s data, security requirements, and business case support it.' },
+  { question: 'Can you help with marketing too?', answer: 'Yes. Google Ads, SEO, CRM, automation, and other growth systems may be part of the engagement.' },
+];
+---
+
+<BaseLayout
+  title="AI for Professional Services Firms | Your AI Department"
+  description="Use AI, automation, employee training, knowledge systems, CRM, marketing, and reporting to improve professional services productivity and growth."
+  path="/industries/professional-services/"
+>
+  <InteriorHero
+    eyebrow="Professional Services"
+    headline="Help Your Firm Increase Employee Capacity, Improve Client Service, and Grow More Efficiently"
+    support="Your AI Department helps professional services firms identify practical opportunities involving AI, automation, marketing, sales, employee productivity, client communication, knowledge management, reporting, and workflow improvement."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Opportunities May Exist"
+        heading="Professional Services Run on Knowledge"
+        support="Consulting, accounting-related, advisory, agency, engineering, architecture, and recruiting firms depend on employees to research, write, analyze, communicate, and serve clients. AI may create significant value by increasing the productivity of knowledge workers."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Capacity Workflow"
+        heading="AI Should Free Capacity, Not Replace Judgment"
+        support="Human review remains part of the workflow — the goal is to reduce time spent on repetitive drafting and research, not to remove professional oversight."
+      />
+      <GroupedFlow groups={capacityGroups} tone="light" />
+      <div class="mid-cta">
+        <a href={PRIMARY_CTA.href} class="mid-cta-link">Get Your AI Department Score &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Knowledge-Intensive Businesses"
+        support="Potential fit includes consulting firms, accounting-related businesses, advisory firms, agencies, engineering firms, architecture firms, recruiting firms, and other knowledge-intensive businesses. Specific professional obligations vary by industry."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="FAQ"
+        heading="Common Questions"
+      />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find the Highest-Value AI Opportunities in Your Firm"
+    support="Take the free AI Department Assessment to see your opportunities across employee productivity, marketing, and operations."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-electric-blue);
+  }
+</style>

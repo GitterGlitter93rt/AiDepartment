@@ -1,0 +1,107 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const opportunities = [
+  { icon: 'megaphone', title: 'Lead Generation', description: 'Google Ads, Meta Ads, SEO, local search, and landing pages measured against qualified, profitable projects.' },
+  { icon: 'zap', title: 'Lead Response', description: 'Immediate response, qualification, and estimator assignment so slow follow-up doesn\'t weaken expensive marketing.' },
+  { icon: 'file-text', title: 'Proposals & Documents', description: 'Streamline proposal, contract, and change-order workflows to move projects forward faster.' },
+  { icon: 'database', title: 'CRM & Software Integration', description: 'Connect existing systems so information doesn\'t need to be entered twice.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'Reduce repetitive administrative work across scheduling, reporting, and internal knowledge.' },
+  { icon: 'bar-chart-3', title: 'Reporting', description: 'Centralized visibility into leads, projects, and performance across the business.' },
+];
+
+const leadResponseGroups = [
+  { label: 'Intake', steps: [{ text: 'New Lead', icon: 'inbox' }, { text: 'CRM Entry', icon: 'database' }] },
+  { label: 'Qualification', steps: [{ text: 'Immediate Response', icon: 'zap' }, { text: 'Qualification', icon: 'check-circle-2' }] },
+  { label: 'Sales', steps: [{ text: 'Estimator Assigned', icon: 'user-check' }, { text: 'Appointment Scheduled', icon: 'calendar' }] },
+  { label: 'Outcome', steps: [{ text: 'Follow-Up', icon: 'repeat' }, { text: 'Outcome Tracked', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Can AI help construction companies with estimates?', answer: 'AI may assist with drafting, organization, summaries, and workflow support. Final scope, pricing, technical assumptions, and contractual decisions should remain under qualified human control.' },
+  { question: 'Can you help with Google Ads for construction companies?', answer: 'Yes.' },
+  { question: 'Can AI automate customer updates?', answer: 'Potentially. The exact workflow depends on the company\'s project-management and communication systems.' },
+  { question: 'Can you integrate our software?', answer: 'Often, yes. Integration depends on the systems and available APIs.' },
+];
+---
+
+<BaseLayout
+  title="AI for Construction Companies | Automation & Growth"
+  description="Use AI, automation, CRM, marketing, software integrations, and workflow systems to improve construction operations, sales, and employee productivity."
+  path="/industries/construction/"
+>
+  <InteriorHero
+    eyebrow="Construction"
+    headline="Help Your Construction Company Reduce Administrative Work, Improve Follow-Up, and Scale More Efficiently"
+    support="Your AI Department helps construction companies identify and implement practical opportunities involving AI, automation, lead generation, CRM, estimating workflows, customer communication, reporting, employee productivity, and software integration."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Opportunities May Exist"
+        heading="Construction Businesses Run on Information"
+        support="Leads, estimates, proposals, contracts, scheduling, subcontractors, change orders, and reporting all compete for the same administrative attention. As a company grows, that complexity can grow just as quickly."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Lead Response"
+        heading="Slow Follow-Up Can Weaken Expensive Marketing"
+        support="A consistent, tracked path from first contact to outcome."
+        tone="dark"
+      />
+      <GroupedFlow groups={leadResponseGroups} tone="dark" />
+      <div class="mid-cta">
+        <a href={PRIMARY_CTA.href} class="mid-cta-link">Get Your AI Department Score &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="FAQ"
+        heading="Common Questions"
+      />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find the Biggest AI and Automation Opportunities in Your Construction Business"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, marketing, and operations."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .mid-cta {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .mid-cta-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-signal-cyan);
+  }
+</style>

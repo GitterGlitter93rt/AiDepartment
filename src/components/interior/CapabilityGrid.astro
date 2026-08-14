@@ -1,0 +1,126 @@
+---
+import Icon from '../Icon.astro';
+
+interface CapabilityItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+interface Props {
+  items: CapabilityItem[];
+  columns?: 2 | 3 | 4;
+  tone?: 'dark' | 'light';
+}
+
+const { items, columns = 3, tone = 'light' } = Astro.props;
+---
+
+<ul class:list={['cap-grid', `cols-${columns}`, tone]}>
+  {items.map((item) => (
+    <li class="cap-card">
+      <span class="cap-icon"><Icon name={item.icon} size={22} /></span>
+      <h3 class="cap-title">{item.title}</h3>
+      <p class="cap-desc">{item.description}</p>
+    </li>
+  ))}
+</ul>
+
+<style>
+  .cap-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    list-style: none;
+    padding: 0;
+  }
+
+  .cap-card {
+    border-radius: var(--radius-card);
+    padding: 24px 20px;
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .cap-grid.light .cap-card {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    box-shadow: 0 2px 8px -4px rgba(17, 24, 39, 0.06);
+  }
+
+  .cap-grid.light .cap-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-light);
+  }
+
+  .cap-grid.dark .cap-card {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+  }
+
+  .cap-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius-card);
+    margin-bottom: 16px;
+  }
+
+  .cap-grid.light .cap-icon {
+    background-color: rgba(37, 99, 235, 0.08);
+    color: var(--color-electric-blue);
+  }
+
+  .cap-grid.dark .cap-icon {
+    background-color: rgba(34, 211, 238, 0.1);
+    color: var(--color-signal-cyan);
+  }
+
+  .cap-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.02rem;
+    margin-bottom: 8px;
+  }
+
+  .cap-grid.light .cap-title {
+    color: var(--color-near-black);
+  }
+
+  .cap-grid.dark .cap-title {
+    color: var(--color-pure-white);
+  }
+
+  .cap-desc {
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .cap-grid.light .cap-desc {
+    color: var(--color-slate-gray);
+  }
+
+  .cap-grid.dark .cap-desc {
+    color: var(--color-dark-muted-text);
+  }
+
+  @media (min-width: 640px) {
+    .cap-grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .cap-grid.cols-3,
+    .cap-grid.cols-4 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .cap-grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .cap-grid.cols-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+</style>

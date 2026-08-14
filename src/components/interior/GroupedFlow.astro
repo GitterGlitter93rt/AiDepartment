@@ -1,0 +1,172 @@
+---
+import Icon from '../Icon.astro';
+
+interface FlowStep {
+  text: string;
+  icon?: string;
+}
+
+interface FlowGroup {
+  label: string;
+  steps: FlowStep[];
+}
+
+interface Props {
+  groups: FlowGroup[];
+  tone?: 'light' | 'dark';
+}
+
+const { groups, tone = 'light' } = Astro.props;
+---
+
+<div class:list={['gf-wrap', tone]}>
+  <div class="gf-groups">
+    {groups.map((group, gi) => (
+      <>
+        <div class="gf-group">
+          <span class="gf-group-label">{group.label}</span>
+          <div class="gf-group-steps">
+            {group.steps.map((step, si) => (
+              <>
+                <div class="gf-step">
+                  {step.icon && <span class="gf-step-icon"><Icon name={step.icon} size={16} /></span>}
+                  <span class="gf-step-text">{step.text}</span>
+                </div>
+                {si < group.steps.length - 1 && <span class="gf-step-connector" aria-hidden="true"></span>}
+              </>
+            ))}
+          </div>
+        </div>
+        {gi < groups.length - 1 && <span class="gf-group-connector" aria-hidden="true"><Icon name="chevron-right" size={18} /></span>}
+      </>
+    ))}
+  </div>
+</div>
+
+<style>
+  .gf-wrap {
+    width: 100%;
+  }
+
+  .gf-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .gf-group {
+    flex: 1;
+    border-radius: var(--radius-panel);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .gf-wrap.light .gf-group {
+    background-color: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+  }
+
+  .gf-wrap.dark .gf-group {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+  }
+
+  .gf-group-label {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .gf-wrap.light .gf-group-label {
+    color: var(--color-electric-blue);
+  }
+
+  .gf-wrap.dark .gf-group-label {
+    color: var(--color-signal-cyan);
+  }
+
+  .gf-group-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .gf-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .gf-wrap.light .gf-step {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    color: var(--color-near-black);
+  }
+
+  .gf-wrap.dark .gf-step {
+    background-color: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    color: var(--color-pure-white);
+  }
+
+  .gf-step-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .gf-wrap.light .gf-step-icon {
+    color: var(--color-electric-blue);
+  }
+
+  .gf-wrap.dark .gf-step-icon {
+    color: var(--color-signal-cyan);
+  }
+
+  .gf-step-connector {
+    align-self: center;
+    width: 1px;
+    height: 10px;
+    background-color: var(--color-border-light);
+  }
+
+  .gf-wrap.dark .gf-step-connector {
+    background-color: var(--color-border-dark);
+  }
+
+  .gf-group-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-slate-gray);
+    transform: rotate(90deg);
+  }
+
+  .gf-wrap.dark .gf-group-connector {
+    color: var(--color-dark-muted-text);
+  }
+
+  @media (min-width: 900px) {
+    .gf-groups {
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    .gf-group {
+      min-width: 0;
+    }
+
+    .gf-group-connector {
+      transform: rotate(0deg);
+      flex-shrink: 0;
+    }
+  }
+</style>

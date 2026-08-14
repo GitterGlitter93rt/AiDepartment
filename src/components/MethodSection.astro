@@ -1,0 +1,167 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Icon from './Icon.astro';
+
+const steps = [
+  { n: 1, title: 'Assess', desc: 'Understand your business, data, systems and goals.', icon: 'search' },
+  { n: 2, title: 'Discover', desc: 'Find opportunities across people, processes, and technology.', icon: 'lightbulb' },
+  { n: 3, title: 'Prioritize', desc: 'Focus on the highest impact and most achievable wins.', icon: 'star' },
+  { n: 4, title: 'Implement', desc: 'Build and integrate the right solutions into your workflows.', icon: 'layout-grid' },
+  { n: 5, title: 'Adopt', desc: 'Train your team and drive employee adoption.', icon: 'users' },
+  { n: 6, title: 'Optimize', desc: 'Measure results, refine systems, and scale what works.', icon: 'trending-up' },
+];
+---
+
+<Section tone="dark" id="ai-department-method" class="method-section">
+  <Container wide>
+    <div class="method-header">
+      <h2>The AI Department Method</h2>
+      <p>A proven process to identify, implement, and optimize opportunities that create real business value.</p>
+    </div>
+
+    <div class="method-steps-wrap">
+      <span class="method-connector" aria-hidden="true"></span>
+      <ol class="method-steps">
+        {steps.map((step) => (
+          <li>
+            <div class="step-icon-wrap">
+              <span class="step-icon"><Icon name={step.icon} size={22} /></span>
+              <span class="step-number">{step.n}</span>
+            </div>
+            <p class="step-title">{step.title}</p>
+            <p class="step-desc">{step.desc}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  :global(section.method-section) {
+    padding-block: 28px !important;
+  }
+
+  .method-header {
+    text-align: center;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .method-header h2 {
+    font-size: var(--fs-h2);
+    margin-bottom: 8px;
+  }
+
+  .method-header p {
+    color: var(--color-dark-muted-text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .method-steps-wrap {
+    position: relative;
+  }
+
+  .method-steps {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px 20px;
+  }
+
+  .method-connector {
+    display: none;
+  }
+
+  .method-steps li {
+    position: relative;
+    text-align: center;
+  }
+
+  .step-icon-wrap {
+    position: relative;
+    width: 62px;
+    height: 62px;
+    margin-inline: auto;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-dark);
+    background-color: var(--color-deep-slate);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-signal-cyan);
+  }
+
+  .step-number {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+    border-radius: 50%;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border: 2px solid var(--color-midnight-navy);
+  }
+
+  .step-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  .step-desc {
+    font-size: 0.78rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.45;
+    max-width: 160px;
+    margin-inline: auto;
+  }
+
+  @media (min-width: 768px) {
+    .method-steps {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .method-steps {
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+
+    .method-connector {
+      display: block;
+      position: absolute;
+      top: 31px;
+      left: calc(100% / 12);
+      right: calc(100% / 12);
+      height: 1px;
+      background-image: linear-gradient(
+        to right,
+        var(--color-border-dark) 0,
+        var(--color-border-dark) 7px,
+        transparent 7px,
+        transparent 14px
+      );
+      background-size: 14px 1px;
+      background-repeat: repeat-x;
+      z-index: 0;
+    }
+
+    .step-icon-wrap {
+      position: relative;
+      z-index: 1;
+    }
+  }
+</style>

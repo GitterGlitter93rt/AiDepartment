@@ -1,0 +1,227 @@
+---
+import Icon from './Icon.astro';
+
+// Illustrative example only — not data from a real assessment or customer.
+// Category set per docs/01-brand/website-design-system.md "Score Visualization".
+const categories = [
+  { label: 'Strategy', score: 72, icon: 'target' },
+  { label: 'Marketing', score: 69, icon: 'megaphone' },
+  { label: 'Sales', score: 74, icon: 'handshake' },
+  { label: 'Operations', score: 61, icon: 'settings-2' },
+  { label: 'Employees', score: 48, icon: 'users' },
+  { label: 'Technology', score: 58, icon: 'cpu' },
+  { label: 'Automation', score: 63, icon: 'workflow' },
+];
+
+const overallScore = 67;
+const ringRadius = 58;
+const circumference = 2 * Math.PI * ringRadius;
+const progress = (overallScore / 100) * circumference;
+---
+
+<div class="score-dashboard" role="img" aria-label={`Illustrative AI Department Score dashboard showing an overall score of ${overallScore} out of 100, with category breakdowns for strategy, marketing, sales, operations, employees, technology, and automation.`}>
+  <div class="score-dashboard-header">
+    <span class="eyebrow">AI Department Score</span>
+  </div>
+
+  <div class="score-main">
+    <div class="score-ring-wrap">
+      <svg viewBox="0 0 140 140" class="score-ring" aria-hidden="true">
+        <circle cx="70" cy="70" r={ringRadius} class="ring-track" />
+        <circle
+          cx="70"
+          cy="70"
+          r={ringRadius}
+          class="ring-progress"
+          stroke-dasharray={`${progress} ${circumference}`}
+        />
+      </svg>
+      <div class="score-ring-center">
+        <span class="score-number">{overallScore}</span>
+        <span class="score-sublabel">Overall Score</span>
+        <span class="score-status">Good Opportunity</span>
+      </div>
+    </div>
+
+    <ul class="score-categories">
+      {categories.map((cat) => (
+        <li>
+          <span class="cat-icon"><Icon name={cat.icon} size={16} /></span>
+          <span class="cat-label">{cat.label}</span>
+          <span class="cat-bar-track">
+            <span class="cat-bar-fill" style={`width: ${cat.score}%`}></span>
+          </span>
+          <span class="cat-score">{cat.score}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+
+  <p class="score-message">
+    Your assessment shows strong potential. See your top opportunities and recommended next steps.
+  </p>
+  <p class="score-disclaimer">Illustrative example — not an actual assessment result.</p>
+</div>
+
+<style>
+  .score-dashboard {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 24px 28px;
+    box-shadow: var(--shadow-panel-dark);
+  }
+
+  .score-dashboard-header {
+    color: var(--color-dark-muted-text);
+    margin-bottom: 16px;
+  }
+
+  .score-dashboard-header .eyebrow {
+    font-size: 0.72rem;
+  }
+
+  .score-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .score-ring-wrap {
+    position: relative;
+    width: 176px;
+    height: 176px;
+    margin-inline: auto;
+    flex-shrink: 0;
+  }
+
+  .score-ring {
+    width: 176px;
+    height: 176px;
+    transform: rotate(-90deg);
+  }
+
+  .ring-track {
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.22);
+    stroke-width: 10;
+  }
+
+  .ring-progress {
+    fill: none;
+    stroke: var(--color-signal-cyan);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s ease;
+  }
+
+  .score-ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 2px;
+  }
+
+  .score-number {
+    font-family: var(--font-heading);
+    font-size: 2.3rem;
+    font-weight: 800;
+    color: var(--color-pure-white);
+    line-height: 1;
+  }
+
+  .score-sublabel {
+    font-size: 0.74rem;
+    color: var(--color-dark-muted-text);
+  }
+
+  .score-status {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--color-emerald);
+  }
+
+  .score-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .score-categories li {
+    display: grid;
+    grid-template-columns: 17px 84px 1fr 28px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cat-icon {
+    color: var(--color-signal-cyan);
+    display: inline-flex;
+  }
+
+  .cat-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-dark-muted-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cat-bar-track {
+    height: 8px;
+    min-width: 40px;
+    background-color: rgba(148, 163, 184, 0.18);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+
+  .cat-bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-pill);
+  }
+
+  .cat-score {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-pure-white);
+    text-align: right;
+  }
+
+  .score-message {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border-dark);
+    font-size: 0.84rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.5;
+  }
+
+  .score-disclaimer {
+    margin-top: 6px;
+    font-size: 0.7rem;
+    color: var(--color-slate-gray);
+  }
+
+  @media (min-width: 480px) {
+    .score-main {
+      flex-direction: row;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .score-ring-wrap {
+      margin-inline: 0;
+    }
+
+    .score-categories {
+      flex: 1;
+    }
+  }
+</style>

@@ -1,0 +1,116 @@
+---
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+import { PRIMARY_CTA } from '../lib/site';
+---
+
+<section class="final-cta" id="final-cta">
+  <div class="final-cta-bg" aria-hidden="true"></div>
+  <Container wide class="final-cta-inner">
+    <div class="final-cta-copy">
+      <span class="final-cta-icon"><Icon name="clipboard-check" size={24} /></span>
+      <div>
+        <h2>Ready to Find Your Biggest Opportunities?</h2>
+        <p>Take the free AI Department Assessment and get your personalized score in just a few minutes.</p>
+      </div>
+    </div>
+
+    <div class="final-cta-actions">
+      <Button href={PRIMARY_CTA.href} variant="primary" size="large">{PRIMARY_CTA.label}</Button>
+      <p class="final-cta-support">Free &bull; 7&ndash;10 Minutes &bull; No Commitment</p>
+    </div>
+  </Container>
+</section>
+
+<style>
+  .final-cta {
+    position: relative;
+    background-color: var(--color-dark-secondary-bg);
+    padding-block: 28px;
+    overflow: hidden;
+    border-top: 1px solid var(--color-border-dark);
+    border-bottom: 1px solid var(--color-border-dark);
+  }
+
+  .final-cta-bg {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 75% 20%, rgba(34, 211, 238, 0.12), transparent 55%);
+    pointer-events: none;
+  }
+
+  /* Same root cause and fix as CTABand.astro (Sprint 5): below this
+     component's own row-layout breakpoint (960px), content stacks into a
+     single full-width column, and this gradient's fixed position can end
+     up behind the headline/copy instead of safely beside it. Hidden below
+     960px; everything else (background, icon, headline, copy, button,
+     supporting text) is untouched, and desktop is unaffected. */
+  @media (max-width: 959px) {
+    .final-cta-bg {
+      display: none;
+    }
+  }
+
+  :global(.final-cta-inner) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .final-cta-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .final-cta-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--color-signal-cyan);
+    color: var(--color-signal-cyan);
+  }
+
+  .final-cta-copy h2 {
+    font-size: 1.25rem;
+    color: var(--color-pure-white);
+    margin-bottom: 5px;
+  }
+
+  .final-cta-copy p {
+    color: var(--color-dark-muted-text);
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .final-cta-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .final-cta-support {
+    font-size: 0.8rem;
+    color: var(--color-slate-gray);
+  }
+
+  @media (min-width: 960px) {
+    :global(.final-cta-inner) {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+
+    .final-cta-actions {
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+  }
+</style>

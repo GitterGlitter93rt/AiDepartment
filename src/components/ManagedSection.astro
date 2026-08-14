@@ -1,0 +1,149 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+
+const capabilities = [
+  'Continuous Opportunity Discovery',
+  'Implementation Oversight',
+  'Employee Training',
+  'Vendor & Technology Management',
+  'Marketing & Growth Systems',
+  'AI Governance & Best Practices',
+  'Reporting & Optimization',
+  'Strategic Advisory',
+];
+---
+
+<Section tone="dark-secondary" id="managed-ai-department" class="managed-section">
+  <Container wide>
+    <div class="managed-grid">
+      <div class="managed-intro">
+        <span class="managed-icon"><Icon name="users-round" size={20} /></span>
+        <h2>Managed AI Department</h2>
+        <p>
+          Ongoing strategy, implementation oversight, training, governance
+          and optimization. Your outsourced AI department&mdash;focused on
+          continuous improvement and measurable results.
+        </p>
+      </div>
+
+      <ul class="managed-capabilities">
+        {capabilities.map((cap) => (
+          <li>
+            <span class="cap-check"><Icon name="check" size={13} /></span>
+            <span>{cap}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div class="managed-cta">
+        <Button href="/managed-ai-department/" variant="secondary-dark" size="large">Explore Managed Services</Button>
+      </div>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  :global(section.managed-section) {
+    padding-block: 24px !important;
+  }
+
+  .managed-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .managed-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid var(--color-signal-cyan);
+    color: var(--color-signal-cyan);
+    margin-bottom: 8px;
+  }
+
+  .managed-intro h2 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+  }
+
+  .managed-intro p {
+    color: var(--color-dark-muted-text);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    max-width: 330px;
+  }
+
+  .managed-capabilities {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 13px;
+  }
+
+  .managed-capabilities li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-pure-white);
+  }
+
+  .cap-check {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--color-electric-blue);
+    color: var(--color-electric-blue);
+  }
+
+  .managed-cta {
+    display: flex;
+  }
+
+  @media (max-width: 639px) {
+    .managed-grid {
+      gap: 16px;
+    }
+
+    .managed-icon {
+      margin-bottom: 6px;
+    }
+
+    .managed-intro p {
+      line-height: 1.42;
+    }
+
+    .managed-capabilities {
+      gap: 9px;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .managed-capabilities {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .managed-grid {
+      grid-template-columns: 0.78fr 1.35fr auto;
+      gap: 32px;
+    }
+
+    .managed-cta {
+      justify-content: flex-end;
+    }
+  }
+</style>

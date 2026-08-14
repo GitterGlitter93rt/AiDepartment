@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+
+const transformationAreas = [
+  { icon: 'calendar', title: 'Patient / Customer Access', description: 'Scheduling support, routing, administrative communication, reminders, and information collection.' },
+  { icon: 'clipboard-list', title: 'Administrative Operations', description: 'Repetitive workflows, document processing, reporting, and internal coordination.' },
+  { icon: 'brain', title: 'Employee Productivity', description: 'Knowledge retrieval, summarization, approved internal assistants, and workflow support.' },
+  { icon: 'link-2', title: 'System Integration', description: 'Reducing manual handoffs, connecting approved systems, and workflow orchestration.' },
+  { icon: 'shield-check', title: 'Governance', description: 'Approved tools, sensitive information handling, human review, access controls, and escalation.' },
+];
+
+const workflowGroups = [
+  { label: 'Contact', steps: [{ text: 'Patient Inquiry', icon: 'inbox' }, { text: 'Intent Classification', icon: 'search' }] },
+  { label: 'Workflow', steps: [{ text: 'Approved Administrative Workflow', icon: 'workflow' }, { text: 'Scheduling / Information / Routing', icon: 'calendar' }] },
+  { label: 'Oversight', steps: [{ text: 'Human Escalation', icon: 'user-check' }, { text: 'Documentation', icon: 'file-text' }] },
+];
+
+const faqs = [
+  { question: 'Does this involve clinical AI or diagnosis?', answer: 'No. This is focused on administrative and operational workflows — scheduling, communication support, documentation, and internal knowledge — not clinical decision-making, diagnosis, or treatment.' },
+  { question: 'Does Your AI Department have access to PHI or clinical systems?', answer: 'We do not claim access to protected health information. Any specific data-handling scope is defined during discovery, based on your organization\'s systems, policies, and requirements.' },
+  { question: 'Can AI replace clinicians?', answer: 'No. Clinical judgment remains with qualified clinicians. Our focus is administrative and operational systems that support staff and improve efficiency around that work.' },
+  { question: 'Do you work with hospitals or only smaller practices?', answer: 'The right engagement depends on organization size, systems, and complexity. Larger, multi-department organizations may be better suited to an Enterprise engagement.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting & Business Transformation for Healthcare Organizations"
+  description="Practical AI, automation, and workflow improvement for healthcare administrative operations — scheduling, communication support, documentation, and employee productivity, with human oversight throughout."
+  path="/industries/healthcare/"
+>
+  <InteriorHero
+    eyebrow="Healthcare"
+    headline="Practical AI for Healthcare Administrative and Operational Systems"
+    support="Healthcare organizations often operate across disconnected systems, repetitive administrative workflows, high communication volume, scheduling complexity, documentation, and knowledge-intensive processes. Your AI Department helps identify where AI, automation, integration, and better workflow design may create meaningful operational value — without touching clinical judgment."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Transformation Areas"
+        heading="Where Administrative Opportunity Typically Exists"
+        support="This is business and administrative transformation for owners, executives, operators, administrators, and technology leaders — not clinical AI."
+      />
+      <CapabilityGrid items={transformationAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Conceptual Example"
+        heading="A Typical Administrative Workflow"
+        support="This is a conceptual pattern, not a claim that every healthcare organization should implement the same architecture."
+        tone="dark"
+      />
+      <GroupedFlow groups={workflowGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Oversight"
+        heading="AI Should Support Administrative Staff, Not Clinical Judgment"
+        support="AI-assisted workflows should explicitly define human ownership, escalation thresholds, approved data usage, and validation requirements. We do not provide medical advice, clinical decision-making capabilities, diagnosis, or treatment recommendations, and we do not claim HIPAA compliance, access to PHI, or clinical expertise."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        support="Depending on scope, this may involve AI Consulting to identify opportunities, AI Implementation to build the workflow, AI Training for staff adoption, or an Enterprise engagement for larger, multi-department organizations."
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/enterprise/">Enterprise</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Healthcare Organization's Operations"
+    support="Take the free AI Department Assessment to see opportunities across administrative workflows, employee productivity, and reporting."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>
