@@ -271,6 +271,18 @@ const categorized = categories.map((cat) => ({
     background-color: rgba(37, 99, 235, 0.06);
   }
 
+  /* Desktop / large tablet: wrap into a compact block of rows instead of
+     horizontal scroll, so every category is visible without scrolling
+     sideways. Mobile keeps the horizontal-scroll strip, which is the
+     preferred touch interaction at that size. */
+  @media (min-width: 768px) {
+    .res-jumpnav-scroll {
+      flex-wrap: wrap;
+      overflow-x: visible;
+      row-gap: 10px;
+    }
+  }
+
   .res-cat-heading {
     font-size: 1.3rem;
     font-weight: 800;

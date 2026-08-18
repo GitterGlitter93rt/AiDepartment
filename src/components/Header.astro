@@ -63,6 +63,21 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
           }
 
           if (mega) {
+            // Home & Field Services has substantially more items than the
+            // other categories (14 vs. up to 8) and needs its own internal
+            // 2-column split to avoid an oversized single column. This
+            // splits the array positionally — it does not duplicate or
+            // hardcode the registry's industry list, it only changes how
+            // one already-registry-driven category's items are laid out.
+            const SPLIT_THRESHOLD = 10;
+            const renderedCategories = mega.categories.map((cat) => {
+              if (cat.items.length > SPLIT_THRESHOLD) {
+                const mid = Math.ceil(cat.items.length / 2);
+                return { category: cat.category, wide: true, columns: [cat.items.slice(0, mid), cat.items.slice(mid)] };
+              }
+              return { category: cat.category, wide: false, columns: [cat.items] };
+            });
+
             return (
               <li class="nav-dropdown-item nav-megamenu-item">
                 <span class="nav-split-trigger">
@@ -80,18 +95,22 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
                 </span>
                 <div class="nav-megamenu-panel" id={mega.id} hidden>
                   <div class="nav-megamenu-columns">
-                    {mega.categories.map((cat) => (
-                      <div class="nav-megamenu-col">
+                    {renderedCategories.map((cat) => (
+                      <div class:list={['nav-megamenu-cat', { 'nav-megamenu-cat-wide': cat.wide }]}>
                         <span class="nav-megamenu-col-heading">{cat.category}</span>
-                        <ul role="menu" aria-label={cat.category}>
-                          {cat.items.map((sub) => (
-                            <li role="none">
-                              <a href={sub.href} role="menuitem">
-                                <span class="dropdown-item-label">{sub.label}</span>
-                              </a>
-                            </li>
+                        <div class="nav-megamenu-subcols">
+                          {cat.columns.map((colItems) => (
+                            <ul role="menu" aria-label={cat.category}>
+                              {colItems.map((sub) => (
+                                <li role="none">
+                                  <a href={sub.href} role="menuitem">
+                                    <span class="dropdown-item-label">{sub.label}</span>
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -538,8 +557,8 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     top: calc(100% + 20px);
     left: 50%;
     transform: translateX(-50%);
-    width: min(90vw, 880px);
-    max-height: min(70vh, 640px);
+    width: min(94vw, 1100px);
+    max-height: min(85vh, 760px);
     overflow-y: auto;
     background-color: var(--color-deep-slate);
     border: 1px solid var(--color-border-dark);
@@ -555,6 +574,10 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     gap: 20px 24px;
   }
 
+  .nav-megamenu-cat-wide {
+    grid-column: span 2;
+  }
+
   .nav-megamenu-col-heading {
     display: block;
     font-family: var(--font-heading);
@@ -566,25 +589,35 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     margin-bottom: 10px;
   }
 
-  .nav-megamenu-col ul {
+  .nav-megamenu-subcols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px 20px;
+  }
+
+  .nav-megamenu-cat-wide .nav-megamenu-subcols {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nav-megamenu-cat ul {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
-  .nav-megamenu-col a {
+  .nav-megamenu-cat a {
     display: block;
     padding: 7px 10px;
     border-radius: 8px;
     transition: background-color var(--transition-fast);
   }
 
-  .nav-megamenu-col a:hover,
-  .nav-megamenu-col a:focus-visible {
+  .nav-megamenu-cat a:hover,
+  .nav-megamenu-cat a:focus-visible {
     background-color: rgba(37, 99, 235, 0.14);
   }
 
-  .nav-megamenu-col .dropdown-item-label {
+  .nav-megamenu-cat .dropdown-item-label {
     font-size: 0.83rem;
     font-weight: 600;
   }
@@ -606,7 +639,7 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
 
   @media (min-width: 1280px) {
     .nav-megamenu-columns {
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
     }
   }
 

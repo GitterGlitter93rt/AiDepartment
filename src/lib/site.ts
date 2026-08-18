@@ -181,12 +181,13 @@ export const FOOTER_LINKS = {
     { label: 'AI Recruiting & HR Automation', href: '/ai-recruiting-automation/' },
   ],
   services: [
+    { label: 'AI Agent Development', href: '/ai-agent-development/' },
+    { label: 'CRM Setup & Automation', href: '/crm-setup-automation/' },
+    { label: 'AI + CRM Integration', href: '/ai-crm-integration/' },
+    { label: 'Conversion Tracking & Analytics', href: '/conversion-tracking-analytics/' },
     { label: 'Google Ads', href: '/google-ads/' },
-    { label: 'Meta Ads', href: '/meta-ads/' },
     { label: 'SEO', href: '/seo/' },
     { label: 'AI Training', href: '/ai-training/' },
-    { label: 'AI Workshops', href: '/ai-workshops/' },
-    { label: 'Executive AI Coaching', href: '/executive-ai-coaching/' },
   ],
   industries: FOOTER_INDUSTRIES,
   company: [
