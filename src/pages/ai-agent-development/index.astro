@@ -1,0 +1,193 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'headset', title: 'Customer Service Agents', description: 'Handle routine, high-volume questions accurately, with clear escalation to a person for anything ambiguous.' },
+  { icon: 'phone-call', title: 'Lead-Response Agents', description: 'Acknowledge, qualify, and route inbound inquiries quickly and consistently, across calls, forms, and messages.' },
+  { icon: 'book-open', title: 'Internal Knowledge Agents', description: 'Help employees find approved procedures and documentation instead of interrupting a colleague or searching for an hour.' },
+  { icon: 'briefcase', title: 'Sales & Support Assistants', description: 'Summarize conversations, draft follow-up, and surface next actions for your human team.' },
+  { icon: 'phone', title: 'Voice & Phone Agents', description: 'Where relevant, structured voice conversations for intake, scheduling, and routine information.' },
+  { icon: 'user-check', title: 'Human Escalation', description: 'Every agent is designed with a defined point where a person takes over — not as an afterthought.' },
+  { icon: 'database', title: 'CRM & Business-System Integration', description: 'Agents that read and write to the systems you already use, not a disconnected tool with its own silo.' },
+  { icon: 'shield-check', title: 'Monitoring, Testing & Governance', description: 'Ongoing review of agent behavior and outputs, not a one-time deployment left unmonitored.' },
+];
+
+const agentGroups = [
+  { label: 'Trigger', steps: [{ text: 'Customer / Employee Request', icon: 'zap' }] },
+  { label: 'Agent', steps: [{ text: 'AI Agent', icon: 'bot' }, { text: 'Business-System Access', icon: 'database' }] },
+  { label: 'Boundary', steps: [{ text: 'Confidence / Complexity Check', icon: 'shield-check' }] },
+  { label: 'Resolve', steps: [{ text: 'Resolved', icon: 'check-circle-2' }, { text: 'Human Escalation', icon: 'user-check' }] },
+  { label: 'Improve', steps: [{ text: 'Monitoring & Review', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Is this a fully autonomous AI employee that replaces staff?', answer: 'No, and we\'re direct about that. AI agents are implemented around specific, well-defined business workflows — not sold as a general-purpose replacement for a person\'s judgment. Every agent we build has a clear scope, a defined escalation path, and ongoing human oversight.' },
+  { question: 'What happens when the agent doesn\'t know the answer?', answer: 'It should escalate, not guess. A well-designed agent has a defined confidence threshold and complexity boundary — when a request falls outside what it can handle reliably, it hands off to a person with the context already gathered, rather than producing a plausible-sounding but wrong answer.' },
+  { question: 'Can an agent access our CRM and other business systems?', answer: 'Yes, with appropriate access controls. A useful agent reads customer or business context from your existing systems and, where appropriate, writes back — updating a record, creating a task, logging a conversation — rather than operating in an isolated bubble disconnected from how your business actually runs.' },
+  { question: 'How do you test and monitor an agent after launch?', answer: 'Ongoing review of real conversations and outputs, defined success metrics, and a clear process for identifying when an agent\'s behavior needs adjustment. An agent deployed once and never checked on again is a liability, not an asset.' },
+  { question: 'Do you build voice agents?', answer: 'Where it fits the business — yes. Voice-based agents can handle structured intake, scheduling, and routine information over the phone, with the same escalation and governance principles as any other agent.' },
+];
+---
+
+<BaseLayout
+  title="AI Agent Development for Real Business Workflows | Your AI Department"
+  description="Practical AI agents for customer service, lead response, and internal knowledge — built around your actual business workflows and systems, with defined human escalation."
+  path="/ai-agent-development/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'AI Agent Development', item: `${SITE.domain}/ai-agent-development/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="AI Agent Development"
+    headline="AI Agents Built for Real Business Workflows"
+    support="An AI agent is only as useful as the workflow it's built around, the systems it can actually access, and the point at which it hands off to a person. Your AI Department designs and builds practical agents for customer service, lead response, and internal knowledge — not a magic autonomous employee, but a well-scoped tool that makes your existing team faster."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Most 'AI Agent' Pitches Oversell What They Actually Do"
+      />
+      <p class="prose-p">The AI agent category has attracted a lot of hype — autonomous employees, self-directed sales reps, agents that supposedly run entire departments unsupervised. In practice, the agents that actually create value are far more specific: a customer service agent that handles the 60% of tickets that are genuinely routine, a lead-response agent that acknowledges and qualifies an inbound inquiry within seconds, an internal knowledge agent that saves an employee from a ten-minute search through outdated documentation.</p>
+      <p class="prose-p">Building an agent well means starting from the actual workflow — what triggers it, what information it needs, which systems it has to touch, and exactly where a person needs to take over — not starting from the technology and looking for a use case to justify it.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Agents Create Value"
+        heading="Practical Agent Categories"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Agent Architecture"
+        heading="From Request to Resolution, With a Real Escalation Boundary"
+        support="This is a conceptual pattern. The specific confidence thresholds and escalation triggers are defined per agent, based on the actual risk and complexity of the workflow."
+        tone="dark"
+      />
+      <GroupedFlow groups={agentGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Integration"
+        heading="Agents That Work With Your Existing Systems"
+        support="An agent disconnected from your CRM, ticketing system, or scheduling tool can only ever be a demo. Real value comes from an agent that can read customer context, check availability, log a conversation, or update a record — integrated into the systems your team already relies on, not a separate silo they have to check in addition to everything else."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Escalation"
+        heading="Every Agent Has a Defined Handoff Point"
+        support="Ambiguous requests, emotionally charged conversations, anything touching a sensitive decision, and situations outside the agent's defined scope should all escalate to a person — by design, not as a fallback nobody planned for."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Organizations With Real, Repeatable Workflows"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Handling meaningful volume of routine customer or lead interactions',
+          'Already using a CRM, ticketing, or scheduling system worth integrating with',
+          'Looking to reduce response time without removing human oversight',
+          'Willing to invest in monitoring and iteration after launch',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are looking for a fully autonomous replacement for staff',
+          'You have no defined workflow for the agent to operate within',
+          'You are unwilling to maintain any ongoing oversight',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Build the Right Agent for Your Actual Workflow"
+      />
+      <p class="cross-links">
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-crm-integration/">AI + CRM Integration</a>&nbsp;&bull;&nbsp;
+        <a href="/crm-setup-automation/">CRM Setup & Automation</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where an AI Agent Could Actually Help"
+    support="Take the free AI Department Assessment, or discuss your specific workflow directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

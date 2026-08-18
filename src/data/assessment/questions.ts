@@ -4,6 +4,18 @@
 // Do not reorder options or edit scoring arrays without updating both docs.
 
 import type { AnswerMap, QuestionDef } from './types';
+import { INDUSTRIES } from '../../lib/industries.ts';
+
+// Q1's options are generated from the central industry registry so the
+// assessment always reflects every industry the site actually supports,
+// plus a catch-all for anything not listed. Category is preserved on
+// each option so the UI can render a grouped select instead of a long
+// flat list. Adding an industry to the registry is sufficient — no
+// change needed here.
+const INDUSTRY_OPTIONS = [
+  ...INDUSTRIES.map((i) => ({ label: i.name, group: i.category })),
+  { label: 'Other / Not Listed', group: 'Other' },
+];
 
 // ---- Branching helpers -----------------------------------------------
 // Options for band-style questions are defined in ascending order, so
@@ -65,12 +77,7 @@ export const QUESTIONS: QuestionDef[] = [
     prompt: 'What industry best describes your business?',
     type: 'single',
     required: true,
-    options: [
-      'Professional Services', 'Legal', 'Medical / Dental', 'Collision Repair / Automotive',
-      'Roofing', 'HVAC', 'Construction', 'Real Estate', 'Insurance', 'Accounting / Finance',
-      'Restaurant / Hospitality', 'Retail / Ecommerce', 'Manufacturing', 'Home Services',
-      'Technology', 'Other',
-    ].map((label) => ({ label })),
+    options: INDUSTRY_OPTIONS,
   },
   {
     id: 'Q2',

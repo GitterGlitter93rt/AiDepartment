@@ -37,6 +37,7 @@ const year = new Date().getFullYear();
           {FOOTER_LINKS.industries.map((link) => (
             <li><a href={link.href}>{link.label}</a></li>
           ))}
+          <li><a href="/industries/" class="footer-viewall">View All Industries &rarr;</a></li>
         </ul>
       </nav>
 
@@ -138,6 +139,11 @@ const year = new Date().getFullYear();
 
   .legal-links a:hover {
     color: var(--color-pure-white);
+  }
+
+  .footer-viewall {
+    color: var(--color-signal-cyan);
+    font-weight: 700;
   }
 
   @media (min-width: 640px) {

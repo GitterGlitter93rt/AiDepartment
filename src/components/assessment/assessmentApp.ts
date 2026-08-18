@@ -391,6 +391,37 @@ export class AssessmentApp {
       return `<textarea id="a-text-input" maxlength="${q.maxLength ?? 600}" rows="4" placeholder="Type your answer (optional)&hellip;">${escapeHtml(val)}</textarea>`;
     }
 
+    // Q1 (industry) uses a grouped native <select> instead of the normal
+    // single-select radio grid — with 28+ industries, a flat radio list
+    // would be unusably long. The answer is still a plain string label
+    // stored via setSingleAnswer, identical to every other single-select
+    // question — scoring, validation, and branching are untouched.
+    if (q.id === 'Q1' && q.type === 'single') {
+      const selected = typeof this.answers[q.id] === 'string' ? this.answers[q.id] : '';
+      const groups = new Map<string, typeof q.options>();
+      (q.options ?? []).forEach((opt) => {
+        const groupName = opt.group ?? 'Other';
+        if (!groups.has(groupName)) groups.set(groupName, []);
+        groups.get(groupName)!.push(opt);
+      });
+      const optionsHtml = Array.from(groups.entries())
+        .map(([groupName, opts]) => {
+          const optsHtml = (opts ?? [])
+            .map((opt) => `<option value="${escapeHtml(opt.label)}" ${selected === opt.label ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`)
+            .join('');
+          return `<optgroup label="${escapeHtml(groupName)}">${optsHtml}</optgroup>`;
+        })
+        .join('');
+      return `
+        <div class="a-select-wrap">
+          <select id="a-grouped-select-${q.id}" data-grouped-select="${q.id}" aria-label="${escapeHtml(q.prompt)}">
+            <option value="" ${selected ? '' : 'selected'} disabled>Select your industry&hellip;</option>
+            ${optionsHtml}
+          </select>
+        </div>
+      `;
+    }
+
     if (q.type === 'multi') {
       const selected = Array.isArray(this.answers[q.id]) ? (this.answers[q.id] as string[]) : [];
       const maxNote = q.maxSelections ? `<p class="a-max-note">Select up to ${q.maxSelections}.</p>` : '';
@@ -438,6 +469,8 @@ export class AssessmentApp {
     this.root.querySelectorAll<HTMLInputElement>('input[data-multi]').forEach((el) => {
       el.addEventListener('change', () => this.toggleMultiAnswer(q.id, el.value, q.maxSelections));
     });
+    const groupedSelect = this.root.querySelector<HTMLSelectElement>(`select[data-grouped-select="${q.id}"]`);
+    groupedSelect?.addEventListener('change', () => this.setSingleAnswer(q.id, groupedSelect.value));
     const textarea = this.root.querySelector<HTMLTextAreaElement>('#a-text-input');
     textarea?.addEventListener('input', () => this.setTextAnswer(q.id, textarea.value));
   }

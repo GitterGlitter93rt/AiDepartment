@@ -2,12 +2,21 @@
 import Container from './Container.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
-import { PRIMARY_NAV, PRIMARY_CTA, SOLUTIONS_DROPDOWN, SERVICES_DROPDOWN, INDUSTRIES_DROPDOWN } from '../lib/site';
+import { PRIMARY_NAV, PRIMARY_CTA, SOLUTIONS_DROPDOWN, SERVICES_MENU, INDUSTRIES_MEGA_MENU } from '../lib/site';
 
-const DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }> = {
+// Solutions stays a simple flat dropdown (4 items, no categories needed).
+// Services and Industries are now proper mega-menus with category
+// columns, since Industries alone covers 28 real routes that no longer
+// fit a single-column dropdown. Both "Industries" and "Services" link
+// to their own real hub/section, with the dropdown as a separate,
+// keyboard-accessible disclosure — a link is never dropdown-only.
+const FLAT_DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }> = {
   Solutions: { items: SOLUTIONS_DROPDOWN, id: 'solutions-dropdown' },
-  Services: { items: SERVICES_DROPDOWN, id: 'services-dropdown' },
-  Industries: { items: INDUSTRIES_DROPDOWN, id: 'industries-dropdown' },
+};
+
+const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string; viewAllHref?: string; viewAllLabel?: string }> = {
+  Services: { categories: SERVICES_MENU, id: 'services-megamenu' },
+  Industries: { categories: INDUSTRIES_MEGA_MENU, id: 'industries-megamenu', viewAllHref: '/industries/', viewAllLabel: 'View All Industries' },
 };
 ---
 
@@ -21,33 +30,85 @@ const DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }
     <nav class="desktop-nav" aria-label="Primary">
       <ul>
         {PRIMARY_NAV.map((item) => {
-          const dropdown = DROPDOWNS[item.label];
-          return dropdown ? (
-            <li class="nav-dropdown-item">
-              <button
-                type="button"
-                class="nav-dropdown-trigger"
-                aria-haspopup="true"
-                aria-expanded="false"
-                aria-controls={dropdown.id}
-              >
-                {item.label}
-                <Icon name="chevron-down" size={14} />
-              </button>
-              <div class="nav-dropdown-panel" id={dropdown.id} hidden>
-                <ul role="menu" aria-label={item.label}>
-                  {dropdown.items.map((sub) => (
-                    <li role="none">
-                      <a href={sub.href} role="menuitem">
-                        <span class="dropdown-item-label">{sub.label}</span>
-                        <span class="dropdown-item-desc">{sub.description}</span>
+          const flat = FLAT_DROPDOWNS[item.label];
+          const mega = MEGA_MENUS[item.label];
+
+          if (flat) {
+            return (
+              <li class="nav-dropdown-item">
+                <button
+                  type="button"
+                  class="nav-dropdown-trigger"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                  aria-controls={flat.id}
+                >
+                  {item.label}
+                  <Icon name="chevron-down" size={14} />
+                </button>
+                <div class="nav-dropdown-panel" id={flat.id} hidden>
+                  <ul role="menu" aria-label={item.label}>
+                    {flat.items.map((sub) => (
+                      <li role="none">
+                        <a href={sub.href} role="menuitem">
+                          <span class="dropdown-item-label">{sub.label}</span>
+                          <span class="dropdown-item-desc">{sub.description}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            );
+          }
+
+          if (mega) {
+            return (
+              <li class="nav-dropdown-item nav-megamenu-item">
+                <span class="nav-split-trigger">
+                  <a href={item.href} class="nav-split-link">{item.label}</a>
+                  <button
+                    type="button"
+                    class="nav-dropdown-toggle"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                    aria-controls={mega.id}
+                    aria-label={`${item.label} menu`}
+                  >
+                    <Icon name="chevron-down" size={14} />
+                  </button>
+                </span>
+                <div class="nav-megamenu-panel" id={mega.id} hidden>
+                  <div class="nav-megamenu-columns">
+                    {mega.categories.map((cat) => (
+                      <div class="nav-megamenu-col">
+                        <span class="nav-megamenu-col-heading">{cat.category}</span>
+                        <ul role="menu" aria-label={cat.category}>
+                          {cat.items.map((sub) => (
+                            <li role="none">
+                              <a href={sub.href} role="menuitem">
+                                <span class="dropdown-item-label">{sub.label}</span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                  {mega.viewAllHref && (
+                    <div class="nav-megamenu-footer">
+                      <a href={mega.viewAllHref} class="nav-megamenu-viewall">
+                        {mega.viewAllLabel}
+                        <Icon name="arrow-right" size={14} />
                       </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </li>
-          ) : (
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          }
+
+          return (
             <li>
               <a href={item.href}>{item.label}</a>
             </li>
@@ -79,22 +140,57 @@ const DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }
         <li><a href={PRIMARY_CTA.href} class="mobile-cta-link">{PRIMARY_CTA.label}</a></li>
 
         {PRIMARY_NAV.map((item) => {
-          const dropdown = DROPDOWNS[item.label];
-          return dropdown ? (
-            <li class="mobile-group">
-              <details>
-                <summary>
-                  {item.label}
-                  <Icon name="chevron-down" size={16} />
-                </summary>
-                <ul class="mobile-subnav">
-                  {dropdown.items.map((sub) => (
-                    <li><a href={sub.href}>{sub.label}</a></li>
-                  ))}
-                </ul>
-              </details>
-            </li>
-          ) : (
+          const flat = FLAT_DROPDOWNS[item.label];
+          const mega = MEGA_MENUS[item.label];
+
+          if (flat) {
+            return (
+              <li class="mobile-group">
+                <details>
+                  <summary>
+                    {item.label}
+                    <Icon name="chevron-down" size={16} />
+                  </summary>
+                  <ul class="mobile-subnav">
+                    {flat.items.map((sub) => (
+                      <li><a href={sub.href}>{sub.label}</a></li>
+                    ))}
+                  </ul>
+                </details>
+              </li>
+            );
+          }
+
+          if (mega) {
+            return (
+              <li class="mobile-group">
+                <details>
+                  <summary>
+                    {item.label}
+                    <Icon name="chevron-down" size={16} />
+                  </summary>
+                  <div class="mobile-subnav mobile-megamenu-mobile">
+                    <a href={item.href} class="mobile-viewall-link mobile-visit-link">Visit {item.label} Overview &rarr;</a>
+                    {mega.categories.map((cat) => (
+                      <div class="mobile-megamenu-cat">
+                        <span class="mobile-megamenu-cat-heading">{cat.category}</span>
+                        <ul>
+                          {cat.items.map((sub) => (
+                            <li><a href={sub.href}>{sub.label}</a></li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                    {mega.viewAllHref && (
+                      <a href={mega.viewAllHref} class="mobile-viewall-link">{mega.viewAllLabel} &rarr;</a>
+                    )}
+                  </div>
+                </details>
+              </li>
+            );
+          }
+
+          return (
             <li>
               <a href={item.href}>{item.label}</a>
             </li>
@@ -162,8 +258,8 @@ const DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }
   }
 
   dropdownItems.forEach((el) => {
-    const trigger = el.querySelector<HTMLButtonElement>('.nav-dropdown-trigger');
-    const panel = el.querySelector<HTMLElement>('.nav-dropdown-panel');
+    const trigger = el.querySelector<HTMLButtonElement>('.nav-dropdown-trigger, .nav-dropdown-toggle');
+    const panel = el.querySelector<HTMLElement>('.nav-dropdown-panel, .nav-megamenu-panel');
     if (!trigger || !panel) return;
     const controller = { el, trigger, panel, closeTimer: null as ReturnType<typeof setTimeout> | null };
     controllers.push(controller);
@@ -390,6 +486,130 @@ const DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }
     line-height: 1.4;
   }
 
+  /* ---- Mega-menu split trigger (Services / Industries) ---- */
+  .nav-megamenu-item {
+    position: relative;
+  }
+
+  .nav-split-trigger {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .nav-split-link {
+    font-size: var(--fs-small);
+    font-weight: 600;
+    color: var(--color-pure-white);
+    transition: color var(--transition-fast);
+    padding-block: 4px;
+  }
+
+  .nav-split-link:hover {
+    color: var(--color-signal-cyan);
+  }
+
+  .nav-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 6px 2px;
+    color: var(--color-pure-white);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+  }
+
+  .nav-dropdown-toggle:hover {
+    color: var(--color-signal-cyan);
+  }
+
+  .nav-dropdown-toggle :global(svg) {
+    transition: transform var(--transition-fast);
+  }
+
+  .nav-dropdown-toggle[aria-expanded='true'] :global(svg) {
+    transform: rotate(180deg);
+  }
+
+  .nav-megamenu-panel {
+    position: absolute;
+    top: calc(100% + 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(90vw, 880px);
+    max-height: min(70vh, 640px);
+    overflow-y: auto;
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel-dark);
+    padding: 20px;
+    z-index: 50;
+  }
+
+  .nav-megamenu-columns {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px 24px;
+  }
+
+  .nav-megamenu-col-heading {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-signal-cyan);
+    margin-bottom: 10px;
+  }
+
+  .nav-megamenu-col ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-megamenu-col a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 8px;
+    transition: background-color var(--transition-fast);
+  }
+
+  .nav-megamenu-col a:hover,
+  .nav-megamenu-col a:focus-visible {
+    background-color: rgba(37, 99, 235, 0.14);
+  }
+
+  .nav-megamenu-col .dropdown-item-label {
+    font-size: 0.83rem;
+    font-weight: 600;
+  }
+
+  .nav-megamenu-footer {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border-dark);
+  }
+
+  .nav-megamenu-viewall {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-signal-cyan);
+  }
+
+  @media (min-width: 1280px) {
+    .nav-megamenu-columns {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
   .header-cta {
     display: none;
   }
@@ -510,6 +730,41 @@ const DROPDOWNS: Record<string, { items: typeof SOLUTIONS_DROPDOWN; id: string }
   .mobile-subnav a:hover,
   .mobile-subnav a:focus-visible {
     color: var(--color-signal-cyan);
+  }
+
+  .mobile-megamenu-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mobile-megamenu-cat {
+    padding-block: 6px;
+  }
+
+  .mobile-megamenu-cat-heading {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-signal-cyan);
+    padding: 8px 8px 2px;
+  }
+
+  .mobile-viewall-link {
+    display: block;
+    padding: 12px 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-electric-blue);
+  }
+
+  .mobile-visit-link {
+    border-bottom: 1px solid var(--color-border-dark);
+    margin-bottom: 6px;
+    padding-bottom: 14px;
   }
 
   @media (min-width: 1180px) {

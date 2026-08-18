@@ -1,0 +1,183 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'workflow', title: 'Pipeline Architecture', description: 'Stages that reflect how your business actually sells, not a generic default pipeline nobody customized.' },
+  { icon: 'tag', title: 'Lead & Source Fields', description: 'Structured fields that capture and preserve where a lead came from, so it survives the trip through your sales process.' },
+  { icon: 'repeat', title: 'Lifecycle Stages', description: 'Clear stages from new lead through customer, with defined criteria for what moves a record from one to the next.' },
+  { icon: 'zap', title: 'Task Automation', description: 'Automatic task creation, reminders, and follow-up triggers so nothing depends purely on memory.' },
+  { icon: 'calendar', title: 'Scheduling Connections', description: 'Connect your CRM to the scheduling tools your team actually uses for appointments and consultations.' },
+  { icon: 'inbox', title: 'Call & Form Ingestion', description: 'Calls and form submissions land in the CRM cleanly and consistently, not scattered across inboxes and voicemail.' },
+  { icon: 'user-check', title: 'Sales Handoffs', description: 'Clean, documented handoffs between marketing, intake, and sales — or between setters and closers.' },
+  { icon: 'bar-chart-3', title: 'Reporting', description: 'Pipeline visibility, conversion rates by stage, and management reporting built on data that\'s actually reliable.' },
+];
+
+const crmGroups = [
+  { label: 'Capture', steps: [{ text: 'Call / Form / Referral', icon: 'inbox' }] },
+  { label: 'Structure', steps: [{ text: 'Lead Record', icon: 'tag' }, { text: 'Source Preserved', icon: 'shield-check' }] },
+  { label: 'Progress', steps: [{ text: 'Pipeline Stage', icon: 'workflow' }, { text: 'Task / Follow-Up', icon: 'zap' }] },
+  { label: 'Convert', steps: [{ text: 'Handoff', icon: 'user-check' }, { text: 'Customer', icon: 'check-circle-2' }] },
+  { label: 'Measure', steps: [{ text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Do we need to switch CRMs to work with you?', answer: 'Usually not. Most CRM platforms can support far more of this architecture than businesses actually configure. We typically start by improving what you already have — pipeline structure, fields, automation — rather than assuming a migration is necessary.' },
+  { question: 'Are you a reseller for a specific CRM platform?', answer: 'No, unless we explicitly tell you otherwise for a specific engagement. We help design and implement CRM architecture across common platforms, based on what fits your business — not a fixed vendor relationship.' },
+  { question: 'What about migrating from our old system? Is data cleanup part of this?', answer: 'It can be, and we\'re upfront about the reality: data migration and cleanup is often the least glamorous but most important part of a CRM project. Duplicate records, inconsistent fields, and years of inconsistent data entry don\'t fix themselves during a migration — they need to be addressed deliberately.' },
+  { question: 'How is this different from your AI + CRM Integration page?', answer: 'This page is about the CRM foundation itself — pipeline structure, fields, lifecycle stages, and the automation that runs on top of a well-organized system. AI + CRM Integration is about connecting AI tools (summaries, AI-assisted communication, intake) to a CRM that already has that foundation. Many engagements involve both, but they\'re genuinely separate pieces of work.' },
+  { question: 'Can you connect our CRM to our scheduling and marketing tools?', answer: 'Yes — that\'s a core part of this work. A CRM that doesn\'t talk to your scheduling tool or your marketing platforms creates exactly the kind of gaps where leads get lost or attribution breaks down.' },
+];
+---
+
+<BaseLayout
+  title="CRM Setup & Automation | Your AI Department"
+  description="Pipeline architecture, lifecycle stages, task automation, and reporting — built around how your business actually sells, on the CRM platform you already use."
+  path="/crm-setup-automation/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'CRM Setup & Automation', item: `${SITE.domain}/crm-setup-automation/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="CRM Setup & Automation"
+    headline="A CRM Architecture Built for How You Actually Sell"
+    support="Most CRM platforms are capable of far more than the way most businesses actually configure them. Your AI Department builds pipeline architecture, lifecycle stages, task automation, and reporting around your real sales process — using the platform you already have wherever possible."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="A CRM Is Only as Good as Its Configuration"
+      />
+      <p class="prose-p">Buying and installing a CRM is the easy part. The harder, more valuable work is configuring it around your actual sales process — pipeline stages that mean something, fields that capture the information your team actually needs, automation that removes manual busywork, and a structure disciplined enough that reporting is trustworthy rather than aspirational.</p>
+      <p class="prose-p">Most businesses we work with already have a CRM. The opportunity isn't usually a new platform — it's fixing a pipeline that was configured once, years ago, and never revisited as the business changed.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Build"
+        heading="CRM Architecture That Actually Gets Used"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From First Contact to Reported Outcome"
+        support="This is a conceptual pattern. The exact stages and fields should reflect your specific sales process, not a generic template."
+        tone="dark"
+      />
+      <GroupedFlow groups={crmGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Data Reality"
+        heading="Migration and Cleanup Are Part of the Work"
+        support="Years of inconsistent data entry, duplicate records, and fields nobody uses anymore don't resolve themselves during a CRM project — they need deliberate attention. We're upfront about this reality rather than pretending a new pipeline structure alone will fix underlying data quality problems."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Businesses With a Real Sales Process to Support"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Already using a CRM that isn\'t configured well',
+          'Managing multiple salespeople, setters, or closers',
+          'Losing leads to inconsistent follow-up or unclear pipeline stages',
+          'Ready to invest in cleaning up historical data',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You have no sales process to build a pipeline around yet',
+          'You are looking for us to endorse or resell a specific CRM brand',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Build a CRM That Actually Supports Your Sales Process"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-crm-integration/">AI + CRM Integration</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/conversion-tracking-analytics/">Conversion Tracking & Analytics</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where Your CRM Is Actually Falling Short"
+    support="Take the free AI Department Assessment, or discuss your current CRM setup directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

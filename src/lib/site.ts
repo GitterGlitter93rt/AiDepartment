@@ -3,6 +3,7 @@
 // and docs/02-website/technical-seo-spec.md.
 
 import { SCHEDULING } from './scheduling';
+import { INDUSTRIES, industriesByCategory } from './industries';
 
 export { SCHEDULING } from './scheduling';
 
@@ -25,7 +26,7 @@ export interface NavItem {
 export const PRIMARY_NAV: NavItem[] = [
   { label: 'Solutions', href: '/#solutions' },
   { label: 'Services', href: '/#services' },
-  { label: 'Industries', href: '/#industries' },
+  { label: 'Industries', href: '/industries/' },
   { label: 'Resources', href: '/resources/' },
   { label: 'Enterprise', href: '/enterprise/' },
   { label: 'About', href: '/about/' },
@@ -52,39 +53,79 @@ export const SOLUTIONS_DROPDOWN: DropdownItem[] = [
   { label: 'Managed AI Department', href: '/managed-ai-department/', description: 'Ongoing strategy, implementation oversight, training, and optimization.' },
 ];
 
-// Canonical per navigation.md's Services Dropdown — all six now built.
-export const SERVICES_DROPDOWN: DropdownItem[] = [
-  { label: 'Google Ads', href: '/google-ads/', description: 'Turn Google Ads into a measurable, attributed revenue system.' },
-  { label: 'Meta Ads', href: '/meta-ads/', description: 'Facebook and Instagram advertising connected to real follow-up and sales.' },
-  { label: 'SEO', href: '/seo/', description: 'Organic visibility, content, and technical foundations that convert.' },
-  { label: 'AI Training', href: '/ai-training/', description: 'Practical, role-specific AI training for real business workflows.' },
-  { label: 'AI Workshops', href: '/ai-workshops/', description: 'Focused sessions for opportunity discovery and team enablement.' },
-  { label: 'Executive AI Coaching', href: '/executive-ai-coaching/', description: 'One-on-one AI advisory for owners, CEOs, and senior leaders.' },
+// Services mega-menu structure per Sprint 12.1 requirement 6. Several
+// items intentionally point to the same substantial commercial page,
+// highlighting a different capability described within it — per explicit
+// instruction not to create a thin doorway page per bullet.
+export interface ServiceMenuItem extends NavItem {
+  description: string;
+}
+
+export const SERVICES_MENU: { category: string; items: ServiceMenuItem[] }[] = [
+  {
+    category: 'AI & Automation',
+    items: [
+      { label: 'AI Implementation', href: '/ai-implementation/', description: 'Build AI agents, automations, integrations, and internal assistants.' },
+      { label: 'AI Agent Development', href: '/ai-agent-development/', description: 'Practical business agents for support, lead response, and internal knowledge.' },
+      { label: 'AI Phone & Voice Agents', href: '/ai-agent-development/', description: 'Voice-based intake and follow-up integrated with human escalation.' },
+      { label: 'Workflow Automation', href: '/ai-implementation/', description: 'Connect systems and automate repetitive operational handoffs.' },
+    ],
+  },
+  {
+    category: 'CRM & Integration',
+    items: [
+      { label: 'CRM Setup & Automation', href: '/crm-setup-automation/', description: 'Pipeline architecture, lifecycle stages, and task automation.' },
+      { label: 'AI + CRM Integration', href: '/ai-crm-integration/', description: 'Connect AI tools to your existing CRM without replacing it.' },
+      { label: 'Software & API Integration', href: '/ai-crm-integration/', description: 'Webhooks, APIs, and integration platforms connecting your systems.' },
+    ],
+  },
+  {
+    category: 'Analytics & Tracking',
+    items: [
+      { label: 'Conversion Tracking & Attribution', href: '/conversion-tracking-analytics/', description: 'Connect marketing activity to booked, sold, and completed revenue.' },
+      { label: 'GA4 & Google Tag Manager', href: '/conversion-tracking-analytics/', description: 'Event tracking, tag implementation, and measurement architecture.' },
+      { label: 'Google Ads Conversion Tracking', href: '/conversion-tracking-analytics/', description: 'Conversion actions, enhanced conversions, and offline feedback.' },
+      { label: 'Call & Lead Attribution', href: '/conversion-tracking-analytics/', description: 'Phone-click tracking and source preservation through the CRM.' },
+    ],
+  },
+  {
+    category: 'Growth',
+    items: [
+      { label: 'Google Ads', href: '/google-ads/', description: 'Turn Google Ads into a measurable, attributed revenue system.' },
+      { label: 'Meta Ads', href: '/meta-ads/', description: 'Facebook and Instagram advertising connected to real follow-up and sales.' },
+      { label: 'SEO', href: '/seo/', description: 'Organic visibility, content, and technical foundations that convert.' },
+    ],
+  },
+  {
+    category: 'Training & Advisory',
+    items: [
+      { label: 'AI Training', href: '/ai-training/', description: 'Practical, role-specific AI training for real business workflows.' },
+      { label: 'AI Workshops', href: '/ai-workshops/', description: 'Focused sessions for opportunity discovery and team enablement.' },
+      { label: 'Executive AI Coaching', href: '/executive-ai-coaching/', description: 'One-on-one AI advisory for owners, CEOs, and senior leaders.' },
+    ],
+  },
 ];
 
-// Canonical per navigation.md's Industries Dropdown — all six now built.
-export const INDUSTRIES_DROPDOWN: DropdownItem[] = [
-  { label: 'Collision Repair', href: '/industries/collision-repair/', description: 'Lead response, estimate follow-up, and customer communication.' },
-  { label: 'Law Firms', href: '/industries/law-firms/', description: 'Intake speed, follow-up, and document workflows.' },
-  { label: 'Roofing', href: '/industries/roofing/', description: 'Speed-to-lead, storm response, and estimate follow-up.' },
-  { label: 'HVAC', href: '/industries/hvac/', description: 'Phone handling, scheduling, dispatch, and customer communication.' },
-  { label: 'Construction', href: '/industries/construction/', description: 'Project communication, documentation, and admin workload.' },
-  { label: 'Professional Services', href: '/industries/professional-services/', description: 'Employee capacity, knowledge access, and client communication.' },
-  { label: 'Healthcare', href: '/industries/healthcare/', description: 'Administrative workflows, scheduling, and employee productivity.' },
-  { label: 'Insurance', href: '/industries/insurance/', description: 'Claims-adjacent workflows, policyholder service, and contact center operations.' },
-  { label: 'Manufacturing', href: '/industries/manufacturing/', description: 'RFQ workflows, documentation, and operational administration.' },
-  { label: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/', description: 'Multi-rooftop sales, BDC, service, and marketing coordination.' },
-  { label: 'Home Services', href: '/industries/home-services/', description: 'Lead response, dispatch, and attribution across every home-service trade.' },
-  { label: 'Solar', href: '/industries/solar/', description: 'Field sales, appointment setting, and consent-aware follow-up.' },
-  { label: 'Fiber & Broadband', href: '/industries/fiber-broadband/', description: 'Territory launches, door-to-door sales, and installation scheduling.' },
-  { label: 'Real Estate', href: '/industries/real-estate/', description: 'Lead response, database reactivation, and marketing attribution.' },
-  { label: 'Property Management', href: '/industries/property-management/', description: 'Leasing response, maintenance intake, and vendor coordination.' },
-  { label: 'E-commerce', href: '/industries/ecommerce/', description: 'Customer service, lifecycle marketing, and merchandising.' },
-  { label: 'Financial Services', href: '/industries/financial-services/', description: 'Governance, data controls, and controlled AI adoption.' },
-  { label: 'Logistics & Transportation', href: '/industries/logistics-transportation/', description: 'Dispatch communication, document processing, and reporting.' },
-  { label: 'Energy', href: '/industries/energy/', description: 'Field operations knowledge, documentation, and enterprise productivity.' },
-  { label: 'Defense & Aerospace', href: '/industries/defense-aerospace/', description: 'Governed enterprise AI for legitimate business operations.' },
-];
+// Flat view for the Header component's shared dropdown-rendering logic.
+export const SERVICES_DROPDOWN: DropdownItem[] = SERVICES_MENU.flatMap((cat) => cat.items);
+
+// Industries mega-menu data, derived entirely from the central registry
+// (src/lib/industries.ts) — adding an industry there is sufficient; no
+// separate list needs to be maintained here. Normalized to the same
+// {label, href, description} shape as SERVICES_MENU so Header.astro can
+// render both mega-menus with one shared code path.
+export const INDUSTRIES_MEGA_MENU: { category: string; items: ServiceMenuItem[] }[] = industriesByCategory().map((cat) => ({
+  category: cat.category,
+  items: cat.items.map((i) => ({ label: i.name, href: i.href, description: i.description })),
+}));
+
+// Footer's curated, strategically-important subset (not all 28 — see
+// Industry.showInFooter in the registry for which ones qualify).
+export const FOOTER_INDUSTRIES: DropdownItem[] = INDUSTRIES.filter((i) => i.showInFooter).map((i) => ({
+  label: i.name,
+  href: i.href,
+  description: i.description,
+}));
 
 export const PRIMARY_CTA = {
   label: 'Get Your AI Department Score',
@@ -147,28 +188,7 @@ export const FOOTER_LINKS = {
     { label: 'AI Workshops', href: '/ai-workshops/' },
     { label: 'Executive AI Coaching', href: '/executive-ai-coaching/' },
   ],
-  industries: [
-    { label: 'Collision Repair', href: '/industries/collision-repair/' },
-    { label: 'Law Firms', href: '/industries/law-firms/' },
-    { label: 'Roofing', href: '/industries/roofing/' },
-    { label: 'HVAC', href: '/industries/hvac/' },
-    { label: 'Construction', href: '/industries/construction/' },
-    { label: 'Professional Services', href: '/industries/professional-services/' },
-    { label: 'Healthcare', href: '/industries/healthcare/' },
-    { label: 'Insurance', href: '/industries/insurance/' },
-    { label: 'Manufacturing', href: '/industries/manufacturing/' },
-    { label: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/' },
-    { label: 'Home Services', href: '/industries/home-services/' },
-    { label: 'Solar', href: '/industries/solar/' },
-    { label: 'Fiber & Broadband', href: '/industries/fiber-broadband/' },
-    { label: 'Real Estate', href: '/industries/real-estate/' },
-    { label: 'Property Management', href: '/industries/property-management/' },
-    { label: 'E-commerce', href: '/industries/ecommerce/' },
-    { label: 'Financial Services', href: '/industries/financial-services/' },
-    { label: 'Logistics & Transportation', href: '/industries/logistics-transportation/' },
-    { label: 'Energy', href: '/industries/energy/' },
-    { label: 'Defense & Aerospace', href: '/industries/defense-aerospace/' },
-  ],
+  industries: FOOTER_INDUSTRIES,
   company: [
     { label: 'The AI Department Method', href: '/ai-department-method/' },
     { label: 'Resources', href: '/resources/' },

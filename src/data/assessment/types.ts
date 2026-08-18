@@ -59,6 +59,10 @@ export interface QuestionOption {
   label: string;
   /** Optional machine-readable value for options whose text differs from a stable slug (e.g. channel flags). */
   value?: string;
+  /** Optional grouping label for rendering as a grouped/categorized
+   * select (currently used only by Q1's industry selector). Purely a
+   * rendering hint — does not affect scoring or validation. */
+  group?: string;
 }
 
 export interface CommercialEffect {

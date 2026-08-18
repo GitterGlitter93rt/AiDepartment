@@ -11,6 +11,8 @@ secondaryDestinations:
     href: "/google-ads/"
   - label: "AI Growth Systems"
     href: "/ai-growth-systems/"
+  - label: "Conversion Tracking & Analytics"
+    href: "/conversion-tracking-analytics/"
   - label: "How to Track Google Ads Leads to Revenue"
     href: "/resources/how-to-track-google-ads-leads-to-revenue/"
 relatedResources:
@@ -24,11 +26,15 @@ A click, a call, or a form fill is not the outcome that actually matters to a ho
 
 ## Capture the Original Source
 
-Google Ads, Local Services Ads where applicable, Meta Ads, organic search, referrals, direct traffic, and other campaigns all need to be captured consistently at the point of first contact.
+Google Ads, Local Services Ads where applicable, Meta Ads, organic search, referrals, direct traffic, and other campaigns all need to be captured consistently at the point of first contact. In practice, this means a Google Tag Manager container holding your Google tag and GA4 configuration, UTM parameters applied consistently across every campaign link, and — where you run Google Ads — capturing the click ID (GCLID) so a lead can be tied back to the specific ad interaction that produced it.
 
-## Preserve Attribution
+## Track Real Events, Not Just Activity
 
-The original source shouldn't get lost as a lead moves into your CRM, your field-service software, a call center, dispatch, an estimator, or a salesperson. This handoff is where most home-service attribution actually breaks down — not at the initial tracking step.
+GA4 should be configured around events that actually mean something: a successful form submission, specifically — not merely a button click, which only shows someone clicked and doesn't confirm the form actually completed — and phone-click tracking at minimum. For higher call volume, dynamic number insertion can attribute an inbound call back to the campaign or page that generated it, which matters enormously for trades where most real demand arrives by phone rather than a web form.
+
+## Preserve Attribution Through the CRM
+
+The original source shouldn't get lost as a lead moves into your CRM, your field-service software, a call center, dispatch, an estimator, or a salesperson. This handoff is where most home-service attribution actually breaks down — not at the initial tracking step. A CRM source field that gets overwritten or left blank the moment a human takes over the lead defeats the tracking work done up to that point.
 
 ## Track Business Milestones
 
@@ -36,11 +42,15 @@ Depending on your specific business, the milestones worth tracking typically run
 
 ## Closed-Loop Advertising
 
-Where your systems support it, feeding conversion outcomes back into your advertising platforms helps their own optimization understand which campaigns are producing real business, not just clicks.
+Where your systems support it, feeding conversion outcomes back into your advertising platforms as offline conversions — and using enhanced conversions for leads where appropriate — helps their own optimization understand which campaigns are producing real business, not just clicks.
 
 ## Management Questions Worth Answering
 
 With this in place, you can ask which campaigns create booked work, which create high-value estimates, which sources produce completed jobs rather than just leads, which keywords generate poor-quality calls, which markets produce stronger customers, and where in your sales process good leads are actually getting lost.
+
+## What This Does Not Do
+
+Installing or improving your GTM and GA4 setup does not directly improve organic search rankings — that's a common misconception worth clearing up. Search Console measures your organic search visibility; GA4 measures what happens after a visitor arrives, regardless of channel. The value of this tracking work is business visibility, not an SEO ranking lever.
 
 ## Attribution Reality
 
@@ -56,4 +66,4 @@ It's worth being honest that this measurement is rarely perfect — customers us
   ]}
 />
 
-Once this chain is visible, marketing budget decisions can be based on which campaigns actually built your completed-job revenue — not which ones generated the most calls.
+Once this chain is visible, marketing budget decisions can be based on which campaigns actually built your completed-job revenue — not which ones generated the most calls. For the complete measurement architecture behind this, see [Conversion Tracking & Analytics](/conversion-tracking-analytics/).

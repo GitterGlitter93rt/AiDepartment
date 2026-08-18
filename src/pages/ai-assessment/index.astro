@@ -319,6 +319,47 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     line-height: 1.4;
   }
 
+  :global(.a-select-wrap) {
+    display: flex;
+  }
+
+  :global(.a-select-wrap select) {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--color-pure-white);
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 44px;
+  }
+
+  :global(.a-select-wrap select:hover) {
+    border-color: rgba(37, 99, 235, 0.5);
+  }
+
+  :global(.a-select-wrap select:focus-visible) {
+    outline: 2px solid var(--color-signal-cyan);
+    outline-offset: 2px;
+  }
+
+  :global(.a-select-wrap select optgroup) {
+    color: var(--color-pure-white);
+    font-weight: 700;
+  }
+
+  :global(.a-select-wrap select option) {
+    color: var(--color-near-black);
+    font-weight: 400;
+  }
+
   :global(.a-answer-area textarea) {
     width: 100%;
     background-color: var(--color-midnight-navy);

@@ -159,6 +159,7 @@ const categories: { name: string; slugs: string[] }[] = [
 
 const categorized = categories.map((cat) => ({
   name: cat.name,
+  slug: cat.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
   items: cat.slugs.map((slug) => byId.get(slug)).filter((r) => r !== undefined),
 }));
 ---
@@ -176,8 +177,18 @@ const categorized = categories.map((cat) => ({
     </Container>
   </Section>
 
+  <nav class="res-jumpnav" aria-label="Jump to a resource category">
+    <Container wide>
+      <div class="res-jumpnav-scroll">
+        {categorized.map((cat) => (
+          <a href={`#${cat.slug}`} class="res-jumpnav-link">{cat.name}</a>
+        ))}
+      </div>
+    </Container>
+  </nav>
+
   {categorized.map((cat, i) => (
-    <Section tone={i % 2 === 0 ? 'light' : 'white'}>
+    <Section tone={i % 2 === 0 ? 'light' : 'white'} id={cat.slug}>
       <Container wide>
         <h2 class="res-cat-heading">{cat.name}</h2>
         <div class="res-grid">
@@ -225,11 +236,50 @@ const categorized = categories.map((cat) => ({
     max-width: 640px;
   }
 
+  .res-jumpnav {
+    position: sticky;
+    top: 72px;
+    z-index: 20;
+    background-color: var(--color-cloud-white);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .res-jumpnav-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-block: 12px;
+    scrollbar-width: thin;
+  }
+
+  .res-jumpnav-link {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border-light);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-slate-gray);
+    transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+  }
+
+  .res-jumpnav-link:hover,
+  .res-jumpnav-link:focus-visible {
+    border-color: var(--color-electric-blue);
+    color: var(--color-electric-blue);
+    background-color: rgba(37, 99, 235, 0.06);
+  }
+
   .res-cat-heading {
     font-size: 1.3rem;
     font-weight: 800;
     color: var(--color-near-black);
     margin-bottom: 20px;
+  }
+
+  :global(section[id]) {
+    scroll-margin-top: 130px;
   }
 
   .res-grid {

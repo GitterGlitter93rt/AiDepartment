@@ -9,6 +9,8 @@ primaryDestination:
 secondaryDestinations:
   - label: "Google Ads"
     href: "/google-ads/"
+  - label: "Conversion Tracking & Analytics"
+    href: "/conversion-tracking-analytics/"
   - label: "How to Track Google Ads Leads to Revenue"
     href: "/resources/how-to-track-google-ads-leads-to-revenue/"
 relatedResources:
@@ -24,9 +26,25 @@ A phone call or form fill from a Google Ads campaign isn't the outcome that matt
 
 For routine service calls, the chain runs from Google Ads to the call or form, to a booked appointment, to a dispatched job, to completed work and revenue. For larger estimate-based projects — a repipe or water heater replacement — the chain looks a bit different: Google Ads to a lead, to an estimate, to a sold job, to revenue. Both are worth tracking, but they shouldn't be blended into one generic "leads" number.
 
-## Building the Data
+## The Technical Foundation: GTM, GA4, and Real Events
 
-Call tracking, web forms, consistent source fields, your field-service system, your CRM, and — where supported — offline conversions feeding real revenue outcomes back to the ad platform all need to work together. The harder part isn't any single piece; it's making sure the data actually flows between systems instead of stopping the moment a call gets answered.
+Google Tag Manager should hold the Google tag, GA4 configuration, and Google Ads conversion tracking in one organized container. From there, the events worth tracking in GA4 are the ones that mean something to a plumbing business specifically: a successful form submission — not just a button click, which only proves someone clicked and says nothing about whether the form actually submitted — and a phone-click on mobile, at minimum. A "click" and a "conversion" are not the same signal, and treating them interchangeably inflates how well a campaign appears to be performing.
+
+## Call Tracking
+
+For many plumbing companies, phone calls are the primary conversion path, and losing track of them means losing track of most of your real demand. Depending on volume and budget, this ranges from simple phone-click tracking (measuring taps on a tel: link on mobile) to full call tracking with dynamic number insertion, which swaps in a tracking number based on the visitor's session so an inbound call can be attributed back to the specific campaign, keyword, or even landing page that generated it.
+
+## Preserving Source Data Through the CRM
+
+Capturing UTM parameters and, where applicable, Google's click ID (GCLID) at the moment a lead arrives is only half the job — that data needs to survive the handoff into your CRM or field-service system as the lead moves from intake to dispatch to completed job. This is the step where plumbing companies most often lose their own attribution: the source is captured cleanly, then overwritten or dropped the moment a dispatcher or technician takes over.
+
+## Business Milestones Worth Connecting
+
+Booked appointment, dispatched job, estimate or opportunity (for larger project work), sold or completed job, and revenue are the milestones that make this reporting actually useful. Where your ad platform supports it, feeding sold or completed outcomes back as offline conversions — and using enhanced conversions for leads where appropriate — helps Google Ads optimize toward real business outcomes instead of raw click volume.
+
+## What GA4 and GTM Do Not Do
+
+It's worth being direct about a common misconception: installing or improving your GTM and GA4 setup does not directly improve your organic search rankings. Google Search Console measures your organic search visibility and performance; GA4 measures what happens after someone arrives on your site, regardless of channel. Better tracking helps you understand which traffic and leads actually produce revenue — it's not an SEO ranking lever.
 
 <GroupedFlow
   tone="light"
@@ -37,4 +55,4 @@ Call tracking, web forms, consistent source fields, your field-service system, y
   ]}
 />
 
-Once both paths are measured through to actual revenue, you can judge campaign performance by what it actually produced — not by how many calls it generated.
+Once both paths are measured through to actual revenue, you can judge campaign performance by what it actually produced — not by how many calls it generated. For the full measurement architecture behind this — tag management, event design, and closing the loop back to your ad platform — see [Conversion Tracking & Analytics](/conversion-tracking-analytics/).

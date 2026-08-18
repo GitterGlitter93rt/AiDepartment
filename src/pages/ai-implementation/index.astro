@@ -146,6 +146,18 @@ const faqs = [
 
   <Section tone="light">
     <Container>
+      <SectionHeading eyebrow="Related Services" heading="Specific Implementation Areas" />
+      <p class="related-services-links">
+        <a href="/ai-agent-development/">AI Agent Development</a>&nbsp;&bull;&nbsp;
+        <a href="/crm-setup-automation/">CRM Setup & Automation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-crm-integration/">AI + CRM Integration</a>&nbsp;&bull;&nbsp;
+        <a href="/conversion-tracking-analytics/">Conversion Tracking & Analytics</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
       <SectionHeading eyebrow="FAQ" heading="Common Questions About Implementation" />
       <FAQSection items={faqs} />
     </Container>
@@ -224,6 +236,16 @@ const faqs = [
     font-size: 0.85rem;
     color: var(--color-dark-muted-text);
     line-height: 1.6;
+  }
+
+  .related-services-links {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .related-services-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
   }
 
   @media (min-width: 768px) {

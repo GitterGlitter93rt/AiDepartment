@@ -1,0 +1,183 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'inbox', title: 'AI-Assisted Lead Intake', description: 'New leads captured, summarized, and logged into your CRM automatically as they arrive.' },
+  { icon: 'file-text', title: 'Conversation Summaries', description: 'AI-generated summaries of calls and messages attached directly to the customer record.' },
+  { icon: 'zap', title: 'Task Creation', description: 'AI-assisted workflows create follow-up tasks and reminders based on what actually happened in a conversation.' },
+  { icon: 'workflow', title: 'Routing', description: 'Route leads and conversations to the right person or team based on structured information gathered up front.' },
+  { icon: 'repeat', title: 'Follow-Up', description: 'Contextual, AI-drafted follow-up communication that reflects the specific conversation history, not a generic template.' },
+  { icon: 'database', title: 'Field Updates', description: 'Structured information extracted from a conversation updates the correct CRM fields automatically.' },
+  { icon: 'link-2', title: 'APIs, Webhooks & Integration Platforms', description: 'Connect AI tools to your CRM using whatever integration approach actually fits — direct API, webhook, or integration platform.' },
+  { icon: 'user-check', title: 'Human Review & Auditability', description: 'Every AI-assisted update is reviewable — you can see what changed, when, and based on what conversation.' },
+];
+
+const integrationGroups = [
+  { label: 'Intake', steps: [{ text: 'Lead / Conversation', icon: 'inbox' }] },
+  { label: 'AI Layer', steps: [{ text: 'AI Summary / Extraction', icon: 'bot' }, { text: 'Task / Field Update', icon: 'zap' }] },
+  { label: 'Sync', steps: [{ text: 'CRM Record', icon: 'database' }] },
+  { label: 'Review', steps: [{ text: 'Human Review', icon: 'user-check' }] },
+  { label: 'Act', steps: [{ text: 'Follow-Up / Routing', icon: 'workflow' }] },
+];
+
+const faqs = [
+  { question: 'How is this different from your CRM Setup & Automation page?', answer: 'CRM Setup & Automation is about the foundation itself — pipeline structure, fields, lifecycle stages. This page is about connecting AI tools to a CRM that already has that foundation: AI-generated summaries, intake assistance, and follow-up drafting layered on top of your existing system. Many engagements involve both, but they address different problems.' },
+  { question: 'Will this replace our CRM with something new?', answer: 'No. The point of this integration is connecting AI tools to the CRM you already use, not replacing it. If your CRM genuinely needs to change, that\'s a different, separate conversation from AI integration.' },
+  { question: 'Can AI update customer records automatically?', answer: 'Yes, for structured, low-risk information — a task, a note, a field extracted clearly from a conversation. Anything ambiguous or consequential should go through human review before it\'s treated as final, which is why auditability is a core part of how we build this.' },
+  { question: 'What if we use an integration platform like Zapier or Make instead of custom API work?', answer: 'That\'s often a completely reasonable approach, especially for lower-volume workflows. We evaluate what actually fits your systems and volume — sometimes that\'s a no-code integration platform, sometimes it\'s a direct API or webhook connection. We don\'t default to the most complex option when a simpler one works.' },
+  { question: 'How do we know what the AI actually changed in our CRM?', answer: 'Auditability is built in — every AI-assisted update should be traceable to the conversation or data it came from, so your team can review, correct, or reverse it. This isn\'t a black box making silent changes.' },
+];
+---
+
+<BaseLayout
+  title="AI + CRM Integration | Your AI Department"
+  description="Connect AI-assisted intake, summaries, and follow-up to your existing CRM — without replacing it. Human review and auditability built into every workflow."
+  path="/ai-crm-integration/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'AI + CRM Integration', item: `${SITE.domain}/ai-crm-integration/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="AI + CRM Integration"
+    headline="Connect AI Tools to the CRM You Already Use"
+    support="Your CRM already holds the customer context that matters. Your AI Department connects AI-assisted intake, summaries, task creation, and follow-up directly into that existing system — with human review and auditability built into every workflow, not a disconnected AI tool operating in its own silo."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="AI Tools Are Only Useful If They Talk to Your CRM"
+      />
+      <p class="prose-p">A standalone AI chatbot or voice tool that doesn't connect to your CRM creates its own island of information — conversations happen, but nothing about them reaches the system your sales and service team actually works from. The value of AI-assisted intake, summarization, and follow-up multiplies dramatically once it's actually wired into the CRM record a person will see next.</p>
+      <p class="prose-p">This is a genuinely different problem from setting up the CRM itself. It assumes a working pipeline already exists and focuses specifically on the connective layer: how AI-generated information gets in, how it's reviewed, and how it drives the next action.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Build"
+        heading="Where AI and Your CRM Actually Connect"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Integration Framework"
+        heading="From Conversation to Reviewed CRM Action"
+        support="This is a conceptual pattern. The exact integration approach — API, webhook, or integration platform — depends on your specific systems and volume."
+        tone="dark"
+      />
+      <GroupedFlow groups={integrationGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Review"
+        heading="Auditability Is Not Optional"
+        support="Every AI-assisted update to a customer record should be traceable — what changed, when, and based on what conversation or data. Ambiguous or consequential updates route to a person for review rather than being applied silently. This isn't a black box; it's a reviewable layer on top of a system you already trust."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Businesses With a Working CRM Already in Place"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Already using a CRM with a reasonably working pipeline',
+          'Generating enough conversation volume that manual summarization is a real burden',
+          'Looking to reduce the gap between a conversation and the CRM record reflecting it',
+          'Comfortable with AI assistance that includes human review, not full automation',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'Your CRM foundation itself needs to be built first (see CRM Setup & Automation)',
+          'You are looking for AI to update records with zero human oversight',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Connect AI to the CRM You Already Rely On"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/crm-setup-automation/">CRM Setup & Automation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-agent-development/">AI Agent Development</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/conversion-tracking-analytics/">Conversion Tracking & Analytics</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Could Actually Improve Your CRM Workflow"
+    support="Take the free AI Department Assessment, or discuss your current systems directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

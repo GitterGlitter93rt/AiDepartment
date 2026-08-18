@@ -1,0 +1,235 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'tag', title: 'Google Tag Manager Implementation', description: 'A single, organized container for every tag, trigger, and variable your site actually needs — not a tangle of copy-pasted snippets.' },
+  { icon: 'bar-chart-3', title: 'GA4 Setup & Event Tracking', description: 'Configuration around events that actually mean something to your business, not just default pageview counts.' },
+  { icon: 'phone', title: 'Call & Phone-Click Tracking', description: 'Attribute inbound calls back to the campaign, page, and session that generated them.' },
+  { icon: 'clipboard-list', title: 'Form & Lead Tracking', description: 'Distinguish a real, successful submission from a button click that never actually produced a lead.' },
+  { icon: 'database', title: 'CRM Source Preservation', description: 'Keep UTM data, click IDs, and campaign information attached to a lead as it moves through your CRM or field-service system.' },
+  { icon: 'target', title: 'Google Ads Conversion Actions', description: 'Primary and secondary conversion actions, enhanced conversions for leads, and offline conversion imports.' },
+  { icon: 'search', title: 'Search Console vs. GA4 Clarity', description: 'Understand what each tool actually measures, so you stop trying to make one answer a question only the other can.' },
+  { icon: 'shield-check', title: 'Validation & Debugging', description: 'Verify tags fire correctly and events reflect reality before trusting a single number in a dashboard.' },
+];
+
+const stackGroups = [
+  { label: 'Foundation', steps: [{ text: 'Website', icon: 'globe' }, { text: 'GTM / Google Tag', icon: 'tag' }, { text: 'GA4', icon: 'bar-chart-3' }] },
+  { label: 'Acquisition', steps: [{ text: 'Google Ads', icon: 'search' }] },
+  { label: 'Capture', steps: [{ text: 'Calls / Forms', icon: 'phone' }] },
+  { label: 'Pipeline', steps: [{ text: 'CRM / Field-Service System', icon: 'database' }, { text: 'Booked Appointment', icon: 'calendar' }] },
+  { label: 'Outcome', steps: [{ text: 'Estimate / Opportunity', icon: 'clipboard-list' }, { text: 'Sold / Completed Job', icon: 'check-circle-2' }] },
+  { label: 'Close the Loop', steps: [{ text: 'Revenue', icon: 'dollar-sign' }, { text: 'Advertising Feedback', icon: 'repeat' }] },
+];
+
+const faqs = [
+  { question: 'Will this guarantee our marketing ROI improves?', answer: 'No — and we won\'t claim that. What this work gives you is visibility into which campaigns, keywords, and pages actually produce booked appointments, sold jobs, and revenue. What you do with that visibility is a business decision; measurement itself doesn\'t manufacture better results.' },
+  { question: 'Can every sale really be traced back to its original ad click?', answer: 'Not perfectly, and anyone who claims otherwise is overselling. Customers switch devices, some conversions happen offline entirely, and privacy changes across the industry have genuinely reduced tracking precision. What we build gets you a substantially clearer picture than no tracking at all — not a deterministic guarantee for every dollar.' },
+  { question: 'What\'s the difference between Search Console and GA4?', answer: 'Search Console measures your organic search visibility and performance — impressions, clicks, and rankings in Google\'s own search results. GA4 measures what happens after someone actually arrives on your site, regardless of channel. They answer different questions, and neither one substitutes for the other.' },
+  { question: 'Does installing GTM or GA4 improve our SEO rankings?', answer: 'No, and this is a common misconception. Installing tracking tools does not directly influence organic search rankings. What tracking does is help you understand which traffic and leads actually produce business outcomes — a separate, equally important question from ranking performance.' },
+  { question: 'What is enhanced conversions for leads?', answer: 'It\'s a Google Ads feature that uses hashed customer information (like email or phone) to improve conversion measurement accuracy, particularly for form-based lead generation. It\'s one piece of a well-configured measurement stack, not a standalone fix for poor tracking elsewhere.' },
+  { question: 'We already have GA4 installed. Why would we need this?', answer: 'Having GA4 "installed" and having GA4 configured around business-meaningful events are very different things. A lot of GA4 installations track default pageviews and little else — missing form success events, call tracking, and any connection to what happened after the lead arrived. That gap is usually where the real value is.' },
+];
+---
+
+<BaseLayout
+  title="Conversion Tracking & Revenue Attribution | Your AI Department"
+  description="Connect Google Tag Manager, GA4, Google Ads, your CRM, and completed revenue into one measurable system — without fabricated ROI claims or deterministic attribution promises."
+  path="/conversion-tracking-analytics/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Conversion Tracking & Analytics', item: `${SITE.domain}/conversion-tracking-analytics/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Conversion Tracking & Analytics"
+    headline="Connect Marketing Activity to Actual Business Outcomes"
+    support="Most businesses can tell you how many clicks or leads a campaign produced. Far fewer can tell you which campaigns actually produced booked appointments, sold jobs, and revenue. Your AI Department builds the measurement architecture that connects the two — from the first click to completed, invoiced work."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="A Click Is Not a Customer"
+      />
+      <p class="prose-p">Every business with a marketing budget faces the same underlying question: which of the money we're spending is actually working? Answering that well requires more than installing an analytics tool — it requires a connected chain from the ad platform, through the website, into the CRM or field-service system that runs your sales process, and out the other side into completed, invoiced revenue.</p>
+      <p class="prose-p">Most businesses have some pieces of this in place — usually GA4 showing pageviews, maybe a Google Ads account showing clicks — and a real gap everywhere else. The click gets measured. What happens after the click, whether that lead ever became a paying customer, and how much revenue it eventually produced, usually isn't. That gap is where marketing budget decisions get made on incomplete information.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="What We Build"
+        heading="The Practical Measurement Stack"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="The Full Chain"
+        heading="From Website Tag to Revenue and Back to the Ad Platform"
+        support="This is a conceptual pattern. The exact systems and stages vary by business — not every company has a formal 'estimate' stage, for example."
+        tone="dark"
+      />
+      <GroupedFlow groups={stackGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Implementation Details"
+        heading="Tag Management and Event Architecture"
+      />
+      <p class="prose-p">Google Tag Manager should hold every tag your site needs in one organized, auditable container — the Google tag for GA4, conversion tracking for Google Ads, and any other approved measurement tool — rather than a collection of hand-pasted snippets nobody fully understands anymore. From there, GA4 gets configured around events that actually matter to your business: a successful form submission (not just a button click, which is a meaningfully different signal), a phone-click, a scheduled appointment where your systems support it, and any other milestone worth tracking.</p>
+      <p class="prose-p">Phone tracking deserves its own attention. For many service businesses, calls are a primary conversion path, and losing track of them means losing track of a large share of real demand. Depending on your call volume and budget, this can range from simple phone-click tracking on mobile to full call tracking with dynamic number insertion that attributes an inbound call back to the specific campaign, keyword, or page that generated it.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Preserving Attribution"
+        heading="UTM Data and Click IDs Need to Survive the Handoff"
+        support="A lead's original marketing source — UTM parameters, Google's click ID (GCLID) where applicable — needs to be captured at first contact and preserved as that lead moves into your CRM or field-service system. This is the single most common place attribution breaks: the data exists cleanly at the top of the funnel and disappears the moment a human takes over the relationship."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Closing the Loop"
+        heading="Feeding Real Outcomes Back to Google Ads"
+      />
+      <p class="prose-p">Where your systems support it, feeding closed, qualified, or sold outcomes back into Google Ads as offline conversions helps the platform's own optimization understand which campaigns produce real business — not just cheap clicks. This typically requires consistent CRM discipline (every lead source recorded, every outcome updated) more than any particular piece of software.</p>
+      <p class="prose-p">Primary and secondary conversion actions matter here too: a primary conversion (a qualified lead, a sale) should be weighted differently than a secondary one (a newsletter signup, a low-intent page view) inside your Google Ads account — treating them identically is a common reason campaign optimization ends up chasing the wrong signal.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Search Console vs. GA4"
+        heading="Two Different Tools Answering Two Different Questions"
+        support="Search Console measures your organic search visibility and performance — impressions, clicks, average position in Google's own results. GA4 measures what happens after a visitor actually arrives on your site, regardless of channel. Installing or configuring analytics tools does not directly improve organic search rankings; the SEO value of good tracking comes from understanding which traffic and leads produce outcomes, not from any ranking effect of the tools themselves."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Privacy & Consent"
+        heading="Measurement Within Appropriate Boundaries"
+        support="Tracking implementation should respect applicable privacy and consent requirements for your jurisdiction and audience. Your AI Department implements measurement architecture — we do not provide legal advice on privacy compliance, and any consent-management requirements specific to your business should be reviewed with appropriate counsel."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Businesses Ready to Measure Honestly"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Spending meaningfully on Google Ads, Meta Ads, or both',
+          'Running phone-driven or form-driven lead generation',
+          'Using a CRM or field-service system that could hold better source data',
+          'Making real marketing budget decisions based on performance data',
+          'Tired of reporting that stops at "leads" instead of revenue',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are looking for a guaranteed ROI number',
+          'You want deterministic, perfect attribution for every sale',
+          'You have no CRM or process discipline to build reporting on top of',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Connect Your Marketing to Real Business Outcomes"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/meta-ads/">Meta Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/crm-setup-automation/">CRM Setup & Automation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-crm-integration/">AI + CRM Integration</a>
+      </p>
+      <p class="cross-links">
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where Your Measurement Gaps Actually Are"
+    support="Take the free AI Department Assessment, or discuss your current tracking setup directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

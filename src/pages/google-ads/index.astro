@@ -100,6 +100,12 @@ const faqs = [
     </Container>
   </Section>
 
+  <Section tone="light">
+    <Container>
+      <p class="ga-related-link">Want the full measurement architecture behind your campaigns? See <a href="/conversion-tracking-analytics/">Conversion Tracking & Analytics</a>.</p>
+    </Container>
+  </Section>
+
   <Section tone="dark">
     <Container>
       <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
@@ -117,6 +123,16 @@ const faqs = [
 </BaseLayout>
 
 <style>
+  .ga-related-link {
+    text-align: center;
+    font-size: 0.92rem;
+    color: var(--color-slate-gray);
+  }
+
+  .ga-related-link a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
   .pricing-note {
     max-width: 640px;
     margin-inline: auto;
