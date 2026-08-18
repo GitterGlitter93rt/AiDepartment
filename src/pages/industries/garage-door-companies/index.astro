@@ -1,0 +1,183 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone', title: 'Call Handling', description: 'Collect basic customer and service information, route urgent issues, and schedule approved appointment types.' },
+  { icon: 'zap', title: 'Missed-Call Recovery', description: 'Automatically follow up when valuable inbound calls are missed — often the exact moment a competitor picks up instead.' },
+  { icon: 'calendar', title: 'Emergency & Same-Day Scheduling', description: 'Rapid booking and internal notification for high-intent service requests that need same-day attention.' },
+  { icon: 'clipboard-list', title: 'Replacement Estimate Follow-Up', description: 'Consistent follow-up for door replacements, openers, upgrades, and other larger quoted work.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'Automated confirmations, reminders, arrival updates, and post-service communication.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect Google Ads, calls, forms, booked appointments, jobs, and revenue.' },
+];
+
+const urgencyGroups = [
+  { label: 'Demand', steps: [{ text: 'Ad / Search', icon: 'search' }] },
+  { label: 'Intake', steps: [{ text: 'Call / Form', icon: 'phone' }, { text: 'Booking', icon: 'calendar' }] },
+  { label: 'Field', steps: [{ text: 'Technician', icon: 'truck' }, { text: 'Repair / Estimate', icon: 'clipboard-list' }] },
+  { label: 'Follow-Up', steps: [{ text: 'Follow-Up', icon: 'repeat' }] },
+  { label: 'Growth', steps: [{ text: 'Revenue', icon: 'bar-chart-3' }, { text: 'Marketing Optimization', icon: 'trending-up' }] },
+];
+
+const faqs = [
+  { question: 'Most of our calls need same-day service. How does that change things?', answer: 'Same-day, high-intent calls are the core of the garage door business — someone with a door that won\'t open usually calls two or three companies and books whoever responds first. Fast, reliable intake and missed-call recovery directly determine how many of those calls turn into your job instead of a competitor\'s.' },
+  { question: 'How do you handle the repair-vs-replacement decision?', answer: 'That decision itself stays with your technician on-site. What automation can help with is making sure that once a technician identifies a replacement opportunity, there\'s a structured estimate follow-up process — rather than the opportunity depending entirely on the technician remembering to follow up personally.' },
+  { question: 'We have multiple trucks across a few locations. Does this scale?', answer: 'Yes — multi-truck and multi-location operators typically need routing and reporting logic this page is written for. The core intake and follow-up workflow stays the same; the technician-assignment and reporting layer gets more sophisticated as you add trucks and locations.' },
+  { question: 'Can AI diagnose what\'s wrong with a garage door over the phone?', answer: 'No, and it shouldn\'t try to. Diagnosis, repair decisions, safety, pricing, and structural or property issues require qualified technicians. AI-assisted intake handles the scheduling and information-gathering — not the technical judgment.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Garage Door Companies | Your AI Department"
+  description="Improve call handling, missed-call recovery, and same-day scheduling for garage door service and installation companies with practical AI and automation."
+  path="/industries/garage-door-companies/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Garage Door Companies', item: `${SITE.domain}/industries/garage-door-companies/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Garage Door Service & Installation"
+    headline="AI Systems for Garage Door Companies"
+    support="Garage door companies often operate in a fast-response environment where calls, same-day service, replacement estimates, scheduling, and marketing all need to stay connected. Your AI Department helps create a more reliable system behind those workflows."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Same-Day Urgency Rewards Whoever Responds First"
+      />
+      <p class="prose-p">A garage door call is almost always a high-intent moment — a door won't open, a spring snapped, someone's car is trapped inside. Customers in that situation typically call more than one company and book whichever one gets back to them first with a real appointment time. That makes call handling and missed-call recovery a direct, measurable revenue lever in this industry in a way that's more pronounced than in many other home-service categories.</p>
+      <p class="prose-p">The other half of the business — replacement door and opener sales — works on a completely different rhythm: a technician identifies the opportunity during a service call, provides an estimate, and that estimate needs consistent follow-up over days or weeks, not same-day urgency. Both halves need to be handled well, but they need different systems.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Garage Door Companies Typically Lose Jobs"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From the First Call to Measured Revenue"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every garage door business."
+        tone="dark"
+      />
+      <GroupedFlow groups={urgencyGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Diagnosis and Safety Stay With Qualified Technicians"
+        support="Diagnosis, repair decisions, safety, pricing, structural or property issues, and customer disputes require qualified people."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Operators With Real Call Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established garage door service companies',
+          'Replacement and installation companies',
+          'Multi-truck operators',
+          'Multi-location businesses',
+          'Spending significantly on Google Ads or LSAs',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a solo operator with minimal call volume',
+          'You have no structured scheduling process yet',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/google-ads/">Explore Google Ads Management</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Garage Door Business"
+    support="Take the free AI Department Assessment to see your opportunities across call handling, scheduling, and estimate follow-up."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,189 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, ENTERPRISE_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'message-square', title: 'Customer Communication', description: 'Routine shipment-status communication, appointment information, document requests, and service inquiries.' },
+  { icon: 'truck', title: 'Dispatch Support', description: 'Information gathering, communication summaries, task creation, and workflow coordination around dispatch operations.' },
+  { icon: 'file-text', title: 'Document Processing', description: 'Classification, extraction, routing, and summarization of approved operational documents.' },
+  { icon: 'book-open', title: 'Internal Knowledge', description: 'Help staff locate procedures, customer requirements, internal documentation, and operational information.' },
+  { icon: 'briefcase', title: 'Sales & Lead Workflows', description: 'Improve inquiry response, account follow-up, pipeline visibility, and sales administration.' },
+  { icon: 'user-plus', title: 'Recruiting', description: 'Applicant intake, driver or employee screening workflows, scheduling, and onboarding, with humans retaining hiring decisions.' },
+  { icon: 'bar-chart-3', title: 'Reporting', description: 'Recurring operational summaries, exception visibility, and management reporting.' },
+];
+
+const operationsGroups = [
+  { label: 'Event', steps: [{ text: 'Customer / Shipment / Driver Event', icon: 'zap' }] },
+  { label: 'Data', steps: [{ text: 'System Data', icon: 'database' }, { text: 'Workflow', icon: 'workflow' }] },
+  { label: 'Assistance', steps: [{ text: 'AI Assistance', icon: 'bot' }] },
+  { label: 'Operation', steps: [{ text: 'Human Operation', icon: 'user-check' }, { text: 'Status / Action', icon: 'check-circle-2' }] },
+  { label: 'Visibility', steps: [{ text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Does AI make routing or driving decisions?', answer: 'No. Driving, routing decisions involving safety, regulatory compliance, hazardous materials, vehicle safety, and other high-risk operational decisions require qualified human oversight. AI supports the communication and administrative layer around operations, not the safety-critical decisions themselves.' },
+  { question: 'How does this help with dispatch specifically?', answer: 'Dispatch generates a lot of repetitive communication — status updates, document requests, exception handling. AI can assist with information gathering, summarizing communications, and creating tasks so dispatchers spend more time on judgment calls and less on administrative overhead.' },
+  { question: 'Can you help with driver recruiting?', answer: 'Yes. Applicant intake, screening workflows, scheduling, and onboarding can all be supported by AI-assisted workflows — but hiring decisions themselves remain with your team, consistent with how we approach recruiting automation everywhere else.' },
+  { question: 'We handle a lot of paperwork — bills of lading, PODs, compliance documents. Can AI help?', answer: 'Document classification, extraction, routing, and summarization can meaningfully reduce the manual handling of these documents, as long as appropriate review remains in place for anything that affects compliance or customer commitments.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Logistics and Transportation Operations | Your AI Department"
+  description="Improve dispatch support, customer communication, document processing, and reporting for logistics and transportation organizations, with safety-critical decisions staying with people."
+  path="/industries/logistics-transportation/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Logistics & Transportation', item: `${SITE.domain}/industries/logistics-transportation/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Logistics & Transportation"
+    headline="AI Systems for Logistics and Transportation Operations"
+    support="Transportation businesses operate across customers, dispatchers, drivers, shipments, documents, schedules, vendors, and operational systems. Your AI Department helps connect those workflows with practical AI, automation, integrations, and better business systems."
+    primaryCta={{ label: 'Discuss an Enterprise Engagement', href: ENTERPRISE_CTA.href }}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Operational Complexity Creates Automation Opportunity"
+      />
+      <p class="prose-p">Transportation companies generate large amounts of repetitive communication and operational data. Dispatch updates, customer requests, shipment documents, internal handoffs, recruiting, reporting, and exception management all create substantial administrative load — often absorbed by the same small operations team that's also responsible for keeping freight moving.</p>
+      <p class="prose-p">AI can help organize and accelerate those processes while people remain responsible for operational judgment and safety-critical decisions. The goal is reducing the administrative burden around dispatch and customer communication, not automating the decisions that actually require a qualified operations professional.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Transportation Operations Typically Carry the Most Load"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Operational Event to Reported Outcome"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every transportation organization."
+        tone="dark"
+      />
+      <GroupedFlow groups={operationsGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Safety-Critical Decisions Stay With Qualified People"
+        support="Driving, routing decisions involving safety, regulatory compliance, hazardous materials, vehicle safety, employment decisions, customer disputes, and other high-risk operational decisions require qualified human oversight."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Organizations With Real Operational Complexity"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Trucking companies',
+          'Logistics providers',
+          'Freight organizations',
+          'Distribution companies',
+          'Fleet operators',
+          'Third-party logistics providers',
+          'Multi-location transportation organizations',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a very small operation with minimal dispatch or document volume',
+          'You are looking for an autonomous safety-decision system',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/enterprise/">Explore an Enterprise Engagement</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>
+      </p>
+      <p class="cross-links">
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-recruiting-automation/">Explore AI Recruiting & HR Automation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Logistics Operations"
+    support="Take the free AI Department Assessment, or discuss an enterprise engagement directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

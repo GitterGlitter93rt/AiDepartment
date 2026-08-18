@@ -74,6 +74,16 @@ export const INDUSTRIES_DROPDOWN: DropdownItem[] = [
   { label: 'Insurance', href: '/industries/insurance/', description: 'Claims-adjacent workflows, policyholder service, and contact center operations.' },
   { label: 'Manufacturing', href: '/industries/manufacturing/', description: 'RFQ workflows, documentation, and operational administration.' },
   { label: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/', description: 'Multi-rooftop sales, BDC, service, and marketing coordination.' },
+  { label: 'Home Services', href: '/industries/home-services/', description: 'Lead response, dispatch, and attribution across every home-service trade.' },
+  { label: 'Solar', href: '/industries/solar/', description: 'Field sales, appointment setting, and consent-aware follow-up.' },
+  { label: 'Fiber & Broadband', href: '/industries/fiber-broadband/', description: 'Territory launches, door-to-door sales, and installation scheduling.' },
+  { label: 'Real Estate', href: '/industries/real-estate/', description: 'Lead response, database reactivation, and marketing attribution.' },
+  { label: 'Property Management', href: '/industries/property-management/', description: 'Leasing response, maintenance intake, and vendor coordination.' },
+  { label: 'E-commerce', href: '/industries/ecommerce/', description: 'Customer service, lifecycle marketing, and merchandising.' },
+  { label: 'Financial Services', href: '/industries/financial-services/', description: 'Governance, data controls, and controlled AI adoption.' },
+  { label: 'Logistics & Transportation', href: '/industries/logistics-transportation/', description: 'Dispatch communication, document processing, and reporting.' },
+  { label: 'Energy', href: '/industries/energy/', description: 'Field operations knowledge, documentation, and enterprise productivity.' },
+  { label: 'Defense & Aerospace', href: '/industries/defense-aerospace/', description: 'Governed enterprise AI for legitimate business operations.' },
 ];
 
 export const PRIMARY_CTA = {
@@ -127,6 +137,7 @@ export const FOOTER_LINKS = {
     { label: 'AI Growth Systems', href: '/ai-growth-systems/' },
     { label: 'Managed AI Department', href: '/managed-ai-department/' },
     { label: 'Enterprise AI Transformation', href: '/enterprise/' },
+    { label: 'AI Recruiting & HR Automation', href: '/ai-recruiting-automation/' },
   ],
   services: [
     { label: 'Google Ads', href: '/google-ads/' },
@@ -147,6 +158,16 @@ export const FOOTER_LINKS = {
     { label: 'Insurance', href: '/industries/insurance/' },
     { label: 'Manufacturing', href: '/industries/manufacturing/' },
     { label: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/' },
+    { label: 'Home Services', href: '/industries/home-services/' },
+    { label: 'Solar', href: '/industries/solar/' },
+    { label: 'Fiber & Broadband', href: '/industries/fiber-broadband/' },
+    { label: 'Real Estate', href: '/industries/real-estate/' },
+    { label: 'Property Management', href: '/industries/property-management/' },
+    { label: 'E-commerce', href: '/industries/ecommerce/' },
+    { label: 'Financial Services', href: '/industries/financial-services/' },
+    { label: 'Logistics & Transportation', href: '/industries/logistics-transportation/' },
+    { label: 'Energy', href: '/industries/energy/' },
+    { label: 'Defense & Aerospace', href: '/industries/defense-aerospace/' },
   ],
   company: [
     { label: 'The AI Department Method', href: '/ai-department-method/' },

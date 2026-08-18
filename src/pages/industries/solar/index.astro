@@ -1,0 +1,192 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'zap', title: 'Lead Response', description: 'Immediate acknowledgment, routing, appointment scheduling, structured nurture, and missed-call recovery.' },
+  { icon: 'footprints', title: 'Door-to-Door Follow-Up', description: 'Field reps capture interested homeowners into a structured process instead of relying on memory or personal texting.' },
+  { icon: 'calendar', title: 'Appointment Setting', description: 'AI-assisted voice, SMS, and email coordinate qualified appointments while respecting consent and escalation requirements.' },
+  { icon: 'repeat', title: 'Old Lead Reactivation', description: 'Previously interested homeowners re-engaged through appropriately permissioned, controlled reactivation workflows.' },
+  { icon: 'workflow', title: 'Sales Pipeline Automation', description: 'CRM stages, tasks, reminders, appointment outcomes, and management visibility connected into one operating process.' },
+  { icon: 'user-plus', title: 'Recruiting & Team Growth', description: 'AI-assisted applicant intake, candidate communication, and interview scheduling while humans retain hiring decisions.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect lead source, campaign, appointment, sale, and revenue — not just raw lead count.' },
+];
+
+const salesGroups = [
+  { label: 'Demand', steps: [{ text: 'Ads / Referrals', icon: 'megaphone' }, { text: 'Door-to-Door / Organic', icon: 'footprints' }] },
+  { label: 'Capture & Response', steps: [{ text: 'Forms / Calls', icon: 'inbox' }, { text: 'Rep Activity', icon: 'user-check' }, { text: 'SMS / Email / Voice', icon: 'message-square' }, { text: 'Scheduling', icon: 'calendar' }] },
+  { label: 'Sales', steps: [{ text: 'Setter / Closer', icon: 'handshake' }, { text: 'CRM / Follow-Up', icon: 'database' }] },
+  { label: 'Customer Process', steps: [{ text: 'Documents / Scheduling', icon: 'file-text' }, { text: 'Updates', icon: 'bell' }] },
+  { label: 'Measurement', steps: [{ text: 'Appointment', icon: 'bar-chart-3' }, { text: 'Sale / Revenue', icon: 'trending-up' }] },
+];
+
+const faqs = [
+  { question: 'Does this involve automated cold calling or texting?', answer: 'No. Automated calls, texts, emails, and sales communications should be built around appropriate consent, opt-out handling, applicable regulations, and human oversight. We help design the system — we do not position AI as a way to bypass communications rules or consumer protections.' },
+  { question: 'How does this help with door-to-door sales specifically?', answer: 'Field reps typically capture interest on paper, in a personal phone, or in scattered notes — all of which are easy to lose. A structured intake workflow gets that same interested-homeowner information into a system tied to the rep, territory, and next action, so follow-up doesn\'t depend entirely on one person\'s memory.' },
+  { question: 'We have setters and closers. Can systems handle that split?', answer: 'Yes — the setter/closer structure is common in solar sales, and pipeline automation can be built around that handoff specifically: making sure a set appointment actually reaches the closer with the right context, and that outcomes flow back into reporting either role can see.' },
+  { question: 'Can you help with recruiting for our sales team?', answer: 'High-volume sales organizations often need to hire continuously. AI can assist with applicant intake, candidate communication, structured screening, and interview scheduling — but hiring decisions themselves stay with your team, not an automated system.' },
+  { question: 'How is this different from a generic CRM automation tool?', answer: 'Generic automation tools aren\'t built around the specific shape of solar sales — long consideration periods, financing handoffs, field reps, and appointment-setting pipelines. We start with your actual workflow and business economics, then determine which combination of existing tools, integrations, and custom automation actually fits.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Modern Solar Companies | Your AI Department"
+  description="Connect field sales, lead response, appointment setting, and marketing attribution for solar companies with consent-aware automation and better operating systems."
+  path="/industries/solar/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Solar', item: `${SITE.domain}/industries/solar/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Solar Sales & Operations"
+    headline="AI Systems for Modern Solar Companies"
+    support="Solar businesses often operate across paid leads, inbound calls, door-to-door sales, appointment setters, closers, financing workflows, installation teams, and long sales cycles. Your AI Department helps connect those moving parts with practical AI, automation, integrations, and better operating systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="High Lead Volume Demands Better Follow-Up"
+      />
+      <p class="prose-p">Generating leads in solar is expensive — paid media costs are high, door-to-door canvassing requires real labor, and referral programs take time to build. Losing those leads because follow-up is slow, inconsistent, poorly assigned, or impossible to measure is even more expensive, because it means the acquisition cost was spent for nothing.</p>
+      <p class="prose-p">Solar sales organizations typically run on a specific structure that generic CRM playbooks don't account for well: a setter generates or qualifies interest, a closer runs the actual sales conversation, and the deal moves through financing, design, and installation handoffs before it's truly closed. The opportunity is to build a sales system where legitimate leads receive timely communication at every one of those stages, representatives know exactly what happens next, managers can see pipeline activity across the setter/closer split, and marketing can be connected to real signed deals — not just raw lead counts.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Solar Sales Organizations Typically Leak Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="Connect Field Sales, Digital Leads, and Operations"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every solar organization."
+        tone="dark"
+      />
+      <GroupedFlow groups={salesGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Responsible Communications"
+        heading="Automation Does Not Remove Consent Requirements"
+        support="Automated calls, texts, emails, and sales communications should be designed around appropriate consent, opt-out handling, applicable regulations, company policies, and human oversight. Your AI Department helps design the system. We do not position AI as a way to bypass communications rules or consumer protections."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Organizations With Real Sales Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established residential solar companies',
+          'Regional solar operators',
+          'Managing significant lead volume',
+          'Running door-to-door sales teams',
+          'Operating centralized appointment-setting teams',
+          'Multi-market sales organizations investing heavily in paid acquisition',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are an individual commission-only representative',
+          'You are a very small operator without systems or repeatable workflows',
+          'You are seeking unrestricted automated cold outreach',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/meta-ads/">Meta Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-recruiting-automation/">Explore AI Recruiting & HR Automation</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Solar Sales Operation"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, appointment setting, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

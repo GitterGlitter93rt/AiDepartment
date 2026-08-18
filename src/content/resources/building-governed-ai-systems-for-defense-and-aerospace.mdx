@@ -1,0 +1,59 @@
+---
+title: "Building Governed AI Systems for Defense and Aerospace Operations"
+seoTitle: "Building Governed AI Systems for Defense and Aerospace | Your AI Department"
+description: "In sensitive operating environments, successful AI implementation depends as much on architecture and governance as model capability. Here's what that governance actually requires."
+publishDate: "2026-08-18"
+primaryDestination:
+  label: "Discuss a Governed Enterprise AI Engagement"
+  href: "/industries/defense-aerospace/"
+secondaryDestinations:
+  - label: "Enterprise"
+    href: "/enterprise/"
+  - label: "AI Implementation"
+    href: "/ai-implementation/"
+  - label: "Managed AI Department"
+    href: "/managed-ai-department/"
+  - label: "Executive AI Coaching"
+    href: "/executive-ai-coaching/"
+relatedResources:
+  - "where-defense-and-aerospace-companies-should-start-with-enterprise-ai"
+  - "ai-knowledge-management-for-aerospace-and-defense-organizations"
+---
+
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+
+In sensitive operating environments, whether an AI implementation succeeds depends as much on its architecture and governance as on the underlying model's capability. An impressive model connected to the wrong data, with the wrong access, and no clear review process is a liability regardless of how good its outputs look in a demo.
+
+## Governance Questions to Answer First
+
+Before implementation: what is the specific approved use case? What information is actually involved? Which users need access, specifically? Where is the model allowed to operate? What external services, if any, are permitted? Can the AI write to any system, or is it read-only? Which outputs require approval before they become real actions? How is all of this activity monitored?
+
+## System Architecture
+
+A defensible architecture moves from use case to data classification, to an authorized system, through access control, to AI assistance, to human review, to an approved action, with ongoing monitoring throughout.
+
+## Read vs. Write Access
+
+Many genuinely useful AI systems can start with retrieval, analysis, drafting, and summarization — read-only, low-risk functions — well before they're given any authority to create actual operational changes. There's no requirement to grant write access on day one, and often good reason not to.
+
+## Human Accountability
+
+AI should never be treated as the accountable decision-maker for safety, engineering, flight operations, security, controlled technical decisions, weapons-related activity, or other high-consequence functions. That accountability stays with qualified people, full stop.
+
+## Vendor Evaluation
+
+Any vendor or platform under consideration deserves scrutiny on its deployment environment, data retention practices, who has access, how it uses your data, contractual controls, security requirements, and exactly what level of integration access it's asking for.
+
+<GroupedFlow
+  tone="dark"
+  groups={[
+    { label: 'Scope', steps: [{ text: 'Use Case', icon: 'target' }, { text: 'Data Classification', icon: 'shield-check' }] },
+    { label: 'Control', steps: [{ text: 'Authorized System', icon: 'lock' }, { text: 'Access Control', icon: 'key' }] },
+    { label: 'Assist & Review', steps: [{ text: 'AI Assistance', icon: 'bot' }, { text: 'Human Review', icon: 'user-check' }] },
+    { label: 'Act & Monitor', steps: [{ text: 'Approved Action', icon: 'check-circle-2' }, { text: 'Monitoring', icon: 'bar-chart-3' }] },
+  ]}
+/>
+
+## Monitoring and Change Management
+
+AI systems change over time — models get updated, workflows evolve, access needs shift, data sources change, new use cases get proposed, and incidents occasionally happen. Governance has to account for all of that ongoing change, not just the initial rollout.

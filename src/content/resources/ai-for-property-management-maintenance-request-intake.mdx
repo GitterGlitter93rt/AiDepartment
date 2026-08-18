@@ -1,0 +1,49 @@
+---
+title: "AI for Property Management Maintenance Request Intake"
+seoTitle: "AI for Property Management Maintenance Request Intake | Your AI Department"
+description: "Maintenance automation works best when AI organizes information and coordinates the workflow, rather than trying to diagnose the property problem itself."
+publishDate: "2026-08-18"
+primaryDestination:
+  label: "Explore AI Systems for Property Management"
+  href: "/industries/property-management/"
+secondaryDestinations:
+  - label: "AI Implementation"
+    href: "/ai-implementation/"
+  - label: "Managed AI Department"
+    href: "/managed-ai-department/"
+relatedResources:
+  - "automating-leasing-inquiry-response-and-showing-scheduling"
+  - "ai-for-property-management-customer-communication"
+---
+
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+
+Maintenance requests arrive through phone calls, email, a resident portal, SMS, forms, and after-hours channels — often with incomplete information that creates unnecessary back-and-forth before anyone can actually act on the request. AI-assisted intake works best when it focuses on organizing that information and coordinating the workflow, not attempting to diagnose what's actually wrong with the property.
+
+## Information AI Can Help Capture
+
+A structured intake step can collect resident and contact information, the property and unit, a general issue category, a description of the problem, when it started, photos where your system supports them, access information for a technician or vendor, and the resident's preferred contact method.
+
+## Triage and Routing
+
+From there, a request can be categorized as routine maintenance, something requiring an outside vendor, an internal maintenance matter, something needing property-manager review, or a possible emergency requiring escalation. Any safety-critical determination should trigger human escalation rather than being decided by the system itself — AI should never be positioned as making that call independently.
+
+## Vendor and Team Handoff
+
+The request moves through structured intake, gets routed appropriately, gets assigned to the right person or vendor, gets scheduled, triggers a resident update, and eventually reaches a resolved status — a clear chain instead of a request that disappears into an inbox until someone happens to notice it.
+
+## Human Escalation
+
+Emergencies, safety issues, disputes, unclear conditions, sensitive resident situations, unusual property damage, and anything with financial or legal implications should all go to a person — the intake system's job is making sure that handoff happens quickly, not handling the situation itself.
+
+<GroupedFlow
+  tone="light"
+  groups={[
+    { label: 'Request', steps: [{ text: 'Resident Request', icon: 'inbox' }] },
+    { label: 'Triage', steps: [{ text: 'Structured Intake', icon: 'clipboard-list' }, { text: 'Routing', icon: 'workflow' }] },
+    { label: 'Action', steps: [{ text: 'Human / Vendor', icon: 'truck' }, { text: 'Status Update', icon: 'message-square' }] },
+    { label: 'Close', steps: [{ text: 'Resolution', icon: 'check-circle-2' }] },
+  ]}
+/>
+
+The goal is a maintenance process where every request is captured completely and routed correctly the first time — not one where AI decides what's actually wrong with a unit.

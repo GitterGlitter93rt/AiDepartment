@@ -1,0 +1,185 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone', title: 'Call Handling & Booking', description: 'AI-assisted intake supports common questions, collects information, and schedules approved appointment types.' },
+  { icon: 'zap', title: 'Missed-Call Recovery', description: 'Missed inquiries trigger rapid follow-up instead of disappearing into a voicemail nobody checks.' },
+  { icon: 'calendar', title: 'Scheduling & Reminders', description: 'Confirmations, reminders, access instructions, and rescheduling workflows automated consistently.' },
+  { icon: 'refresh-cw', title: 'Retention & Renewal', description: 'Customer data and workflow triggers support renewal communication and service reminders before a contract quietly lapses.' },
+  { icon: 'repeat', title: 'Reactivation', description: 'Past customers and inactive accounts identified for controlled, appropriately-timed reactivation campaigns.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect source, call/form, booking, customer, recurring account, and revenue where systems allow.' },
+  { icon: 'clipboard-list', title: 'Internal Operations', description: 'Technician notifications, customer notes, internal handoffs, reporting, and management visibility.' },
+];
+
+const recurringGroups = [
+  { label: 'Acquisition', steps: [{ text: 'Demand', icon: 'megaphone' }, { text: 'Inquiry', icon: 'inbox' }] },
+  { label: 'Conversion', steps: [{ text: 'Booking', icon: 'calendar' }, { text: 'Service', icon: 'shield-check' }] },
+  { label: 'Relationship', steps: [{ text: 'Recurring Relationship', icon: 'repeat' }] },
+  { label: 'Lifecycle', steps: [{ text: 'Retention', icon: 'heart' }, { text: 'Reactivation', icon: 'rotate-ccw' }] },
+  { label: 'Measurement', steps: [{ text: 'Measurement', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Why focus so much on retention instead of just new customer acquisition?', answer: 'Because pest control economics are built on recurring revenue, not one-time jobs. A customer worth keeping for three years of quarterly service is worth far more than the first appointment alone — and renewal, retention, and reactivation are often the least-systematized parts of an otherwise well-run business.' },
+  { question: 'Can AI handle a customer asking about a specific infestation?', answer: 'AI-assisted intake can handle scheduling and common questions, but treatment decisions, chemical and safety questions, unusual infestations, and regulatory issues need qualified people. The goal is to handle the routine intake work so your technicians spend their time on the actual pest problem, not phone tag.' },
+  { question: 'How do you approach reactivating a customer who canceled service?', answer: 'Reactivation should be appropriately timed and segmented — a customer who canceled over price is a different conversation than one who canceled because they moved. We help design controlled campaigns based on why an account went inactive, not a blanket "we miss you" blast to everyone.' },
+  { question: 'We run a call center for scheduling. Does this replace that?', answer: 'No — it supports it. AI-assisted intake can handle straightforward booking and common questions, freeing your call center team to focus on more complex calls, retention conversations, and situations that genuinely need a person.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Growing Pest Control Companies | Your AI Department"
+  description="Improve call handling, booking, retention, and reactivation for pest control companies with AI and automation built around recurring-service economics."
+  path="/industries/pest-control/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Pest Control', item: `${SITE.domain}/industries/pest-control/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Pest Control"
+    headline="AI Systems for Growing Pest Control Companies"
+    support="Pest control businesses rely on fast response, recurring service, route efficiency, customer communication, and retention. Your AI Department helps connect those workflows with practical AI, automation, integrations, and better business systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Recurring Revenue Makes the Entire Customer Journey Matter"
+      />
+      <p class="prose-p">For a pest control company, the opportunity isn't only converting the first call — it's everything that happens afterward. Long-term value depends on booking that first appointment reliably, communicating clearly through the service relationship, renewing before a contract lapses, reactivating accounts that went quiet, and understanding which marketing sources actually produce customers who stay for years, not just the ones who book once.</p>
+      <p class="prose-p">This is a meaningfully different economic model than a one-time-job trade. A missed renewal reminder or an un-worked reactivation list represents recurring revenue walking away quietly, often without anyone noticing until the annual numbers come in lower than expected.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Recurring-Service Businesses Typically Lose Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From First Inquiry to Long-Term Recurring Relationship"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every pest control business."
+        tone="dark"
+      />
+      <GroupedFlow groups={recurringGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Treatment Decisions Stay With Qualified People"
+        support="Treatment decisions, chemical and safety questions, unusual infestations, regulatory issues, property-specific recommendations, and customer disputes require qualified human handling."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Operators With Real Recurring Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established pest control companies',
+          'Recurring residential service operators',
+          'Commercial pest control providers',
+          'Multi-location operators',
+          'Running call centers or dispatch teams',
+          'Investing significantly in lead generation',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a very small operator with minimal recurring accounts',
+          'You have no structured scheduling or CRM system in place',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/google-ads/">Explore Google Ads Management</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Pest Control Business"
+    support="Take the free AI Department Assessment to see your opportunities across booking, retention, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

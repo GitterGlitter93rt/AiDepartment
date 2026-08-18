@@ -1,0 +1,188 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone-call', title: 'Lead Response', description: 'Respond faster to new project inquiries and route them by service type, geography, project size, or team.' },
+  { icon: 'calendar', title: 'Consultation Scheduling', description: 'Coordinate design consultations, site visits, measurements, and follow-up meetings.' },
+  { icon: 'clipboard-list', title: 'Estimate Follow-Up', description: 'Structured follow-up for unsold proposals and projects with long consideration periods.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'Scheduling updates, project milestones, reminders, and routine communications.' },
+  { icon: 'repeat', title: 'Old Lead Reactivation', description: 'Re-engage previous inquiries and unsold estimates where appropriate.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect lead source, consultation, estimate, signed project, and revenue.' },
+  { icon: 'book-open', title: 'Internal Operations', description: 'Documentation, sales notes, SOPs, reporting, task creation, and communication handoffs.' },
+];
+
+const designBuildGroups = [
+  { label: 'Demand', steps: [{ text: 'Lead', icon: 'inbox' }] },
+  { label: 'Design', steps: [{ text: 'Consultation', icon: 'compass' }, { text: 'Design / Estimate', icon: 'clipboard-list' }] },
+  { label: 'Decision', steps: [{ text: 'Follow-Up', icon: 'repeat' }] },
+  { label: 'Delivery', steps: [{ text: 'Project', icon: 'hammer' }, { text: 'Customer Relationship', icon: 'heart' }] },
+  { label: 'Measurement', steps: [{ text: 'Measurement', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Our sales cycle for a big backyard project can take months. How does automation help there?', answer: 'Long consideration periods are exactly where structured follow-up earns its keep. A homeowner deciding on a $80,000 outdoor living project isn\'t going to sign on the first visit — automated reminders and salesperson tasks keep that estimate alive through the weeks or months it takes them to decide, without it depending on someone remembering to check in.' },
+  { question: 'Do you help with the design process itself?', answer: 'No — design, site conditions, drainage, construction scope, material selection, and permitting decisions require qualified people. We help with the business systems around that process: scheduling the consultation, following up on the estimate, and keeping the customer informed as the project moves forward.' },
+  { question: 'What about reactivating old estimates from a year or two ago?', answer: 'Unsold proposals and older inquiries can represent real opportunity, especially in a category where projects are often deferred rather than decided against outright. A controlled, appropriately-timed reactivation campaign can be a meaningful source of signed work without any new marketing spend.' },
+  { question: 'We run multiple crews across different project types. Does this apply to hardscape and planting separately?', answer: 'Yes — the underlying lead-response and follow-up logic applies across service types, but routing by project type, crew, or geography is part of designing the system correctly for a multi-crew operation.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Landscaping and Outdoor Living Companies | Your AI Department"
+  description="Connect lead response, design consultations, estimate follow-up, and marketing attribution for landscaping, hardscape, and outdoor-living companies."
+  path="/industries/landscaping-outdoor-living/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Landscaping & Outdoor Living', item: `${SITE.domain}/industries/landscaping-outdoor-living/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Landscaping & Outdoor Living"
+    headline="AI Systems for Landscaping and Outdoor Living Companies"
+    support="High-value outdoor projects involve marketing, consultations, site visits, designs, estimates, long decision cycles, and project coordination. Your AI Department helps connect those stages with practical AI, automation, integrations, and better business systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Design-Build Projects Live or Die on Follow-Up"
+      />
+      <p class="prose-p">A landscaping or outdoor-living company selling design-build projects is really selling a long, considered decision — homeowners weigh design options, compare estimates, revisit budget, and often take weeks or months before signing. That's very different from a same-day service call, and a follow-up process built for quick decisions will consistently lose these larger, higher-value projects to inconsistent or forgotten follow-up.</p>
+      <p class="prose-p">Site conditions also vary enormously from property to property, which means every estimate genuinely requires a site visit and real design judgment — the opportunity for automation isn't in that design work itself, but in making sure the consultation gets scheduled promptly, the estimate gets followed up consistently, and the customer stays informed as a months-long project actually moves through construction.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Design-Build Companies Typically Lose Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Inquiry to Delivered Project"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every landscaping or outdoor-living business."
+        tone="dark"
+      />
+      <GroupedFlow groups={designBuildGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Design and Site Conditions Stay With Qualified People"
+        support="Design, site conditions, drainage, construction scope, pricing, plant and material selection, permitting, safety, and project changes require qualified people."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Established Design-Build Operators"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Landscape design-build firms',
+          'Hardscape contractors',
+          'Outdoor kitchen companies',
+          'Paver and patio companies',
+          'High-end residential landscaping firms',
+          'Multi-crew operators investing heavily in marketing',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a small maintenance-only operation without a sales process',
+          'You have minimal project or estimate volume to build around',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/meta-ads/">Meta Ads</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Landscaping Business"
+    support="Take the free AI Department Assessment to see your opportunities across consultation scheduling, estimate follow-up, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

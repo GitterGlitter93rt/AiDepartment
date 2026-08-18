@@ -8,7 +8,38 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   path="/ai-assessment/"
 >
   <section class="assessment-page">
-    <div id="assessment-root" class="a-shell-mount"></div>
+    <div id="assessment-root" class="a-shell-mount">
+      {/*
+        Server-rendered initial state, matching exactly what
+        assessmentApp.ts's renderIntro() produces for the 'intro' state
+        (the app's default starting state on every load). This ensures a
+        real, visible H1 exists in the server-rendered HTML for crawlers
+        and non-JS clients, and removes the blank-page flash before JS
+        mounts. mountAssessmentApp() overwrites this innerHTML with
+        functionally identical markup and its own event listeners the
+        instant it initializes, so this is purely a progressive-enhancement
+        starting point — not a duplicate UI a user would ever actually see
+        both versions of.
+      */}
+      <div class="a-intro">
+        <span class="a-eyebrow">AI Department Assessment</span>
+        <h1>Find Out Where AI Can Actually Improve Your Business.</h1>
+        <p class="a-intro-copy">
+          In approximately 7-12 minutes, this assessment evaluates key areas of your business
+          and produces your AI Department Score with personalized opportunity recommendations.
+        </p>
+        <ul class="a-intro-facts">
+          <li>Free — no cost to complete</li>
+          <li>7-12 minutes for most companies</li>
+          <li>Deterministic scoring — not a generic quiz</li>
+        </ul>
+        <button type="button" class="a-btn a-btn-primary a-btn-large" id="a-start-btn">Start Assessment</button>
+        <p class="a-intro-legal">
+          By starting, you agree to our <a href="/privacy/">Privacy Policy</a> and
+          <a href="/terms/">Terms of Use</a>.
+        </p>
+      </div>
+    </div>
   </section>
 </BaseLayout>
 

@@ -30,7 +30,7 @@ const industries = [
           <span class="industry-icon"><Icon name={ind.icon} size={24} /></span>
           <p class="industry-name">{ind.name}</p>
           <p class="industry-outcome">{ind.outcome}</p>
-          <a href={ind.href} class="industry-link">
+          <a href={ind.href} class="industry-link" aria-label={`Explore AI for ${ind.name}`}>
             Learn More
             <Icon name="arrow-right" size={12} />
           </a>

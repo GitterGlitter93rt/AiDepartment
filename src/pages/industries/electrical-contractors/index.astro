@@ -1,0 +1,183 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone-call', title: 'Lead & Call Response', description: 'Acknowledge inquiries quickly, recover missed calls, and route residential, commercial, emergency, or project-related opportunities.' },
+  { icon: 'truck', title: 'Scheduling & Dispatch', description: 'Connect intake, availability, technician assignment, reminders, and customer notifications.' },
+  { icon: 'clipboard-list', title: 'Estimate Follow-Up', description: 'Structured follow-up for panels, generators, EV chargers, remodels, and other quoted projects.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'Automated routine confirmations and updates without removing the ability to reach a knowledgeable person.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect advertising and lead sources to appointments, estimates, closed jobs, and revenue.' },
+  { icon: 'book-open', title: 'Internal Knowledge & Admin', description: 'SOP access, internal documentation, onboarding, reporting, and routine administrative tasks.' },
+];
+
+const classificationGroups = [
+  { label: 'Demand', steps: [{ text: 'Inquiry', icon: 'inbox' }] },
+  { label: 'Classification', steps: [{ text: 'Qualification', icon: 'list-checks' }, { text: 'Scheduling', icon: 'calendar' }] },
+  { label: 'Field', steps: [{ text: 'Technician / Estimator', icon: 'user-check' }, { text: 'Quote / Job', icon: 'clipboard-list' }] },
+  { label: 'Follow-Up', steps: [{ text: 'Follow-Up', icon: 'repeat' }] },
+  { label: 'Measurement', steps: [{ text: 'Measurement', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'How is this different for service calls versus bigger projects like panel upgrades?', answer: 'They should be treated differently from the moment the call comes in. A same-day service call and a panel upgrade or generator installation quote have completely different sales cycles, follow-up needs, and revenue size — lumping them into one generic workflow means one of them gets under-served, usually the higher-value project work.' },
+  { question: 'Can you help us sell more generator and EV charger installations?', answer: 'We help build the follow-up and lead-classification systems around those opportunities — recognizing when a service call surfaces a generator or EV charger opportunity, and making sure that opportunity gets tracked and followed up on consistently, rather than depending on one technician remembering to mention it.' },
+  { question: 'Does automation touch code compliance or permitting?', answer: 'No. Electrical diagnosis, code compliance, safety, pricing, engineering, permitting, and property-specific recommendations require qualified professionals. Automation supports scheduling, communication, and follow-up — not the electrical judgment itself.' },
+  { question: 'We run both residential and commercial work. Does this apply to both?', answer: 'Yes — the underlying workflow (respond, classify, schedule, quote, follow up, measure) applies to both, though the specific routing logic and follow-up cadence usually differ between a residential service call and a commercial project bid.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Growing Electrical Contractors | Your AI Department"
+  description="Improve lead response, scheduling, and estimate follow-up for electrical contractors managing both urgent service calls and larger quoted projects."
+  path="/industries/electrical-contractors/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Electrical Contractors', item: `${SITE.domain}/industries/electrical-contractors/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Electrical Contractors"
+    headline="AI Systems for Growing Electrical Contractors"
+    support="Electrical companies manage a mix of urgent service calls, scheduled projects, estimates, technicians, customer communication, and marketing. Your AI Department helps connect those workflows with practical AI, automation, integrations, and better business systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Service Calls and Projects Need Different Systems"
+      />
+      <p class="prose-p">Electrical contractors typically run two distinct businesses at once — reactive service work (an outlet that stopped working, a breaker that keeps tripping) and larger quoted projects (panel upgrades, generators, EV chargers, remodels). These have very different sales cycles, follow-up needs, and revenue potential, but they often flow through the exact same intake process, which means the higher-value project opportunities can get lost in the shuffle of routine service calls.</p>
+      <p class="prose-p">A technician diagnosing an aging panel during a routine call is sitting on a real project opportunity — but only if there's a system to capture, classify, and follow up on that opportunity separately from the service ticket it came from.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Electrical Contractors Typically Lose Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Inquiry to Classified, Followed-Up Opportunity"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every electrical contractor."
+        tone="dark"
+      />
+      <GroupedFlow groups={classificationGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Code Compliance and Safety Stay With Professionals"
+        support="Electrical diagnosis, code compliance, safety, pricing, engineering, permitting, and property-specific recommendations require qualified professionals."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Contractors With Real Service and Project Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established electrical service companies',
+          'Electrical contractors with multiple technicians',
+          'Generator and EV-charger installers',
+          'Residential and commercial operators',
+          'Investing significantly in lead generation',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a solo operator without a repeatable intake process',
+          'You have minimal quoted-project volume to build around',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/google-ads/">Explore Google Ads Management</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Electrical Business"
+    support="Take the free AI Department Assessment to see your opportunities across scheduling, estimate follow-up, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

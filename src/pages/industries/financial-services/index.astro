@@ -1,0 +1,188 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, ENTERPRISE_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'book-open', title: 'Internal Knowledge', description: 'Help employees locate approved procedures, product information, operational documentation, and internal resources.' },
+  { icon: 'file-text', title: 'Document Workflows', description: 'AI-assisted extraction, classification, summarization, and routing that reduces manual work where appropriate controls exist.' },
+  { icon: 'headset', title: 'Customer Service Assistance', description: 'Information retrieval, conversation summaries, and workflow recommendations, preserving human handling where required.' },
+  { icon: 'workflow', title: 'Operations', description: 'Automate repetitive data movement, task creation, workflow routing, status updates, and internal reporting.' },
+  { icon: 'megaphone', title: 'Marketing Operations', description: 'Research, campaign operations, approved content workflows, and analysis, with appropriate review maintained.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'Controlled AI assistance for drafting, analysis, summarization, knowledge retrieval, and administrative tasks.' },
+  { icon: 'bar-chart-3', title: 'Analytics & Management Reporting', description: 'Assist managers in interpreting operational information when underlying data is reliable and appropriate for use.' },
+];
+
+const governanceGroups = [
+  { label: 'Define', steps: [{ text: 'Business Use Case', icon: 'target' }, { text: 'Data Classification', icon: 'shield-check' }] },
+  { label: 'Control', steps: [{ text: 'Access Control', icon: 'lock' }, { text: 'Model / Vendor Review', icon: 'search' }] },
+  { label: 'Deploy', steps: [{ text: 'Human Oversight', icon: 'user-check' }, { text: 'Implementation', icon: 'hammer' }] },
+  { label: 'Sustain', steps: [{ text: 'Monitoring', icon: 'bar-chart-3' }, { text: 'Governance', icon: 'clipboard-check' }] },
+];
+
+const faqs = [
+  { question: 'Can AI make lending or credit decisions?', answer: 'No. AI should not be positioned as a substitute for licensed financial advice, compliance decisions, credit decisions, legal interpretation, fiduciary judgment, or other regulated professional responsibilities. Your AI Department provides business and technology implementation services, not financial, legal, compliance, or investment advice.' },
+  { question: 'How do you handle sensitive customer financial data?', answer: 'This is exactly why the governance framework starts with data classification and access control before any implementation happens. What data an AI system can touch, who can access it, and how it\'s monitored are architectural decisions made upfront, not afterthoughts.' },
+  { question: 'Is this just generic AI consulting with financial-services branding?', answer: 'No — the emphasis on governance, data classification, and vendor/model review reflects the specific regulatory and risk environment financial organizations operate in. A generic AI adoption approach that works for a retail business would be inappropriate here.' },
+  { question: 'What kinds of organizations does this apply to?', answer: 'Financial-services firms, lending organizations, insurance-adjacent financial operations, wealth-management organizations, fintechs, multi-location financial businesses, and enterprise teams evaluating controlled AI adoption.' },
+];
+---
+
+<BaseLayout
+  title="Responsible AI Systems for Financial Services | Your AI Department"
+  description="Design AI systems for financial-services organizations around business value, data controls, human oversight, and governance — not experimentation alone."
+  path="/industries/financial-services/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Financial Services', item: `${SITE.domain}/industries/financial-services/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Financial Services"
+    headline="Responsible AI Systems for Financial Services"
+    support="Financial organizations face substantial opportunities to improve productivity and operations with AI, but implementation requires more than adding a general-purpose tool. Your AI Department helps businesses design AI systems around business value, existing technology, data controls, human oversight, and organizational risk."
+    primaryCta={{ label: 'Discuss an Enterprise Engagement', href: ENTERPRISE_CTA.href }}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Financial AI Requires Architecture, Not Experimentation Alone"
+      />
+      <p class="prose-p">The value of AI can appear across customer service, operations, research, document processing, internal knowledge, employee productivity, marketing, analytics, and workflow automation — the opportunity surface for a financial-services organization is genuinely broad. The challenge is implementing those capabilities without losing control of sensitive information, decision accountability, system access, or organizational governance.</p>
+      <p class="prose-p">A financial organization experimenting with a general-purpose AI tool without addressing data classification, access controls, and human oversight first is taking on risk that has nothing to do with whether the underlying use case was a good idea. The architecture has to come before the rollout, not after.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where AI Creates Value Within a Controlled Environment"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Governance Framework"
+        heading="From Use Case to Ongoing Governance"
+        support="This is a conceptual pattern, not a claim that this exact architecture satisfies any specific regulatory requirement your organization faces."
+        tone="dark"
+      />
+      <GroupedFlow groups={governanceGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Regulated Decisions Stay With Licensed Professionals"
+        support="AI should not be positioned as a substitute for licensed financial advice, compliance decisions, credit decisions, legal interpretation, fiduciary judgment, or other regulated professional responsibilities. Your AI Department provides business and technology implementation services, not financial, legal, compliance, or investment advice."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Organizations Evaluating Controlled AI Adoption"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Financial-services firms',
+          'Lending organizations',
+          'Insurance-adjacent financial operations',
+          'Wealth-management organizations',
+          'Fintech businesses',
+          'Multi-location financial businesses',
+          'Enterprise teams evaluating controlled AI adoption',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are looking for an unsupervised, autonomous decision-making system',
+          'You have no willingness to invest in governance and access controls',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/enterprise/">Explore an Enterprise Engagement</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>
+      </p>
+      <p class="cross-links">
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/executive-ai-coaching/">Executive AI Coaching</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Discuss a Controlled AI Adoption Path for Your Organization"
+    support="Take the free AI Department Assessment, or discuss an enterprise engagement directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

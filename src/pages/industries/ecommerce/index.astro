@@ -1,0 +1,202 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'headset', title: 'Customer Service', description: 'Routine order questions, shipping status, and policy questions handled by AI, with exceptions and sensitive cases escalated to people.' },
+  { icon: 'repeat', title: 'Lifecycle Marketing', description: 'Welcome sequences, abandoned-cart recovery, post-purchase communication, replenishment, and win-back built on customer behavior.' },
+  { icon: 'layout-grid', title: 'Merchandising', description: 'Product categorization, recommendations, collection organization, search experience, and merchandising analysis.' },
+  { icon: 'image', title: 'Creative Operations', description: 'Ad concepts, product copy, email content, and campaign production, with brand standards and factual accuracy preserved.' },
+  { icon: 'rotate-ccw', title: 'Returns & Support Triage', description: 'Structured information collection, request routing, and common-issue identification to support your service team.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect acquisition source, customer, order, and repeat purchase so paid-media decisions reflect customer value, not just conversions.' },
+  { icon: 'clipboard-list', title: 'Operations & Internal Knowledge', description: 'SOP access, reporting, inventory-related workflows, product-data enrichment, and repetitive administrative work.' },
+];
+
+const lifecycleGroups = [
+  { label: 'Acquisition', steps: [{ text: 'Demand', icon: 'megaphone' }, { text: 'Storefront', icon: 'shopping-cart' }] },
+  { label: 'Conversion', steps: [{ text: 'Customer / Cart', icon: 'user-plus' }, { text: 'Purchase', icon: 'credit-card' }] },
+  { label: 'Fulfillment', steps: [{ text: 'Fulfillment', icon: 'package' }, { text: 'Support', icon: 'headset' }] },
+  { label: 'Lifecycle', steps: [{ text: 'Lifecycle Marketing', icon: 'repeat' }] },
+  { label: 'Value', steps: [{ text: 'Repeat Customer', icon: 'heart' }, { text: 'Attribution', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'We already use Shopify, Klaviyo, and Gorgias. Do we need new software?', answer: 'Usually not. Most established e-commerce businesses already use a capable stack — the opportunity is typically in connecting and better using what you have rather than replacing it. The right architecture often improves these systems rather than introducing new ones.' },
+  { question: 'Can AI actually handle customer service without frustrating customers?', answer: 'AI-assisted support works well for routine, high-volume questions — order status, shipping, return policy — where a fast, accurate answer matters more than a human touch. Exceptions, complaints, and anything emotionally charged should escalate to a person, not get stuck in an automated loop.' },
+  { question: 'Will AI-generated product content be accurate?', answer: 'It should be, if it\'s implemented correctly. AI-generated product claims, images, pricing, and availability should stay grounded in your actual verified product data. We don\'t build systems that let AI invent product capabilities or misrepresent merchandise.' },
+  { question: 'How is this different from just buying an AI chatbot plugin?', answer: 'A chatbot plugin answers questions. This is about connecting your acquisition, storefront, fulfillment, support, and lifecycle marketing into one system where the data flows between them — so a returning customer, a support ticket, and a marketing campaign aren\'t three disconnected experiences.' },
+  { question: 'We have thin margins. How do we know this is worth the investment?', answer: 'That\'s exactly what the first phase of engagement is for — identifying where automation actually improves customer value or reduces cost meaningfully, versus where it wouldn\'t move the needle for your specific margin structure and order volume.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for E-commerce Brands | Your AI Department"
+  description="Connect customer acquisition, lifecycle marketing, support, and merchandising for e-commerce brands with practical AI, automation, and integrations."
+  path="/industries/ecommerce/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'E-commerce', item: `${SITE.domain}/industries/ecommerce/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="E-commerce & Online Retail"
+    headline="AI Systems for E-commerce Brands"
+    support="E-commerce businesses operate across advertising, storefronts, customer service, email and SMS, product data, fulfillment, returns, retention, and analytics. Your AI Department helps connect those systems so AI creates measurable operational and customer value rather than another disconnected tool."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="AI Can Touch Almost Every Part of E-commerce"
+      />
+      <p class="prose-p">The opportunity for an e-commerce brand isn't limited to writing product descriptions faster. AI can genuinely assist customer acquisition, support, merchandising, lifecycle marketing, creative operations, internal workflows, and business analysis — which is exactly the problem. With that many plausible use cases, the real challenge isn't finding something AI could theoretically do. It's deciding which use cases actually improve the customer journey and the economics of your specific business, given your order volume, margin structure, and existing systems.</p>
+      <p class="prose-p">A brand doing $50,000 a month with a lean team has different priorities than one doing $2 million a month with a dedicated support team and multiple ad channels. The right starting point depends on where your customer and revenue data actually shows friction — cart abandonment, support ticket volume, repeat-purchase rate, or ad spend that can't be tied back to customer lifetime value.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where E-commerce Brands Typically Find Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="The Full E-commerce Customer Lifecycle"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every brand."
+        tone="dark"
+      />
+      <GroupedFlow groups={lifecycleGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Build vs. Buy"
+        heading="Connect What You Already Use"
+      />
+      <p class="prose-p">Many e-commerce businesses already use Shopify or WooCommerce, Klaviyo, Gorgias, an ERP, an analytics platform, and one or more advertising tools. The right architecture usually connects and improves these systems rather than replacing them — the platforms themselves are typically fine; the gaps are in how (or whether) data actually flows between them.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Responsible AI"
+        heading="Product Claims Stay Grounded in Verified Data"
+        support="AI-generated product claims, images, pricing, availability, shipping information, and customer-facing policies should remain grounded in verified data. AI should not invent product capabilities or materially misrepresent merchandise."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Brands With Real Order Volume and Data"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for brands that are:"
+        fitItems={[
+          'Established Shopify brands',
+          'WooCommerce stores',
+          'DTC brands',
+          'Multi-channel online retailers',
+          'Spending meaningfully on paid media',
+          'Managing large customer databases',
+          'Handling significant customer-service volume',
+          'Built around repeat-purchase opportunity',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a very small store with little traffic or order volume',
+          'You are looking only for bulk AI-generated product descriptions',
+          'Your product or customer data isn\'t reliable yet',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/meta-ads/">Meta Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/seo/">SEO</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your E-commerce Business"
+    support="Take the free AI Department Assessment to see your opportunities across support, lifecycle marketing, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

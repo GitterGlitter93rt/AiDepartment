@@ -1,0 +1,189 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone-call', title: 'Lead Response', description: 'Acknowledge new inquiries, recover missed calls, route opportunities, and create consistent first-touch follow-up.' },
+  { icon: 'calendar', title: 'Site-Visit Scheduling', description: 'Coordinate consultations, measurements, estimates, and follow-up appointments more efficiently.' },
+  { icon: 'clipboard-list', title: 'Estimate Follow-Up', description: 'Structured reminders, salesperson tasks, and SMS/email follow-up for unsold proposals.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'Permit-status updates, scheduling notices, material updates, and project reminders, with human escalation available.' },
+  { icon: 'repeat', title: 'Old Lead Reactivation', description: 'Re-engage unsold estimates and older inquiries through appropriately permissioned campaigns.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect Google Ads, organic search, calls, forms, estimates, signed projects, and revenue.' },
+];
+
+const projectGroups = [
+  { label: 'Demand', steps: [{ text: 'Lead', icon: 'inbox' }] },
+  { label: 'Consultation', steps: [{ text: 'Response', icon: 'zap' }, { text: 'Site Visit', icon: 'compass' }] },
+  { label: 'Proposal', steps: [{ text: 'Estimate', icon: 'clipboard-list' }, { text: 'Follow-Up', icon: 'repeat' }] },
+  { label: 'Delivery', steps: [{ text: 'Project', icon: 'hammer' }] },
+  { label: 'Measurement', steps: [{ text: 'Measurement', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Our estimates take weeks to close. Can automation actually help with that?', answer: 'Yes — long consideration periods are exactly where structured follow-up matters most. Automated reminders and salesperson tasks keep an unsold estimate active without requiring your team to remember to check in every week manually.' },
+  { question: 'How do you handle permit-related project communication?', answer: 'Permit status is often a source of unnecessary inbound calls — customers want to know what\'s happening, and if there\'s no proactive update, they call to ask. Structured status communication can reduce that call volume while keeping a person reachable for anything unusual.' },
+  { question: 'Does AI make engineering or structural decisions?', answer: 'No. Site conditions, engineering, permitting, pricing, structural questions, material decisions, and project changes should remain with qualified people. Automation supports the communication and follow-up around those decisions — it doesn\'t make them.' },
+  { question: 'We\'re a smaller operation with one or two crews. Is this still relevant?', answer: 'This page is written for established operators with meaningful lead volume and at least a small sales/project team. If you\'re a very small operator without a repeatable sales process yet, a broader conversation may be more useful than jumping straight to automation.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Screen Enclosure Companies | Your AI Department"
+  description="Connect lead response, site-visit scheduling, estimate follow-up, and marketing attribution for screen enclosure and outdoor-structure companies."
+  path="/industries/screen-enclosure-companies/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Screen Enclosure Companies', item: `${SITE.domain}/industries/screen-enclosure-companies/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Screen Enclosures & Outdoor Structures"
+    headline="AI Systems for Screen Enclosure Companies"
+    support="Screen enclosure companies often compete on speed, trust, follow-up, and project coordination. Your AI Department helps connect marketing, calls, estimates, scheduling, customer communication, and business systems so opportunities are handled more consistently from first inquiry through completed project."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="The Opportunity Is Often Lost Between the Lead and the Estimate"
+      />
+      <p class="prose-p">A screen enclosure company can generate strong demand and still lose valuable projects because calls are missed, site visits are delayed, estimates are followed up once and then forgotten, customer questions get scattered across text messages from three different people, or nobody can connect a specific marketing source to a specific signed job.</p>
+      <p class="prose-p">Unlike a simple service call, an enclosure project involves a site visit, a design or configuration decision, a permit process in many jurisdictions, and often a meaningful wait before the customer signs — every one of those steps is a place where an otherwise strong sales process can quietly lose the deal. AI and automation can improve those handoffs without removing the contractor, estimator, or project manager from decisions that require real-world judgment.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Enclosure Companies Typically Lose Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Inquiry to Completed Project"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every enclosure business."
+        tone="dark"
+      />
+      <GroupedFlow groups={projectGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Site Conditions and Structural Decisions Stay With People"
+        support="Site conditions, engineering, permitting, pricing, structural questions, material decisions, project changes, and customer disputes should remain with qualified people."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Established Contractors With Real Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for businesses that are:"
+        fitItems={[
+          'Screen enclosure contractors',
+          'Lanai enclosure companies',
+          'Patio and outdoor-living contractors',
+          'Established operators with meaningful lead volume',
+          'Investing in Google Ads or other paid media',
+          'Running estimators, salespeople, or project teams',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a very small operator with limited lead volume',
+          'You are looking only for a chatbot',
+          'You have no repeatable sales or project process',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/google-ads/">Explore Google Ads Management</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why Speed-to-Lead Matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Help Your Enclosure Business"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, estimate follow-up, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,61 @@
+---
+title: "AI Governance for Financial Services Organizations"
+seoTitle: "AI Governance for Financial Services Organizations | Your AI Department"
+description: "AI governance isn't a policy document that sits on a shelf. Here's the operating system that actually defines access, review, vendor approval, and incident response."
+publishDate: "2026-08-18"
+primaryDestination:
+  label: "Build a Governed Financial Services AI Program"
+  href: "/industries/financial-services/"
+secondaryDestinations:
+  - label: "Enterprise"
+    href: "/enterprise/"
+  - label: "AI Training"
+    href: "/ai-training/"
+  - label: "Executive AI Coaching"
+    href: "/executive-ai-coaching/"
+  - label: "Managed AI Department"
+    href: "/managed-ai-department/"
+relatedResources:
+  - "where-financial-services-firms-should-start-with-ai"
+  - "ai-for-financial-services-document-and-knowledge-workflows"
+---
+
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+
+AI governance isn't a policy document that gets written once and filed away. It's the actual operating system that defines what AI can access, who's allowed to use it, how outputs get reviewed before they become real actions, which vendors are approved, and what happens the moment something looks wrong.
+
+## What Governance Should Actually Answer
+
+A working governance framework should have clear answers to specific questions: which AI systems are approved for use? Which data classifications may they touch? Who has access? Which workflows require human review before anything happens? Which use cases are explicitly prohibited? How are vendors evaluated before adoption? How are incidents handled when something goes wrong? How are systems monitored on an ongoing basis?
+
+## Data Classification
+
+Most organizations benefit from categories along the lines of public, internal, confidential, customer-sensitive, and regulated or restricted — though the specific categories and their boundaries should reflect your organization's own policy, not a generic template borrowed from somewhere else.
+
+## Access Controls
+
+Role-based access, the principle of least privilege, proper authentication, clearly defined data permissions, real system boundaries, and appropriate logging all belong in a working access-control framework — not as an afterthought bolted on once something's already in production.
+
+## Human Review
+
+Governance should explicitly define where a human approval step is required before AI-assisted output turns into an actual action — sending a communication, updating a record, making a recommendation a customer will see.
+
+## Vendor Review
+
+Any AI vendor or platform under consideration deserves scrutiny on data handling, retention policy, whether it trains on your data, security posture, contractual terms, deployment model, and what level of integration access it actually requires.
+
+## Monitoring
+
+Governance isn't static — it needs to evolve as new use cases emerge, models change, systems get updated, incidents happen, the business itself changes, and policy gets revised in response to all of that.
+
+<GroupedFlow
+  tone="dark"
+  groups={[
+    { label: 'Scope', steps: [{ text: 'Use Case', icon: 'target' }, { text: 'Data', icon: 'shield-check' }] },
+    { label: 'Control', steps: [{ text: 'Access', icon: 'lock' }, { text: 'Model / Vendor', icon: 'search' }] },
+    { label: 'Govern', steps: [{ text: 'Human Review', icon: 'user-check' }, { text: 'Action', icon: 'check-circle-2' }] },
+    { label: 'Sustain', steps: [{ text: 'Monitoring', icon: 'bar-chart-3' }] },
+  ]}
+/>
+
+This resource describes practical governance architecture, not legal, regulatory, compliance, or financial advice — any implementation should go through your own appropriate professional and legal review.

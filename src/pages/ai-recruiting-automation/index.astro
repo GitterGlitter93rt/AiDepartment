@@ -1,0 +1,276 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../components/interior/FAQSection.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SCHEDULING, SITE } from '../../lib/site';
+
+const recruitingCta = { label: 'Discuss Your Recruiting Workflow', href: SCHEDULING.strategyCall.url };
+
+const opportunityAreas = [
+  { icon: 'inbox', title: 'Applicant Intake', description: 'Applications from career pages, recruiting systems, approved job platforms, and referrals connected into a structured process.' },
+  { icon: 'message-square', title: 'Candidate Communication', description: 'Automatic acknowledgment, next-step explanations, and status updates that keep candidates informed without manual chasing.' },
+  { icon: 'list-checks', title: 'Structured Screening', description: 'Consistent, job-related questions with responses organized for human review — never used to collect sensitive information without legitimate reason.' },
+  { icon: 'phone', title: 'AI-Assisted Phone Screening', description: 'Voice workflows conduct approved initial screening conversations and produce transcripts or summaries for recruiters.' },
+  { icon: 'calendar', title: 'Interview Scheduling', description: 'Coordinate phone screens, video interviews, in-person interviews, reminders, and rescheduling.' },
+  { icon: 'user-check', title: 'Recruiter Handoff', description: 'Structured candidate summaries, next-step tasks, interview notes, and status visibility.' },
+  { icon: 'graduation-cap', title: 'Onboarding', description: 'Document checklists, training reminders, internal introductions, and frequently asked questions.' },
+  { icon: 'book-open', title: 'Employee Knowledge & HR Admin', description: 'Access to approved internal policies, procedures, training, and benefits information.' },
+];
+
+const recruitingFlow = [
+  { label: 'Intake', steps: [{ text: 'Job Source / Career Site', icon: 'megaphone' }, { text: 'ATS / Candidate Data', icon: 'database' }] },
+  { label: 'Screening', steps: [{ text: 'AI-Assisted Screening', icon: 'list-checks' }, { text: 'SMS / Email / Voice', icon: 'message-square' }] },
+  { label: 'Review', steps: [{ text: 'Human Review', icon: 'user-check' }, { text: 'Scheduling', icon: 'calendar' }] },
+  { label: 'Decision', steps: [{ text: 'Interview', icon: 'users' }, { text: 'Human Decision', icon: 'shield-check' }] },
+  { label: 'Onboard', steps: [{ text: 'Onboarding', icon: 'graduation-cap' }] },
+];
+
+const faqs = [
+  { question: 'Does AI make hiring decisions?', answer: 'No. AI can gather information, summarize responses, schedule interviews, send approved communications, and organize candidate records. Hiring decisions, rejection decisions, compensation decisions, employment eligibility judgments, accommodations decisions, and other sensitive employment decisions stay with your hiring managers and HR professionals.' },
+  { question: 'What about AI-assisted phone screening — is that autonomous rejection?', answer: 'No. Voice workflows can conduct an approved initial screening conversation and produce a transcript or summary that gets routed to a recruiter or hiring manager. The system does not independently make final hiring or rejection decisions — a person reviews and decides.' },
+  { question: 'Do we need an ATS for this to work?', answer: 'An Applicant Tracking System is typically the recruiting equivalent of a system of record for candidates and hiring stages. If you already have one, we help improve the workflows around it. If you don\'t, the right solution may involve implementing one or building a lighter structured workflow, depending on your hiring volume and complexity.' },
+  { question: 'Is this only for high-volume hiring?', answer: 'It\'s most valuable where hiring volume creates real repetitive work — home-service companies, dealer groups, field-sales organizations, and other multi-location or high-turnover employers. A company hiring one or two roles a year likely doesn\'t need this level of system.' },
+  { question: 'What sensitive information should stay out of screening workflows?', answer: 'Structured screening should avoid collecting or using sensitive or protected information unless there is a legitimate and appropriate reason tied to the specific role. This is a design consideration built into how the workflow is structured, not an afterthought.' },
+];
+---
+
+<BaseLayout
+  title="Build a Better Recruiting System With AI | Your AI Department"
+  description="AI-assisted applicant intake, screening, and interview scheduling that reduces recruiting friction — while hiring, rejection, and compensation decisions stay with your team."
+  path="/ai-recruiting-automation/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'AI Recruiting & HR Automation', item: `${SITE.domain}/ai-recruiting-automation/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="AI Recruiting & HR Automation"
+    headline="Build a Better Recruiting System With AI"
+    support="High-volume hiring creates repetitive work across applications, candidate communication, screening, scheduling, interview coordination, onboarding, and internal administration. Your AI Department helps businesses build connected recruiting workflows that use AI to organize information and reduce friction while humans remain responsible for employment decisions."
+    primaryCta={recruitingCta}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="AI Should Improve the Hiring Process, Not Make the Hiring Decision"
+      />
+      <p class="prose-p">The strongest recruiting use cases are operational, not decisional. AI can help gather information, summarize candidate responses, schedule interviews, keep applicants informed, organize recruiting data, and reduce the repetitive administrative work that eats a recruiter's day — the copy-pasting, the scheduling back-and-forth, the "just checking in on my application" emails.</p>
+      <p class="prose-p">What AI should not do is make the actual employment decision. Hiring managers and qualified HR professionals should remain responsible for decisions that affect employment — who gets hired, who gets rejected, what they're paid, and how sensitive situations get handled. The system should make the process faster and more consistent without quietly shifting real judgment calls onto a model that was never designed to make them.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Recruiting Workflows Typically Create Friction"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Recruiting System Framework"
+        heading="From Application to Human Decision"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every organization's hiring process."
+        tone="dark"
+      />
+      <GroupedFlow groups={recruitingFlow} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="ATS vs. CRM"
+        heading="Recruiting Usually Needs an ATS, Not Another Sales CRM"
+      />
+      <p class="prose-p">An Applicant Tracking System is the recruiting equivalent of the system of record used to manage candidates and hiring stages — distinct from a sales CRM, even though the underlying software category can look similar on the surface. Where an organization already has an ATS, Your AI Department can help improve the workflows around it. Where no ATS exists, the appropriate solution may involve implementing one or building a lighter structured recruiting workflow, depending on the scale and complexity of your hiring.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Decision Rule"
+        heading="What AI Can Do vs. What Humans Should Decide"
+        tone="dark"
+      />
+      <div class="decision-split">
+        <div class="decision-col">
+          <h3>AI can:</h3>
+          <ul>
+            <li>Gather information</li>
+            <li>Summarize responses</li>
+            <li>Schedule interviews</li>
+            <li>Send approved communications</li>
+            <li>Organize candidate records</li>
+            <li>Surface workflow tasks</li>
+            <li>Support recruiters</li>
+          </ul>
+        </div>
+        <div class="decision-col">
+          <h3>Humans should make:</h3>
+          <ul>
+            <li>Hiring decisions</li>
+            <li>Rejection decisions</li>
+            <li>Compensation decisions</li>
+            <li>Employment eligibility judgments</li>
+            <li>Accommodations decisions</li>
+            <li>Sensitive employment decisions</li>
+          </ul>
+        </div>
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Organizations With Real Hiring Volume"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'High-volume employers',
+          'Home-service companies',
+          'Automotive dealer groups',
+          'Solar and field-sales organizations',
+          'Restoration businesses',
+          'Skilled-trade employers',
+          'Multi-location companies with significant recruiting administration',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You hire only occasionally with minimal volume',
+          'You have no structured recruiting process to build on',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/executive-ai-coaching/">Executive AI Coaching</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Discuss Your Recruiting Workflow"
+    support="Take the free AI Department Assessment, or talk directly with our team about your current hiring process."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .decision-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
+  .decision-col {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 24px 22px;
+  }
+
+  .decision-col h3 {
+    color: var(--color-pure-white);
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+  }
+
+  .decision-col ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .decision-col li {
+    color: var(--color-dark-muted-text);
+    font-size: 0.92rem;
+    padding-left: 18px;
+    position: relative;
+  }
+
+  .decision-col li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-signal-cyan);
+  }
+
+  @media (min-width: 700px) {
+    .decision-split {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

@@ -1,0 +1,52 @@
+---
+title: "How to Automate Candidate Interview Scheduling"
+seoTitle: "How to Automate Candidate Interview Scheduling | Your AI Department"
+description: "Interview scheduling is operational work that can be automated without automating the hiring decision itself. Here's how to remove the back-and-forth."
+publishDate: "2026-08-18"
+primaryDestination:
+  label: "Build a Better Recruiting Workflow"
+  href: "/ai-recruiting-automation/"
+secondaryDestinations:
+  - label: "AI Implementation"
+    href: "/ai-implementation/"
+  - label: "Managed AI Department"
+    href: "/managed-ai-department/"
+relatedResources:
+  - "where-ai-fits-in-recruiting-and-where-humans-must-decide"
+  - "ai-assisted-phone-screening-for-job-applicants"
+---
+
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+
+Interview scheduling is one of the most purely operational parts of recruiting — and one of the most tedious. It can be automated almost entirely without touching the actual hiring decision, freeing your recruiters from the email back-and-forth that eats hours every week.
+
+## The Typical Manual Problem
+
+An application gets reviewed, the recruiter emails the candidate, the candidate replies with their availability, the recruiter checks the hiring manager's calendar, the manager turns out to be unavailable for those times, new times get sent, and someone has to remember to create a reminder manually. Multiply this by a dozen open roles and it becomes a real drain on recruiting capacity.
+
+## A Better Workflow
+
+Once a candidate is approved for an interview, a scheduling invitation goes out, the candidate selects from approved availability, the booking happens, a calendar event gets created, a confirmation goes to everyone involved, reminders fire automatically, a rescheduling path exists if something comes up, and the internal system reflects the current status — without a recruiter manually coordinating any of it.
+
+## Scheduling Variables
+
+A real system needs to account for recruiter availability, hiring manager availability, the interview type, location, whether it's phone, video, or in-person, time zone differences, interview duration, and multi-stage interview processes that involve more than one round.
+
+## AI's Role
+
+AI can handle candidate communication, scheduling instructions, rescheduling requests, reminder generation, collecting any missing information needed before scheduling, and keeping workflow status current.
+
+## Human Role
+
+Who actually advances to the next round, how the interview itself is structured, what criteria matter for the role, how a candidate's performance is evaluated, and any offer decision all remain entirely with your team.
+
+<GroupedFlow
+  tone="light"
+  groups={[
+    { label: 'Trigger', steps: [{ text: 'ATS / Candidate Database', icon: 'database' }, { text: 'Status Change', icon: 'zap' }] },
+    { label: 'Schedule', steps: [{ text: 'Scheduling Workflow', icon: 'calendar' }, { text: 'Candidate Confirmation', icon: 'check-circle-2' }] },
+    { label: 'Evaluate', steps: [{ text: 'Interview', icon: 'users' }, { text: 'Human Evaluation', icon: 'user-check' }] },
+  ]}
+/>
+
+Removing the scheduling back-and-forth doesn't just save time — it often improves the candidate experience, since a slow or clumsy scheduling process is one of the more common reasons good candidates lose interest before the interview even happens.

@@ -1,0 +1,216 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone-call', title: 'Lead Response', description: 'Immediate acknowledgment, routing, missed-call recovery, and consistent follow-up while salespeople stay involved where relationship-building matters.' },
+  { icon: 'clipboard-list', title: 'Estimate Follow-Up', description: 'Automated email, SMS, task creation, and reminders so a six-figure proposal doesn\'t quietly go cold during a long consideration period.' },
+  { icon: 'calendar', title: 'Consultation & Site Visit Scheduling', description: 'Design consultations, site visits, and service appointments coordinated through connected scheduling rather than phone tag.' },
+  { icon: 'repeat', title: 'Old Lead Reactivation', description: 'Unsold estimates and dormant inquiries segmented for controlled, appropriately-timed follow-up rather than being written off entirely.' },
+  { icon: 'wrench', title: 'Pool Service Operations', description: 'Recurring service scheduling, notifications, reminders, upsell opportunities, review requests, and retention workflows.' },
+  { icon: 'bar-chart-3', title: 'Marketing & Attribution', description: 'Connect Google Ads, Meta Ads, organic, calls, forms, CRM activity, estimates, and closed projects into one measurable picture.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'AI-assisted voice, SMS, and email for routine updates, with easy escalation to people for project-specific answers or negotiation.' },
+];
+
+const journeyGroups = [
+  { label: 'Demand', steps: [{ text: 'Google Ads / Search', icon: 'search' }, { text: 'Referral / Home Show', icon: 'megaphone' }] },
+  { label: 'Capture & Response', steps: [{ text: 'Forms / Calls / SMS', icon: 'inbox' }, { text: 'Acknowledgment & Qualification', icon: 'zap' }] },
+  { label: 'Sale', steps: [{ text: 'Site Visit / Design', icon: 'compass' }, { text: 'Estimate & Follow-Up', icon: 'clipboard-list' }] },
+  { label: 'Delivery', steps: [{ text: 'Project Communication', icon: 'message-square' }, { text: 'Scheduling & Updates', icon: 'calendar' }] },
+  { label: 'Retention', steps: [{ text: 'Service / Reviews', icon: 'star' }, { text: 'Reactivation', icon: 'repeat' }] },
+  { label: 'Measurement', steps: [{ text: 'Source / Close Rate', icon: 'bar-chart-3' }, { text: 'Revenue / Lifetime Value', icon: 'trending-up' }] },
+];
+
+const faqs = [
+  { question: 'We already have a CRM. Do we need to replace it?', answer: 'Usually not. Most pool companies already have a CRM or field-service platform that can support far more of the lead-response and follow-up workflow than it currently does. The first step is typically configuring and connecting what you already have, not replacing it.' },
+  { question: 'How do you handle the gap between construction and service?', answer: 'Pool builders and pool service operate on different rhythms — construction is project-based with a defined end, service is recurring and ongoing. We treat the handoff between them as its own workflow: making sure a completed build correctly becomes a service relationship instead of falling through the cracks.' },
+  { question: 'Can AI actually follow up on a $60,000 estimate?', answer: 'AI can handle the acknowledgment, reminders, and scheduling that keep a proposal alive during a long consideration period, but the follow-up conversation itself — answering design questions, discussing financing, negotiating scope — should stay with your salespeople. Automation buys time and consistency; it doesn\'t replace the relationship.' },
+  { question: 'What about seasonal demand swings?', answer: 'Lead volume for pool construction is often highly seasonal, with a compressed selling window in spring and early summer. Systems that work fine at low volume can break down exactly when demand peaks. Part of the assessment is understanding whether your current follow-up process actually holds up under seasonal load.' },
+  { question: 'Do you offer financing?', answer: 'No — we\'re not a lender. Where financing is part of your sales process, we can help make sure financing information, application status, and next steps are communicated clearly and followed up on consistently, using whatever financing partner you already work with.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Growing Pool Companies | Your AI Department"
+  description="Connect lead response, estimate follow-up, scheduling, and marketing attribution for pool builders and service companies with practical AI and automation."
+  path="/industries/pool-companies/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Pool Companies', item: `${SITE.domain}/industries/pool-companies/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Pool Builders & Service Companies"
+    headline="AI Systems for Growing Pool Companies"
+    support="Pool companies often lose opportunities between the first call, the estimate, the follow-up, the project, and the long-term service relationship. Your AI Department helps pool businesses connect those stages with practical AI, automation, better follow-up, and stronger business systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="More Leads Are Not the Only Answer"
+      />
+      <p class="prose-p">Generating demand is only part of the growth equation for a pool company. A builder can spend heavily on Google Ads, referrals, home shows, and SEO while still losing opportunities because calls go unanswered during business hours, estimates are followed up once and then forgotten, leads sit inside a CRM nobody actually works, or nobody can say with confidence which marketing channel actually produced the last five signed contracts.</p>
+      <p class="prose-p">Pool construction has a structural challenge most industries don't: the sales cycle is long, the ticket size is large, and the decision involves a design conversation, a site visit, financing questions, and often more than one estimate revision before a homeowner signs. Every one of those steps is a place where a well-intentioned but manual follow-up process quietly breaks down — and unlike a $200 service call, a lost pool sale is a five- or six-figure miss. The opportunity isn't to add another point-solution AI tool. It's to improve the system from first inquiry through the design consultation, the estimate, the build, and into the years of recurring service that typically follow.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Pool Companies Typically Lose the Most Value"
+        support="For established builders and service operators with real lead volume and operational complexity — not one-person shops."
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Business System Framework"
+        heading="Connect the Entire Pool Customer Journey"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every pool business."
+        tone="dark"
+      />
+      <GroupedFlow groups={journeyGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Construction vs. Service"
+        heading="Two Businesses Under One Roof"
+      />
+      <p class="prose-p">Most established pool companies are really running two connected businesses at once: a project-based construction operation with a defined start and finish, and a recurring service relationship that, done well, continues for years after the pool is filled. These two sides of the business run on different rhythms — construction is driven by design consultations, permitting, and a compressed seasonal selling window; service is driven by route density, chemical schedules, and retention. The handoff between them is a specific, high-value moment that's easy to lose track of: a completed build should automatically become a tracked service relationship, not a one-time transaction that ends when the final invoice is paid.</p>
+      <p class="prose-p">Financing conversations, unsold proposals, and multiple estimate revisions are also part of the normal pool sales process, not exceptions to it. A system built around a single, tidy "lead to close" path will consistently underperform for a business where the real path looks more like: inquiry, site visit, first estimate, design revision, financing discussion, second estimate, decision. Each of those stages needs its own follow-up logic.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Build vs. Buy"
+        heading="Use the Systems You Already Have. Improve What Is Missing."
+        support="Your AI Department does not assume a pool company needs to replace every system it already uses. Depending on the business, the right solution may involve configuring existing CRM or field-service software, improving call handling, connecting marketing platforms, adding automation, implementing AI-assisted communication, building missing integrations, or improving the human workflow around the technology. The business problem determines the technology, not the other way around."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Automation Should Support the Customer Experience"
+        support="Pricing decisions, project design, site conditions, construction questions, customer disputes, financing discussions, safety concerns, and other high-context situations may require experienced people. AI should support the process without pretending every customer conversation or operational decision should be automated."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Established Operators With Real Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for businesses that:"
+        fitItems={[
+          'Are established pool builders or construction companies with meaningful lead volume',
+          'Run pool service operations with recurring customers',
+          'Operate across multiple locations',
+          'Invest significantly in marketing',
+          'Have salespeople, service teams, or multiple departments',
+          'Already use CRM, field-service, scheduling, or marketing systems',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a very small operator with little lead volume',
+          'Your business has no repeatable process to build on',
+          'You are looking only for a cheap chatbot',
+          'There is no willingness to improve the underlying workflow',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/google-ads/">Explore Google Ads Management</a>
+      </p>
+      <p class="cross-links">
+        <a href="/resources/why-speed-to-lead-matters/">Why Speed-to-Lead Matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Help Your Pool Company"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, estimate follow-up, and service retention."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,190 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, ENTERPRISE_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'book-open', title: 'Internal Knowledge', description: 'Controlled retrieval across approved procedures, manuals, policies, training materials, and internal documentation.' },
+  { icon: 'file-text', title: 'Document Workflows', description: 'AI-assisted classification, extraction, summarization, routing, comparison, and administrative processing for appropriate business documents.' },
+  { icon: 'graduation-cap', title: 'Training & Knowledge Transfer', description: 'Support employee training, role-specific learning, and documentation of institutional knowledge.' },
+  { icon: 'clipboard-list', title: 'Administrative Operations', description: 'Automate repetitive internal processes, status updates, task creation, reporting, and coordination.' },
+  { icon: 'truck', title: 'Supplier & Project Administration', description: 'Support documentation, approved communications, workflow tracking, and internal information handoffs.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'Controlled AI assistance for drafting, summarization, research, reporting, and administrative work.' },
+  { icon: 'shield-check', title: 'Governance', description: 'Clear policies for approved systems, data handling, access, human review, vendor evaluation, and monitoring.' },
+];
+
+const governanceGroups = [
+  { label: 'Classify', steps: [{ text: 'Use Case', icon: 'target' }, { text: 'Data Classification', icon: 'shield-check' }] },
+  { label: 'Bound', steps: [{ text: 'System Boundary', icon: 'lock' }, { text: 'Access Control', icon: 'key' }] },
+  { label: 'Assist & Review', steps: [{ text: 'AI Assistance', icon: 'bot' }, { text: 'Human Review', icon: 'user-check' }] },
+  { label: 'Act & Monitor', steps: [{ text: 'Approved Action', icon: 'check-circle-2' }, { text: 'Audit / Monitoring', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Does Your AI Department work on weapons systems or targeting?', answer: 'No. This page is strictly focused on legitimate enterprise business operations — internal knowledge, training, document workflows, administrative systems, and reporting. We do not position services around weapons development, targeting systems, autonomous weapons, offensive cyber operations, surveillance abuse, or other harmful capabilities.' },
+  { question: 'How do you handle classified or export-controlled information?', answer: 'We only implement workflows appropriate for the organization\'s permissions, security requirements, contractual obligations, and applicable rules. Data classification and system boundaries are established before any AI assistance is introduced — not retrofitted afterward.' },
+  { question: 'Can AI replace engineering or flight-safety judgment?', answer: 'No. AI should not replace qualified judgment in safety-critical, classified, regulated, engineering, flight-safety, weapons-related, security-sensitive, or other high-consequence activities. Every workflow we help design keeps that judgment with qualified people.' },
+  { question: 'What kind of organizations does this apply to?', answer: 'Aerospace manufacturers, aviation organizations, defense contractors, advanced manufacturing businesses, engineering organizations, enterprise suppliers, and organizations with complex internal documentation and training needs — for legitimate enterprise operations, not classified or weapons-related work.' },
+];
+---
+
+<BaseLayout
+  title="Enterprise AI Systems for Defense and Aerospace Operations | Your AI Department"
+  description="Practical AI for legitimate defense and aerospace enterprise operations — internal knowledge, training, and document workflows — with strict data boundaries and human oversight."
+  path="/industries/defense-aerospace/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Defense & Aerospace', item: `${SITE.domain}/industries/defense-aerospace/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Defense & Aerospace"
+    headline="Enterprise AI Systems for Defense and Aerospace Operations"
+    support="Defense and aerospace organizations operate in environments where documentation, process discipline, security, training, knowledge transfer, and operational reliability matter. Your AI Department helps organizations evaluate practical AI opportunities while respecting data boundaries, access controls, human responsibility, and organizational risk."
+    primaryCta={{ label: 'Discuss an Enterprise Engagement', href: ENTERPRISE_CTA.href }}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="AI Adoption Must Match the Operating Environment"
+      />
+      <p class="prose-p">General-purpose AI experimentation is not the same as enterprise implementation. Organizations operating with sensitive information, controlled systems, strict supplier requirements, or high-consequence processes need clear decisions about what data can be used, where models operate, who has access, what must remain human-reviewed, and how systems are monitored — before any workflow goes live, not after.</p>
+      <p class="prose-p">This page is scoped strictly to legitimate business and enterprise operations: internal knowledge, training, document workflows, administrative systems, and reporting. It does not extend to weapons development, targeting systems, autonomous weapons, offensive cyber operations, surveillance abuse, or other harmful capabilities.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where AI Supports Legitimate Enterprise Operations"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Governance Framework"
+        heading="Use Case, Data Classification, System Boundary, Access Control, AI Assistance, Human Review, Approved Action, Monitoring"
+        support="This is a conceptual pattern, not a claim that this exact architecture satisfies any specific security or contractual requirement your organization faces."
+        tone="dark"
+      />
+      <GroupedFlow groups={governanceGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment and Boundaries"
+        heading="High-Consequence Activities Stay With Qualified People"
+        support="AI should not replace qualified judgment in safety-critical, classified, regulated, engineering, flight-safety, weapons-related, security-sensitive, or other high-consequence activities. Your AI Department only implements workflows appropriate for the organization's permissions, security requirements, contractual obligations, and applicable rules."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Legitimate Enterprise Operations"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Aerospace manufacturers',
+          'Aviation organizations',
+          'Defense contractors',
+          'Advanced manufacturing businesses',
+          'Engineering organizations',
+          'Enterprise suppliers',
+          'Organizations with complex internal documentation and training needs',
+        ]}
+        notFitHeading="Not appropriate for:"
+        notFitItems={[
+          'Weapons development or targeting systems',
+          'Autonomous weapons',
+          'Offensive cyber operations',
+          'Surveillance abuse or other harmful capabilities',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/enterprise/">Explore an Enterprise Engagement</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>
+      </p>
+      <p class="cross-links">
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/executive-ai-coaching/">Executive AI Coaching</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Discuss a Controlled AI Adoption Path for Your Organization"
+    support="Take the free AI Department Assessment, or discuss an enterprise engagement directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

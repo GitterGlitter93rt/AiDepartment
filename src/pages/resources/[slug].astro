@@ -301,6 +301,18 @@ const breadcrumbSchema = {
     border-top: 1px solid var(--color-border-light);
   }
 
+  /* Resource CTA labels tend to be longer and more descriptive than the
+     site's typical short button text (e.g. "Explore Responsible AI
+     Systems for Financial Services"). Allow wrapping here specifically
+     so a long label doesn't overflow narrow viewports, without touching
+     the shared Button component's default nowrap behavior used
+     elsewhere on the site. */
+  .res-article-ctas :global(.btn) {
+    white-space: normal;
+    text-align: center;
+    max-width: 100%;
+  }
+
   .res-secondary-links {
     display: flex;
     flex-wrap: wrap;

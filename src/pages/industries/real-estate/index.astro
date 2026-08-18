@@ -1,0 +1,197 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'inbox', title: 'Lead Response', description: 'New inquiries from websites, advertising, listing portals, open houses, and referrals get immediate acknowledgment and routing.' },
+  { icon: 'list-checks', title: 'Buyer & Seller Qualification', description: 'AI-assisted workflows gather needs, timing, location, and goals before handing the opportunity to the right agent.' },
+  { icon: 'calendar', title: 'Showing & Consultation Scheduling', description: 'Buyer consultations, seller consultations, showings, and follow-up calls coordinated through connected scheduling.' },
+  { icon: 'database', title: 'Database Reactivation', description: 'Older buyer leads, seller prospects, past clients, and dormant contacts segmented for appropriate re-engagement.' },
+  { icon: 'megaphone', title: 'Listing & Marketing Operations', description: 'Listing descriptions, campaign concepts, and creative production, with property facts grounded in verified information.' },
+  { icon: 'image', title: 'Virtual Staging & Imagery', description: 'AI-assisted staging that helps buyers visualize a property, appropriately disclosed and never misrepresenting condition.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect source, inquiry, appointment, agent activity, opportunity, and closing where systems make that possible.' },
+  { icon: 'briefcase', title: 'Internal Operations', description: 'Internal knowledge, agent support, process documentation, onboarding, and administrative workflows.' },
+];
+
+const leadJourneyGroups = [
+  { label: 'Demand', steps: [{ text: 'Portals / Ads / Website', icon: 'search' }, { text: 'Referrals / Open Houses', icon: 'megaphone' }] },
+  { label: 'Lead', steps: [{ text: 'Buyer / Seller', icon: 'inbox' }, { text: 'Past Client / Prospect', icon: 'database' }] },
+  { label: 'Response', steps: [{ text: 'SMS / Email / Voice', icon: 'message-square' }, { text: 'Qualification', icon: 'list-checks' }] },
+  { label: 'Appointment', steps: [{ text: 'Consultation / Showing', icon: 'calendar' }, { text: 'Listing Meeting', icon: 'home' }] },
+  { label: 'Human Relationship', steps: [{ text: 'Agent / Team / Broker', icon: 'user-check' }] },
+  { label: 'Transaction', steps: [{ text: 'Opportunity / Contract', icon: 'file-text' }, { text: 'Closing', icon: 'check-circle-2' }] },
+  { label: 'Measurement', steps: [{ text: 'Source / Pipeline', icon: 'bar-chart-3' }, { text: 'Closing Rate', icon: 'trending-up' }] },
+];
+
+const faqs = [
+  { question: 'We have thousands of contacts in our CRM. Where do we even start?', answer: 'Database reactivation usually starts with segmentation, not a blanket campaign to everyone at once. Past buyer leads, seller prospects, and former clients each warrant a different message and timing — the goal is appropriate, relevant re-engagement, not a mass email nobody reads.' },
+  { question: 'Can AI actually replace an agent for lead qualification?', answer: 'AI-assisted workflows can gather basic needs, timing, and location before a lead reaches an agent — but the agent still owns the relationship, the advice, and the judgment calls that come after that initial qualification. This is about making sure a lead is properly prepared before it reaches a person, not replacing the person.' },
+  { question: 'What about fair housing and compliance in automated communication?', answer: 'We are not attorneys and don\'t provide fair-housing or compliance advice. Any automated communication workflow should be reviewed against your brokerage\'s compliance requirements and applicable fair-housing obligations before it goes live — automation doesn\'t change what\'s required of the business.' },
+  { question: 'Is virtual staging misleading to buyers?', answer: 'It doesn\'t have to be, if it\'s handled correctly. Virtual staging should be clearly disclosed and should never misrepresent a property\'s actual condition, permanent features, or material defects. It\'s a visualization tool, not a way to hide problems with a listing.' },
+  { question: 'How is this different for a large team versus a small brokerage?', answer: 'The core workflow logic is similar, but the operational scale differs — a large team or brokerage typically needs agent-routing logic and management reporting that a smaller operation doesn\'t. We size the implementation to the organization\'s actual lead volume and structure.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Modern Real Estate Organizations | Your AI Department"
+  description="Turn portal leads, database contacts, and past clients into a coordinated lead-response, follow-up, and marketing system for brokerages and high-volume teams."
+  path="/industries/real-estate/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Real Estate', item: `${SITE.domain}/industries/real-estate/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Real Estate Brokerages & Teams"
+    headline="AI Systems for Modern Real Estate Organizations"
+    support="Real estate businesses generate opportunities across portals, websites, paid advertising, referrals, open houses, past clients, and databases built over years. Your AI Department helps brokerages and teams turn those disconnected opportunities into a coordinated lead-response, follow-up, marketing, and operating system."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="The Database Is Valuable Only If the Follow-Up Works"
+      />
+      <p class="prose-p">Real estate organizations can accumulate thousands of buyer, seller, past-client, and prospect records over the years while still relying on individual agents to remember every follow-up. That's a structural mismatch: the database grows continuously, but an individual agent's attention and memory don't scale with it. The result is usually a small number of hot leads getting worked well and a much larger number of warm, previously-interested contacts sitting untouched.</p>
+      <p class="prose-p">AI and automation can help create consistency around communication, qualification, scheduling, and reactivation — surfacing which dormant contacts are worth a fresh outreach and when — while agents remain responsible for relationships, advice, negotiation, property knowledge, and professional judgment. Buyer intent and seller intent are also fundamentally different conversations that deserve different qualification paths, not one generic "contact us" form treated the same way regardless of what the person actually wants.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Real Estate Organizations Typically Leave Value on the Table"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="Connect the Real Estate Lead Journey"
+        support="This is a conceptual pattern, not a claim that every brokerage or team should implement the same architecture."
+        tone="dark"
+      />
+      <GroupedFlow groups={leadJourneyGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="AI Supports the Agent. It Does Not Replace Professional Judgment."
+        support="Negotiation, pricing strategy, representation, disclosures, property-specific advice, contractual issues, fair-housing considerations, and other professional responsibilities require appropriate human judgment. Automation should improve administrative and communication systems without pretending every real estate decision can be delegated to software."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Organizations With Real Database and Lead Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established brokerages',
+          'High-volume real estate teams',
+          'Multi-agent organizations',
+          'New-construction sales organizations',
+          'Real estate investment companies with meaningful lead volume',
+          'Investing significantly in digital marketing',
+          'Sitting on large databases that aren\'t being consistently worked',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are an occasional part-time agent',
+          'You have minimal lead volume',
+          'You are looking only for AI-generated social posts',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/meta-ads/">Meta Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/seo/">SEO</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why Speed-to-Lead Matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Real Estate Business"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, database reactivation, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

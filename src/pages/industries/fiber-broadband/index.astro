@@ -1,0 +1,191 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'footprints', title: 'Door-to-Door Lead Capture', description: 'Field reps capture prospects into a structured system tied to representative, territory, address, and next action.' },
+  { icon: 'zap', title: 'Automated Follow-Up', description: 'Permissioned leads receive structured SMS, email, voice, and rep follow-up without relying entirely on memory.' },
+  { icon: 'list-checks', title: 'Qualification', description: 'Service availability, location, existing service, and scheduling needs organized into consistent qualification data.' },
+  { icon: 'calendar', title: 'Installation Scheduling', description: 'Sales handoff, install booking, reminders, rescheduling, and no-show recovery connected to the acquisition workflow.' },
+  { icon: 'map-pin', title: 'Territory & Rep Attribution', description: 'Performance visibility by territory, salesperson, campaign, lead source, appointment, and activation.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'Installation reminders, appointment updates, and onboarding communication with human escalation preserved.' },
+  { icon: 'bar-chart-3', title: 'Sales Management', description: 'Dashboards for lead aging, follow-up status, appointment outcomes, rep activity, and conversion stages.' },
+];
+
+const territoryGroups = [
+  { label: 'Market', steps: [{ text: 'New Fiber Territory', icon: 'map' }, { text: 'Service Availability', icon: 'check-circle-2' }] },
+  { label: 'Field Sales', steps: [{ text: 'Door-to-Door / Events', icon: 'footprints' }, { text: 'Local Marketing', icon: 'megaphone' }] },
+  { label: 'Lead & Follow-Up', steps: [{ text: 'Address / Customer / Rep', icon: 'inbox' }, { text: 'SMS / Email / Voice', icon: 'message-square' }] },
+  { label: 'Install', steps: [{ text: 'Scheduling / Reminder', icon: 'calendar' }, { text: 'Reschedule Recovery', icon: 'repeat' }] },
+  { label: 'Activation', steps: [{ text: 'Customer Onboarding', icon: 'user-check' }] },
+  { label: 'Measurement', steps: [{ text: 'Territory / Rep', icon: 'map-pin' }, { text: 'Campaign / Activation', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'How is this different from solar or general door-to-door sales?', answer: 'Fiber and broadband have a specific added layer: service availability and address-level serviceability. A lead is only real if the territory can actually deliver service to that address, and installation involves a physical activation step most other door-to-door categories don\'t have. The workflow is built around that reality, not a generic field-sales template.' },
+  { question: 'Can you help us track performance across new market launches?', answer: 'Yes. Territory launches typically involve tracking performance by geography, rep, and campaign simultaneously — this is one of the more common attribution gaps we see, since spreadsheet-based territory tracking breaks down quickly once a launch scales past a handful of reps.' },
+  { question: 'What happens when a scheduled install gets missed or rescheduled?', answer: 'No-show and reschedule recovery is treated as its own workflow, not an afterthought. A missed install appointment should trigger a defined follow-up sequence, not just sit as an open task that may or may not get worked.' },
+  { question: 'Do you help with mass outreach to a new territory?', answer: 'We help design a legitimate sales and follow-up system for real customer interest, respecting applicable consent, opt-out, telemarketing, and privacy requirements. The goal is a better sales process for genuine prospects, not uncontrolled outreach.' },
+  { question: 'We use an outsourced sales organization. Does this still apply?', answer: 'Yes — many broadband providers work with outsourced or partner sales organizations for field acquisition. The same lead-capture, follow-up, and attribution logic applies whether the reps are direct employees or an outsourced sales partner, as long as the underlying data can be connected.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Fiber and Broadband Growth | Your AI Department"
+  description="Territory launches, door-to-door lead capture, installation scheduling, and rep attribution for fiber and broadband providers expanding into new markets."
+  path="/industries/fiber-broadband/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Fiber & Broadband', item: `${SITE.domain}/industries/fiber-broadband/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Fiber & Broadband"
+    headline="AI Systems for Fiber and Broadband Growth"
+    support="Broadband expansion creates operational complexity across new territories, door-to-door teams, inbound leads, customer qualification, scheduling, installation, and activation. Your AI Department helps connect those stages using practical AI, automation, integrations, and better business systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="A New Market Is More Than a Sales Territory"
+      />
+      <p class="prose-p">When new fiber infrastructure becomes available in a market, providers and their sales organizations need more than canvassing activity. A territory launch involves address-level serviceability data, field reps working specific streets, leads that may or may not be real customers depending on whether the infrastructure actually reaches their address, and an installation process that has to happen before the sale is actually complete.</p>
+      <p class="prose-p">Providers need systems that can identify genuine opportunity within serviceable areas, capture interested households accurately, follow up consistently across the sales-to-install gap, coordinate the installation handoff, track outcomes, and show management which territories and representatives are actually producing activated customers — not just signed forms.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Territory Launches Typically Lose Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Territory Expansion to Customer Activation"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every provider or market."
+        tone="dark"
+      />
+      <GroupedFlow groups={territoryGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Responsible Outreach"
+        heading="Scale Follow-Up Without Turning It Into Spam"
+        support="AI and automation should support legitimate sales workflows and appropriately obtained customer interest. Communications should respect applicable consent, opt-out, telemarketing, privacy, and company requirements. The goal is a better sales process, not uncontrolled outreach."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Coordinated, Multi-Territory Sales Operations"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Regional fiber providers',
+          'Broadband operators',
+          'Expansion-market teams',
+          'Outsourced sales organizations supporting providers',
+          'Running high-volume door-to-door operations',
+          'Coordinating sales and installations across multiple territories',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are an individual independent sales representative',
+          'You have no structured customer or territory data',
+          'You are looking primarily for mass cold-contact automation',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/enterprise/">Explore an Enterprise Engagement</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Territory Launch"
+    support="Take the free AI Department Assessment to see your opportunities across field sales, installation, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

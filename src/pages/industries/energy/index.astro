@@ -1,0 +1,188 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, ENTERPRISE_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'book-open', title: 'Internal Knowledge', description: 'Controlled employee access to approved procedures, documentation, manuals, policies, and organizational knowledge.' },
+  { icon: 'hard-hat', title: 'Field Operations Support', description: 'Information retrieval, documentation workflows, task coordination, and administrative processes around field operations.' },
+  { icon: 'file-text', title: 'Document Processing', description: 'Approved document classification, extraction, routing, summarization, and data entry.' },
+  { icon: 'truck', title: 'Vendor & Project Workflows', description: 'Improve information handoffs, status communication, documentation, and recurring coordination tasks.' },
+  { icon: 'bar-chart-3', title: 'Reporting & Analytics', description: 'Operational summaries and recurring management reporting where reliable data exists.' },
+  { icon: 'users', title: 'Employee Productivity', description: 'Assist teams with drafting, research, summarization, documentation, and internal workflows.' },
+  { icon: 'graduation-cap', title: 'Training', description: 'Controlled AI-assisted training and knowledge systems for employees and managers.' },
+];
+
+const processGroups = [
+  { label: 'Source', steps: [{ text: 'Business Process', icon: 'workflow' }, { text: 'Data / Documents', icon: 'file-text' }] },
+  { label: 'Assist', steps: [{ text: 'AI Assistance', icon: 'bot' }, { text: 'Integrated Workflow', icon: 'link-2' }] },
+  { label: 'Decide', steps: [{ text: 'Human Decision', icon: 'user-check' }] },
+  { label: 'Outcome', steps: [{ text: 'Action', icon: 'check-circle-2' }, { text: 'Measurement', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Does this touch safety-critical field operations?', answer: 'No, not the decisions themselves. Safety-critical decisions, engineering judgments, operational controls, regulated activities, environmental decisions, and emergency response require appropriate qualified human oversight. AI can support the documentation and information-retrieval work around field operations — not the operational or engineering judgment itself.' },
+  { question: 'We deal with a lot of vendor and project documentation. Where does AI actually help?', answer: 'Vendor and project workflows generate substantial recurring coordination overhead — status updates, document handoffs, information requests. AI-assisted classification, extraction, and routing can meaningfully reduce that administrative burden while people remain responsible for the actual decisions.' },
+  { question: 'This page is separate from your consumer Solar page — why?', answer: 'Consumer residential solar sales has a fundamentally different operating model (door-to-door field sales, setter/closer workflows) than enterprise energy organizations, utilities, and energy contractors managing field operations, engineering, and regulatory documentation. We treat them as separate audiences with separate pages.' },
+  { question: 'What kind of organizations is this built for?', answer: 'Utilities, energy service organizations, oil and gas businesses, infrastructure operators, energy contractors, and multi-location energy organizations with significant document and knowledge complexity.' },
+];
+---
+
+<BaseLayout
+  title="Enterprise AI Systems for Energy Organizations | Your AI Department"
+  description="Practical AI for energy organizations across internal knowledge, field operations support, document workflows, and reporting, with human oversight for safety-critical decisions."
+  path="/industries/energy/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Energy', item: `${SITE.domain}/industries/energy/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Energy"
+    headline="Enterprise AI Systems for Energy Organizations"
+    support="Energy organizations operate across field teams, engineering, operations, assets, vendors, documents, regulatory requirements, customers, and large volumes of operational information. Your AI Department helps design practical AI systems around those real business workflows."
+    primaryCta={{ label: 'Discuss an Enterprise Engagement', href: ENTERPRISE_CTA.href }}
+    secondaryCta={PRIMARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="AI Opportunity Exists Across the Organization"
+      />
+      <p class="prose-p">The strongest AI opportunities for an energy organization are often not isolated applications. They appear across information retrieval, operational coordination, document workflows, internal communication, reporting, employee productivity, training, and customer-facing processes — spread across field teams, engineering, operations, and administration.</p>
+      <p class="prose-p">The right approach starts with business value, data requirements, risk, integration needs, and human responsibility — not with picking a single flashy use case and hoping it generalizes to the rest of the organization.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Energy Organizations Typically Find Value"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Business Process to Measured Outcome"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every energy organization."
+        tone="dark"
+      />
+      <GroupedFlow groups={processGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Safety-Critical and Regulated Decisions Stay With Qualified People"
+        support="Safety-critical decisions, engineering judgments, operational controls, regulated activities, environmental decisions, legal/compliance matters, and emergency response require appropriate qualified human oversight."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Established Energy Organizations and Contractors"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Utilities',
+          'Energy service organizations',
+          'Oil and gas businesses',
+          'Infrastructure operators',
+          'Energy contractors',
+          'Multi-location energy organizations',
+          'Enterprises with significant document and knowledge complexity',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a consumer-facing residential solar sales organization (see our dedicated Solar page)',
+          'You have minimal documentation or knowledge-management complexity',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/enterprise/">Explore an Enterprise Engagement</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>
+      </p>
+      <p class="cross-links">
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/executive-ai-coaching/">Executive AI Coaching</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Energy Organization"
+    support="Take the free AI Department Assessment, or discuss an enterprise engagement directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

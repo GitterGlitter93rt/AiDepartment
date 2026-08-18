@@ -1,0 +1,201 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import { PRIMARY_CTA } from '../../lib/site';
+
+// Every /industries/ route on the site, organized into browsable
+// categories so this reads as a genuine directory rather than a wall of
+// 28 undifferentiated cards. Descriptions reused from INDUSTRIES_DROPDOWN
+// where already written; new ones added for the home-service trades that
+// are intentionally not in the primary nav dropdown (they're reachable
+// through /industries/home-services/ as their umbrella page) but still
+// belong in this comprehensive directory.
+const categories: { name: string; industries: { name: string; href: string; description: string }[] }[] = [
+  {
+    name: 'Automotive',
+    industries: [
+      { name: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/', description: 'Multi-rooftop sales, BDC, service, and marketing coordination.' },
+      { name: 'Collision Repair', href: '/industries/collision-repair/', description: 'Lead response, estimate follow-up, and customer communication.' },
+    ],
+  },
+  {
+    name: 'Home Services',
+    industries: [
+      { name: 'Home Services (Overview)', href: '/industries/home-services/', description: 'Lead response, dispatch, and attribution across every home-service trade.' },
+      { name: 'Roofing', href: '/industries/roofing/', description: 'Speed-to-lead, storm response, and estimate follow-up.' },
+      { name: 'HVAC', href: '/industries/hvac/', description: 'Phone handling, scheduling, dispatch, and customer communication.' },
+      { name: 'Plumbing', href: '/industries/plumbing/', description: 'Inbound call handling, missed-call recovery, and dispatch coordination.' },
+      { name: 'Electrical Contractors', href: '/industries/electrical-contractors/', description: 'Service-vs-project classification, scheduling, and estimate follow-up.' },
+      { name: 'Pest Control', href: '/industries/pest-control/', description: 'Call handling, booking, and recurring-customer retention.' },
+      { name: 'Garage Door Companies', href: '/industries/garage-door-companies/', description: 'Same-day scheduling, missed-call recovery, and estimate follow-up.' },
+      { name: 'Pool Companies', href: '/industries/pool-companies/', description: 'Lead response, estimate follow-up, and service retention.' },
+      { name: 'Screen Enclosure Companies', href: '/industries/screen-enclosure-companies/', description: 'Site-visit scheduling, estimate follow-up, and project communication.' },
+      { name: 'Landscaping & Outdoor Living', href: '/industries/landscaping-outdoor-living/', description: 'Design-build consultations, long sales cycles, and estimate follow-up.' },
+      { name: 'Restoration & Emergency Services', href: '/industries/restoration-emergency-services/', description: '24/7 intake, catastrophe routing, and dispatch coordination.' },
+      { name: 'Construction', href: '/industries/construction/', description: 'Project communication, documentation, and admin workload.' },
+    ],
+  },
+  {
+    name: 'Field Sales & Territory',
+    industries: [
+      { name: 'Solar', href: '/industries/solar/', description: 'Field sales, appointment setting, and consent-aware follow-up.' },
+      { name: 'Fiber & Broadband', href: '/industries/fiber-broadband/', description: 'Territory launches, door-to-door sales, and installation scheduling.' },
+    ],
+  },
+  {
+    name: 'Real Estate & Property',
+    industries: [
+      { name: 'Real Estate', href: '/industries/real-estate/', description: 'Lead response, database reactivation, and marketing attribution.' },
+      { name: 'Property Management', href: '/industries/property-management/', description: 'Leasing response, maintenance intake, and vendor coordination.' },
+    ],
+  },
+  {
+    name: 'Retail & Professional Services',
+    industries: [
+      { name: 'E-commerce', href: '/industries/ecommerce/', description: 'Customer service, lifecycle marketing, and merchandising.' },
+      { name: 'Professional Services', href: '/industries/professional-services/', description: 'Employee capacity, knowledge access, and client communication.' },
+      { name: 'Law Firms', href: '/industries/law-firms/', description: 'Intake speed, follow-up, and document workflows.' },
+      { name: 'Manufacturing', href: '/industries/manufacturing/', description: 'RFQ workflows, documentation, and operational administration.' },
+      { name: 'Healthcare', href: '/industries/healthcare/', description: 'Administrative workflows, scheduling, and employee productivity.' },
+      { name: 'Insurance', href: '/industries/insurance/', description: 'Claims-adjacent workflows, policyholder service, and contact center operations.' },
+    ],
+  },
+  {
+    name: 'Enterprise & Regulated Industries',
+    industries: [
+      { name: 'Financial Services', href: '/industries/financial-services/', description: 'Governance, data controls, and controlled AI adoption.' },
+      { name: 'Logistics & Transportation', href: '/industries/logistics-transportation/', description: 'Dispatch communication, document processing, and reporting.' },
+      { name: 'Energy', href: '/industries/energy/', description: 'Field operations knowledge, documentation, and enterprise productivity.' },
+      { name: 'Defense & Aerospace', href: '/industries/defense-aerospace/', description: 'Governed enterprise AI for legitimate business operations.' },
+    ],
+  },
+];
+
+---
+
+<BaseLayout
+  title="Industries We Serve | Your AI Department"
+  description="Explore AI and automation systems built for your industry, from home services and real estate to enterprise sectors like financial services and defense."
+  path="/industries/"
+>
+  <Section tone="dark">
+    <Container>
+      <span class="eyebrow ind-eyebrow">Industries</span>
+      <h1 class="ind-hub-h1">Industries We Serve</h1>
+      <p class="ind-hub-support">Every industry page reflects real workflows and business economics specific to that trade or sector — not a generic template with the industry name swapped in. Explore the page built for your business below.</p>
+    </Container>
+  </Section>
+
+  {categories.map((cat, i) => (
+    <Section tone={i % 2 === 0 ? 'light' : 'white'}>
+      <Container wide>
+        <h2 class="ind-cat-heading">{cat.name}</h2>
+        <div class="ind-grid">
+          {cat.industries.map((ind) => (
+            <a href={ind.href} class="ind-card" aria-label={`Explore AI for ${ind.name}`}>
+              <h3>{ind.name}</h3>
+              <p>{ind.description}</p>
+              <span class="ind-card-link">Explore this industry &rarr;</span>
+            </a>
+          ))}
+        </div>
+      </Container>
+    </Section>
+  ))}
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Not Sure Which Industry Page Fits?"
+    support="Take the free AI Department Assessment to see where AI, automation, and better systems may create value in your specific business."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .ind-eyebrow {
+    color: var(--color-signal-cyan);
+    display: inline-block;
+    margin-bottom: 14px;
+  }
+
+  .ind-hub-h1 {
+    color: var(--color-pure-white);
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    line-height: 1.15;
+    max-width: 760px;
+    margin-bottom: 16px;
+  }
+
+  .ind-hub-support {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+
+  .ind-cat-heading {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-bottom: 20px;
+  }
+
+  .ind-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .ind-card {
+    display: block;
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 20px 20px;
+    box-shadow: 0 2px 8px -4px rgba(17, 24, 39, 0.06);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .ind-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-light);
+  }
+
+  .ind-card h3 {
+    font-size: 1.02rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--color-near-black);
+    line-height: 1.35;
+  }
+
+  .ind-card p {
+    font-size: 0.86rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  .ind-card-link {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.84rem;
+    color: var(--color-electric-blue);
+  }
+
+  @media (min-width: 700px) {
+    .ind-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .ind-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>

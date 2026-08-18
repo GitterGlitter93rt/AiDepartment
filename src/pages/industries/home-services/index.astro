@@ -1,0 +1,248 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone-call', title: 'Lead Response', description: 'Acknowledge inbound inquiries, recover missed calls, route leads, and create consistent follow-up.' },
+  { icon: 'phone', title: 'Call Handling', description: 'AI-assisted intake supports common questions, data collection, scheduling, and routing where appropriate.' },
+  { icon: 'truck', title: 'Booking & Dispatch', description: 'Connect inquiry data with availability, field-service systems, internal notifications, and reminders.' },
+  { icon: 'clipboard-list', title: 'Estimate Follow-Up', description: 'Structured follow-up for higher-value quoted work across every trade.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect Google Ads, Meta Ads, organic search, calls, forms, appointments, jobs, and revenue.' },
+  { icon: 'database', title: 'Database Reactivation', description: 'Identify appropriate past customers, old estimates, and dormant leads for permissioned re-engagement.' },
+  { icon: 'user-plus', title: 'Recruiting & Training', description: 'Applicant intake, interview scheduling, onboarding, and employee training while humans retain hiring decisions.' },
+  { icon: 'heart', title: 'Customer Retention', description: 'Review requests, maintenance reminders, memberships, renewals, referrals, and post-service communication.' },
+];
+
+const tradeLinks = [
+  { label: 'Explore AI for Pool Companies', href: '/industries/pool-companies/' },
+  { label: 'Explore AI for Restoration & Emergency Services', href: '/industries/restoration-emergency-services/' },
+  { label: 'Explore AI Systems for Screen Enclosure Companies', href: '/industries/screen-enclosure-companies/' },
+  { label: 'Explore AI for Pest Control Companies', href: '/industries/pest-control/' },
+  { label: 'Explore AI for Plumbing Companies', href: '/industries/plumbing/' },
+  { label: 'Explore AI for Electrical Contractors', href: '/industries/electrical-contractors/' },
+  { label: 'Explore AI for Garage Door Companies', href: '/industries/garage-door-companies/' },
+  { label: 'Explore AI for Landscaping & Outdoor Living Companies', href: '/industries/landscaping-outdoor-living/' },
+  { label: 'Explore AI for HVAC Companies', href: '/industries/hvac/' },
+  { label: 'Explore AI for Roofing Companies', href: '/industries/roofing/' },
+  { label: 'Explore AI for Construction Companies', href: '/industries/construction/' },
+];
+
+const operatingSystemGroups = [
+  { label: 'Demand', steps: [{ text: 'Calls / Forms', icon: 'inbox' }] },
+  { label: 'Response', steps: [{ text: 'Booking', icon: 'calendar' }] },
+  { label: 'Field', steps: [{ text: 'Dispatch / Estimate', icon: 'truck' }] },
+  { label: 'Delivery', steps: [{ text: 'Follow-Up', icon: 'repeat' }, { text: 'Job', icon: 'hammer' }] },
+  { label: 'Growth', steps: [{ text: 'Review / Referral', icon: 'star' }, { text: 'Attribution', icon: 'bar-chart-3' }] },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Home Service Companies | Your AI Department"
+  description="A shared operating-system view of lead response, booking, dispatch, and attribution across home-service trades, connecting to trade-specific AI implementations."
+  path="/industries/home-services/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Home Services', item: `${SITE.domain}/industries/home-services/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Home Services"
+    headline="AI Systems for Home Service Companies"
+    support="Home-service businesses often share the same operational challenge: generate demand, answer quickly, schedule correctly, follow up consistently, deliver the work, and understand which marketing actually produces revenue. Your AI Department helps connect those stages with practical AI, automation, integrations, and better business systems."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="The Competitive Advantage Is the System Behind the Service"
+      />
+      <p class="prose-p">Many home-service operators already have websites, CRMs, field-service platforms, advertising accounts, call tracking, scheduling tools, and customer databases. The problem is usually not a lack of software — it's that the systems, workflows, and people involved don't operate as one connected process. A lead can be captured correctly and still get lost because the CRM, the dispatcher, and the technician are effectively working from three different pictures of what's happening.</p>
+      <p class="prose-p">Your AI Department helps improve that process — not by replacing every tool a home-service business already owns, but by connecting them into a single operating system that carries a customer consistently from first inquiry through delivered work and into the next opportunity.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Core Opportunity Areas"
+        heading="Shared Across Every Home-Service Trade"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="The Demand-to-Revenue Operating System"
+        support="This is a conceptual pattern shared across home-service trades, not a claim that every business needs the exact same implementation."
+        tone="dark"
+      />
+      <GroupedFlow groups={operatingSystemGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Build vs. Buy"
+        heading="Improve What You Already Have"
+        support="The right solution may involve improving existing CRM or field-service software, adding AI-assisted communication, connecting advertising data, automating manual handoffs, building missing integrations, or creating custom workflows. We do not assume every business needs to replace its technology stack."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="By Trade"
+        heading="Explore AI Systems for Your Specific Trade"
+        support="Each trade has its own operational realities. Explore the page built specifically for your business."
+        tone="dark"
+      />
+      <div class="trade-grid">
+        {tradeLinks.map((trade) => (
+          <a href={trade.href} class="trade-link">{trade.label} &rarr;</a>
+        ))}
+      </div>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Field Judgment Stays With Qualified People"
+        support="Technical diagnosis, safety, pricing, permitting, field conditions, customer disputes, regulated work, and complex recommendations belong with qualified people."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Multi-Trade and Growth-Stage Operators"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established home-service operators',
+          'Multi-truck companies',
+          'Multi-location businesses',
+          'Private-equity-backed or rapidly growing platforms',
+          'Multi-trade organizations',
+          'Spending heavily on marketing',
+          'Running call centers, dispatchers, salespeople, or multiple departments',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a very small single-person operator',
+          'You have minimal lead volume',
+          'You are looking only for a low-cost chatbot',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>
+      </p>
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/meta-ads/">Meta Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/seo/">SEO</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-recruiting-automation/">Explore AI Recruiting & HR Automation</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Home Service Business"
+    support="Take the free AI Department Assessment to see your opportunities across lead response, dispatch, and attribution."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .trade-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .trade-link {
+    display: block;
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 16px 20px;
+    color: var(--color-pure-white);
+    font-weight: 600;
+    font-size: 0.92rem;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  }
+
+  .trade-link:hover {
+    border-color: var(--color-signal-cyan);
+    background-color: var(--color-midnight-navy);
+  }
+
+  @media (min-width: 700px) {
+    .trade-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

@@ -1,0 +1,189 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'inbox', title: 'Leasing Inquiry Response', description: 'Acknowledge inquiries, answer approved property questions, collect basic information, and route leads.' },
+  { icon: 'calendar', title: 'Showing Scheduling', description: 'Connect qualified inquiries with approved showing availability, confirmations, reminders, and rescheduling.' },
+  { icon: 'wrench', title: 'Maintenance Request Intake', description: 'Structured information about the request, property, unit, and urgency before routing into the right maintenance process.' },
+  { icon: 'truck', title: 'Vendor Coordination', description: 'Assignment, notifications, scheduling, status collection, and internal handoffs with your maintenance vendors.' },
+  { icon: 'message-square', title: 'Resident Communication', description: 'Routine confirmations, maintenance updates, appointment reminders, and policy information, while preserving access to people.' },
+  { icon: 'bar-chart-3', title: 'Owner & Management Reporting', description: 'Summaries, portfolio reporting, task visibility, and operational dashboards where the underlying data is reliable.' },
+  { icon: 'book-open', title: 'Internal Knowledge', description: 'Help employees find approved procedures, property information, SOPs, and vendor processes.' },
+];
+
+const operationsGroups = [
+  { label: 'Request', steps: [{ text: 'Leasing / Resident Request', icon: 'inbox' }] },
+  { label: 'Triage', steps: [{ text: 'Intake', icon: 'clipboard-list' }, { text: 'Classification', icon: 'list-checks' }] },
+  { label: 'Routing', steps: [{ text: 'Routing', icon: 'workflow' }, { text: 'Human / Vendor Action', icon: 'truck' }] },
+  { label: 'Resolution', steps: [{ text: 'Status Communication', icon: 'message-square' }, { text: 'Resolution', icon: 'check-circle-2' }] },
+  { label: 'Visibility', steps: [{ text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'How is this different from your Real Estate industry page?', answer: 'Real estate brokerage is about buying, selling, and transactions. Property management is an ongoing operational relationship — leasing, maintenance, resident communication, and vendor coordination across a portfolio of units you continue to manage after the lease is signed. The workflows and priorities are genuinely different, which is why we treat them as separate pages rather than one generic "real estate" page.' },
+  { question: 'Can AI make leasing or eviction decisions?', answer: 'No. Lease decisions, legal questions, resident disputes, fair-housing-sensitive issues, emergencies, and other high-context situations require appropriate human oversight. Your AI Department does not provide legal, housing, or property-management compliance advice.' },
+  { question: 'How do you handle after-hours maintenance requests?', answer: 'Structured intake can collect the request, property, unit, and urgency information after hours and route it appropriately — including flagging genuine emergencies for immediate escalation rather than letting them sit until business hours.' },
+  { question: 'We coordinate with several outside vendors. Does this help there?', answer: 'Yes. Vendor coordination — assignment, notifications, scheduling, and status collection — is one of the more common gaps we see, especially for portfolios that rely on multiple outside maintenance vendors rather than an internal team.' },
+  { question: 'What about owner reporting across a large portfolio?', answer: 'Where the underlying data is reliable, AI can assist with summaries and portfolio-level reporting so owners and managers get consistent visibility without someone manually compiling numbers every month.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Modern Property Management Companies | Your AI Department"
+  description="Improve leasing response, maintenance intake, vendor coordination, and resident communication for property management companies with practical AI and automation."
+  path="/industries/property-management/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Property Management', item: `${SITE.domain}/industries/property-management/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Property Management"
+    headline="AI Systems for Modern Property Management Companies"
+    support="Property management organizations operate across leasing, maintenance, residents, vendors, owners, field teams, and administrative systems. Your AI Department helps connect those workflows so routine work moves faster while people remain involved where judgment and relationships matter."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Property Management Is a Communication Business"
+      />
+      <p class="prose-p">A large portion of property management work happens between systems, people, and recurring requests. Leasing inquiries arrive after hours when nobody's at a desk. Maintenance issues need to be classified and routed to the right vendor or technician. Residents need status updates so they stop calling to ask. Vendors need clear information to actually do the job. Managers need visibility across a portfolio that might span dozens or hundreds of units.</p>
+      <p class="prose-p">AI and automation can help organize and coordinate those workflows — without pretending every resident, maintenance, financial, or property decision should be delegated to software. The goal is fewer things falling through the cracks between a request coming in and it actually getting resolved.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Property Management Operations Typically Lose Time"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From Request to Resolution and Reporting"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every property management operation."
+        tone="dark"
+      />
+      <GroupedFlow groups={operationsGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Consequential Housing Decisions Stay With People"
+        support="Lease decisions, legal questions, resident disputes, fair-housing-sensitive issues, emergencies, property-specific decisions, financial decisions, and other high-context situations require appropriate human oversight. Your AI Department does not provide legal, housing, or property-management compliance advice."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Managers With Real Portfolio Complexity"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Residential property management companies',
+          'Multi-family operators',
+          'Single-family rental managers',
+          'Regional property managers',
+          'Multi-location portfolios',
+          'Coordinating multiple vendors or internal maintenance staff',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are an individual landlord managing only a few units',
+          'You are looking for a completely autonomous resident-management system',
+          'You are unwilling to maintain human escalation for sensitive situations',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>
+      </p>
+      <p class="cross-links">
+        <a href="/industries/real-estate/">Explore AI for Real Estate Brokerages & Teams</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Property Management Operations"
+    support="Take the free AI Department Assessment to see your opportunities across leasing, maintenance, and vendor coordination."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

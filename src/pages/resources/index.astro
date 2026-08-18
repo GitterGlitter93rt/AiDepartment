@@ -7,35 +7,191 @@ import CTABand from '../../components/interior/CTABand.astro';
 import { PRIMARY_CTA } from '../../lib/site';
 
 const allResources = await getCollection('resources');
-const sorted = allResources.sort((a, b) => a.data.title.localeCompare(b.data.title));
+const byId = new Map(allResources.map((r) => [r.id, r]));
+
+// Category taxonomy — every resource slug is assigned to exactly one
+// category so the hub reads as a browsable index rather than a wall of
+// undifferentiated cards. Order here controls display order.
+const categories: { name: string; slugs: string[] }[] = [
+  {
+    name: 'Business AI Strategy',
+    slugs: [
+      'where-should-a-business-start-with-ai',
+      'how-to-identify-high-value-ai-opportunities',
+      'what-business-processes-should-not-be-automated',
+    ],
+  },
+  {
+    name: 'Lead Response & Marketing Attribution',
+    slugs: [
+      'why-speed-to-lead-matters',
+      'how-to-track-google-ads-leads-to-revenue',
+    ],
+  },
+  {
+    name: 'Pool Companies',
+    slugs: [
+      'how-pool-companies-can-respond-to-leads-faster',
+      'ai-follow-up-for-pool-estimates',
+      'how-pool-companies-can-track-google-ads-to-signed-projects',
+    ],
+  },
+  {
+    name: 'Restoration & Emergency Services',
+    slugs: [
+      'ai-for-24-7-restoration-lead-intake',
+      'how-restoration-companies-can-improve-emergency-lead-response',
+      'how-restoration-companies-can-track-leads-to-jobs-and-revenue',
+    ],
+  },
+  {
+    name: 'Solar',
+    slugs: [
+      'ai-follow-up-for-solar-leads',
+      'ai-for-door-to-door-solar-sales-follow-up',
+      'how-solar-companies-can-track-marketing-to-closed-customers',
+    ],
+  },
+  {
+    name: 'Fiber & Broadband',
+    slugs: [
+      'ai-follow-up-for-fiber-door-to-door-sales',
+      'ai-for-fiber-installation-scheduling',
+      'how-to-track-fiber-sales-by-territory-rep-and-campaign',
+    ],
+  },
+  {
+    name: 'Real Estate',
+    slugs: [
+      'ai-lead-response-for-real-estate-teams',
+      'how-real-estate-teams-can-reactivate-old-leads',
+      'how-brokerages-can-track-lead-sources-to-closings',
+    ],
+  },
+  {
+    name: 'Home Service Trades',
+    slugs: [
+      'how-screen-enclosure-companies-can-automate-estimate-follow-up',
+      'ai-for-screen-enclosure-lead-qualification-and-scheduling',
+      'how-screen-enclosure-companies-can-track-google-ads-to-projects',
+      'ai-for-pest-control-call-handling-and-booking',
+      'how-pest-control-companies-can-improve-retention-with-automation',
+      'how-pest-control-companies-can-track-marketing-to-recurring-customers',
+      'ai-phone-answering-and-missed-call-recovery-for-plumbers',
+      'how-plumbing-companies-can-automate-estimate-follow-up',
+      'how-plumbing-companies-can-track-google-ads-leads-to-revenue',
+      'ai-lead-response-for-electrical-contractors',
+      'how-electrical-contractors-can-automate-estimate-follow-up',
+      'how-electrical-companies-can-track-marketing-to-closed-jobs',
+      'ai-phone-handling-for-garage-door-companies',
+      'automating-garage-door-replacement-estimate-follow-up',
+      'how-garage-door-companies-can-track-advertising-leads-to-revenue',
+      'ai-lead-follow-up-for-landscaping-companies',
+      'automating-estimate-follow-up-for-outdoor-living-projects',
+      'how-landscaping-companies-can-track-marketing-to-signed-projects',
+    ],
+  },
+  {
+    name: 'Home Services (General)',
+    slugs: [
+      'how-ai-can-recover-missed-calls-for-home-service-companies',
+      'how-home-service-companies-can-automate-estimate-follow-up',
+      'how-home-service-companies-can-track-marketing-leads-to-revenue',
+    ],
+  },
+  {
+    name: 'E-commerce',
+    slugs: [
+      'where-ecommerce-brands-should-start-with-ai',
+      'ai-customer-service-for-ecommerce',
+      'how-ecommerce-brands-can-connect-ad-spend-to-customer-revenue',
+    ],
+  },
+  {
+    name: 'Recruiting & HR',
+    slugs: [
+      'where-ai-fits-in-recruiting-and-where-humans-must-decide',
+      'ai-assisted-phone-screening-for-job-applicants',
+      'how-to-automate-candidate-interview-scheduling',
+    ],
+  },
+  {
+    name: 'Property Management',
+    slugs: [
+      'ai-for-property-management-maintenance-request-intake',
+      'automating-leasing-inquiry-response-and-showing-scheduling',
+      'ai-for-property-management-customer-communication',
+    ],
+  },
+  {
+    name: 'Financial Services',
+    slugs: [
+      'where-financial-services-firms-should-start-with-ai',
+      'ai-governance-for-financial-services-organizations',
+      'ai-for-financial-services-document-and-knowledge-workflows',
+    ],
+  },
+  {
+    name: 'Logistics & Transportation',
+    slugs: [
+      'where-logistics-companies-should-start-with-ai',
+      'ai-for-transportation-dispatch-and-operational-communication',
+      'ai-for-logistics-document-processing-and-back-office-automation',
+    ],
+  },
+  {
+    name: 'Energy',
+    slugs: [
+      'where-energy-companies-should-start-with-ai',
+      'ai-for-energy-knowledge-management-and-internal-operations',
+      'ai-for-energy-document-and-field-workflow-automation',
+    ],
+  },
+  {
+    name: 'Defense & Aerospace',
+    slugs: [
+      'where-defense-and-aerospace-companies-should-start-with-enterprise-ai',
+      'ai-knowledge-management-for-aerospace-and-defense-organizations',
+      'building-governed-ai-systems-for-defense-and-aerospace',
+    ],
+  },
+];
+
+const categorized = categories.map((cat) => ({
+  name: cat.name,
+  items: cat.slugs.map((slug) => byId.get(slug)).filter((r) => r !== undefined),
+}));
 ---
 
 <BaseLayout
   title="Resources | Your AI Department"
-  description="Practical guides on identifying AI opportunities, lead response, marketing attribution, and where automation does and doesn't belong in your business."
+  description="Practical guides on identifying AI opportunities, lead response, marketing attribution, and where automation does and doesn't belong in your business, organized by industry."
   path="/resources/"
 >
   <Section tone="dark">
     <Container>
       <span class="eyebrow res-eyebrow">Resources</span>
       <h1 class="res-hub-h1">Practical Guides for Business Leaders Evaluating AI</h1>
-      <p class="res-hub-support">No invented statistics, no case studies, no guarantees — just practical frameworks for thinking through AI, automation, and growth systems decisions.</p>
+      <p class="res-hub-support">No invented statistics, no case studies, no guarantees — just practical frameworks for thinking through AI, automation, and growth systems decisions, organized by industry and topic.</p>
     </Container>
   </Section>
 
-  <Section tone="light">
-    <Container wide>
-      <div class="res-grid">
-        {sorted.map((resource) => (
-          <a href={`/resources/${resource.id}/`} class="res-card">
-            <h2>{resource.data.title}</h2>
-            <p>{resource.data.description}</p>
-            <span class="res-card-link">Read the guide &rarr;</span>
-          </a>
-        ))}
-      </div>
-    </Container>
-  </Section>
+  {categorized.map((cat, i) => (
+    <Section tone={i % 2 === 0 ? 'light' : 'white'}>
+      <Container wide>
+        <h2 class="res-cat-heading">{cat.name}</h2>
+        <div class="res-grid">
+          {cat.items.map((resource) => (
+            <a href={`/resources/${resource.id}/`} class="res-card">
+              <h3>{resource.data.title}</h3>
+              <p>{resource.data.description}</p>
+              <span class="res-card-link">Read the guide &rarr;</span>
+            </a>
+          ))}
+        </div>
+      </Container>
+    </Section>
+  ))}
 
   <CTABand
     icon="clipboard-check"
@@ -69,10 +225,17 @@ const sorted = allResources.sort((a, b) => a.data.title.localeCompare(b.data.tit
     max-width: 640px;
   }
 
+  .res-cat-heading {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-bottom: 20px;
+  }
+
   .res-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 
   .res-card {
@@ -80,7 +243,7 @@ const sorted = allResources.sort((a, b) => a.data.title.localeCompare(b.data.tit
     background-color: var(--color-pure-white);
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-panel);
-    padding: 24px 22px;
+    padding: 20px 20px;
     box-shadow: 0 2px 8px -4px rgba(17, 24, 39, 0.06);
     transition: transform var(--transition-base), box-shadow var(--transition-base);
   }
@@ -90,41 +253,37 @@ const sorted = allResources.sort((a, b) => a.data.title.localeCompare(b.data.tit
     box-shadow: var(--shadow-card-light);
   }
 
-  .res-card h2 {
-    font-size: 1.15rem;
+  .res-card h3 {
+    font-size: 1.02rem;
     font-weight: 800;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: var(--color-near-black);
+    line-height: 1.35;
   }
 
   .res-card p {
-    font-size: 0.9rem;
+    font-size: 0.86rem;
     color: var(--color-slate-gray);
-    line-height: 1.55;
-    margin-bottom: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
   }
 
   .res-card-link {
     font-family: var(--font-heading);
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     color: var(--color-electric-blue);
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 700px) {
     .res-grid {
       grid-template-columns: repeat(2, 1fr);
     }
+  }
 
-    .res-card:last-child {
-      grid-column: 1 / -1;
-      text-align: center;
-    }
-
-    .res-card:last-child h2,
-    .res-card:last-child p {
-      max-width: 560px;
-      margin-inline: auto;
+  @media (min-width: 1100px) {
+    .res-grid {
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 </style>

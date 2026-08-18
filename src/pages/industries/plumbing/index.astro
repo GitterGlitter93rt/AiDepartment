@@ -1,0 +1,186 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone', title: 'Inbound Call Handling', description: 'Collect basic information, acknowledge the customer, classify the request, and route or schedule approved service types.' },
+  { icon: 'zap', title: 'Missed-Call Recovery', description: 'Immediate recovery workflows for unanswered calls — critical when the caller has water actively running.' },
+  { icon: 'truck', title: 'Scheduling & Dispatch', description: 'Connect customer intake to appointment availability, dispatch workflows, reminders, and internal notifications.' },
+  { icon: 'clipboard-list', title: 'Estimate Follow-Up', description: 'Automated follow-up for repipes, water heaters, remodels, and other larger quoted work.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'Confirmations, technician-arrival updates, reminders, and post-service follow-up.' },
+  { icon: 'bar-chart-3', title: 'Marketing Attribution', description: 'Connect Google Ads, calls, forms, booked jobs, completed jobs, and revenue.' },
+  { icon: 'star', title: 'Review & Referral Workflows', description: 'Controlled post-service requests and referral follow-up after appropriate customer milestones.' },
+];
+
+const dispatchGroups = [
+  { label: 'Demand', steps: [{ text: 'Call / Form', icon: 'phone' }] },
+  { label: 'Intake', steps: [{ text: 'Intake', icon: 'inbox' }, { text: 'Booking', icon: 'calendar' }] },
+  { label: 'Field', steps: [{ text: 'Dispatch', icon: 'truck' }, { text: 'Job / Estimate', icon: 'clipboard-list' }] },
+  { label: 'Follow-Up', steps: [{ text: 'Follow-Up', icon: 'repeat' }] },
+  { label: 'Measurement', steps: [{ text: 'Revenue Measurement', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Most of our calls are emergencies. Can AI really help there?', answer: 'AI-assisted intake can capture the essentials quickly — location, issue, urgency — and get a real person or dispatcher engaged fast, especially after hours when nobody is watching the phone. It\'s not about replacing the urgency response; it\'s making sure that urgency doesn\'t go straight to voicemail.' },
+  { question: 'What\'s the difference between a booked job and a completed job in your reporting?', answer: 'This distinction matters more than it sounds. A booked appointment that gets rescheduled, canceled, or turns into a much smaller job than the original call suggested is a very different outcome than a completed, invoiced job. Attribution and reporting should track both so marketing decisions are based on real completed revenue, not optimistic booking counts.' },
+  { question: 'We get a lot of small service calls but want more replacement/repipe business. Can this help?', answer: 'Yes — this is one of the more common gaps we see. A technician who diagnoses a bigger opportunity (an aging water heater, a repipe candidate) during a small service call needs a structured way to hand that estimate opportunity into a proper follow-up process, rather than it depending on whether that one technician remembers to mention it again.' },
+  { question: 'Can AI make diagnosis or pricing decisions?', answer: 'No. Diagnosis, pricing, code issues, safety, property conditions, and repair recommendations require qualified people. Automation handles the surrounding communication and scheduling work — not the plumbing judgment itself.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Modern Plumbing Companies | Your AI Department"
+  description="Improve inbound call handling, missed-call recovery, dispatch, and estimate follow-up for plumbing companies with practical AI and automation."
+  path="/industries/plumbing/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Plumbing', item: `${SITE.domain}/industries/plumbing/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Plumbing"
+    headline="AI Systems for Modern Plumbing Companies"
+    support="Plumbing companies often compete in moments when customers need help quickly. Your AI Department helps connect calls, scheduling, dispatch, estimates, follow-up, marketing, and customer communication into a more reliable operating system."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Real Problem"
+        heading="Missed Calls and Slow Follow-Up Are Operational Problems"
+      />
+      <p class="prose-p">A plumbing business can spend heavily to generate demand and still lose jobs because calls go unanswered during a busy dispatch window, an emergency inquiry gets routed the same way as a routine one, an estimate for a larger repipe or water-heater replacement sits untouched after the initial visit, or marketing data simply disappears the moment the phone rings and a person takes over manually.</p>
+      <p class="prose-p">Plumbing has a specific urgency profile that most trades don't share to the same degree — a burst pipe or an overflowing toilet is happening right now, and a caller who doesn't reach someone quickly will often call the next company on the list. That makes fast, reliable intake and after-hours coverage a direct revenue lever, not just a nice-to-have.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Plumbing Companies Typically Lose Jobs"
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="System Framework"
+        heading="From the First Call to Measured Revenue"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every plumbing business."
+        tone="dark"
+      />
+      <GroupedFlow groups={dispatchGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Human Judgment"
+        heading="Diagnosis and Pricing Stay With Qualified People"
+        support="Diagnosis, pricing, code issues, safety, property conditions, repair recommendations, and customer disputes require qualified people."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Operators With Real Call Volume"
+        tone="dark"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that are:"
+        fitItems={[
+          'Established residential plumbing companies',
+          'Commercial plumbing operators',
+          'Multi-truck service companies',
+          'Running dispatch teams',
+          'Investing in Google Ads or LSAs',
+          'Managing meaningful estimate volume',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a solo operator with no dispatch process',
+          'You have minimal call or estimate volume to build on',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Strategy, Implementation, and Ongoing Support"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/google-ads/">Explore Google Ads Management</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why Speed-to-Lead Matters</a>
+      </p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Plumbing Business"
+    support="Take the free AI Department Assessment to see your opportunities across call handling, dispatch, and estimate follow-up."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>
