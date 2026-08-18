@@ -6,15 +6,17 @@ interface Props {
   description: string;
   path: string; // e.g. "/" or "/ai-consulting/"
   ogImage?: string;
+  noindex?: boolean;
 }
 
-const { title, description, path, ogImage } = Astro.props;
+const { title, description, path, ogImage, noindex = false } = Astro.props;
 const canonicalUrl = new URL(path, SITE.domain).toString();
 ---
 
 <title>{title}</title>
 <meta name="description" content={description} />
 <link rel="canonical" href={canonicalUrl} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
 
 <meta property="og:type" content="website" />
 <meta property="og:title" content={title} />

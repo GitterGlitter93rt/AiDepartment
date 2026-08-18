@@ -7,7 +7,7 @@ import InteriorHero from '../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../components/interior/SectionHeading.astro';
 import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
 import CTABand from '../../components/interior/CTABand.astro';
-import FlowChain from '../../components/interior/FlowChain.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
 import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
 
 const responsibilities = [
@@ -21,7 +21,11 @@ const responsibilities = [
   { icon: 'compass', title: 'Strategic Advisory', description: 'Monthly executive strategy meetings and a continuously updated AI roadmap.' },
 ];
 
-const cadence = ['Discover', 'Prioritize', 'Implement', 'Train', 'Measure', 'Optimize'];
+const cadenceGroups = [
+  { label: 'Plan', steps: [{ text: 'Discover', icon: 'search' }, { text: 'Prioritize', icon: 'list-checks' }] },
+  { label: 'Execute', steps: [{ text: 'Implement', icon: 'hammer' }, { text: 'Train', icon: 'graduation-cap' }] },
+  { label: 'Improve', steps: [{ text: 'Measure', icon: 'bar-chart-3' }, { text: 'Optimize', icon: 'trending-up' }] },
+];
 
 const comparisonRows = [
   { alt: 'A one-time consultant', gap: 'Delivers a report or roadmap, then the relationship ends.', us: 'Stays engaged as opportunities, technology, and the business itself continue to change.' },
@@ -86,7 +90,8 @@ const comparisonRows = [
         heading="An Ongoing Operating Cadence, Not a One-Time Project"
         support="The relationship follows a recurring cycle rather than a single deliverable."
       />
-      <FlowChain steps={cadence} tone="accent" direction="horizontal" loop />
+      <GroupedFlow groups={cadenceGroups} tone="light" />
+      <p class="cadence-repeat">&#8635; Then repeats</p>
     </Container>
   </Section>
 
@@ -124,6 +129,16 @@ const comparisonRows = [
 </BaseLayout>
 
 <style>
+  .cadence-repeat {
+    text-align: center;
+    margin-top: 16px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-electric-blue);
+  }
   .comparison-table {
     max-width: 920px;
     margin-inline: auto;

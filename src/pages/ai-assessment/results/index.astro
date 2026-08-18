@@ -6,6 +6,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
   title="Your AI Department Score | Your AI Department"
   description="Your personalized AI Department Score, category breakdown, and recommended next steps."
   path="/ai-assessment/results/"
+  noindex
 >
   <section class="results-page">
     <div id="results-root" class="r-mount">
@@ -17,6 +18,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 <script>
   import { loadResultRaw } from '../../../lib/assessment/persistence';
   import type { FullAssessmentResult } from '../../../data/assessment/types';
+  import { SCHEDULING } from '../../../lib/scheduling';
 
   function escapeHtml(input: string): string {
     return input
@@ -44,6 +46,11 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
     const result: FullAssessmentResult = JSON.parse(raw);
     const pub = result.public;
     const isEnterprise = result.flags.includes('ENTERPRISE_CANDIDATE');
+
+    // Fires only in this branch — a genuine, successfully-parsed result —
+    // never on the "no results found" empty state above.
+    (window as any).dataLayer = (window as any).dataLayer || [];
+    (window as any).dataLayer.push({ event: 'ai_assessment_complete' });
 
     const strongest = pub.strongestAreas
       .map((cat) => pub.categories.find((c) => c.category === cat))
@@ -149,7 +156,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
         <div class="r-cta">
           <h2>${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Ready to Discuss Your Opportunities?'}</h2>
           <p>${isEnterprise ? 'Given the scale of your organization, an enterprise conversation is the appropriate next step to explore AI opportunities in depth.' : 'Schedule a free strategy call to review your results and discuss what to prioritize first.'}</p>
-          <a class="r-btn r-btn-primary" href="/contact/">${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Schedule a Strategy Call'}</a>
+          <a class="r-btn r-btn-primary" href="${isEnterprise ? SCHEDULING.enterpriseDiscussion.url : SCHEDULING.strategyCall.url}">${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Schedule a Strategy Call'}</a>
         </div>
 
         <p class="r-disclaimer">This assessment provides an initial diagnostic based on your responses. It does not replace a full executive discovery process.</p>

@@ -6,7 +6,7 @@ import InteriorHero from '../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../components/interior/SectionHeading.astro';
 import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
 import CTABand from '../../components/interior/CTABand.astro';
-import FlowChain from '../../components/interior/FlowChain.astro';
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
 import { PRIMARY_CTA, SECONDARY_CTA } from '../../lib/site';
 
 const systemComponents = [
@@ -20,9 +20,11 @@ const systemComponents = [
   { icon: 'bar-chart-3', title: 'Attribution & Reporting', description: 'Conversion tracking and revenue attribution so ad spend can be evaluated by actual results.' },
 ];
 
-const connectedFlow = [
-  'Traffic', 'Landing Page', 'Lead Capture', 'CRM / Routing',
-  'Immediate Follow-Up', 'Sales Process', 'Conversion', 'Attribution / Reporting',
+const connectedFlowGroups = [
+  { label: 'Acquisition', steps: [{ text: 'Traffic', icon: 'trending-up' }, { text: 'Landing Page', icon: 'layout-grid' }] },
+  { label: 'Capture', steps: [{ text: 'Lead Capture', icon: 'inbox' }, { text: 'CRM / Routing', icon: 'database' }] },
+  { label: 'Conversion', steps: [{ text: 'Immediate Follow-Up', icon: 'zap' }, { text: 'Sales Process', icon: 'handshake' }, { text: 'Conversion', icon: 'check-circle-2' }] },
+  { label: 'Outcome', steps: [{ text: 'Attribution / Reporting', icon: 'bar-chart-3' }] },
 ];
 ---
 
@@ -60,7 +62,7 @@ const connectedFlow = [
         support="This is the system AI Growth Systems builds and manages — not eight separate vendors, but one connected path a prospect moves through."
       />
       <div class="growth-flow-wrap">
-        <FlowChain steps={connectedFlow} tone="accent" direction="horizontal" />
+        <GroupedFlow groups={connectedFlowGroups} tone="light" />
       </div>
     </Container>
   </Section>

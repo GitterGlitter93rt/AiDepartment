@@ -1,0 +1,232 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, ENTERPRISE_CTA, SITE } from '../../../lib/site';
+
+const opportunityAreas = [
+  { icon: 'phone-call', title: 'Sales Lead Response', description: 'Immediate acknowledgment, AI-assisted follow-up, missed-call recovery, test-drive scheduling, stale lead reactivation, and rooftop-aware routing.' },
+  { icon: 'headset', title: 'BDC Operations', description: 'Consistent lead assignment, appointment setting, no-response escalation, call QA, conversation intelligence, and multi-rooftop consistency.' },
+  { icon: 'wrench', title: 'Fixed Operations / Service', description: 'Service scheduling, after-hours coverage, appointment confirmations, missed-appointment recovery, and declined-service follow-up.' },
+  { icon: 'message-square', title: 'Customer Communication', description: 'AI-assisted voice, SMS, and email across inbound and outbound conversations, with consistent follow-up across every rooftop.' },
+  { icon: 'image', title: 'Inventory & Merchandising', description: 'Standardized inventory imagery, vehicle descriptions, feature summaries, and inventory-aware customer responses.' },
+  { icon: 'bar-chart-3', title: 'Marketing & Attribution', description: 'Google Ads, Meta Ads, CRM source tracking, call attribution, and closed-loop reporting from lead to sale.' },
+  { icon: 'shield-check', title: 'Management & Operations', description: 'Dashboards, conversation QA, process consistency, employee knowledge systems, and vendor coordination.' },
+];
+
+const systemGroups = [
+  { label: 'Demand', steps: [{ text: 'Calls / Forms / Chat', icon: 'inbox' }, { text: 'SMS / Email', icon: 'message-square' }] },
+  { label: 'Orchestration', steps: [{ text: 'Intelligent Routing', icon: 'workflow' }] },
+  { label: 'Systems', steps: [{ text: 'CRM / DMS', icon: 'database' }, { text: 'Inventory / Scheduler', icon: 'calendar' }, { text: 'Phone', icon: 'phone' }] },
+  { label: 'AI-Assisted Channels', steps: [{ text: 'Voice / SMS / Email', icon: 'zap' }] },
+  { label: 'Human Teams', steps: [{ text: 'BDC / Sales', icon: 'users' }, { text: 'Service', icon: 'wrench' }, { text: 'Escalation', icon: 'user-check' }] },
+  { label: 'Measurement', steps: [{ text: 'Attribution / QA', icon: 'bar-chart-3' }, { text: 'Reporting', icon: 'trending-up' }] },
+];
+
+const engagementModel = [
+  { label: 'Discovery', steps: [{ text: 'Assessment', icon: 'clipboard-check' }, { text: 'Opportunity Prioritization', icon: 'list-checks' }] },
+  { label: 'Design', steps: [{ text: 'Strategy & Architecture', icon: 'compass' }] },
+  { label: 'Execution', steps: [{ text: 'Implementation', icon: 'hammer' }, { text: 'Training & Adoption', icon: 'graduation-cap' }] },
+  { label: 'Ongoing', steps: [{ text: 'Measurement', icon: 'bar-chart-3' }, { text: 'Managed AI Department', icon: 'users-round' }] },
+];
+
+const faqs = [
+  { question: 'Are you replacing our CRM or DMS?', answer: 'No. We work with the systems you already have — CRM, DMS, phone, scheduling, and inventory platforms — and focus on making them work together more intelligently, not replacing them.' },
+  { question: 'Do you build custom AI tools or use existing vendors?', answer: 'Both, depending on the problem. Sometimes the right answer is configuring existing dealership technology, sometimes it\'s integrating vendors you already use, and sometimes it\'s custom automation. We start with the business problem, not a predetermined technology.' },
+  { question: 'Can AI handle customer financing information?', answer: 'Sensitive financial and credit information should only flow into AI tools when specifically approved and architected appropriately, within your dealer group\'s existing legal, OEM, privacy, and security requirements.' },
+  { question: 'Do you work with single-rooftop dealers?', answer: 'This page is written for dealer groups with real operational complexity — multi-rooftop groups, centralized BDC operations, or large-volume single rooftops. Smaller independent dealers may be better served by a broader conversation — take the AI Department Assessment to find the right starting point.' },
+  { question: 'Will AI fabricate vehicle pricing or condition in marketing?', answer: 'No. Marketing and merchandising automation should rely on verified dealership data. AI-assisted imagery must preserve a truthful representation of the actual vehicle, and automation should not imply pricing, rebates, or incentives that haven\'t been verified.' },
+];
+---
+
+<BaseLayout
+  title="AI Systems for Automotive Dealer Groups | Your AI Department"
+  description="Business transformation and implementation for multi-rooftop automotive dealer groups — connecting CRM, DMS, phone, scheduling, and marketing systems into one coordinated AI-assisted operation."
+  path="/industries/automotive-dealers/"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
+      { '@type': 'ListItem', position: 3, name: 'Automotive Dealer Groups', item: `${SITE.domain}/industries/automotive-dealers/` },
+    ],
+  })} />
+
+  <InteriorHero
+    eyebrow="Automotive Dealer Groups"
+    headline="AI Systems for Modern Automotive Dealer Groups"
+    support="Dealer groups don't need another disconnected AI tool. They need a coordinated system connecting leads, calls, SMS, email, CRM, DMS, inventory, appointments, service, marketing, attribution, and human teams — across every rooftop."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={{ label: 'Discuss Your Dealer Group Strategy', href: ENTERPRISE_CTA.href }}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Positioning"
+        heading="Not Another Point Solution"
+        support="Your AI Department is not a chatbot vendor, an AI phone vendor, a replacement DMS, a replacement CRM, or a dealership marketing agency. Large dealer groups already have CRMs, DMS platforms, schedulers, phone systems, OEM systems, and marketing platforms. The opportunity is to make those systems work together more intelligently — as a business transformation and implementation partner, not a single-purpose tool."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Key Opportunity Areas"
+        heading="Where Coordinated Systems Create the Most Value"
+        support="For dealer groups with real operational complexity, across sales, BDC, fixed operations, marketing, and management."
+      />
+      <CapabilityGrid items={opportunityAreas} columns={4} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Multi-Rooftop System Architecture"
+        heading="AI Sits Around and Between Your Systems, Not in Place of Them"
+        support="This is a conceptual pattern, not a claim that this exact architecture fits every dealer group."
+        tone="dark"
+      />
+      <GroupedFlow groups={systemGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Build vs. Buy"
+        heading="Use What Works. Build What Is Missing."
+        support="We do not assume every capability should be custom-built. Depending on the problem, we may configure existing dealership technology, integrate vendors you already use, replace a weak point solution where justified, build a custom automation or integration layer, develop a custom AI workflow, improve a human process, train your team, or manage ongoing optimization. The goal is solving the business problem — not defaulting to any single technology."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Implementation Reality"
+        heading="Enterprise Dealership AI Requires Real Coordination"
+        support="Implementation across a dealer group means coordinating rooftop ownership, CRM, DMS, inventory systems, service schedulers, telephony, OEM systems, marketing platforms, permissions, data flows, customer consent, human escalation, and reporting. We do not treat this as trivial, and neither should any partner you work with."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Privacy, Security & Human Judgment"
+        heading="Sensitive Information Requires Conservative Handling"
+        support="Automotive dealers handle sensitive customer and financing information. AI and automation systems should be implemented within the dealer group's existing legal, OEM, privacy, security, and communications requirements — including customer information protection, access control, vendor governance, data minimization, human review, appropriate consent, escalation, and auditability. Sensitive finance and credit information should not flow into AI tools unless specifically approved and architected appropriately. We do not offer legal advice, and we do not claim that using Your AI Department makes a dealer group compliant with any law, OEM standard, or regulation."
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Advertising & Merchandising"
+        heading="Automation Built on Verified Data, Not Assumptions"
+        support="Marketing and merchandising automation should rely on verified dealership data. AI should not be used to fabricate pricing, rebates, discounts, vehicle condition, inventory availability, financing terms, or OEM incentives. AI-assisted imagery must preserve a truthful representation of the actual vehicle, with appropriate human and system controls in place."
+        tone="dark"
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Dealer Groups With Real Operational Complexity"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for organizations that:"
+        fitItems={[
+          'Operate as a multi-rooftop dealership group',
+          'Are a regional dealer group with centralized functions',
+          'Run a large single rooftop with substantial volume',
+          'Already operate a centralized BDC',
+          'Have significant marketing spend across channels',
+          'Already use sophisticated CRM/DMS systems',
+        ]}
+        notFitHeading="May not be the right fit if:"
+        notFitItems={[
+          'You are a small independent used-car lot',
+          'You have minimal technology budget or systems in place',
+          'There is no meaningful operational problem to solve yet',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Engagement Model"
+        heading="A Coordinated Path From Discovery to Ongoing Management"
+        tone="dark"
+      />
+      <GroupedFlow groups={engagementModel} tone="dark" />
+      <p class="cross-links">
+        <a href="/ai-consulting/">AI Consulting</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-growth-systems/">AI Growth Systems</a>&nbsp;&bull;&nbsp;
+        <a href="/managed-ai-department/">Managed AI Department</a>&nbsp;&bull;&nbsp;
+        <a href="/enterprise/">Enterprise</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Related Resources"
+        heading="Practical Guides for Growth and Response Systems"
+      />
+      <p class="cross-links">
+        <a href="/google-ads/">Google Ads</a>&nbsp;&bull;&nbsp;
+        <a href="/ai-training/">AI Training</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why Speed-to-Lead Matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Can Improve Your Dealer Group's Operations"
+    support="Take the free AI Department Assessment, or discuss your dealer group's strategy directly with our team."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 7-12 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

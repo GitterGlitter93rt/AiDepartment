@@ -1,0 +1,101 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+
+const lastUpdated = 'August 14, 2026';
+---
+
+<BaseLayout
+  title="Terms of Use | Your AI Department"
+  description="Terms governing use of the Your AI Department website, the AI Department Assessment, and scheduling requests made through this Site."
+  path="/terms/"
+>
+  <Section tone="light">
+    <Container>
+      <div class="legal-doc">
+        <h1>Terms of Use</h1>
+        <p class="legal-updated">Last updated: {lastUpdated}</p>
+
+        <p>These Terms of Use ("Terms") govern your use of the website located at youraidepartment.ai (the "Site"), operated by Your AI Department LLC ("Your AI Department," "we," "us," or "our"). By using this Site, you agree to these Terms.</p>
+
+        <h2>Informational Purpose</h2>
+        <p>This Site, including the AI Department Assessment and any guides or resources published on it, is provided for general informational purposes. Content on this Site does not constitute professional legal, medical, financial, or regulatory advice, and should not be relied upon as such.</p>
+
+        <h2>No Guarantee of Business Results</h2>
+        <p>Nothing on this Site guarantees any particular business outcome, revenue result, cost savings, or return on investment. The AI Department Assessment produces informational, decision-support output based on the information you provide and what our automated analysis can determine — it is not a guarantee of accuracy, completeness, or business results, and any recommendations should be evaluated as part of your own independent business judgment.</p>
+
+        <h2>No Guarantee of AI Output Accuracy</h2>
+        <p>Where this Site or our services involve the use of artificial intelligence, we do not guarantee that AI-generated output will be accurate, complete, or free of error. Human review remains appropriate for decisions of consequence.</p>
+
+        <h2>Intellectual Property</h2>
+        <p>The content, design, graphics, and other materials on this Site are owned by or licensed to Your AI Department LLC and are protected by applicable intellectual property laws. You may view and use this content for your own personal or internal business evaluation purposes. You may not copy, reproduce, or redistribute this Site's content for commercial purposes without our prior written permission.</p>
+
+        <h2>Acceptable Use</h2>
+        <p>You agree not to misuse this Site, including by attempting to gain unauthorized access to it, interfering with its normal operation, or using it to transmit unlawful, harmful, or abusive content.</p>
+
+        <h2>Scheduling and Paid Advisory Sessions</h2>
+        <p>Scheduling requests made through this Site are booked using Cal.com, a third-party scheduling platform, and are subject to Cal.com's own terms. The Executive AI Advisory Session is a paid engagement; payment is processed by Stripe through Cal.com's checkout flow. Specific cancellation, rescheduling, and refund terms for paid sessions are governed by the policies presented to you at the time of booking through Cal.com. We have not published a separate refund policy on this Site beyond what is presented during that booking process — if you have questions about a specific booking's terms, please contact us before completing payment.</p>
+
+        <h2>Third-Party Services and Links</h2>
+        <p>This Site may reference or link to third-party services, including Cal.com, Stripe, and Google Analytics/Tag Manager. We are not responsible for the content, accuracy, or practices of third-party services, which are governed by their own terms and privacy policies.</p>
+
+        <h2>Limitation of Liability</h2>
+        <p>To the fullest extent permitted by applicable law, Your AI Department LLC will not be liable for any indirect, incidental, or consequential damages arising from your use of this Site or reliance on its content. This Site and its content are provided "as is" without warranties of any kind, express or implied.</p>
+
+        <h2>Changes to These Terms</h2>
+        <p>We may update these Terms from time to time. The "Last updated" date at the top of this page reflects the most recent revision. Continued use of the Site after changes are posted constitutes acceptance of the updated Terms.</p>
+
+        <h2>Governing Law</h2>
+        <p>These Terms are governed by the laws of the State of Florida, without regard to its conflict-of-laws principles, to the extent consistent with applicable law.</p>
+
+        <h2>Contact Us</h2>
+        <p>
+          Your AI Department LLC<br />
+          2220 County Road 210 W, STE 108-504<br />
+          Jacksonville, Florida 32259<br />
+          <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
+        </p>
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>
+
+<style>
+  .legal-doc {
+    max-width: 720px;
+    margin-inline: auto;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--color-slate-gray);
+  }
+
+  .legal-doc h1 {
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-bottom: 8px;
+  }
+
+  .legal-updated {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    margin-bottom: 32px;
+  }
+
+  .legal-doc h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-block: 32px 12px;
+  }
+
+  .legal-doc p {
+    margin-bottom: 14px;
+  }
+
+  .legal-doc a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

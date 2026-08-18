@@ -8,9 +8,9 @@ import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
 import FAQSection from '../../components/interior/FAQSection.astro';
 import ProcessSteps from '../../components/interior/ProcessSteps.astro';
 import CTABand from '../../components/interior/CTABand.astro';
-import { PRIMARY_CTA } from '../../lib/site';
+import { PRIMARY_CTA, SCHEDULING } from '../../lib/site';
 
-const primaryCta = { label: 'Book an AI Workshop', href: '/contact/' };
+const primaryCta = { label: 'Book an AI Workshop', href: SCHEDULING.trainingConsultation.url };
 
 const workshopFlow = [
   { icon: 'clipboard-list', title: 'Pre-Workshop Discovery', description: 'We collect company information, workflows, and goals to make the session specific to your business.' },

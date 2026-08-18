@@ -1,0 +1,58 @@
+---
+// Shared GA4 (via GTM) conversion-event tracking.
+// Uses event delegation on document.body so it works site-wide without
+// modifying individual button/link markup on every page. Fires only
+// first-party dataLayer pushes — never claims a booking was completed,
+// only that the user clicked toward one (per docs/00-company/launch-decisions.md
+// Sprint 9 GA4 event architecture: click events, not fabricated completion
+// events).
+import { SCHEDULING } from '../lib/scheduling';
+---
+
+<script is:inline define:vars={{
+  strategyUrl: SCHEDULING.strategyCall.url,
+  enterpriseUrl: SCHEDULING.enterpriseDiscussion.url,
+  trainingUrl: SCHEDULING.trainingConsultation.url,
+  executiveUrl: SCHEDULING.executiveAdvisory.url,
+}}>
+  window.dataLayer = window.dataLayer || [];
+  let assessmentStartFired = false;
+
+  function pushEvent(eventName, extra) {
+    window.dataLayer.push(Object.assign({ event: eventName }, extra || {}));
+  }
+
+  document.body.addEventListener('click', (e) => {
+    const link = e.target instanceof Element ? e.target.closest('a') : null;
+    if (link) {
+      const href = link.getAttribute('href') || '';
+
+      if (href === strategyUrl) {
+        pushEvent('booking_click_strategy', { link_url: href });
+      } else if (href === enterpriseUrl) {
+        pushEvent('booking_click_enterprise', { link_url: href });
+      } else if (href === trainingUrl) {
+        pushEvent('booking_click_training', { link_url: href });
+      } else if (href === executiveUrl) {
+        pushEvent('booking_click_executive_advisory', { link_url: href });
+      }
+
+      // Resource CTA clicks: any outbound click from within a resource
+      // article's CTA area toward a commercial destination.
+      if (link.closest('.res-article-ctas')) {
+        pushEvent('resource_cta_click', { link_url: href, link_text: link.textContent?.trim() });
+      }
+    }
+
+    // AI Department Assessment start — the button is created dynamically
+    // by assessmentApp.ts's own innerHTML render, not present in the
+    // static HTML at page load, so this must be delegated (checked at
+    // click time) rather than looked up once via getElementById, which
+    // would race against that dynamic render and silently never attach.
+    const startBtn = e.target instanceof Element ? e.target.closest('#a-start-btn') : null;
+    if (startBtn && !assessmentStartFired) {
+      assessmentStartFired = true;
+      pushEvent('ai_assessment_start');
+    }
+  });
+</script>

@@ -8,9 +8,9 @@ import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
 import FAQSection from '../../components/interior/FAQSection.astro';
 import Icon from '../../components/Icon.astro';
 import CTABand from '../../components/interior/CTABand.astro';
-import { PRIMARY_CTA } from '../../lib/site';
+import { PRIMARY_CTA, SCHEDULING } from '../../lib/site';
 
-const primaryCta = { label: 'Request a Meta Ads Audit', href: '/contact/' };
+const primaryCta = { label: 'Request a Meta Ads Audit', href: SCHEDULING.strategyCall.url };
 
 const attentionSteps = [
   { text: 'Impressions', icon: 'eye' },

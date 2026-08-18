@@ -26,7 +26,7 @@ const steps = [
         {steps.map((step) => (
           <li>
             <div class="step-icon-wrap">
-              <span class="step-icon"><Icon name={step.icon} size={22} /></span>
+              <span class="step-icon"><Icon name={step.icon} size={26} /></span>
               <span class="step-number">{step.n}</span>
             </div>
             <p class="step-title">{step.title}</p>
@@ -83,10 +83,10 @@ const steps = [
 
   .step-icon-wrap {
     position: relative;
-    width: 62px;
-    height: 62px;
+    width: 72px;
+    height: 72px;
     margin-inline: auto;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     border-radius: 50%;
     border: 1px solid var(--color-border-dark);
     background-color: var(--color-deep-slate);

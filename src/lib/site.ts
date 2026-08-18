@@ -2,6 +2,10 @@
 // Canonical domain + nav structure per docs/02-website/sitemap.md (v2.0, canonical)
 // and docs/02-website/technical-seo-spec.md.
 
+import { SCHEDULING } from './scheduling';
+
+export { SCHEDULING } from './scheduling';
+
 export const SITE = {
   name: 'Your AI Department',
   domain: 'https://youraidepartment.ai',
@@ -22,6 +26,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: 'Solutions', href: '/#solutions' },
   { label: 'Services', href: '/#services' },
   { label: 'Industries', href: '/#industries' },
+  { label: 'Resources', href: '/resources/' },
   { label: 'Enterprise', href: '/enterprise/' },
   { label: 'About', href: '/about/' },
   { label: 'Contact', href: '/contact/' },
@@ -68,6 +73,7 @@ export const INDUSTRIES_DROPDOWN: DropdownItem[] = [
   { label: 'Healthcare', href: '/industries/healthcare/', description: 'Administrative workflows, scheduling, and employee productivity.' },
   { label: 'Insurance', href: '/industries/insurance/', description: 'Claims-adjacent workflows, policyholder service, and contact center operations.' },
   { label: 'Manufacturing', href: '/industries/manufacturing/', description: 'RFQ workflows, documentation, and operational administration.' },
+  { label: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/', description: 'Multi-rooftop sales, BDC, service, and marketing coordination.' },
 ];
 
 export const PRIMARY_CTA = {
@@ -75,28 +81,43 @@ export const PRIMARY_CTA = {
   href: '/ai-assessment/',
 };
 
-// Centralized "Schedule a Strategy Call" destination. No scheduling provider
-// (Calendly, Cal.com, HubSpot Meetings, etc.) has been selected yet — this
-// intentionally routes to the Contact page so a real scheduling widget can
-// be dropped in later by changing this ONE value, rather than hunting down
-// every CTA that currently says "Schedule a Strategy Call" across the site.
+// Centralized "Schedule a Strategy Call" destination — now the approved
+// AI Strategy Call Cal.com event (docs/00-company/launch-decisions.md
+// Sprint 9 Cal.com integration). Kept as one shared constant so a future
+// change only needs to happen here rather than across every page.
 export const SECONDARY_CTA = {
   label: 'Schedule a Strategy Call',
-  href: '/contact/',
+  href: SCHEDULING.strategyCall.url,
 };
 
 // AI Implementation's hero flips CTA priority per docs/03-products/ai-implementation.md
 // ("Discuss an AI Implementation" is primary there, assessment is secondary).
+// Per Sprint 9 CTA mapping, AI Implementation routes to the AI Strategy Call.
 export const IMPLEMENTATION_CTA = {
   label: 'Discuss an AI Implementation',
-  href: '/contact/',
+  href: SCHEDULING.strategyCall.url,
 };
 
 // Enterprise uses its own approved CTA per docs/02-website/enterprise.md —
 // enterprise prospects are not forced through the SMB free-assessment funnel.
+// Per Sprint 9 CTA mapping, Enterprise routes to the Enterprise Engagement
+// Discussion Cal.com event.
 export const ENTERPRISE_CTA = {
   label: 'Discuss an Enterprise Engagement',
-  href: '/contact/',
+  href: SCHEDULING.enterpriseDiscussion.url,
+};
+
+// AI Training and AI Workshops route to the AI Training Consultation event.
+export const TRAINING_CTA = {
+  label: 'Schedule an AI Training Consultation',
+  href: SCHEDULING.trainingConsultation.url,
+};
+
+// Executive AI Coaching's primary paid CTA routes to the paid Executive AI
+// Advisory Session event.
+export const EXECUTIVE_ADVISORY_CTA = {
+  label: 'Book an Executive AI Advisory Session',
+  href: SCHEDULING.executiveAdvisory.url,
 };
 
 export const FOOTER_LINKS = {
@@ -125,6 +146,7 @@ export const FOOTER_LINKS = {
     { label: 'Healthcare', href: '/industries/healthcare/' },
     { label: 'Insurance', href: '/industries/insurance/' },
     { label: 'Manufacturing', href: '/industries/manufacturing/' },
+    { label: 'Automotive Dealer Groups', href: '/industries/automotive-dealers/' },
   ],
   company: [
     { label: 'The AI Department Method', href: '/ai-department-method/' },
@@ -134,7 +156,7 @@ export const FOOTER_LINKS = {
     { label: 'Contact', href: '/contact/' },
   ],
   legal: [
-    { label: 'Privacy Policy', href: '/privacy-policy/' },
-    { label: 'Terms of Use', href: '/terms-of-use/' },
+    { label: 'Privacy Policy', href: '/privacy/' },
+    { label: 'Terms of Use', href: '/terms/' },
   ],
 };

@@ -66,12 +66,14 @@ const breadcrumbSchema = {
 
   <Section tone="light">
     <Container>
-      <nav class="res-breadcrumb" aria-label="Breadcrumb">
-        <a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/resources/">Resources</a> <span aria-hidden="true">/</span> <span aria-current="page">{entry.data.title}</span>
-      </nav>
-      <span class="eyebrow res-article-eyebrow">Resource</span>
-      <h1 class="res-article-h1">{entry.data.title}</h1>
-      <p class="res-article-desc">{entry.data.description}</p>
+      <div class="resource-header">
+        <nav class="res-breadcrumb" aria-label="Breadcrumb">
+          <a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/resources/">Resources</a> <span aria-hidden="true">/</span> <span aria-current="page">{entry.data.title}</span>
+        </nav>
+        <span class="eyebrow res-article-eyebrow">Resource</span>
+        <h1 class="res-article-h1">{entry.data.title}</h1>
+        <p class="res-article-desc">{entry.data.description}</p>
+      </div>
 
       <div class="res-article-body">
         <Content />
@@ -135,6 +137,11 @@ const breadcrumbSchema = {
     font-weight: 600;
   }
 
+  .resource-header {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
   .res-article-eyebrow {
     color: var(--color-electric-blue);
     display: inline-block;
@@ -145,7 +152,6 @@ const breadcrumbSchema = {
     font-size: var(--fs-h1);
     font-weight: 800;
     line-height: 1.15;
-    max-width: 780px;
     margin-bottom: 16px;
   }
 
@@ -153,15 +159,28 @@ const breadcrumbSchema = {
     font-size: 1.05rem;
     color: var(--color-slate-gray);
     line-height: 1.6;
-    max-width: 680px;
-    margin-bottom: 40px;
+    margin-bottom: 8px;
   }
 
+  /* Core Sprint 10.3 fix: the article body is a wide, centered block
+     (not left-biased within a much wider Container) so that widening it
+     for diagrams doesn't create dead space on the right. Text elements
+     inside get their own centered, narrower reading column; visual
+     framework wrappers are allowed to use most of the wider block. */
   .res-article-body {
-    max-width: 720px;
+    max-width: 1120px;
+    margin-inline: auto;
     font-size: 1rem;
     line-height: 1.7;
     color: var(--color-near-black);
+  }
+
+  .res-article-body :global(h2),
+  .res-article-body :global(p),
+  .res-article-body :global(ul),
+  .res-article-body :global(ol) {
+    max-width: 760px;
+    margin-inline: auto;
   }
 
   .res-article-body :global(h2) {
@@ -189,14 +208,94 @@ const breadcrumbSchema = {
     margin-bottom: 18px;
     padding-left: 24px;
     color: var(--color-slate-gray);
+    text-align: left;
   }
 
   .res-article-body :global(li) {
     margin-bottom: 6px;
   }
 
+  /* Visual framework breakout — the wide, centered diagram treatment.
+     These wrappers intentionally do NOT inherit the 760px text max-width
+     above, so they expand to use most of the wider 1120px article-body
+     block, centered on the same axis as the prose. */
+  .res-article-body :global(.gf-wrap),
+  .res-article-body :global(.qm-wrap),
+  .res-article-body :global(.cap-grid) {
+    max-width: 100%;
+    margin-block: 32px;
+    margin-inline: auto;
+  }
+
+  .res-article-body :global(.gf-wrap) {
+    background-color: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 32px 28px;
+  }
+
+  .res-article-body :global(.gf-group) {
+    padding: 24px 22px;
+  }
+
+  .res-article-body :global(.gf-step) {
+    padding: 13px 16px;
+    font-size: 0.95rem;
+  }
+
+  .res-article-body :global(.qm-wrap) {
+    max-width: 100%;
+    padding: 12px 0;
+  }
+
+  @media (min-width: 700px) {
+    .res-article-body :global(.qm-wrap) {
+      padding: 12px 40px;
+    }
+  }
+
+  .res-article-body :global(.cap-grid) {
+    gap: 18px;
+  }
+
+  .res-article-body :global(.cap-card) {
+    padding: 26px 22px;
+    border-width: 1.5px;
+  }
+
+  .res-article-body :global(.cap-title) {
+    font-size: 1.05rem;
+  }
+
+  /* Resource 4 specific: makes "Closed Revenue" read as the deliberate end
+     state of the attribution system, matching the emphasis language
+     already used for QuadrantMatrix's "Strategic Projects" highlight. */
+  .res-article-body :global(.outcome-emphasis .gf-group:last-child) {
+    background-color: rgba(37, 99, 235, 0.06);
+    border-color: var(--color-electric-blue);
+    border-width: 2px;
+    box-shadow: 0 8px 24px -14px rgba(37, 99, 235, 0.35);
+  }
+
+  .res-article-body :global(.outcome-emphasis .gf-group:last-child .gf-group-label) {
+    color: var(--color-electric-blue);
+    font-size: 0.75rem;
+  }
+
+  .res-article-body :global(.outcome-emphasis .gf-group:last-child .gf-step) {
+    border-color: var(--color-electric-blue);
+    background-color: var(--color-pure-white);
+    font-weight: 800;
+    color: var(--color-electric-blue);
+  }
+
+  .res-article-body :global(.outcome-emphasis .gf-group:last-child .gf-step-icon) {
+    color: var(--color-electric-blue);
+  }
+
   .res-article-ctas {
-    max-width: 720px;
+    max-width: 760px;
+    margin-inline: auto;
     margin-top: 40px;
     padding-top: 32px;
     border-top: 1px solid var(--color-border-light);

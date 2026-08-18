@@ -7,6 +7,7 @@ import Icon from '../../components/Icon.astro';
 import InteriorHero from '../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../components/interior/SectionHeading.astro';
 import FAQSection from '../../components/interior/FAQSection.astro';
+import { SCHEDULING } from '../../lib/site';
 
 const paths = [
   {
@@ -18,24 +19,31 @@ const paths = [
   },
   {
     icon: 'target',
-    title: 'Executive Strategy Call',
+    title: SCHEDULING.strategyCall.label,
     bestFor: 'Business owners, CEOs, and executives with urgent AI priorities or a larger engagement in mind.',
-    ctaLabel: 'Schedule a Strategy Call',
-    href: '#contact-form',
+    ctaLabel: `Book a Free ${SCHEDULING.strategyCall.durationMinutes}-Minute Call`,
+    href: SCHEDULING.strategyCall.url,
   },
   {
-    icon: 'trending-up',
-    title: 'Marketing Growth Review',
-    bestFor: 'Companies spending on Google Ads or Meta Ads with weak tracking or slow lead follow-up.',
-    ctaLabel: 'Request a Marketing Review',
-    href: '#contact-form',
+    icon: 'building-2',
+    title: SCHEDULING.enterpriseDiscussion.label,
+    bestFor: 'Larger or more complex organizations evaluating AI across multiple departments.',
+    ctaLabel: 'Discuss an Enterprise Engagement',
+    href: SCHEDULING.enterpriseDiscussion.url,
   },
   {
     icon: 'graduation-cap',
-    title: 'AI Training Inquiry',
+    title: SCHEDULING.trainingConsultation.label,
     bestFor: 'Leadership teams considering employee training or company-wide AI adoption.',
     ctaLabel: 'Discuss AI Training',
-    href: '#contact-form',
+    href: SCHEDULING.trainingConsultation.url,
+  },
+  {
+    icon: 'compass',
+    title: SCHEDULING.executiveAdvisory.label,
+    bestFor: `Business owners and executives wanting focused, one-on-one advisory time. ${SCHEDULING.executiveAdvisory.price} · ${SCHEDULING.executiveAdvisory.durationMinutes} minutes.`,
+    ctaLabel: 'Book the Advisory Session',
+    href: SCHEDULING.executiveAdvisory.url,
   },
 ];
 
@@ -99,6 +107,7 @@ const faqs = [
       />
 
       <form id="contact-page-form" class="contact-form" novalidate>
+        <input type="checkbox" name="botcheck" class="cf-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
         <div class="cf-row">
           <label class="cf-field"><span>First Name *</span><input type="text" name="firstName" required autocomplete="given-name" /></label>
           <label class="cf-field"><span>Last Name</span><input type="text" name="lastName" autocomplete="family-name" /></label>
@@ -134,7 +143,7 @@ const faqs = [
 
         <label class="cf-checkbox">
           <input type="checkbox" name="consent" required />
-          <span>By submitting this form, you agree that Your AI Department may process the information you provide to respond to your inquiry. See our <a href="/privacy-policy/">Privacy Policy</a> and <a href="/terms-of-use/">Terms of Use</a>.</span>
+          <span>By submitting this form, you agree that Your AI Department may contact you regarding your inquiry. See our <a href="/privacy/">Privacy Policy</a> and <a href="/terms/">Terms of Use</a>.</span>
         </label>
 
         <div id="cf-error" class="cf-error" role="alert" hidden></div>
@@ -163,15 +172,46 @@ const faqs = [
   const errorBox = document.getElementById('cf-error');
   const successBox = document.getElementById('cf-success');
 
-  // NOTE: This form is intentionally NOT connected to a backend, CRM, or
-  // email service in this sprint. Submission is a client-side-only stub:
-  // it validates input, then shows a success state without claiming the
-  // message was actually delivered anywhere. Replace this handler with a
-  // real submission call when backend infrastructure exists — nothing
-  // else on this page needs to change.
-  async function stubSubmit(data: Record<string, string>): Promise<{ delivered: false }> {
-    void data;
-    return { delivered: false };
+  // FORM DELIVERY — Web3Forms (https://web3forms.com)
+  //
+  // Web3Forms is a form-backend service purpose-built for static sites
+  // with no custom server — exactly this site's architecture (Astro
+  // output:'static', deployed as flat files to SiteGround). It is not a
+  // bare mail() call and requires no server-side code of our own.
+  //
+  // SETUP: this form is connected to a Web3Forms account registered to
+  // michael@youraidepartment.ai. Submissions are delivered to that inbox.
+  // The Access Key below is a public, form-specific submission token, not
+  // an account secret — this is Web3Forms' documented, intended
+  // client-side usage pattern, consistent with "no secrets exposed in
+  // browser JavaScript." If this key is ever rotated (e.g. the Web3Forms
+  // account changes), replace the value below — no other code changes
+  // are needed. If the key is ever missing/invalid, the form fails
+  // honestly (a clear error state directing the user to email us
+  // directly) rather than claiming a message was delivered.
+  const WEB3FORMS_ACCESS_KEY = 'aef33e06-d5f2-450f-86f3-1908340e7e5d';
+  const WEB3FORMS_ENDPOINT = 'https://api.web3forms.com/submit';
+
+  async function submitContactForm(data: Record<string, string>): Promise<{ delivered: boolean }> {
+    if (!WEB3FORMS_ACCESS_KEY || WEB3FORMS_ACCESS_KEY.startsWith('REPLACE_WITH')) {
+      return { delivered: false };
+    }
+    try {
+      const response = await fetch(WEB3FORMS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: 'New inquiry from youraidepartment.ai',
+          from_name: 'Your AI Department Website',
+          ...data,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      return { delivered: Boolean(response.ok && result?.success) };
+    } catch {
+      return { delivered: false };
+    }
   }
 
   form?.addEventListener('submit', async (e) => {
@@ -180,6 +220,16 @@ const faqs = [
     errorBox.setAttribute('hidden', '');
 
     const fd = new FormData(form);
+
+    // Honeypot: real users never see or check this field. If it's
+    // filled, silently show success without actually submitting
+    // anything — this avoids tipping off the bot while not sending spam.
+    if (fd.get('botcheck')) {
+      form.hidden = true;
+      successBox?.removeAttribute('hidden');
+      return;
+    }
+
     const firstName = String(fd.get('firstName') || '').trim();
     const email = String(fd.get('email') || '').trim();
     const message = String(fd.get('message') || '').trim();
@@ -204,7 +254,21 @@ const faqs = [
 
     const payload: Record<string, string> = {};
     fd.forEach((value, key) => { payload[key] = String(value); });
-    await stubSubmit(payload);
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    if (submitBtn) submitBtn.disabled = true;
+    const result = await submitContactForm(payload);
+    if (submitBtn) submitBtn.disabled = false;
+
+    if (!result.delivered) {
+      errorBox.textContent = 'We could not send your message right now. Please email us directly at michael@youraidepartment.ai.';
+      errorBox.removeAttribute('hidden');
+      return;
+    }
+
+    // Fires only here — after genuine delivery succeeded — so this event
+    // represents a real, complete submission, never a failed one.
+    (window as any).dataLayer = (window as any).dataLayer || [];
+    (window as any).dataLayer.push({ event: 'contact_form_submit' });
 
     form.hidden = true;
     successBox?.removeAttribute('hidden');
@@ -255,6 +319,15 @@ const faqs = [
     font-size: 0.88rem;
     font-weight: 700;
     color: var(--color-electric-blue);
+  }
+
+  .cf-honeypot {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    left: -9999px;
   }
 
   .contact-form {
@@ -365,7 +438,7 @@ const faqs = [
 
   @media (min-width: 960px) {
     .path-grid {
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 </style>

@@ -236,8 +236,8 @@ export class AssessmentApp {
         </ul>
         <button type="button" class="a-btn a-btn-primary a-btn-large" id="a-start-btn">Start Assessment</button>
         <p class="a-intro-legal">
-          By starting, you agree to our <a href="/privacy-policy/">Privacy Policy</a> and
-          <a href="/terms-of-use/">Terms of Use</a>.
+          By starting, you agree to our <a href="/privacy/">Privacy Policy</a> and
+          <a href="/terms/">Terms of Use</a>.
         </p>
       </div>
     `;
@@ -269,7 +269,7 @@ export class AssessmentApp {
 
           <label class="a-checkbox">
             <input type="checkbox" name="consent" required />
-            <span>By submitting this assessment, you agree that Your AI Department may process the information you provide to generate your assessment results and respond to your inquiry. See our <a href="/privacy-policy/">Privacy Policy</a> and <a href="/terms-of-use/">Terms of Use</a>.</span>
+            <span>By submitting this assessment, you agree that Your AI Department may process the information you provide to generate your assessment results and respond to your inquiry. See our <a href="/privacy/">Privacy Policy</a> and <a href="/terms/">Terms of Use</a>.</span>
           </label>
           <label class="a-checkbox">
             <input type="checkbox" name="marketingOptIn" />

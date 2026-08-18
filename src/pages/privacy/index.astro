@@ -1,0 +1,124 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+
+const lastUpdated = 'August 14, 2026';
+---
+
+<BaseLayout
+  title="Privacy Policy | Your AI Department"
+  description="How Your AI Department LLC collects, uses, and protects information submitted through this website, including contact forms, the AI Department Assessment, and scheduling requests."
+  path="/privacy/"
+>
+  <Section tone="light">
+    <Container>
+      <div class="legal-doc">
+        <h1>Privacy Policy</h1>
+        <p class="legal-updated">Last updated: {lastUpdated}</p>
+
+        <p>Your AI Department LLC ("Your AI Department," "we," "us," or "our") operates the website located at youraidepartment.ai (the "Site"). This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
+
+        <h2>Information You Submit Directly</h2>
+        <p>When you use a contact form, take the AI Department Assessment, or request a scheduling call through this Site, we may collect information you choose to provide, such as your name, business email address, phone number, company name, company website, and any details you enter about your business or inquiry.</p>
+        <p>Assessment responses are connected to the contact information you provide as part of that assessment. We do not treat assessment answers as anonymous when they are linked to identifiable contact information.</p>
+
+        <h2>Scheduling Information</h2>
+        <p>Scheduling requests made through this Site are booked using Cal.com, a third-party scheduling provider. When you book a call, Cal.com processes the information you provide to schedule that call (such as your name, email address, and any notes you include). Please review Cal.com's own privacy policy for information about how it handles your data.</p>
+        <p>For the paid Executive AI Advisory Session, payment is processed directly by Stripe through Cal.com's checkout flow. We do not directly receive or store your payment card information.</p>
+
+        <h2>Cookies and Analytics</h2>
+        <p>This Site uses Google Tag Manager to manage analytics and measurement tools, including Google Analytics (GA4). These tools may use cookies or similar technologies to collect information about how visitors use the Site, such as pages viewed, general location (at a city/region level), device and browser type, and referring source.</p>
+        <p>We use this information in aggregate to understand how the Site is used and to improve it. We do not use this data to identify you personally unless it is separately connected to information you voluntarily submitted through a form.</p>
+
+        <h2>Server and Log Information</h2>
+        <p>Like most websites, our hosting and infrastructure providers may automatically log technical information such as IP address, browser type, and timestamps for security, troubleshooting, and abuse-prevention purposes.</p>
+
+        <h2>How We Use Information</h2>
+        <p>We use the information described above to:</p>
+        <ul>
+          <li>Respond to inquiries submitted through this Site</li>
+          <li>Provide the results of the AI Department Assessment</li>
+          <li>Schedule and manage calls you request</li>
+          <li>Understand and improve how the Site is used</li>
+          <li>Maintain the security and proper functioning of the Site</li>
+        </ul>
+        <p>We do not sell your personal information.</p>
+
+        <h2>Third-Party Service Providers</h2>
+        <p>We work with third-party service providers to operate this Site and our business, including Google (Tag Manager and Analytics), Cal.com (scheduling), and Stripe (payment processing for the paid Executive AI Advisory Session, via Cal.com). These providers process information on our behalf and are subject to their own privacy policies. We do not claim that your information is never shared with any service provider — the providers listed here do process information as described above.</p>
+
+        <h2>Data Retention</h2>
+        <p>We retain information submitted through contact forms and the assessment for as long as reasonably necessary to respond to your inquiry, maintain business records, and comply with legal obligations. Technical log data is generally retained for a shorter period consistent with standard infrastructure and security practices.</p>
+
+        <h2>Data Security</h2>
+        <p>We take reasonable measures to protect information submitted through this Site. No method of transmission or storage is completely secure, and we cannot guarantee absolute security.</p>
+
+        <h2>Your Rights and Choices</h2>
+        <p>You may contact us at any time to ask what information we hold about you, to request that we correct or delete it, or to ask questions about this policy, subject to applicable law and legitimate business record-keeping needs.</p>
+
+        <h2>Children's Privacy</h2>
+        <p>This Site is intended for business audiences and is not directed at children. We do not knowingly collect information from children.</p>
+
+        <h2>Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. The "Last updated" date at the top of this page reflects the most recent revision.</p>
+
+        <h2>Contact Us</h2>
+        <p>
+          Your AI Department LLC<br />
+          2220 County Road 210 W, STE 108-504<br />
+          Jacksonville, Florida 32259<br />
+          <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
+        </p>
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>
+
+<style>
+  .legal-doc {
+    max-width: 720px;
+    margin-inline: auto;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--color-slate-gray);
+  }
+
+  .legal-doc h1 {
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-bottom: 8px;
+  }
+
+  .legal-updated {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    margin-bottom: 32px;
+  }
+
+  .legal-doc h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-block: 32px 12px;
+  }
+
+  .legal-doc p {
+    margin-bottom: 14px;
+  }
+
+  .legal-doc ul {
+    margin-bottom: 14px;
+    padding-left: 22px;
+  }
+
+  .legal-doc li {
+    margin-bottom: 6px;
+  }
+
+  .legal-doc a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+</style>

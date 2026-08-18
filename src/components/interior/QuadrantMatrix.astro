@@ -44,8 +44,8 @@ const { xAxisLabel, yAxisLabel, topLeft, topRight, bottomLeft, bottomRight } = A
     display: grid;
     grid-template-columns: auto 1fr;
     grid-template-rows: 1fr auto;
-    gap: 10px;
-    max-width: 640px;
+    gap: 16px;
+    max-width: 900px;
     margin-inline: auto;
   }
 
@@ -58,10 +58,10 @@ const { xAxisLabel, yAxisLabel, topLeft, topRight, bottomLeft, bottomRight } = A
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 0.78rem;
+    font-weight: 800;
+    font-size: 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     color: var(--color-slate-gray);
   }
 
@@ -70,11 +70,12 @@ const { xAxisLabel, yAxisLabel, topLeft, topRight, bottomLeft, bottomRight } = A
     grid-row: 2;
     text-align: center;
     font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 0.78rem;
+    font-weight: 800;
+    font-size: 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     color: var(--color-slate-gray);
+    margin-top: 4px;
   }
 
   .qm-grid {
@@ -83,28 +84,29 @@ const { xAxisLabel, yAxisLabel, topLeft, topRight, bottomLeft, bottomRight } = A
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 10px;
+    gap: 18px;
   }
 
   .qm-cell {
     border-radius: var(--radius-panel);
-    padding: 18px 16px;
+    padding: 28px 26px;
     border: 1px solid var(--color-border-light);
     background-color: var(--color-cloud-white);
   }
 
   .qm-highlight {
     background-color: rgba(37, 99, 235, 0.05);
-    border-color: rgba(37, 99, 235, 0.3);
+    border-color: rgba(37, 99, 235, 0.35);
     border-width: 2px;
+    box-shadow: 0 8px 24px -14px rgba(37, 99, 235, 0.3);
   }
 
   .qm-cell-label {
     display: block;
     font-family: var(--font-heading);
     font-weight: 800;
-    font-size: 0.92rem;
-    margin-bottom: 6px;
+    font-size: 1.15rem;
+    margin-bottom: 10px;
   }
 
   .qm-highlight .qm-cell-label {
@@ -112,26 +114,38 @@ const { xAxisLabel, yAxisLabel, topLeft, topRight, bottomLeft, bottomRight } = A
   }
 
   .qm-cell-desc {
-    font-size: 0.82rem;
+    font-size: 0.95rem;
     color: var(--color-slate-gray);
-    line-height: 1.5;
+    line-height: 1.55;
   }
 
   @media (max-width: 480px) {
+    .qm-wrap {
+      gap: 10px;
+    }
+
     .qm-y-label {
-      font-size: 0.68rem;
+      font-size: 0.72rem;
+    }
+
+    .qm-x-label {
+      font-size: 0.72rem;
+    }
+
+    .qm-grid {
+      gap: 10px;
     }
 
     .qm-cell {
-      padding: 14px 12px;
+      padding: 16px 14px;
     }
 
     .qm-cell-label {
-      font-size: 0.85rem;
+      font-size: 0.92rem;
     }
 
     .qm-cell-desc {
-      font-size: 0.78rem;
+      font-size: 0.8rem;
     }
   }
 </style>

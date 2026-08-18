@@ -4,6 +4,7 @@ import '../styles/global.css';
 import SEO from '../components/SEO.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import AnalyticsEvents from '../components/AnalyticsEvents.astro';
 import { SITE } from '../lib/site';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
   description: string;
   path: string;
   ogImage?: string;
+  noindex?: boolean;
   /** Include Organization + WebSite JSON-LD (typically only needed once, e.g. on the homepage) */
   includeOrgSchema?: boolean;
 }
@@ -20,6 +22,7 @@ const {
   description,
   path,
   ogImage,
+  noindex,
   includeOrgSchema = false,
 } = Astro.props;
 
@@ -47,7 +50,18 @@ const websiteSchema = {
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
 
-    <SEO title={title} description={description} path={path} ogImage={ogImage} />
+    <SEO title={title} description={description} path={path} ogImage={ogImage} noindex={noindex} />
+
+    {/* Google Tag Manager — approved container GTM-5G8Q7KKZ (Sprint 9).
+        GA4 (G-GLSRPH43L4) is managed through this container, not loaded
+        separately, to avoid a duplicate/redundant gtag.js snippet. */}
+    <script is:inline>
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','GTM-5G8Q7KKZ');
+    </script>
 
     {includeOrgSchema && (
       <>
@@ -57,11 +71,21 @@ const websiteSchema = {
     )}
   </head>
   <body>
+    <noscript>
+      <iframe
+        src="https://www.googletagmanager.com/ns.html?id=GTM-5G8Q7KKZ"
+        height="0"
+        width="0"
+        style="display:none;visibility:hidden"
+        title="Google Tag Manager"
+      ></iframe>
+    </noscript>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <Header />
     <main id="main-content">
       <slot />
     </main>
     <Footer />
+    <AnalyticsEvents />
   </body>
 </html>

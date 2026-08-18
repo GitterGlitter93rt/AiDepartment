@@ -1,0 +1,90 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Section from '../components/Section.astro';
+import Container from '../components/Container.astro';
+---
+
+<BaseLayout
+  title="Page Not Found | Your AI Department"
+  description="The page you're looking for could not be found."
+  path="/404/"
+  noindex
+>
+  <Section tone="light">
+    <Container>
+      <div class="notfound-wrap">
+        <span class="eyebrow">404</span>
+        <h1>We Couldn't Find That Page</h1>
+        <p>The page you're looking for may have moved or no longer exists. Here are a few good places to start instead.</p>
+        <div class="notfound-links">
+          <a href="/">Home</a>
+          <a href="/ai-assessment/">AI Assessment</a>
+          <a href="/resources/">Resources</a>
+          <a href="/contact/">Contact</a>
+        </div>
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>
+
+<style>
+  .notfound-wrap {
+    max-width: 560px;
+    margin-inline: auto;
+    text-align: center;
+    padding-block: 60px;
+  }
+
+  .notfound-wrap .eyebrow {
+    color: var(--color-electric-blue);
+    font-size: 0.85rem;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .notfound-wrap h1 {
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+
+  .notfound-wrap p {
+    color: var(--color-slate-gray);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .notfound-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .notfound-links a {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: var(--radius-button);
+    border: 1px solid var(--color-border-light);
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--color-near-black);
+  }
+
+  .notfound-links a:hover {
+    border-color: var(--color-electric-blue);
+    color: var(--color-electric-blue);
+  }
+
+  .notfound-links a:first-child {
+    background-color: var(--color-electric-blue);
+    border-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+  }
+
+  .notfound-links a:first-child:hover {
+    color: var(--color-pure-white);
+    opacity: 0.9;
+  }
+</style>

@@ -8,9 +8,9 @@ import CapabilityGrid from '../../components/interior/CapabilityGrid.astro';
 import FAQSection from '../../components/interior/FAQSection.astro';
 import GroupedFlow from '../../components/interior/GroupedFlow.astro';
 import CTABand from '../../components/interior/CTABand.astro';
-import { PRIMARY_CTA } from '../../lib/site';
+import { PRIMARY_CTA, SCHEDULING } from '../../lib/site';
 
-const primaryCta = { label: 'Schedule an Executive AI Consultation', href: '/contact/' };
+const primaryCta = { label: 'Book an Executive AI Advisory Session', href: SCHEDULING.executiveAdvisory.url };
 
 const engagementGroups = [
   { label: 'Start', steps: [{ text: 'AI Department Assessment', icon: 'clipboard-check' }] },
@@ -69,7 +69,7 @@ const faqs = [
       />
       <GroupedFlow groups={engagementGroups} tone="light" />
       <div class="mid-cta">
-        <a href={primaryCta.href} class="mid-cta-link">Schedule an Executive AI Consultation &rarr;</a>
+        <a href={primaryCta.href} class="mid-cta-link">Book an Executive AI Advisory Session &rarr;</a>
       </div>
     </Container>
   </Section>
@@ -94,7 +94,7 @@ const faqs = [
 
   <CTABand
     icon="compass"
-    heading="Schedule an Executive AI Consultation"
+    heading="Book an Executive AI Advisory Session"
     support="A confidential conversation about where AI fits into your business and your role as a leader."
     primaryCta={primaryCta}
     microcopy="Prefer to start broader? Take the free AI Department Assessment instead."
