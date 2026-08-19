@@ -1,0 +1,62 @@
+---
+// Site-wide attribution capture + Cal.com link enrichment.
+// Included once in BaseLayout, alongside AnalyticsEvents. Two
+// responsibilities:
+//   1. Capture/persist first-touch and latest-touch attribution from
+//      the current URL (src/lib/attribution.ts).
+//   2. Rewrite the four centralized Cal.com scheduling links
+//      (src/lib/scheduling.ts) so attribution travels with the click,
+//      without changing their destination event, without breaking the
+//      existing booking_click_* delegated-click tracking, and without
+//      ever appending an empty parameter.
+//
+// This is a real module <script> (not is:inline), so it can import
+// directly from the shared lib modules rather than duplicating logic.
+---
+
+<script>
+  import { SCHEDULING } from '../lib/scheduling';
+  import {
+    captureAttribution,
+    buildCalComForwardFields,
+    appendAttributionToUrl,
+  } from '../lib/attribution';
+
+  try {
+    captureAttribution();
+  } catch {
+    // captureAttribution() already catches internally; this is an extra
+    // safety net so a truly unexpected error here can never break the
+    // rest of the page.
+  }
+
+  try {
+    const forwardFields = buildCalComForwardFields();
+    const baseUrls = [
+      SCHEDULING.strategyCall.url,
+      SCHEDULING.enterpriseDiscussion.url,
+      SCHEDULING.trainingConsultation.url,
+      SCHEDULING.executiveAdvisory.url,
+    ];
+
+    if (Object.keys(forwardFields).length > 0) {
+      const links = document.querySelectorAll('a[href]');
+      links.forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        const matchedBase = baseUrls.find(
+          (base) => href === base || href.startsWith(base + '?') || href.startsWith(base + '#')
+        );
+        if (matchedBase) {
+          const enriched = appendAttributionToUrl(href, forwardFields);
+          if (enriched !== href) {
+            link.setAttribute('href', enriched);
+          }
+        }
+      });
+    }
+  } catch {
+    // Never let link enrichment break scheduling links themselves —
+    // worst case, they simply stay as their original, fully-functional
+    // bare Cal.com URL.
+  }
+</script>

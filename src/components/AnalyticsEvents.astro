@@ -27,13 +27,21 @@ import { SCHEDULING } from '../lib/scheduling';
     if (link) {
       const href = link.getAttribute('href') || '';
 
-      if (href === strategyUrl) {
+      // Matched via startsWith (not exact equality) because
+      // AttributionCapture.astro may have appended attribution query
+      // parameters onto these same links' href by the time a user
+      // actually clicks them. The boundary check (exact match, or
+      // followed by ? or #) prevents a coincidental prefix match
+      // against some unrelated, longer URL.
+      const isSchedulingMatch = (linkHref, base) => linkHref === base || linkHref.startsWith(base + '?') || linkHref.startsWith(base + '#');
+
+      if (isSchedulingMatch(href, strategyUrl)) {
         pushEvent('booking_click_strategy', { link_url: href });
-      } else if (href === enterpriseUrl) {
+      } else if (isSchedulingMatch(href, enterpriseUrl)) {
         pushEvent('booking_click_enterprise', { link_url: href });
-      } else if (href === trainingUrl) {
+      } else if (isSchedulingMatch(href, trainingUrl)) {
         pushEvent('booking_click_training', { link_url: href });
-      } else if (href === executiveUrl) {
+      } else if (isSchedulingMatch(href, executiveUrl)) {
         pushEvent('booking_click_executive_advisory', { link_url: href });
       }
 

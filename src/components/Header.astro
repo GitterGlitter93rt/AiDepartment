@@ -344,6 +344,16 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     gap: 24px;
     padding-block: 18px;
     min-height: 72px;
+    /* Explicit, unambiguous positioning context for the mega-menu panels
+       (see .nav-megamenu-panel below). Deliberately not relying on
+       .site-header's position:sticky to serve as the containing block —
+       sticky-as-containing-block has known historical inconsistencies in
+       some WebKit versions. A plain position:relative on this element
+       has zero cross-browser ambiguity, and since .header-inner is
+       itself centered on the viewport (via the Container component's
+       margin-inline:auto), centering the panel at 50% of this element's
+       width still lands at the same horizontal center as the viewport. */
+    position: relative;
   }
 
   .site-header.scrolled :global(.header-inner) {
@@ -403,7 +413,7 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     display: none;
   }
 
-  .desktop-nav ul {
+  .desktop-nav > ul {
     display: flex;
     align-items: center;
     gap: 28px;
@@ -505,9 +515,18 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     line-height: 1.4;
   }
 
-  /* ---- Mega-menu split trigger (Services / Industries) ---- */
-  .nav-megamenu-item {
-    position: relative;
+  /* ---- Mega-menu split trigger (Services / Industries) ----
+     Intentionally forced to position:static here. The mega-menu panel
+     is centered on .header-inner (explicit position:relative, itself
+     centered on the viewport), not on this narrow trigger element —
+     anchoring to the trigger caused the wide panel to clip off the left
+     edge of the viewport whenever the trigger sat left-of-center in the
+     nav. This selector needs to be at least as specific as
+     ".desktop-nav > ul > li" (which also sets position:relative on this
+     same element) to
+     actually take effect. */
+  .desktop-nav > ul > li.nav-megamenu-item {
+    position: static;
   }
 
   .nav-split-trigger {
@@ -571,7 +590,9 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
   .nav-megamenu-columns {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px 24px;
+    align-items: start;
+    justify-items: stretch;
+    gap: 20px 28px;
   }
 
   .nav-megamenu-cat-wide {
@@ -586,13 +607,16 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--color-signal-cyan);
+    text-align: left;
     margin-bottom: 10px;
   }
 
   .nav-megamenu-subcols {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 4px 20px;
+    align-items: start;
+    justify-items: stretch;
+    gap: 2px 14px;
   }
 
   .nav-megamenu-cat-wide .nav-megamenu-subcols {
@@ -602,11 +626,13 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
   .nav-megamenu-cat ul {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 2px;
   }
 
   .nav-megamenu-cat a {
     display: block;
+    text-align: left;
     padding: 7px 10px;
     border-radius: 8px;
     transition: background-color var(--transition-fast);
@@ -618,8 +644,10 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
   }
 
   .nav-megamenu-cat .dropdown-item-label {
+    display: block;
     font-size: 0.83rem;
     font-weight: 600;
+    line-height: 1.35;
   }
 
   .nav-megamenu-footer {
@@ -637,7 +665,7 @@ const MEGA_MENUS: Record<string, { categories: typeof SERVICES_MENU; id: string;
     color: var(--color-signal-cyan);
   }
 
-  @media (min-width: 1280px) {
+  @media (min-width: 1200px) {
     .nav-megamenu-columns {
       grid-template-columns: repeat(5, 1fr);
     }

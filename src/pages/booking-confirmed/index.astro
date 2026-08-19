@@ -1,0 +1,137 @@
+---
+// True successful-booking return page. Cal.com redirects a visitor here
+// after they complete a real booking (configured per event as that
+// event's "Redirect URL on booking" in the Cal.com dashboard — see
+// docs/cal-booking-webhook.md and the Sprint 12.5 manual setup report
+// for the exact four URLs to configure).
+//
+// IMPORTANT DISTINCTION:
+//   booking_confirmed (this page) is a BROWSER-SIDE signal — it means
+//   "a visitor's browser landed on our success page with what looks
+//   like a real booking UID." It is a strong signal, but it is not
+//   server-verified: a user could theoretically reach this URL by hand
+//   without ever actually booking. Real server-side confirmation would
+//   come only from a signature-verified Cal.com webhook
+//   (BOOKING_CREATED) — see docs/cal-booking-webhook.md, which this
+//   project does not yet have the backend infrastructure to run (see
+//   that doc for why, and what's required to add it).
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import Icon from '../../components/Icon.astro';
+---
+
+<BaseLayout
+  title="Booking Confirmed | Your AI Department"
+  description="Your appointment with Your AI Department is confirmed."
+  path="/booking-confirmed/"
+  noindex
+>
+  <Section tone="dark">
+    <Container>
+      <div class="bc-wrap">
+        <span class="bc-icon"><Icon name="check-circle-2" size={40} /></span>
+        <h1 class="bc-h1">You're All Set</h1>
+        <p class="bc-support">Your appointment has been booked. You'll receive a confirmation email from Cal.com with the date, time, and any details you need before the call.</p>
+        <p class="bc-secondary">If you need to reschedule or cancel, use the link in that confirmation email — it's the fastest way to make a change.</p>
+        <a href="/" class="bc-home-link">Return to the homepage &rarr;</a>
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>
+
+<script>
+  import {
+    getBookingUid,
+    getBookingType,
+    evaluateBookingConfirmedFiring,
+    buildBookingConfirmedEvent,
+  } from '../../lib/bookingConfirmation';
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const uid = getBookingUid(params);
+    const bookingType = getBookingType(params);
+
+    // Suppress duplicate firing for the same booking UID within this
+    // browser session (e.g. the visitor reloads the success page).
+    // sessionStorage is intentional here — a genuinely new booking in
+    // a new tab/session should still be able to fire again.
+    const dedupeKey = 'yai_booking_confirmed_seen';
+    let previouslySeen: string[] = [];
+    try {
+      const seenRaw = window.sessionStorage.getItem(dedupeKey);
+      const parsed = seenRaw ? JSON.parse(seenRaw) : [];
+      if (Array.isArray(parsed)) previouslySeen = parsed;
+    } catch {
+      // Storage unavailable — proceed with an empty "seen" list (fail
+      // open on firing, since this is a convenience signal, not the
+      // system of record).
+    }
+
+    const { shouldFire, updatedSeen } = evaluateBookingConfirmedFiring(uid, previouslySeen);
+
+    try {
+      window.sessionStorage.setItem(dedupeKey, JSON.stringify(updatedSeen));
+    } catch {
+      // Non-fatal if storage can't be written.
+    }
+
+    if (shouldFire) {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push(buildBookingConfirmedEvent(bookingType));
+    }
+  } catch {
+    // Never let this page's tracking logic break the confirmation
+    // experience itself.
+  }
+</script>
+
+<style>
+  .bc-wrap {
+    max-width: 560px;
+    margin-inline: auto;
+    text-align: center;
+    padding-block: 24px;
+  }
+
+  .bc-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background-color: rgba(16, 185, 129, 0.14);
+    color: var(--color-emerald);
+    margin-bottom: 24px;
+  }
+
+  .bc-h1 {
+    color: var(--color-pure-white);
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+
+  .bc-support {
+    color: var(--color-dark-muted-text);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+
+  .bc-secondary {
+    color: var(--color-dark-muted-text);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .bc-home-link {
+    display: inline-block;
+    color: var(--color-signal-cyan);
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+</style>

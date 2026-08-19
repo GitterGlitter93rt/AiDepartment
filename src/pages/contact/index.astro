@@ -168,6 +168,7 @@ const faqs = [
 </BaseLayout>
 
 <script>
+  import { buildLeadAttributionFields, generateLeadId } from '../../lib/attribution';
   const form = document.getElementById('contact-page-form') as HTMLFormElement | null;
   const errorBox = document.getElementById('cf-error');
   const successBox = document.getElementById('cf-success');
@@ -254,6 +255,15 @@ const faqs = [
 
     const payload: Record<string, string> = {};
     fd.forEach((value, key) => { payload[key] = String(value); });
+
+    // Non-PII acquisition context and a correlation ID, attached to the
+    // lead payload so the received email includes where this contact
+    // actually came from. None of this is derived from or contains the
+    // submitter's name/email/phone/message.
+    const leadId = generateLeadId();
+    payload.lead_id = leadId;
+    Object.assign(payload, buildLeadAttributionFields());
+
     const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
     if (submitBtn) submitBtn.disabled = true;
     const result = await submitContactForm(payload);
@@ -267,8 +277,11 @@ const faqs = [
 
     // Fires only here — after genuine delivery succeeded — so this event
     // represents a real, complete submission, never a failed one.
+    // lead_id is a non-PII correlation identifier (see
+    // src/lib/attribution.ts) — no name/email/phone/message is ever
+    // added to this or any other GA4 event.
     (window as any).dataLayer = (window as any).dataLayer || [];
-    (window as any).dataLayer.push({ event: 'contact_form_submit' });
+    (window as any).dataLayer.push({ event: 'contact_form_submit', lead_id: leadId });
 
     form.hidden = true;
     successBox?.removeAttribute('hidden');
