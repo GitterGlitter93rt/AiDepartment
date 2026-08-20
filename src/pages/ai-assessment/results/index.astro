@@ -47,10 +47,11 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
     const pub = result.public;
     const isEnterprise = result.flags.includes('ENTERPRISE_CANDIDATE');
 
-    // Fires only in this branch — a genuine, successfully-parsed result —
-    // never on the "no results found" empty state above.
-    (window as any).dataLayer = (window as any).dataLayer || [];
-    (window as any).dataLayer.push({ event: 'ai_assessment_complete' });
+    // ai_assessment_complete now fires in assessmentApp.ts, at the
+    // moment the result is actually calculated (right after the last
+    // question is answered and before lead submission is attempted) —
+    // not here on results-page load. Firing it in both places would
+    // double-fire the event for the same completion.
 
     const strongest = pub.strongestAreas
       .map((cat) => pub.categories.find((c) => c.category === cat))

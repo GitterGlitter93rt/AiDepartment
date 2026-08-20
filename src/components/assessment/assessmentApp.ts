@@ -5,13 +5,13 @@
 
 import { getVisibleQuestions, QUESTIONS } from '../../data/assessment/questions';
 import { SECTIONS, getSectionMeta } from '../../data/assessment/sections';
-import type { AnswerMap, QuestionDef } from '../../data/assessment/types';
+import type { AnswerMap, QuestionDef, FullAssessmentResult } from '../../data/assessment/types';
 import { runAssessment } from '../../lib/assessment/runAssessment';
 import { calculatePublicScoreShell } from '../../lib/assessment/calculatePublicScore';
 import { saveDraft, loadDraft, clearDraft, saveResult, saveContact, type ContactInfo } from '../../lib/assessment/persistence';
-import { submitAssessment } from '../../lib/assessment/submissionAdapter';
+import { submitAssessmentLead, buildLeadAnalyticsFields, validateContact } from '../../lib/assessment/leadSubmission';
 
-type ViewState = 'intro' | 'question' | 'contact' | 'submitting';
+type ViewState = 'intro' | 'question' | 'contact' | 'submitting' | 'submit-error';
 
 function escapeHtml(input: string): string {
   return input
@@ -28,6 +28,12 @@ export class AssessmentApp {
   private currentId: string;
   private state: ViewState = 'intro';
   private validationMessage: string | null = null;
+  // Preserved across a failed submission so retry doesn't require
+  // re-entering contact info or re-answering questions — the assessment
+  // is never lost on a network failure.
+  private pendingContact: ContactInfo | null = null;
+  private pendingResult: FullAssessmentResult | null = null;
+  private isSubmitting = false;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -162,6 +168,7 @@ export class AssessmentApp {
   };
 
   private handleContactSubmit = async (form: HTMLFormElement) => {
+    if (this.isSubmitting) return; // duplicate-submit protection
     const data = new FormData(form);
     const consent = data.get('consent');
     if (!consent) {
@@ -178,12 +185,14 @@ export class AssessmentApp {
       website: String(data.get('website') || '').trim() || undefined,
       marketingOptIn: Boolean(data.get('marketingOptIn')),
     };
-    if (!contact.firstName || !contact.email) {
-      this.validationMessage = 'First name and business email are required.';
+    const contactError = validateContact(contact);
+    if (contactError) {
+      this.validationMessage = contactError;
       this.render();
       return;
     }
 
+    this.isSubmitting = true;
     this.state = 'submitting';
     this.render();
 
@@ -200,7 +209,57 @@ export class AssessmentApp {
     };
     saveContact(contact);
     saveResult(JSON.stringify(publicSafeResult));
-    await submitAssessment({ contact, result });
+
+    // Fires here — the moment all questions are answered and the result
+    // has actually been calculated — independent of whether lead
+    // delivery below succeeds or fails. This matches the event's
+    // intended semantic ("assessment completed") rather than tying it
+    // to a later, separate concern (successful lead delivery, which is
+    // ai_assessment_lead_submit's job).
+    (window as any).dataLayer = (window as any).dataLayer || [];
+    (window as any).dataLayer.push({ event: 'ai_assessment_complete' });
+
+    this.pendingContact = contact;
+    this.pendingResult = result;
+    await this.attemptLeadSubmission();
+  };
+
+  /** Attempt (or retry) delivering the already-calculated assessment
+   * lead. Never re-collects contact info or re-runs the assessment —
+   * both are already stored on the instance from the original
+   * successful validation. Only reveals results after Web3Forms
+   * confirms genuine delivery; on failure, shows a retry state without
+   * losing anything already calculated. */
+  private attemptLeadSubmission = async () => {
+    if (!this.pendingContact || !this.pendingResult) return; // defensive; should be unreachable
+    this.isSubmitting = true;
+    this.state = 'submitting';
+    this.render();
+
+    const outcome = await submitAssessmentLead({
+      contact: this.pendingContact,
+      result: this.pendingResult,
+      answers: this.answers,
+      questions: QUESTIONS,
+    });
+
+    this.isSubmitting = false;
+
+    if (!outcome.delivered) {
+      this.state = 'submit-error';
+      this.render();
+      return;
+    }
+
+    // Fires only after genuine, confirmed Web3Forms delivery — never on
+    // a failed or merely-attempted submission. Non-PII only: a lead
+    // correlation ID, the assessment version, and a coarse score band —
+    // never contact fields, never the full result, never raw answers.
+    (window as any).dataLayer.push({
+      event: 'ai_assessment_lead_submit',
+      ...buildLeadAnalyticsFields(outcome.leadId, this.pendingResult),
+    });
+
     clearDraft();
     window.location.href = '/ai-assessment/results/';
   };
@@ -217,6 +276,7 @@ export class AssessmentApp {
     if (this.state === 'intro') return this.renderIntro();
     if (this.state === 'contact') return this.renderContact();
     if (this.state === 'submitting') return this.renderSubmitting();
+    if (this.state === 'submit-error') return this.renderSubmitError();
     return this.renderQuestion();
   }
 
@@ -252,8 +312,8 @@ export class AssessmentApp {
     const msg = this.validationMessage;
     this.root.innerHTML = `
       <div class="a-contact">
-        <span class="a-eyebrow">Almost done</span>
-        <h2>Enter your business information to receive your personalized AI Department Score and recommendations.</h2>
+        <span class="a-eyebrow">Your AI Department Score is Ready</span>
+        <h2>Enter your business information to view your overall score, category scores, biggest AI opportunities, and recommended next steps.</h2>
         ${msg ? `<p class="a-error" role="alert">${escapeHtml(msg)}</p>` : ''}
         <form id="a-contact-form" novalidate>
           <div class="a-field-row">
@@ -262,8 +322,8 @@ export class AssessmentApp {
           </div>
           <label class="a-field"><span>Business Email *</span><input type="email" name="email" required autocomplete="email" /></label>
           <div class="a-field-row">
+            <label class="a-field"><span>Company *</span><input type="text" name="company" required autocomplete="organization" /></label>
             <label class="a-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel" /></label>
-            <label class="a-field"><span>Company</span><input type="text" name="company" autocomplete="organization" /></label>
           </div>
           <label class="a-field"><span>Website</span><input type="url" name="website" placeholder="https://" /></label>
 
@@ -276,7 +336,7 @@ export class AssessmentApp {
             <span>I'd also like to receive AI growth insights, guides, and occasional updates.</span>
           </label>
 
-          <button type="submit" class="a-btn a-btn-primary a-btn-large">See My Results</button>
+          <button type="submit" class="a-btn a-btn-primary a-btn-large">Show My AI Department Score</button>
         </form>
       </div>
     `;
@@ -284,6 +344,23 @@ export class AssessmentApp {
     form?.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleContactSubmit(form);
+    });
+  }
+
+  private renderSubmitError() {
+    this.root.innerHTML = `
+      <div class="a-contact">
+        <span class="a-eyebrow">Your AI Department Score is Ready</span>
+        <h2>We couldn't deliver your results just now.</h2>
+        <p class="a-error" role="alert">Your completed assessment is saved — nothing has been lost. This is usually a temporary connection issue. Please try again, or email us directly at <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a> if this keeps happening.</p>
+        <button type="button" class="a-btn a-btn-primary a-btn-large" id="a-retry-btn">Try Again</button>
+      </div>
+    `;
+    const retryBtn = this.root.querySelector<HTMLButtonElement>('#a-retry-btn');
+    retryBtn?.addEventListener('click', () => {
+      if (retryBtn.disabled) return; // duplicate-submit protection during retry
+      retryBtn.disabled = true;
+      this.attemptLeadSubmission();
     });
   }
 
