@@ -342,6 +342,11 @@ export const QUESTIONS: QuestionDef[] = [
     required: true,
     options: ['No', 'Partially', 'Yes', 'Yes, integrated with CRM and follow-up'].map((label) => ({ label })),
     publicScores: [0, 1, 3, 4],
+    // Same contradiction class as Q44: "integrated with CRM" presupposes
+    // CRM ownership, which Q15 already ruled out. Hiding just this one
+    // option preserves the other 3 valid answers and leaves scoring
+    // untouched (publicScores still indexes against the full array).
+    hideOptionIf: (a, optionLabel) => optionLabel === 'Yes, integrated with CRM and follow-up' && a.Q15 === 'No',
   },
 
   // ---------------- SECTION 6 — OPERATIONS AND AUTOMATION ----------------
@@ -581,6 +586,16 @@ export const QUESTIONS: QuestionDef[] = [
     options: ['Manually', 'Whoever answers first', 'Spreadsheet', 'CRM assignment', 'Automated routing', 'AI-assisted qualification and routing', 'We do not have a consistent process'].map((label) => ({ label })),
     publicScores: [1, 1, 1, 3, 4, 4, 0],
     displayIf: (a) => section10DisplayCondition(a),
+    // "CRM assignment" presupposes CRM ownership. A respondent who
+    // already answered "No" to Q15 ("Does your business use a CRM to
+    // track leads and sales opportunities?") cannot also legitimately
+    // report that a CRM assigns their leads — that would be a direct
+    // self-contradiction within the same completed assessment. Hiding
+    // just this one option (not the whole question) preserves every
+    // other valid answer path and leaves scoring untouched, since
+    // publicScores/commercialEffects still index against the full,
+    // unfiltered options array above.
+    hideOptionIf: (a, optionLabel) => optionLabel === 'CRM assignment' && a.Q15 === 'No',
   },
   {
     id: 'Q45',

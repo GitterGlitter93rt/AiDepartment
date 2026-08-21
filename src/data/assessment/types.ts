@@ -105,6 +105,17 @@ export interface QuestionDef {
    * conditional items use this).
    */
   displayIf?: (answers: AnswerMap) => boolean;
+  /** Optional, render-only filter that hides a specific option from the
+   * choices shown to the respondent, based on a prior answer — used to
+   * prevent a respondent from selecting a self-contradictory answer
+   * (e.g. "CRM assignment" as a lead-routing mechanism after already
+   * stating no CRM is in use). This intentionally does NOT modify
+   * `options` itself: scoring (calculatePublicScore.ts,
+   * calculateCommercialScore.ts) resolves a selected answer by matching
+   * its label against the full, unfiltered `options` array, so hiding
+   * an option from display has zero effect on publicScores/
+   * commercialEffects index alignment. */
+  hideOptionIf?: (answers: AnswerMap, optionLabel: string) => boolean;
   /** Free-text max length (safety/consent — not a scoring mechanism). */
   maxLength?: number;
 }

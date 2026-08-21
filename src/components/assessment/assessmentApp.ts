@@ -10,6 +10,7 @@ import { runAssessment } from '../../lib/assessment/runAssessment';
 import { calculatePublicScoreShell } from '../../lib/assessment/calculatePublicScore';
 import { saveDraft, loadDraft, clearDraft, saveResult, saveContact, type ContactInfo } from '../../lib/assessment/persistence';
 import { submitAssessmentLead, buildLeadAnalyticsFields, validateContact } from '../../lib/assessment/leadSubmission';
+import { getVisibleOptions, isSelectedOptionStale } from '../../lib/assessment/optionVisibility';
 
 type ViewState = 'intro' | 'question' | 'contact' | 'submitting' | 'submit-error';
 
@@ -521,12 +522,19 @@ export class AssessmentApp {
     }
 
     // single select
-    const selected = typeof this.answers[q.id] === 'string' ? this.answers[q.id] : undefined;
+    const visibleOptions = getVisibleOptions(q, this.answers);
+    // If a previously-selected answer is no longer valid (the respondent
+    // went back and changed an earlier answer this option's
+    // availability depends on), clear it rather than silently letting a
+    // hidden, contradictory answer survive to submission.
+    if (isSelectedOptionStale(q, this.answers)) {
+      delete this.answers[q.id];
+    }
     return (
       `<div class="a-options" role="radiogroup">` +
-      (q.options ?? [])
+      visibleOptions
         .map((opt) => {
-          const isChecked = selected === opt.label;
+          const isChecked = this.answers[q.id] === opt.label;
           return `
             <label class="a-option${isChecked ? ' is-selected' : ''}">
               <input type="radio" name="a-single-${q.id}" value="${escapeHtml(opt.label)}" ${isChecked ? 'checked' : ''} data-single="${q.id}" />

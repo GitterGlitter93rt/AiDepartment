@@ -351,11 +351,21 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   }
 
   :global(.a-select-wrap select optgroup) {
-    color: var(--color-pure-white);
+    background-color: var(--color-pure-white);
+    color: var(--color-near-black);
     font-weight: 700;
   }
 
   :global(.a-select-wrap select option) {
+    /* The closed <select> is intentionally dark-themed (matches the
+       rest of the assessment), but its OPEN native dropdown popup is
+       a separate rendering surface in most browsers — without an
+       explicit background here, options can inherit the select's own
+       dark background while keeping this dark text color, making them
+       nearly unreadable. Setting an explicit light background
+       guarantees contrast with the dark text below, independent of
+       what the browser would otherwise default to. */
+    background-color: var(--color-pure-white);
     color: var(--color-near-black);
     font-weight: 400;
   }

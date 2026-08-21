@@ -137,13 +137,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
                 (r: any) => `
                 <div class="r-roi-card">
                   <h3>${escapeHtml(r.title)}</h3>
-                  <p class="r-roi-estimate">${escapeHtml(r.estimateLabel)}: <strong>${
-                    typeof r.estimateLow === 'number'
-                      ? r.unit === 'currency'
-                        ? `$${r.estimateLow.toLocaleString()}`
-                        : `${r.estimateLow.toLocaleString()} hours`
-                      : ''
-                  }</strong></p>
+                  <p class="r-roi-estimate">Estimated range: <strong>${escapeHtml(r.estimateLabel)}</strong></p>
                   <p>${escapeHtml(r.summary)}</p>
                   <p class="r-roi-note">Estimate only — not a guaranteed outcome.</p>
                 </div>
