@@ -1,14 +1,18 @@
 ---
 // Site-wide attribution capture + Cal.com link enrichment.
-// Included once in BaseLayout, alongside AnalyticsEvents. Two
+// Included once in BaseLayout, alongside AnalyticsEvents. Three
 // responsibilities:
 //   1. Capture/persist first-touch and latest-touch attribution from
 //      the current URL (src/lib/attribution.ts).
-//   2. Rewrite the four centralized Cal.com scheduling links
-//      (src/lib/scheduling.ts) so attribution travels with the click,
-//      without changing their destination event, without breaking the
-//      existing booking_click_* delegated-click tracking, and without
-//      ever appending an empty parameter.
+//   2. Capture/persist a sales-rep code from ?rep= / ?r=
+//      (src/lib/repAttribution.ts) so every lead and booking in the
+//      session is attributed to the rep who shared the link.
+//   3. Rewrite the four centralized Cal.com scheduling links
+//      (src/lib/scheduling.ts) so attribution — including the rep code
+//      — travels with the click, without changing their destination
+//      event, without breaking the existing booking_click_*
+//      delegated-click tracking, and without ever appending an empty
+//      parameter.
 //
 // This is a real module <script> (not is:inline), so it can import
 // directly from the shared lib modules rather than duplicating logic.
@@ -21,6 +25,7 @@
     buildCalComForwardFields,
     appendAttributionToUrl,
   } from '../lib/attribution';
+  import { captureRepAttribution, buildCalComRepField } from '../lib/repAttribution';
 
   try {
     captureAttribution();
@@ -31,7 +36,19 @@
   }
 
   try {
-    const forwardFields = buildCalComForwardFields();
+    captureRepAttribution();
+  } catch {
+    // Same defensive pattern — rep attribution must never break a page.
+  }
+
+  try {
+    // Marketing attribution fields + the rep code (when one was
+    // captured) both travel to Cal.com. Empty fields are never
+    // appended by buildCalComForwardFields/buildCalComRepField.
+    const forwardFields = {
+      ...buildCalComForwardFields(),
+      ...buildCalComRepField(),
+    };
     const baseUrls = [
       SCHEDULING.strategyCall.url,
       SCHEDULING.enterpriseDiscussion.url,

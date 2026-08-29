@@ -11,6 +11,7 @@ import { calculatePublicScoreShell } from '../../lib/assessment/calculatePublicS
 import { saveDraft, loadDraft, clearDraft, saveResult, saveContact, type ContactInfo } from '../../lib/assessment/persistence';
 import { submitAssessmentLead, buildLeadAnalyticsFields, validateContact } from '../../lib/assessment/leadSubmission';
 import { getVisibleOptions, isSelectedOptionStale } from '../../lib/assessment/optionVisibility';
+import { ASSESSMENT_EVENTS, ASSESSMENT_TYPE, buildAssessmentCompleteParams } from '../../lib/assessment/ga4Events';
 
 type ViewState = 'intro' | 'question' | 'contact' | 'submitting' | 'submit-error';
 
@@ -218,7 +219,10 @@ export class AssessmentApp {
     // to a later, separate concern (successful lead delivery, which is
     // ai_assessment_lead_submit's job).
     (window as any).dataLayer = (window as any).dataLayer || [];
-    (window as any).dataLayer.push({ event: 'ai_assessment_complete' });
+    (window as any).dataLayer.push({
+      event: ASSESSMENT_EVENTS.complete,
+      ...buildAssessmentCompleteParams(ASSESSMENT_TYPE.comprehensive),
+    });
 
     this.pendingContact = contact;
     this.pendingResult = result;

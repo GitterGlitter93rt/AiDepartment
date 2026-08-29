@@ -129,7 +129,10 @@ export const FOOTER_INDUSTRIES: DropdownItem[] = INDUSTRIES.filter((i) => i.show
 
 export const PRIMARY_CTA = {
   label: 'Get Your AI Department Score',
-  href: '/ai-assessment/',
+  // The short free funnel's canonical public route. (/ai-assessment/
+  // is a legacy compatibility choice page; /ai-assessment/full/ is the
+  // underlying 64-question engine.)
+  href: '/free-ai-assessment/',
 };
 
 // Centralized "Schedule a Strategy Call" destination — now the approved

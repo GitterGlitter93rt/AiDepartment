@@ -1,0 +1,298 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AssessmentStyles from '../../components/assessment/AssessmentStyles.astro';
+---
+
+<BaseLayout
+  title="Free AI Opportunity Assessment — Get Your AI Department Score | Your AI Department"
+  description="Take the free AI Opportunity Assessment in about 3-4 minutes. Answer 15 questions and get your AI Department Score, category breakdown, and biggest AI, automation, and growth opportunities."
+  path="/free-ai-assessment/"
+>
+  {/*
+    THE canonical, indexable public route for the short free assessment
+    (assessment_quick_v1). /ai-assessment/ is a legacy compatibility
+    choice page that links here; /ai-assessment/full/ is the underlying
+    comprehensive 64-question engine.
+  */}
+  <section class="assessment-page">
+    <div id="assessment-root" class="a-shell-mount">
+      {/*
+        Server-rendered initial state, matching exactly what
+        quickAssessmentApp.ts's renderIntro() produces for the 'intro'
+        state (the app's default starting state on every load). This
+        ensures a real, visible H1 exists in the server-rendered HTML
+        for crawlers and non-JS clients, and removes the blank-page
+        flash before JS mounts. mountQuickAssessmentApp() overwrites
+        this innerHTML with functionally identical markup the instant
+        it initializes, so this is purely a progressive-enhancement
+        starting point.
+      */}
+      <div class="a-intro">
+        <span class="a-eyebrow">Free AI Opportunity Assessment</span>
+        <h1>Get Your AI Department Score.</h1>
+        <p class="a-intro-copy">
+          Answer 15 quick questions — about 3-4 minutes — and get your AI Department Score,
+          your category breakdown, and your biggest AI opportunities.
+        </p>
+        <ul class="a-intro-facts">
+          <li>Free — no cost to complete</li>
+          <li>About 3-4 minutes — 15 questions</li>
+          <li>Deterministic scoring — not a generic quiz</li>
+        </ul>
+        <button type="button" class="a-btn a-btn-primary a-btn-large" id="a-quick-start-btn">Get My Score</button>
+        <p class="a-intro-legal">
+          By starting, you agree to our <a href="/privacy/">Privacy Policy</a> and
+          <a href="/terms/">Terms of Use</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<AssessmentStyles />
+
+<script>
+  import { mountQuickAssessmentApp } from '../../components/assessment/quickAssessmentApp';
+
+  const root = document.getElementById('assessment-root');
+  if (root) {
+    mountQuickAssessmentApp(root);
+  }
+</script>
+
+<style>
+  /* Quick-assessment-specific styles. The shared a-* component styles
+     live in AssessmentStyles.astro; this block only adds what the free
+     assessment flow's intro and inline results view need. */
+
+  /* ---------------- Quick inline results ---------------- */
+  :global(.q-results) {
+    max-width: 760px;
+    margin-inline: auto;
+    color: var(--color-pure-white);
+  }
+
+  :global(.q-no-signals) {
+    color: var(--color-dark-muted-text);
+    font-size: 0.92rem;
+    margin-bottom: 24px;
+  }
+
+  :global(.q-results .r-score-panel) {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  :global(.q-results .r-score-ring) {
+    flex-shrink: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  :global(.q-results .r-score-number) {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--color-signal-cyan);
+  }
+
+  :global(.q-results .r-score-max) {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+  }
+
+  :global(.q-results .r-stage) {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+  }
+
+  :global(.q-results .r-stage-note) {
+    font-size: 0.85rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.5;
+  }
+
+  :global(.q-results .r-categories) {
+    margin-bottom: 28px;
+  }
+
+  :global(.q-results .r-categories h2),
+  :global(.q-results .r-recommendations h2) {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  :global(.q-results .r-categories ul) {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    list-style: none;
+    padding: 0;
+  }
+
+  :global(.q-results .r-cat-row) {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  :global(.q-results .r-cat-track) {
+    height: 8px;
+    background-color: rgba(148, 163, 184, 0.2);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+
+  :global(.q-results .r-cat-fill) {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-pill);
+  }
+
+  :global(.q-results .r-recommendations) {
+    margin-bottom: 28px;
+  }
+
+  :global(.q-results .r-rec-card) {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-card);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  :global(.q-results .r-rec-card h3) {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  :global(.q-results .r-rec-card p) {
+    font-size: 0.88rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  :global(.q-results .r-rec-action) {
+    color: var(--color-pure-white) !important;
+  }
+
+  :global(.q-results .r-rec-service a) {
+    color: var(--color-signal-cyan);
+    text-decoration: underline;
+    font-size: 0.85rem;
+  }
+
+  :global(.q-upgrade) {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  :global(.q-upgrade-card) {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-card);
+    padding: 20px;
+  }
+
+  :global(.q-upgrade-card h2) {
+    font-size: 1.05rem;
+    margin-block: 6px 8px;
+  }
+
+  :global(.q-upgrade-card p) {
+    font-size: 0.85rem;
+    color: var(--color-dark-muted-text);
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+
+  :global(.q-upgrade-tag) {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-signal-cyan);
+  }
+
+  :global(.q-upgrade-card .r-btn-primary) {
+    background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+  }
+
+  :global(.q-results .r-cta) {
+    background-color: var(--color-electric-blue);
+    border-radius: var(--radius-panel);
+    padding: 28px 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  :global(.q-results .r-cta h2) {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+
+  :global(.q-results .r-cta p) {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+  }
+
+  :global(.q-results .r-btn) {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 13px 26px;
+    border-radius: var(--radius-button);
+    text-decoration: none;
+  }
+
+  :global(.q-results .r-cta .r-btn-primary) {
+    background-color: var(--color-pure-white);
+    color: var(--color-electric-blue);
+  }
+
+  :global(.q-results .r-disclaimer) {
+    font-size: 0.75rem;
+    color: var(--color-slate-gray);
+    text-align: center;
+  }
+
+  @media (min-width: 768px) {
+    /* Single upgrade card (the $495 audit) — keep it one full-width
+       column on desktop rather than an orphan half-width card. */
+    :global(.q-upgrade) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 767px) {
+    :global(.q-results .r-score-panel) {
+      padding: 18px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    :global(.q-results .r-score-number) {
+      font-size: 2.4rem;
+    }
+  }
+</style>

@@ -6,7 +6,21 @@
 // only that the user clicked toward one (per docs/00-company/launch-decisions.md
 // Sprint 9 GA4 event architecture: click events, not fabricated completion
 // events).
+//
+// Assessment start tracking uses the SHARED event family
+// (ai_assessment_start) for both funnels, distinguished by non-PII
+// parameters from src/lib/assessment/ga4Events.ts:
+//   - Free Opportunity Assessment (#a-quick-start-btn on
+//     /free-ai-assessment/) -> assessment_type "free_opportunity",
+//     assessment_version "short_v1"
+//   - Comprehensive 64-question engine (#a-start-btn on
+//     /ai-assessment/full/) -> assessment_type "comprehensive_audit"
 import { SCHEDULING } from '../lib/scheduling';
+import {
+  ASSESSMENT_EVENTS,
+  ASSESSMENT_TYPE,
+  buildAssessmentStartParams,
+} from '../lib/assessment/ga4Events';
 ---
 
 <script is:inline define:vars={{
@@ -14,6 +28,9 @@ import { SCHEDULING } from '../lib/scheduling';
   enterpriseUrl: SCHEDULING.enterpriseDiscussion.url,
   trainingUrl: SCHEDULING.trainingConsultation.url,
   executiveUrl: SCHEDULING.executiveAdvisory.url,
+  assessmentStartEventName: ASSESSMENT_EVENTS.start,
+  freeStartParams: buildAssessmentStartParams(ASSESSMENT_TYPE.free),
+  comprehensiveStartParams: buildAssessmentStartParams(ASSESSMENT_TYPE.comprehensive),
 }}>
   window.dataLayer = window.dataLayer || [];
   let assessmentStartFired = false;
@@ -52,15 +69,21 @@ import { SCHEDULING } from '../lib/scheduling';
       }
     }
 
-    // AI Department Assessment start — the button is created dynamically
-    // by assessmentApp.ts's own innerHTML render, not present in the
-    // static HTML at page load, so this must be delegated (checked at
-    // click time) rather than looked up once via getElementById, which
-    // would race against that dynamic render and silently never attach.
-    const startBtn = e.target instanceof Element ? e.target.closest('#a-start-btn') : null;
+    // Assessment start — both start buttons (#a-start-btn for the
+    // comprehensive engine, #a-quick-start-btn for the free short
+    // assessment) are created dynamically by their apps' innerHTML
+    // render (and server-rendered on their pages), so this must be
+    // delegated (checked at click time) rather than looked up once via
+    // getElementById, which would race against that dynamic render and
+    // silently never attach. ONE event family: the funnel parameters
+    // distinguish the two — never separate event names.
+    const startBtn = e.target instanceof Element
+      ? e.target.closest('#a-start-btn, #a-quick-start-btn')
+      : null;
     if (startBtn && !assessmentStartFired) {
       assessmentStartFired = true;
-      pushEvent('ai_assessment_start');
+      const params = startBtn.id === 'a-quick-start-btn' ? freeStartParams : comprehensiveStartParams;
+      pushEvent(assessmentStartEventName, params);
     }
   });
 </script>

@@ -1,0 +1,71 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AssessmentStyles from '../../../components/assessment/AssessmentStyles.astro';
+---
+
+<BaseLayout
+  title="Full AI Department Assessment — 64-Question Business Diagnostic | Your AI Department"
+  description="Take the complete free AI Department Assessment: a 64-question diagnostic across leadership, marketing, sales, customer service, operations, employees, and technology."
+  path="/ai-assessment/full/"
+  noindex
+>
+  {/*
+    noindex: /ai-assessment/ is the canonical, indexable assessment
+    page. This deeper variant exists for prospects who want the full
+    64-question diagnostic after the quick score; keeping it out of the
+    index avoids duplicate-content competition with the canonical page.
+
+    INTERNAL-ACCESS NOTE: this route is the UNDERLYING comprehensive
+    engine — it is not a public free alternative to the $495
+    Comprehensive AI Business Audit. Do not link normal public CTAs
+    here, do not add it to the sitemap, and do not grant paid-customer
+    access automatically — payment/authorization must be implemented
+    first (see src/lib/auditRequest.ts).
+  */}
+  <section class="assessment-page">
+    <div id="assessment-root" class="a-shell-mount">
+      {/*
+        Server-rendered initial state, matching exactly what
+        assessmentApp.ts's renderIntro() produces for the 'intro' state
+        (the app's default starting state on every load). Same
+        progressive-enhancement pattern as /ai-assessment/ — the mounted
+        app overwrites this innerHTML with functionally identical markup
+        the instant it initializes.
+
+        This page is the home of the unchanged 64-question engine
+        (assessment_v1). Its engine, scoring, branching, results flow
+        (/ai-assessment/results/), and storage keys are all preserved
+        exactly as they were when this flow lived at /ai-assessment/.
+      */}
+      <div class="a-intro">
+        <span class="a-eyebrow">AI Department Assessment</span>
+        <h1>Find Out Where AI Can Actually Improve Your Business.</h1>
+        <p class="a-intro-copy">
+          In approximately 7-12 minutes, this assessment evaluates key areas of your business
+          and produces your AI Department Score with personalized opportunity recommendations.
+        </p>
+        <ul class="a-intro-facts">
+          <li>Free — no cost to complete</li>
+          <li>7-12 minutes for most companies</li>
+          <li>Deterministic scoring — not a generic quiz</li>
+        </ul>
+        <button type="button" class="a-btn a-btn-primary a-btn-large" id="a-start-btn">Start Assessment</button>
+        <p class="a-intro-legal">
+          By starting, you agree to our <a href="/privacy/">Privacy Policy</a> and
+          <a href="/terms/">Terms of Use</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<AssessmentStyles />
+
+<script>
+  import { mountAssessmentApp } from '../../../components/assessment/assessmentApp';
+
+  const root = document.getElementById('assessment-root');
+  if (root) {
+    mountAssessmentApp(root);
+  }
+</script>

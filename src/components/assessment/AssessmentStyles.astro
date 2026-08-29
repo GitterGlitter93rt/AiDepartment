@@ -1,0 +1,647 @@
+---
+// Shared assessment UI styles (the `a-*` design system).
+// Verbatim move of the style block that previously lived in
+// src/pages/ai-assessment/index.astro, so BOTH assessment pages —
+// /free-ai-assessment/ (the short free assessment) and
+// /ai-assessment/full/ (the preserved 64-question engine) — emit
+// identical component styling without duplicating ~600 lines of CSS in
+// two page files.
+// All rules are :global() because the rendering classes are produced by
+// client-side TypeScript (assessmentApp.ts / quickAssessmentApp.ts), not
+// by this component's own template.
+---
+
+<style is:global>
+  /* Active-assessment focus mode: hide the full marketing footer so the
+     question flow feels like a focused application rather than a page with
+     a long footer underneath it. Toggled by the assessment apps; only ever
+     applied while an assessment page's script is running, so it cannot
+     affect the homepage or any other route. */
+  body.assessment-active footer.site-footer {
+    display: none;
+  }
+
+  .assessment-page {
+    background-color: var(--color-midnight-navy);
+    min-height: 70vh;
+    padding-block: 24px 56px;
+  }
+
+  .a-shell-mount {
+    max-width: 1360px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+
+  /* ---------------- Intro ---------------- */
+  .a-intro {
+    max-width: 640px;
+    margin-inline: auto;
+    text-align: center;
+    color: var(--color-pure-white);
+    padding-block: 48px;
+  }
+
+  .a-intro h1 {
+    font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+    line-height: 1.15;
+    font-weight: 800;
+    margin-block: 16px 16px;
+  }
+
+  .a-intro-copy {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .a-intro-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    list-style: none;
+    padding: 0;
+    margin-bottom: 32px;
+    color: var(--color-dark-muted-text);
+    font-size: 0.9rem;
+  }
+
+  .a-intro-legal {
+    margin-top: 16px;
+    font-size: 0.8rem;
+    color: var(--color-slate-gray);
+  }
+
+  .a-intro-legal a {
+    color: var(--color-signal-cyan);
+    text-decoration: underline;
+  }
+
+  /* ---------------- Shared controls ---------------- */
+  .a-eyebrow {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-signal-cyan);
+  }
+
+  .a-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 12px 22px;
+    border-radius: var(--radius-button);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  }
+
+  .a-btn-large { padding: 14px 28px; font-size: 0.95rem; }
+
+  .a-btn-primary { background-color: var(--color-electric-blue); color: var(--color-pure-white); }
+  .a-btn-primary:hover { background-color: var(--color-electric-blue-hover); }
+  .a-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .a-btn-secondary { background-color: transparent; border-color: var(--color-border-dark); color: var(--color-pure-white); }
+  .a-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .a-error {
+    color: #fca5a5;
+    background-color: rgba(220, 38, 38, 0.12);
+    border: 1px solid rgba(220, 38, 38, 0.35);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+  }
+
+  /* ---------------- Question shell layout ---------------- */
+  .a-shell {
+    color: var(--color-pure-white);
+  }
+
+  .a-topbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+
+  .a-topbar-sub {
+    font-size: 0.78rem;
+    color: var(--color-dark-muted-text);
+    margin-top: 4px;
+  }
+
+  .a-topbar-progress {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    color: var(--color-dark-muted-text);
+  }
+
+  .a-progress-track {
+    flex: 1;
+    height: 6px;
+    background-color: rgba(148, 163, 184, 0.2);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+
+  .a-progress-hint {
+    font-size: 0.68rem;
+    color: var(--color-slate-gray);
+    flex-basis: 100%;
+  }
+
+  .a-progress-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-pill);
+    transition: width var(--transition-base);
+  }
+
+  .a-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .a-sidebar {
+    display: none;
+  }
+
+  .a-question-card {
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 24px 22px;
+  }
+
+  .a-question-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    font-size: 0.75rem;
+  }
+
+  .a-section-tag {
+    color: var(--color-signal-cyan);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .a-question-count {
+    color: var(--color-slate-gray);
+  }
+
+  .a-question-prompt {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+
+  .a-question-help {
+    color: var(--color-dark-muted-text);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+
+  .a-answer-area {
+    margin-top: 16px;
+  }
+
+  .a-max-note {
+    font-size: 0.78rem;
+    color: var(--color-slate-gray);
+    margin-bottom: 10px;
+  }
+
+  .a-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .a-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border: 1px solid var(--color-border-dark);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  }
+
+  .a-option:hover {
+    border-color: rgba(37, 99, 235, 0.5);
+  }
+
+  .a-option:focus-within {
+    outline: 2px solid var(--color-signal-cyan);
+    outline-offset: 2px;
+  }
+
+  .a-option.is-selected {
+    border-color: var(--color-electric-blue);
+    background-color: rgba(37, 99, 235, 0.12);
+  }
+
+  .a-option input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-electric-blue);
+    flex-shrink: 0;
+  }
+
+  .a-option-label {
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+
+  .a-select-wrap {
+    display: flex;
+  }
+
+  .a-select-wrap select {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--color-pure-white);
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 44px;
+  }
+
+  .a-select-wrap select:hover {
+    border-color: rgba(37, 99, 235, 0.5);
+  }
+
+  .a-select-wrap select:focus-visible {
+    outline: 2px solid var(--color-signal-cyan);
+    outline-offset: 2px;
+  }
+
+  .a-select-wrap select optgroup {
+    background-color: var(--color-pure-white);
+    color: var(--color-near-black);
+    font-weight: 700;
+  }
+
+  .a-select-wrap select option {
+    /* The closed <select> is intentionally dark-themed (matches the
+       rest of the assessment), but its OPEN native dropdown popup is
+       a separate rendering surface in most browsers — without an
+       explicit background here, options can inherit the select's own
+       dark background while keeping this dark text color, making them
+       nearly unreadable. Setting an explicit light background
+       guarantees contrast with the dark text below, independent of
+       what the browser would otherwise default to. */
+    background-color: var(--color-pure-white);
+    color: var(--color-near-black);
+    font-weight: 400;
+  }
+
+  .a-answer-area textarea {
+    width: 100%;
+    background-color: var(--color-midnight-navy);
+    border: 1px solid var(--color-border-dark);
+    border-radius: 10px;
+    color: var(--color-pure-white);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    padding: 12px 14px;
+    resize: vertical;
+  }
+
+  .a-nav-controls {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .a-scorebar {
+    display: none;
+  }
+
+  /* ---------------- Section nav (desktop) ---------------- */
+  .a-section-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--color-border-dark);
+    color: var(--color-pure-white);
+    padding: 12px 14px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .a-section-nav-item.is-active {
+    background-color: rgba(37, 99, 235, 0.14);
+    border-left: 3px solid var(--color-electric-blue);
+  }
+
+  .a-section-nav-label {
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .a-section-nav-sub {
+    font-size: 0.72rem;
+    color: var(--color-dark-muted-text);
+  }
+
+  .a-section-nav-count {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-size: 0.72rem;
+    color: var(--color-slate-gray);
+  }
+
+  /* ---------------- Score preview ---------------- */
+  .a-scorebar h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-dark-muted-text);
+    margin-bottom: 16px;
+  }
+
+  .a-score-ring-wrap {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .a-score-number {
+    font-family: var(--font-heading);
+    font-size: 2.4rem;
+    font-weight: 800;
+  }
+
+  .a-score-stage {
+    font-size: 0.8rem;
+    color: var(--color-signal-cyan);
+    font-weight: 700;
+  }
+
+  .a-score-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 0.78rem;
+  }
+
+  .a-score-categories li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .a-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-signal-cyan);
+    flex-shrink: 0;
+  }
+
+  .a-cat-label {
+    flex: 1;
+    color: var(--color-dark-muted-text);
+  }
+
+  .a-cat-val {
+    font-weight: 700;
+  }
+
+  .a-scorebar-note {
+    font-size: 0.78rem;
+    color: var(--color-slate-gray);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .a-trust-note {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--color-dark-muted-text);
+    border-top: 1px solid var(--color-border-dark);
+    padding-top: 12px;
+  }
+
+  /* ---------------- Contact capture ---------------- */
+  .a-contact {
+    max-width: 560px;
+    margin-inline: auto;
+    background-color: var(--color-deep-slate);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    padding: 28px 24px;
+    color: var(--color-pure-white);
+  }
+
+  .a-contact h2 {
+    font-size: 1.3rem;
+    line-height: 1.4;
+    margin-block: 10px 20px;
+  }
+
+  .a-field-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .a-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    font-size: 0.82rem;
+    color: var(--color-dark-muted-text);
+  }
+
+  .a-field input {
+    background-color: var(--color-midnight-navy);
+    border: 1px solid var(--color-border-dark);
+    border-radius: 8px;
+    color: var(--color-pure-white);
+    padding: 10px 12px;
+    font-size: 0.92rem;
+  }
+
+  .a-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: var(--color-dark-muted-text);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  .a-checkbox input {
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: var(--color-electric-blue);
+  }
+
+  .a-checkbox a {
+    color: var(--color-signal-cyan);
+  }
+
+  /* ---------------- Submitting ---------------- */
+  .a-submitting {
+    text-align: center;
+    color: var(--color-pure-white);
+    padding-block: 64px;
+  }
+
+  .a-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--color-border-dark);
+    border-top-color: var(--color-signal-cyan);
+    border-radius: 50%;
+    margin-inline: auto;
+    margin-bottom: 16px;
+    animation: a-spin 0.8s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .a-spinner { animation: none; }
+    .a-progress-fill { transition: none; }
+  }
+
+  @keyframes a-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ---------------- Mobile-only density tightening ---------------- */
+  @media (max-width: 767px) {
+    .a-topbar {
+      padding: 14px 16px;
+      gap: 10px;
+    }
+
+    .a-topbar-sub {
+      font-size: 0.72rem;
+    }
+
+    .a-question-card {
+      padding: 16px 14px;
+    }
+
+    .a-question-meta {
+      margin-bottom: 10px;
+    }
+
+    .a-question-prompt {
+      font-size: 1.05rem;
+      line-height: 1.3;
+      margin-bottom: 6px;
+    }
+
+    .a-question-help {
+      margin-bottom: 10px;
+    }
+
+    .a-answer-area {
+      margin-top: 10px;
+    }
+
+    .a-options {
+      gap: 8px;
+    }
+
+    .a-option {
+      padding: 13px 14px;
+      border-radius: 9px;
+    }
+
+    .a-option-label {
+      font-size: 0.88rem;
+    }
+
+    .a-nav-controls {
+      margin-top: 12px;
+    }
+  }
+
+  /* ---------------- Desktop three-column layout ---------------- */
+  @media (min-width: 1024px) {
+    .a-body {
+      grid-template-columns: 260px 1fr 280px;
+      align-items: start;
+    }
+
+    .a-sidebar {
+      display: block;
+      background-color: var(--color-deep-slate);
+      border: 1px solid var(--color-border-dark);
+      border-radius: var(--radius-panel);
+      overflow: hidden;
+      position: sticky;
+      top: 16px;
+    }
+
+    .a-scorebar {
+      display: block;
+      background-color: var(--color-deep-slate);
+      border: 1px solid var(--color-border-dark);
+      border-radius: var(--radius-panel);
+      padding: 20px;
+      position: sticky;
+      top: 16px;
+    }
+
+    .a-topbar {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .a-topbar-progress {
+      min-width: 260px;
+    }
+  }
+</style>

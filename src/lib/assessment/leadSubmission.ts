@@ -10,6 +10,11 @@
 import type { ContactInfo } from './persistence';
 import type { FullAssessmentResult, AnswerMap, QuestionDef } from '../../data/assessment/types';
 import { buildLeadAttributionFields, generateLeadId } from '../attribution.ts';
+import { buildRepLeadFields } from '../repAttribution.ts';
+import {
+  ASSESSMENT_TYPE,
+  buildAssessmentLeadSubmitParams,
+} from './ga4Events.ts';
 
 // Same Web3Forms account already configured and verified working for
 // the Contact page. Not a secret in the security sense — Web3Forms
@@ -68,27 +73,25 @@ export interface LeadSubmissionInput {
   questions: QuestionDef[];
 }
 
-/** Non-PII fields to attach to the ai_assessment_lead_submit GA4 event.
- * Deliberately excludes the full result, answers, and any contact
- * field — only a lead correlation ID and a few coarse, non-sensitive
- * signals. */
-export interface LeadAnalyticsFields {
-  lead_id: string;
-  assessment_version: string;
-  score_band: string;
-}
-
-function scoreBand(overallScore: number): string {
-  if (overallScore >= 80) return 'high';
-  if (overallScore >= 50) return 'medium';
-  return 'low';
-}
-
-export function buildLeadAnalyticsFields(leadId: string, result: FullAssessmentResult): LeadAnalyticsFields {
+/** Non-PII fields to attach to the comprehensive funnel's
+ * ai_assessment_lead_submit GA4 event. Uses the shared GA4 module so
+ * the funnel parameter (assessment_type "comprehensive_audit") has one
+ * source of truth; the version stays the engine's real internal
+ * version. Deliberately excludes the full result, answers, and any
+ * contact field — only a lead correlation ID and a few coarse,
+ * non-sensitive signals. */
+export function buildLeadAnalyticsFields(
+  leadId: string,
+  result: FullAssessmentResult
+): { lead_id: string; assessment_version: string; assessment_type: string; score_band: string } {
+  const shared = buildAssessmentLeadSubmitParams(ASSESSMENT_TYPE.comprehensive, leadId, result.public.overallScore);
   return {
     lead_id: leadId,
     assessment_version: String(result.assessmentVersion),
-    score_band: scoreBand(result.public.overallScore),
+    // Shared module contributes assessment_type + score_band; the
+    // version above remains the engine's own (assessment_v1).
+    assessment_type: shared.assessment_type,
+    score_band: shared.score_band,
   };
 }
 
@@ -131,8 +134,9 @@ function buildLeadSummary(input: {
   answers: AnswerMap;
   leadId: string;
   attribution: Record<string, string>;
+  repCode: string | null;
 }): string {
-  const { contact, result, answers, leadId, attribution } = input;
+  const { contact, result, answers, leadId, attribution, repCode } = input;
   const pub = result.public;
   const top3 = pub.recommendations
     .slice(0, 3)
@@ -162,6 +166,7 @@ function buildLeadSummary(input: {
     top3 || '  None generated',
     ``,
     `Lead ID: ${leadId}`,
+    repCode ? `Sales Rep: ${repCode}` : `Sales Rep: none captured`,
     `Attribution: ${buildAttributionSummary(attribution)}`,
   ];
   return lines.join('\n');
@@ -196,6 +201,11 @@ export async function submitAssessmentLead(input: LeadSubmissionInput): Promise<
     .join('\n');
 
   const attributionFields = buildLeadAttributionFields();
+  // Rep attribution (?rep=code) — additive field(s); omitted entirely
+  // when no code was captured, so organic/direct leads keep the exact
+  // payload shape they have always had.
+  const repFields = buildRepLeadFields();
+  const repCode = repFields.rep_code ?? null;
 
   const payload: Record<string, string> = {
     access_key: WEB3FORMS_ACCESS_KEY,
@@ -209,7 +219,7 @@ export async function submitAssessmentLead(input: LeadSubmissionInput): Promise<
     // scores, recommendations, ROI, full answers, individual
     // attribution fields) still follows below — nothing is removed,
     // only reordered and given a scannable summary up front.
-    lead_summary: buildLeadSummary({ contact, result, answers, leadId, attribution: attributionFields }),
+    lead_summary: buildLeadSummary({ contact, result, answers, leadId, attribution: attributionFields, repCode }),
 
     // CONTACT (individual fields retained for any automated processing)
     first_name: contact.firstName,
@@ -249,7 +259,8 @@ export async function submitAssessmentLead(input: LeadSubmissionInput): Promise<
   // by the Contact form and Cal.com link enrichment (src/lib/attribution.ts).
   // Individual fields retained here for automated processing; the
   // readable one-line version already appears in lead_summary above.
-  Object.assign(payload, attributionFields);
+  // Rep attribution fields join the same way (omitted when none).
+  Object.assign(payload, attributionFields, repFields);
 
   try {
     const response = await fetch(WEB3FORMS_ENDPOINT, {
