@@ -22,26 +22,21 @@ Do not scale paid Meta traffic until:
 
 Creative production can proceed before those gates, but campaign optimization decisions should not rely on incomplete measurement.
 
-## Facebook Page identity — Concept 01
+## Facebook Page identity — recovered #2 directions
 
-Status: Draft awaiting Michael's approval.
+Status: Prior Your AI Department assets from the 2026-08-29 working session were recovered from ChatGPT Library. The newly generated Concept 01 was rejected by Michael on 2026-08-30 and must not be used as the active direction.
 
-Files:
+Recovered social candidates include:
 
-- assets/social/facebook-profile-concept-01.png
-- assets/social/facebook-cover-concept-01.png
-- assets/social/README.md
+- image-gen-1(20260829-171915).png — square YAD logo/profile concept
+- image-gen-2(6).png — matching wide YAD banner
+- Your AI Department Facebook Brand Kit.png — YAI profile plus results-focused banner guide
+- Your AI Department Brand Kit Guide.png — YAI profile plus service/phone-agent banner guide
+- Facebook Page Setup Branding Guide.png — gradient Y profile plus detailed systems banner
 
-Direction:
+The clean YAD square-and-wide pair is the recommended cohesive base, pending Michael's explicit selection. Once selected, preserve its mark, gradient, typography, and dark navy visual language while adapting the files to Facebook's exact crop/safe-zone requirements.
 
-- Midnight Navy #08111F base
-- Electric Blue #2563EB and Signal Cyan #22D3EE
-- Cloud White #F7F9FC
-- Minimal modular AI/department mark, designed to survive a circular thumbnail crop
-- Cover message: YOUR AI DEPARTMENT / PRACTICAL AI. REAL BUSINESS VALUE. / YourAIDepartment.ai
-- No robots, brains, stock humanoids, crypto styling, or unsupported claims
-
-Concept 01 is not a permanently approved logo until Michael confirms it. Revisions or alternate directions should retain the same platform-safe composition rules.
+The rejected Concept 01 files remain under assets/social/ only as a versioned record. Do not publish them or use them as logo authority.
 
 ## Candidate markets
 
@@ -98,7 +93,7 @@ Operational rules:
 
 - First launch vertical and geography
 - Budget and campaign structure
-- Approval or revision of Facebook identity Concept 01
+- Final selection and refinement of the recovered #2 Facebook identity direction
 - Campaign-specific creative concepts and asset set
 - Meta ad account/Dataset ownership and identifiers
 - Lead/CRM and durable revenue-attribution destination

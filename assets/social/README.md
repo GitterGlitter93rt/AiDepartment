@@ -1,6 +1,6 @@
 # Facebook Page Brand Assets
 
-## Concept 01 — awaiting approval
+## Concept 01 — rejected on 2026-08-30; do not use
 
 | Asset | File | Native dimensions | Intended use |
 |---|---|---:|---|
@@ -23,4 +23,4 @@ The cover preserves the exact message:
 
 All critical cover text and the mark are centered inside the cross-device safe area. The lower-left area contains no critical content because Facebook may overlap it with the profile image on desktop.
 
-These are generated Concept 01 assets, not a permanently approved logo system. Record Michael's approval or requested revision in brain/MARKETING.md and brain/TODO.md before replacing site favicons, headers, or other brand-critical assets.
+Michael rejected this direction on 2026-08-30. These files are retained only as a versioned record and must not be published or treated as logo authority. The recovered #2 assets documented in brain/MARKETING.md are the active design source.

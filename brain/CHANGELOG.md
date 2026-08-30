@@ -11,6 +11,7 @@
 - Recorded that paid_audit_request_submit belongs to an older, non-production form flow and should not be added to current GTM.
 - Detected a source-control drift: production includes fixes and Cal.com behavior not present at the known GitHub heads.
 - Created and stored Facebook profile and cover Concept 01 under assets/social/.
+- Michael rejected Concept 01; recovered the earlier #2 YAD/YAI/Y Facebook and brand-kit assets from 2026-08-29 and made those the active design source.
 - Added brain/TRACKING.md as the production measurement source of truth and corrected the roadmap/website assumptions.
 
 ## 2026-08-30 — Shared project brain established
