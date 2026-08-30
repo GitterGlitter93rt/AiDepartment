@@ -1,5 +1,19 @@
 # Facebook Page Brand Assets
 
+## Active Page package — Gradient Y direction
+
+Michael selected the recovered **Facebook Page Setup Branding Guide** direction on 2026-08-30.
+
+| Asset | File | Dimensions | Intended use |
+|---|---|---:|---|
+| Profile | facebook-page/your-ai-department-facebook-profile-1024.png | 1024 × 1024 | Page profile image; circle-safe |
+| Cover | facebook-page/your-ai-department-facebook-cover-1702x630.png | 1702 × 630 | High-resolution Facebook cover upload |
+| Copy | facebook-page/facebook-page-copy.md | — | Bio, About text, categories, CTA, and links |
+
+The Page package uses the deep-navy, cyan, blue, and purple visual language from the selected guide. Essential cover content stays away from the extreme outer edges to improve crop resilience. The outdated `.com` reference from the old guide is corrected to `YourAIDepartment.ai` in the Page setup copy.
+
+This is the approved Facebook Page direction. Broader replacement of website logos or other brand-critical assets requires a separate explicit decision.
+
 ## Concept 01 — rejected on 2026-08-30; do not use
 
 | Asset | File | Native dimensions | Intended use |

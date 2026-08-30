@@ -31,7 +31,7 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **WEB-003 — Synchronize GitHub with the exact production source.** Production contains newer fixes than current main and the inspected sprint12 branch. **Next action:** from the EdgeXpert/deployment workspace, commit and push the exact deployed source before any website-code overwrite.
 - [ ] **ASM-001 — Reconcile canonical documents with the deployed two-path architecture.** Production now uses a free 15-question assessment and a $495 comprehensive audit backed by the internal long engine. **Next action:** update stale one-assessment and Calendly-era documents without changing the live offer.
 - [ ] **ASM-002 — Preserve and validate the deterministic long-assessment engine.** The 64-question engine is present as an internal/noindex route. **Next action:** verify authorization/handoff from paid Cal.com booking, version it explicitly, and run the full test suite after source synchronization.
-- [ ] **MKT-001 — Finalize the Facebook Page identity and initial Meta creative set.** The new Concept 01 was rejected; the prior #2 YAD/YAI/Y directions were recovered. **Next action:** select the recovered base, refine its Facebook-safe profile/cover pair, then build campaign graphics, hooks, copy, CTAs, and naming for the selected vertical.
+- [ ] **MKT-001 — Finalize the Facebook Page identity and initial Meta creative set.** The recovered Gradient Y direction is selected; the exact Facebook profile, cover, and Page copy package is prepared under `assets/social/facebook-page/`. **Next action:** upload it to Facebook, verify desktop/mobile crops, then build campaign graphics, hooks, copy, CTAs, and naming for the selected vertical.
 
 ## ⚪ Next
 
@@ -83,4 +83,4 @@ A task should appear in only one status section. Dependencies may be referenced 
 2. TRACK-003 — add the three missing GTM/GA4 event tags and run Preview/DebugView.
 3. TRACK-001 and TRACK-004 — inventory and install Meta Pixel.
 4. TRACK-006 and BOOK-001 — test attribution and a real Cal.com booking end to end.
-5. MKT-001 and MKT-002 — select/refine the recovered Page identity, finish campaign assets, and launch the first controlled campaign.
+5. MKT-001 and MKT-002 — upload and verify the selected Page identity, finish campaign assets, and launch the first controlled campaign.

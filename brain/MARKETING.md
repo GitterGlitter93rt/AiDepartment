@@ -22,19 +22,26 @@ Do not scale paid Meta traffic until:
 
 Creative production can proceed before those gates, but campaign optimization decisions should not rely on incomplete measurement.
 
-## Facebook Page identity — recovered #2 directions
+## Facebook Page identity — selected Gradient Y direction
 
-Status: Prior Your AI Department assets from the 2026-08-29 working session were recovered from ChatGPT Library. The newly generated Concept 01 was rejected by Michael on 2026-08-30 and must not be used as the active direction.
+Status: Michael selected the recovered **Facebook Page Setup Branding Guide** direction on 2026-08-30. The exact Facebook upload package has been prepared and is the active Page identity direction.
 
-Recovered social candidates include:
+Active files:
 
-- image-gen-1(20260829-171915).png — square YAD logo/profile concept
-- image-gen-2(6).png — matching wide YAD banner
-- Your AI Department Facebook Brand Kit.png — YAI profile plus results-focused banner guide
-- Your AI Department Brand Kit Guide.png — YAI profile plus service/phone-agent banner guide
-- Facebook Page Setup Branding Guide.png — gradient Y profile plus detailed systems banner
+- assets/social/facebook-page/your-ai-department-facebook-profile-1024.png
+- assets/social/facebook-page/your-ai-department-facebook-cover-1702x630.png
+- assets/social/facebook-page/facebook-page-copy.md
 
-The clean YAD square-and-wide pair is the recommended cohesive base, pending Michael's explicit selection. Once selected, preserve its mark, gradient, typography, and dark navy visual language while adapting the files to Facebook's exact crop/safe-zone requirements.
+Direction:
+
+- Deep navy foundation with electric blue-to-purple gradient
+- Angular gradient Y mark with the `YOUR AI / DEPARTMENT` wordmark
+- Systems-focused cover: AI call answering, scheduling, follow-up, marketing, and lead generation
+- Business outcomes: capture more, convert more, grow more
+- Essential cover content centered for desktop and mobile crop resilience
+- Reference-guide domain corrected from the obsolete `.com` to `YourAIDepartment.ai` in Page copy
+
+This selection applies to the Facebook Page package. Treat broader replacement of website logos, favicons, or brand-critical assets as a separate explicit decision.
 
 The rejected Concept 01 files remain under assets/social/ only as a versioned record. Do not publish them or use them as logo authority.
 
@@ -93,7 +100,7 @@ Operational rules:
 
 - First launch vertical and geography
 - Budget and campaign structure
-- Final selection and refinement of the recovered #2 Facebook identity direction
+- Facebook desktop/mobile upload verification and any post-upload crop adjustment
 - Campaign-specific creative concepts and asset set
 - Meta ad account/Dataset ownership and identifiers
 - Lead/CRM and durable revenue-attribution destination
