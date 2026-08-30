@@ -4,29 +4,50 @@
 
 ## Objective
 
-Generate qualified business conversations for Your AI Department by aligning vertical-specific creative, a credible offer, an intentional assessment/funnel destination, fast follow-up, and end-to-end attribution.
+Generate qualified business conversations for Your AI Department by aligning vertical-specific creative, a credible offer, an intentional funnel destination, fast follow-up, and end-to-end attribution.
 
 The marketing system is not just ads:
 
-Creative → landing/funnel experience → short or long assessment → lead handling → booking/follow-up → revenue attribution
+Creative → landing/funnel experience → short assessment or paid audit → lead/booking → follow-up → revenue attribution
 
 ## Current launch gate
 
 Do not scale paid Meta traffic until:
 
-1. The short/long assessment routing is approved.
-2. The landing page and CTA destination match the ad promise.
-3. GTM, GA4, and Meta Pixel events are verified.
-4. The lead destination and follow-up behavior work.
+1. The landing page and CTA destination match the ad promise.
+2. The missing GTM/GA4 funnel events are added and verified.
+3. Meta Pixel is installed and tested.
+4. The lead destination and Cal.com booking behavior work.
 5. One test conversion can be traced without duplicate or sensitive events.
 
 Creative production can proceed before those gates, but campaign optimization decisions should not rely on incomplete measurement.
 
+## Facebook Page identity — Concept 01
+
+Status: Draft awaiting Michael's approval.
+
+Files:
+
+- assets/social/facebook-profile-concept-01.png
+- assets/social/facebook-cover-concept-01.png
+- assets/social/README.md
+
+Direction:
+
+- Midnight Navy #08111F base
+- Electric Blue #2563EB and Signal Cyan #22D3EE
+- Cloud White #F7F9FC
+- Minimal modular AI/department mark, designed to survive a circular thumbnail crop
+- Cover message: YOUR AI DEPARTMENT / PRACTICAL AI. REAL BUSINESS VALUE. / YourAIDepartment.ai
+- No robots, brains, stock humanoids, crypto styling, or unsupported claims
+
+Concept 01 is not a permanently approved logo until Michael confirms it. Revisions or alternate directions should retain the same platform-safe composition rules.
+
 ## Candidate markets
 
-Discussed candidates include collision/body shops, law firms, roofing, plumbing/HVAC, and other owner-operated SMB verticals. Current website-specific industry pages exist for collision repair, law firms, roofing, HVAC, construction, professional services, healthcare, insurance, and manufacturing.
+Discussed candidates include collision/body shops, law firms, roofing, plumbing/HVAC, and other owner-operated SMB verticals. Current website-specific industry pages cover a wider set of SMB and enterprise categories.
 
-The first paid vertical is not yet locked. Select it using offer strength, proof/demonstrability, reachable audience, economics, landing-page readiness, and the founder's operating credibility—not by changing an industry word in generic copy.
+The first paid vertical is not yet locked. Select it using offer strength, proof/demonstrability, reachable audience, economics, landing-page readiness, and founder operating credibility—not by changing an industry word in generic copy.
 
 ## Meta/Facebook/Instagram creative workflow
 
@@ -37,7 +58,7 @@ For each approved campaign, record:
 - Primary business pain
 - Offer and concrete next step
 - Hook variants
-- Static, carousel, short-form video, or testimonial/demo format
+- Static, carousel, short-form video, or demonstration format
 - Platform dimensions and safe zones
 - Primary text, headline, description, and CTA
 - UTM naming
@@ -55,7 +76,7 @@ Operational rules:
 
 - Do not commit exported lead lists or personal contact data to this repository.
 - Confirm data rights, applicable law, and current Meta/Apollo policies before uploading or activating a list.
-- Keep the source, export date, filters, lawful basis/permissions where applicable, and suppression process documented outside public Git.
+- Keep source, export date, filters, permissions where applicable, and suppression process outside public Git.
 - Expect imperfect match rates; an uploaded list is not guaranteed targeting precision.
 - Separate outbound-contact permission from advertising-audience eligibility.
 - Use exclusions/suppression to avoid wasting spend on clients, employees, irrelevant records, or opted-out contacts.
@@ -64,6 +85,9 @@ Operational rules:
 ## Measurement principles
 
 - Optimize to the deepest reliable conversion available, not a vanity click.
+- ai_assessment_lead_submit is a stronger short-funnel signal than ai_assessment_complete.
+- booking_click_comprehensive_audit is a micro-conversion, not proof of payment or booking.
+- booking_confirmed becomes a key event only after the real Cal.com return contract passes a controlled test.
 - Do not label a basic form fill qualified unless a documented rule supports it.
 - Preserve UTMs from ad through lead and booking records.
 - Track creative/funnel/audience IDs in consistent naming.
@@ -74,10 +98,10 @@ Operational rules:
 
 - First launch vertical and geography
 - Budget and campaign structure
-- Exact short-assessment offer and result
-- Approved creative concepts and asset set
+- Approval or revision of Facebook identity Concept 01
+- Campaign-specific creative concepts and asset set
 - Meta ad account/Dataset ownership and identifiers
-- CRM and revenue-attribution destination
+- Lead/CRM and durable revenue-attribution destination
 - Retargeting windows, exclusions, and consent implementation
 
 These belong in brain/TODO.md, not in ad-platform screenshots or chat history alone.

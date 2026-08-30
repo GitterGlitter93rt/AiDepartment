@@ -24,7 +24,8 @@ It is not a replacement for the detailed canonical specifications under docs/. I
 | Assessment scoring and recommendation logic | docs/04-assessment/implementation-spec.md plus the related assessment specifications |
 | Current priorities, blockers, and work status | brain/TODO.md |
 | Approved decisions made after older documents | brain/DECISIONS.md, until reconciled into the canonical specification |
-| Current implementation | src/, tests, configuration, and Git history |
+| Production measurement state and event contract | brain/TRACKING.md |
+| Current implementation | src/, tests, configuration, Git history, and the deployed-site verification recorded in brain/WEBSITE.md |
 
 If an operational summary conflicts with an approved canonical specification, do not silently choose one. Flag the conflict, use the source-of-truth hierarchy in CLAUDE.md, and reconcile the stale document as part of the authorized work.
 
@@ -56,7 +57,7 @@ Do not mark a task complete because code was written. Mark it complete only afte
 ## Truth and safety rules
 
 - Never store API keys, passwords, tokens, private customer data, lead lists, or assessment submissions here.
-- Distinguish **confirmed**, **planned**, **proposed**, **blocked**, and **unknown**.
+- Distinguish confirmed, planned, proposed, blocked, and unknown.
 - Include a date or commit when a fact may become stale.
 - Do not invent pricing, case studies, clients, results, credentials, statistics, or technical configuration.
 - Machine-local Claude memory is useful working context, but it is not the shared source of truth.
@@ -69,7 +70,8 @@ Do not mark a task complete because code was written. Mark it complete only afte
 | TODO.md | Master roadmap, task states, completion gates, and blockers |
 | PROJECT.md | Current business, offer, funnel, and technical snapshot |
 | DECISIONS.md | Approved decision log and unresolved proposals |
-| WEBSITE.md | Website architecture, current implementation, deployment, SEO, and tracking |
+| WEBSITE.md | Website architecture, current implementation, deployment, SEO, and source synchronization |
+| TRACKING.md | Production GTM/GA4 identifiers, event contract, coverage, and verification plan |
 | MARKETING.md | Paid media, targeting, offers, creative, and launch gates |
 | AI-ASSESSMENTS.md | Short/long assessment architecture and current implementation gap |
 | EDGE-XPERT.md | MSI EdgeXpert environment and agent workflow |
