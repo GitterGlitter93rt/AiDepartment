@@ -670,3 +670,34 @@ Implement the assessment from structured typed configuration.
 Deterministic scoring controls results.
 
 AI may later explain results but must not independently determine scores or financial estimates.
+
+---
+
+# OPERATIONAL PROJECT BRAIN
+
+The versioned operating context lives under:
+
+brain/
+
+Before substantial work:
+
+1. Read brain/README.md.
+2. Read brain/TODO.md.
+3. Read the relevant subject file under brain/.
+4. Then read the canonical specification for the task and inspect the current implementation.
+
+brain/TODO.md is the execution source of truth for priorities, status, blockers, and completion gates.
+
+After authorized work changes project state:
+
+- Update the relevant brain file.
+- Update brain/TODO.md only after its completion gate is verified.
+- Record material approved decisions in brain/DECISIONS.md.
+- Keep the brain update in the same commit or pull request when practical.
+- Report verification, blockers, and the exact next action.
+
+The operational brain does not replace the source-of-truth hierarchy above. If a newer approved decision in brain/DECISIONS.md conflicts with an older canonical document, flag and reconcile the canonical document rather than leaving permanent contradictory instructions.
+
+Never store secrets, customer/lead exports, private assessment data, credentials, or API keys in the brain.
+
+Chat histories and Claude auto memory are supporting context, not the shared task database.
