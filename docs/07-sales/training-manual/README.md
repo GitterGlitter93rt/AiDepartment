@@ -37,9 +37,10 @@ The training system is intentionally built in modules so salespeople can learn a
 - `module-02a-business-economics.md` - business economics for salespeople.
 - `module-02b-roi-calculator-playbook.md` - field ROI calculators and financial-diagnosis worksheets.
 - `module-03-discovery-and-financial-diagnosis.md` - discovery, workflow mapping, source discipline, and financial diagnosis.
+- `module-03b-crm-fundamentals-for-salespeople.md` - CRM fundamentals, CRM opportunity diagnosis, implementation positioning, automation, attribution, reporting, and rep certification.
 - `module-04a-cold-calling-and-prospecting.md` - phone prospecting, openers, gatekeepers, qualification, follow-up, and booking the next step.
 - `module-04b-in-person-b2b-prospecting.md` - walk-in prospecting, front-desk handling, field tools, route planning, and in-person conversion.
-- `module-04c-prospect-qualification-and-target-scoring.md` - public prospect signals, paid-advertiser research, Tier A-D prioritization, and phone/field target scoring.
+- `module-04c-prospect-qualification-and-target-scoring.md` - public prospect signals, Google industry/location advertiser sourcing, Meta Ad Library research, Google Ads Transparency research, Tier A-D prioritization, and phone/field target scoring.
 - `module-05-hooks-and-opening-angles.md` - hook selection, money/speed/follow-up/capacity/attribution angles, phone vs field delivery, starter vertical hook banks, and hook certification.
 
 Future modules will cover visualization/story selling, objections, competitive positioning, proposals/closing, industry playbooks, roleplays, sales management, and certification.
