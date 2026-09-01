@@ -1,0 +1,106 @@
+---
+// STATIC FALLBACK for the legacy /assessment/ cold-email link.
+//
+// The PRIMARY repair is a real 301 in public/.htaccess. This page only
+// ever renders if mod_rewrite is unavailable on the host, so it must
+// stand on its own without depending on the redirect having run.
+//
+// Deliberately NOT built on BaseLayout: BaseLayout loads the GTM
+// container, and a bounce through this page would fire a page_view for
+// /assessment/ before navigating on. Redirecting from the <head>,
+// before any tag loads, means GA4 sees exactly one page_view — the one
+// for /free-ai-assessment/ — with the campaign parameters intact.
+//
+// noindex so the stub can never be indexed, plus an explicit canonical
+// pointing at the real destination.
+import { SITE } from '../../lib/site';
+
+const DESTINATION = '/free-ai-assessment/';
+const canonical = new URL(DESTINATION, SITE.domain).toString();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting to the Free AI Assessment | Your AI Department</title>
+    <meta
+      name="description"
+      content="This link has moved. Continue to the free AI Opportunity Assessment at Your AI Department."
+    />
+    <meta name="robots" content="noindex, follow" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+
+    {/*
+      Runs during head parsing, before anything else on the page loads.
+      location.replace (not assignment) so the stub does not land in the
+      visitor's back-button history — pressing Back from the assessment
+      must return them to their email client, not bounce them through
+      this page again.
+
+      search + hash are carried across verbatim, which is what preserves
+      utm_id / utm_source / utm_medium / utm_campaign / utm_content for
+      the attribution capture that runs on the destination page.
+
+      The pathname guard makes a redirect loop impossible even if this
+      file were ever served from the destination path by mistake.
+    */}
+    <script is:inline define:vars={{ DESTINATION }}>
+      (function () {
+        try {
+          if (window.location.pathname !== DESTINATION) {
+            window.location.replace(DESTINATION + window.location.search + window.location.hash);
+          }
+        } catch (e) {
+          /* No-JS and error paths fall through to the visible link below. */
+        }
+      })();
+    </script>
+
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #08111f;
+        color: #f7f9fc;
+        font-family: 'Inter', system-ui, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      .r-wrap { max-width: 520px; }
+      .r-brand {
+        font-weight: 800;
+        font-size: 0.82rem;
+        letter-spacing: 0.06em;
+        color: #22d3ee;
+        margin-bottom: 16px;
+      }
+      h1 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 12px; }
+      p { color: #cbd5e1; line-height: 1.6; margin: 0 0 24px; }
+      a.r-cta {
+        display: inline-block;
+        min-height: 48px;
+        padding: 14px 28px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #2563eb, #22d3ee);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="r-wrap">
+      <p class="r-brand">YOUR AI DEPARTMENT</p>
+      <h1>This link has moved.</h1>
+      <p>The AI Opportunity Assessment now lives at a new address. You should be redirected automatically.</p>
+      <a class="r-cta" href={DESTINATION}>Continue to the Free AI Assessment</a>
+    </div>
+  </body>
+</html>

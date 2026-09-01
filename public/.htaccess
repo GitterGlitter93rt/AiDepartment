@@ -1,3 +1,35 @@
+# Apache configuration for the static Astro build on SiteGround.
+# This file ships in dist/ and must be uploaded with the site.
+
 # Serves the branded 404 page for genuine not-found requests.
 # Astro (static output) generates this file at build time as 404.html.
 ErrorDocument 404 /404.html
+
+# ---------------------------------------------------------------------
+# Legacy URL repair
+# ---------------------------------------------------------------------
+# The Smartlead cold-email sequences that went out to the roofing list
+# link to https://youraidepartment.ai/assessment/ , which has never been
+# a route on this site — those clicks were hitting the 404 page.
+#
+# The live assessment routes are:
+#   /ai-assessment/                     chooser (KEEP — not redirected)
+#   /free-ai-assessment/                free 15-question assessment
+#   /comprehensive-ai-business-audit/   $495 audit
+#
+# /assessment -> /free-ai-assessment/ as a real 301 so the link equity
+# and the click both land on the intended funnel.
+#
+# QSA preserves the query string, so ?utm_id/​utm_source/utm_medium/
+# utm_campaign/utm_content survive the hop and are captured on the
+# destination page by src/lib/attribution.ts.
+#
+# No loop is possible: "free-ai-assessment/" does not match ^assessment.
+#
+# The <IfModule> guard means a host without mod_rewrite falls through to
+# the static fallback page at src/pages/assessment/index.astro instead
+# of returning a 500.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^assessment/?$ /free-ai-assessment/ [R=301,QSA,L]
+</IfModule>

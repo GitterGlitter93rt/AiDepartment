@@ -1,0 +1,60 @@
+---
+// Minimal header for paid-social funnel pages.
+//
+// Deliberately NOT the site Header: paid traffic arriving from a video
+// ad should have two choices — keep reading or take the next step — not
+// twenty navigation options across three mega-menus. Branding only; the
+// page's single primary CTA lives in the hero, immediately below.
+//
+// The wordmark links home so the visitor can still verify who we are,
+// which is a trust requirement, not a navigation feature.
+---
+
+<header class="fnl-header">
+  <div class="fnl-container fnl-header-inner">
+    <a href="/" class="fnl-logo" aria-label="Your AI Department — Home">
+      <span class="fnl-logo-mark">YOUR <span class="fnl-logo-accent">AI</span> DEPARTMENT</span>
+    </a>
+    <span class="fnl-header-tag">Practical AI. Real Business Value.</span>
+  </div>
+</header>
+
+<style>
+  .fnl-header {
+    background-color: var(--color-midnight-navy);
+    border-bottom: 1px solid var(--color-border-dark);
+  }
+
+  .fnl-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 60px;
+    padding-block: 12px;
+  }
+
+  .fnl-logo-mark {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    color: var(--color-pure-white);
+  }
+
+  .fnl-logo-accent {
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-header-tag {
+    display: none;
+    font-size: 0.78rem;
+    color: var(--color-dark-muted-text);
+  }
+
+  @media (min-width: 700px) {
+    .fnl-header-tag {
+      display: inline;
+    }
+  }
+</style>

@@ -18,14 +18,18 @@ import { PRIMARY_CTA, SECONDARY_CTA } from '../lib/site';
   </div>
   <Container wide class="hero-inner">
     <div class="hero-copy">
-      <span class="eyebrow hero-eyebrow">AI Department Assessment</span>
+      <span class="eyebrow hero-eyebrow">Practical AI for Business</span>
       <h1 class="hero-headline">
-        Find Out Where AI Can<br /><span class="accent">Actually Improve</span><br />Your Business.
+        AI Consulting,<br /><span class="accent">Implementation &amp; Automation</span><br />for Real Business Value.
       </h1>
       <p class="hero-support">
-        Your AI Department helps businesses identify where AI, automation, better systems,
-        and smarter marketing can increase revenue, reduce repetitive work, improve employee
-        productivity, and help the company scale more efficiently.
+        Your AI Department helps businesses plan, build, integrate, and manage practical AI
+        systems — AI agents, workflow automation, CRM workflows, and marketing systems — that
+        turn AI investment into faster lead response, stronger follow-up, and less repetitive work.
+      </p>
+      <p class="hero-support-secondary">
+        We work as your external AI department: the strategy, implementation, and ongoing
+        optimization of AI without having to build one in-house.
       </p>
 
       <div class="hero-ctas">
@@ -33,7 +37,7 @@ import { PRIMARY_CTA, SECONDARY_CTA } from '../lib/site';
         <Button href={SECONDARY_CTA.href} variant="secondary-dark" size="large">{SECONDARY_CTA.label}</Button>
       </div>
 
-      <p class="hero-support-copy">Free AI Department Assessment. Approximately 7–10 minutes.</p>
+      <p class="hero-support-copy">Free AI Department Assessment. Approximately 3–4 minutes.</p>
     </div>
 
     <div class="hero-visual">
@@ -107,6 +111,14 @@ import { PRIMARY_CTA, SECONDARY_CTA } from '../lib/site';
   .hero-support {
     font-size: 0.85rem;
     color: var(--color-dark-muted-text);
+    max-width: 440px;
+    margin-bottom: 12px;
+    line-height: 1.55;
+  }
+
+  .hero-support-secondary {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
     max-width: 440px;
     margin-bottom: 18px;
     line-height: 1.55;

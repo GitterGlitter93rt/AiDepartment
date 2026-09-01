@@ -1,0 +1,140 @@
+---
+// The single analytics source for a paid-social funnel page.
+//
+// Emits four funnel events plus the funnel-scoped booking-click event,
+// all as first-party dataLayer pushes consumed by the existing GTM
+// container (GTM-5G8Q7KKZ). Nothing here loads a tag, and nothing here
+// duplicates what the site already does:
+//   - page_view stays owned by the existing GA4 tag in GTM
+//   - booking_click_strategy still fires from AnalyticsEvents.astro for
+//     every AI Strategy Call link site-wide, funnels included. The
+//     funnel-scoped booking_click_* event below is a narrower SUBSET of
+//     that signal, not a replacement.
+//   - booking_confirmed remains the only true booked-call conversion
+//     and is untouched
+//
+// This is a module <script> (not is:inline) so it imports the shared
+// pure builders from src/lib/funnels/analytics.ts and the shared
+// attribution reader from src/lib/attribution.ts, rather than
+// reimplementing either. Funnel identity travels through a data
+// attribute because module scripts cannot take define:vars.
+import type { FunnelId, FunnelVertical } from '../../lib/funnels/types';
+
+interface Props {
+  vertical: FunnelVertical;
+  funnelId: FunnelId;
+}
+
+const { vertical, funnelId } = Astro.props;
+---
+
+<div id="fnl-analytics-root" data-vertical={vertical} data-funnel-id={funnelId} hidden></div>
+
+<script>
+  import {
+    buildFunnelViewParams,
+    buildCtaClickParams,
+    buildVslPlayParams,
+    buildVslProgressParams,
+    buildBookingClickEvent,
+    FUNNEL_EVENTS,
+    VSL_PROGRESS_THRESHOLDS,
+    type CreativeParams,
+    type FunnelIdentity,
+  } from '../../lib/funnels/analytics';
+  import { captureAttribution, getCreativeAttribution } from '../../lib/attribution';
+  import type { CtaLocation, CtaType } from '../../lib/funnels/types';
+
+  const root = document.getElementById('fnl-analytics-root');
+  const vertical = root?.dataset.vertical;
+  const funnelId = root?.dataset.funnelId;
+
+  if (root && vertical && funnelId) {
+    const identity = { vertical, funnel_id: funnelId } as FunnelIdentity;
+
+    const dataLayer = ((window as any).dataLayer = (window as any).dataLayer || []);
+    const push = (event: string, params: Record<string, string | number>) => {
+      try {
+        dataLayer.push(Object.assign({ event }, params));
+      } catch {
+        // Analytics must never break a landing page.
+      }
+    };
+
+    // Capture attribution here rather than relying on script ordering
+    // against AttributionCapture.astro. captureAttribution() is
+    // documented as safe to call repeatedly and never overwrites a
+    // first touch, so calling it from both places is harmless and
+    // removes a real race on the very first funnel pageview — which is
+    // exactly the pageview whose creative we most need.
+    let creative: CreativeParams = {};
+    try {
+      captureAttribution();
+      creative = getCreativeAttribution();
+    } catch {
+      // Storage-disabled browsers still get the funnel events, just
+      // without creative parameters.
+    }
+
+    // ---- funnel_view --------------------------------------------------
+    push(FUNNEL_EVENTS.view, buildFunnelViewParams(identity, creative));
+
+    // ---- funnel_cta_click + booking_click_<funnel> --------------------
+    // Delegated so it covers every FunnelCTA on the page, including any
+    // added later, without per-button wiring.
+    document.addEventListener('click', (e) => {
+      const target = e.target instanceof Element ? e.target.closest('[data-funnel-cta]') : null;
+      if (!(target instanceof HTMLElement)) return;
+
+      const location = (target.dataset.ctaLocation || 'hero') as CtaLocation;
+      const type = (target.dataset.ctaType || 'strategy_call') as CtaType;
+
+      push(FUNNEL_EVENTS.ctaClick, buildCtaClickParams(identity, location, type, creative));
+
+      // Micro-conversion: clicked TOWARD a booking. Never a completed
+      // booking — booking_confirmed on /booking-confirmed/ is the only
+      // event that means a call was actually booked.
+      const booking = buildBookingClickEvent(identity, location, type, creative);
+      push(booking.event, booking.params);
+    });
+
+    // ---- vsl_play / vsl_progress --------------------------------------
+    // Self-hosted <video> only. A cross-origin embed iframe cannot be
+    // observed without that vendor's SDK, so no engagement events are
+    // emitted for it rather than inventing one.
+    const video = document.querySelector<HTMLVideoElement>('video[data-funnel-vsl="file"]');
+    if (video) {
+      let playFired = false;
+      video.addEventListener('play', () => {
+        if (playFired) return;
+        playFired = true;
+        push(FUNNEL_EVENTS.vslPlay, buildVslPlayParams(identity, creative));
+      });
+
+      const reached = new Set<number>();
+      video.addEventListener('timeupdate', () => {
+        const duration = video.duration;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+        const percent = (video.currentTime / duration) * 100;
+        for (const threshold of VSL_PROGRESS_THRESHOLDS) {
+          if (percent >= threshold && !reached.has(threshold)) {
+            reached.add(threshold);
+            push(FUNNEL_EVENTS.vslProgress, buildVslProgressParams(identity, threshold, creative));
+          }
+        }
+      });
+
+      // timeupdate stops firing once playback ends, and browsers do not
+      // reliably deliver a final tick at exactly 100%. 'ended' closes
+      // that gap so a full watch is always recorded.
+      video.addEventListener('ended', () => {
+        for (const threshold of VSL_PROGRESS_THRESHOLDS) {
+          if (!reached.has(threshold)) {
+            reached.add(threshold);
+            push(FUNNEL_EVENTS.vslProgress, buildVslProgressParams(identity, threshold, creative));
+          }
+        }
+      });
+    }
+  }
+</script>

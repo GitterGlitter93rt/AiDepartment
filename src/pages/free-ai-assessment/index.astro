@@ -5,7 +5,7 @@ import AssessmentStyles from '../../components/assessment/AssessmentStyles.astro
 
 <BaseLayout
   title="Free AI Opportunity Assessment — Get Your AI Department Score | Your AI Department"
-  description="Take the free AI Opportunity Assessment in about 3-4 minutes. Answer 15 questions and get your AI Department Score, category breakdown, and biggest AI, automation, and growth opportunities."
+  description="Take the free AI Opportunity Assessment — 15 questions, about 3-4 minutes — and get your AI Department Score, category breakdown, and biggest opportunities."
   path="/free-ai-assessment/"
 >
   {/*
@@ -232,6 +232,14 @@ import AssessmentStyles from '../../components/assessment/AssessmentStyles.astro
 
   :global(.q-upgrade-card .r-btn-primary) {
     background-color: var(--color-electric-blue);
+    color: var(--color-pure-white);
+  }
+
+  /* The secondary (paid-audit) upgrade card's button — deliberately
+     lower-contrast than the primary strategy-call CTA band above it. */
+  :global(.q-upgrade-card .r-btn-secondary) {
+    background-color: transparent;
+    border: 1px solid var(--color-border-dark);
     color: var(--color-pure-white);
   }
 

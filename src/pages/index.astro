@@ -6,6 +6,7 @@ import BusinessSection from '../components/BusinessSection.astro';
 import MethodSection from '../components/MethodSection.astro';
 import IndustriesSection from '../components/IndustriesSection.astro';
 import ManagedSection from '../components/ManagedSection.astro';
+import PaidAuditCTA from '../components/PaidAuditCTA.astro';
 import FinalCTA from '../components/FinalCTA.astro';
 
 // Content authority: docs/02-website/homepage.md
@@ -14,8 +15,8 @@ import FinalCTA from '../components/FinalCTA.astro';
 ---
 
 <BaseLayout
-  title="Your AI Department | AI Consulting, Implementation & Growth"
-  description="Identify and implement high-value AI opportunities across marketing, sales, operations, employee productivity, automation, and customer experience with Your AI Department."
+  title="AI Consulting & Automation Services | Your AI Department"
+  description="An AI consulting and implementation company building AI agents, workflow automation, and CRM systems that speed up lead response and cut repetitive work."
   path="/"
   includeOrgSchema
 >
@@ -25,5 +26,11 @@ import FinalCTA from '../components/FinalCTA.astro';
   <MethodSection />
   <IndustriesSection />
   <ManagedSection />
+  {/*
+    Secondary/premium path to the $495 Comprehensive AI Business Audit —
+    placed before the free-assessment FinalCTA band so the free funnel
+    remains the page's dominant, closing conversion path.
+  */}
+  <PaidAuditCTA />
   <FinalCTA />
 </BaseLayout>

@@ -22,6 +22,7 @@
   import { SCHEDULING } from '../lib/scheduling';
   import {
     captureAttribution,
+    getCampaignAttribution,
     buildCalComForwardFields,
     appendAttributionToUrl,
   } from '../lib/attribution';
@@ -42,6 +43,22 @@
   }
 
   try {
+    // Publish the session's campaign snapshot for the site-wide
+    // delegated tracker in AnalyticsEvents.astro, which is an is:inline
+    // script and therefore cannot import this module directly.
+    //
+    // Only the six UTM fields are exposed — never click IDs, never the
+    // rep code, and never anything a visitor typed. The tracker reads
+    // this lazily at click time, so the module/inline execution order
+    // between the two components does not matter.
+    (window as unknown as { yaiCampaign?: Record<string, string> }).yaiCampaign =
+      getCampaignAttribution();
+  } catch {
+    // Analytics enrichment is best-effort; a storage-disabled browser
+    // still gets the assessment events, just without campaign fields.
+  }
+
+  try {
     // Marketing attribution fields + the rep code (when one was
     // captured) both travel to Cal.com. Empty fields are never
     // appended by buildCalComForwardFields/buildCalComRepField.
@@ -54,6 +71,7 @@
       SCHEDULING.enterpriseDiscussion.url,
       SCHEDULING.trainingConsultation.url,
       SCHEDULING.executiveAdvisory.url,
+      SCHEDULING.comprehensiveAudit.url,
     ];
 
     if (Object.keys(forwardFields).length > 0) {

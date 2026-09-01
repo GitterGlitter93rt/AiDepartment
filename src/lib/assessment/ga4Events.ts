@@ -23,6 +23,8 @@
 // (assessmentApp.ts, quickAssessmentApp.ts), the lead-submission
 // analytics builders, and AnalyticsEvents.astro (via define:vars).
 
+import { CAMPAIGN_PARAM_KEYS, type CampaignParams } from '../attribution.ts';
+
 export const ASSESSMENT_EVENTS = {
   start: 'ai_assessment_start',
   complete: 'ai_assessment_complete',
@@ -72,4 +74,30 @@ export function buildAssessmentLeadSubmitParams(
     lead_id: leadId,
     score_band: scoreBand(overallScore),
   };
+}
+
+/**
+ * Merge campaign attribution onto an assessment event payload.
+ *
+ * Copies ONLY the six UTM fields from CAMPAIGN_PARAM_KEYS, and only
+ * when non-empty. Everything else on the supplied object is dropped —
+ * so even if a caller hands over a wider attribution record (which
+ * contains landing_page, referrer, click IDs and so on), nothing beyond
+ * the allowlist can reach GA4.
+ *
+ * This is the single choke point for campaign data entering the
+ * assessment events, which is what makes the "no PII in the dataLayer"
+ * guarantee mechanically testable rather than a convention.
+ */
+export function withCampaignParams(
+  base: Record<string, string>,
+  campaign: CampaignParams | undefined | null,
+): Record<string, string> {
+  const out: Record<string, string> = { ...base };
+  if (!campaign) return out;
+  for (const key of CAMPAIGN_PARAM_KEYS) {
+    const value = (campaign as Record<string, unknown>)[key];
+    if (typeof value === 'string' && value.length > 0) out[key] = value;
+  }
+  return out;
 }

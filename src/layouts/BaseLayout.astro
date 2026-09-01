@@ -6,6 +6,9 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import AttributionCapture from '../components/AttributionCapture.astro';
 import AnalyticsEvents from '../components/AnalyticsEvents.astro';
+import MetaPixel from '../components/MetaPixel.astro';
+import FunnelHeader from '../components/funnel/FunnelHeader.astro';
+import FunnelFooter from '../components/funnel/FunnelFooter.astro';
 import { SITE } from '../lib/site';
 
 interface Props {
@@ -14,6 +17,19 @@ interface Props {
   path: string;
   ogImage?: string;
   noindex?: boolean;
+  /** Explicit robots directive (see SEO.astro). Used by the paid-social
+   * funnels for "noindex, follow"; leave unset elsewhere. */
+  robots?: string;
+  /**
+   * Page chrome. 'full' (default) is the normal marketing site: full
+   * header with mega-menus and the full footer. 'minimal' is for
+   * paid-social funnel landing pages, which get branding plus legal
+   * links only — a visitor arriving from a video ad should choose
+   * between reading on and taking the next step, not between twenty
+   * navigation destinations. Everything else about the document (head,
+   * GTM, attribution, analytics) is identical either way.
+   */
+  chrome?: 'full' | 'minimal';
   /** Include Organization + WebSite JSON-LD (typically only needed once, e.g. on the homepage) */
   includeOrgSchema?: boolean;
 }
@@ -24,6 +40,8 @@ const {
   path,
   ogImage,
   noindex,
+  robots,
+  chrome = 'full',
   includeOrgSchema = false,
 } = Astro.props;
 
@@ -48,11 +66,21 @@ const websiteSchema = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {/* Central favicon system (Part: favicon/brand pass) — the compact
+        YAD circular mark: navy tile, electric-blue→cyan gradient ring,
+        bold YAD monogram. All pages inherit these from BaseLayout; do
+        not add per-page icon links. Apple touch icon is the opaque
+        square variant (iOS applies its own rounding). */}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#08111F" />
     <meta name="generator" content={Astro.generator} />
 
-    <SEO title={title} description={description} path={path} ogImage={ogImage} noindex={noindex} />
+    <SEO title={title} description={description} path={path} ogImage={ogImage} noindex={noindex} robots={robots} />
 
     {/* Google Tag Manager — approved container GTM-5G8Q7KKZ (Sprint 9).
         GA4 (G-GLSRPH43L4) is managed through this container, not loaded
@@ -64,6 +92,12 @@ const websiteSchema = {
       'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
       })(window,document,'script','dataLayer','GTM-5G8Q7KKZ');
     </script>
+
+    {/* Meta Pixel integration point. Renders nothing until
+        PUBLIC_META_PIXEL_ID is set in the build environment — no Meta
+        code ships today and no placeholder ID exists. See
+        src/lib/metaPixel.ts. */}
+    <MetaPixel />
 
     {includeOrgSchema && (
       <>
@@ -83,11 +117,11 @@ const websiteSchema = {
       ></iframe>
     </noscript>
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <Header />
+    {chrome === 'minimal' ? <FunnelHeader /> : <Header />}
     <main id="main-content">
       <slot />
     </main>
-    <Footer />
+    {chrome === 'minimal' ? <FunnelFooter /> : <Footer />}
     <AttributionCapture />
     <AnalyticsEvents />
   </body>

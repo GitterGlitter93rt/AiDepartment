@@ -65,6 +65,10 @@ export const SERVICES_MENU: { category: string; items: ServiceMenuItem[] }[] = [
   {
     category: 'AI & Automation',
     items: [
+      // Premium paid diagnostic — the only priced offer in the nav, kept
+      // in the Services mega-menu (desktop + mobile render from this
+      // same list) so the free assessment remains the primary CTA.
+      { label: 'Comprehensive AI Business Audit', href: '/comprehensive-ai-business-audit/', description: 'A $495 deeper diagnostic with a personalized audit report and a 45-minute strategy review.' },
       { label: 'AI Implementation', href: '/ai-implementation/', description: 'Build AI agents, automations, integrations, and internal assistants.' },
       { label: 'AI Agent Development', href: '/ai-agent-development/', description: 'Practical business agents for support, lead response, and internal knowledge.' },
       { label: 'AI Phone & Voice Agents', href: '/ai-agent-development/', description: 'Voice-based intake and follow-up integrated with human escalation.' },
@@ -184,6 +188,7 @@ export const FOOTER_LINKS = {
     { label: 'AI Recruiting & HR Automation', href: '/ai-recruiting-automation/' },
   ],
   services: [
+    { label: 'Comprehensive AI Business Audit', href: '/comprehensive-ai-business-audit/' },
     { label: 'AI Agent Development', href: '/ai-agent-development/' },
     { label: 'CRM Setup & Automation', href: '/crm-setup-automation/' },
     { label: 'AI + CRM Integration', href: '/ai-crm-integration/' },
@@ -197,6 +202,7 @@ export const FOOTER_LINKS = {
     { label: 'The AI Department Method', href: '/ai-department-method/' },
     { label: 'Resources', href: '/resources/' },
     { label: 'Enterprise', href: '/enterprise/' },
+    { label: 'Assessment Options', href: '/ai-assessment/' },
     { label: 'About', href: '/about/' },
     { label: 'Contact', href: '/contact/' },
   ],

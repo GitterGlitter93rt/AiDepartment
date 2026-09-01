@@ -1,0 +1,94 @@
+---
+// Sticky mobile CTA bar.
+//
+// Most of this traffic arrives from Facebook/Instagram on a phone. The
+// bar keeps the single next step one tap away without the page needing
+// a CTA strip after every section.
+//
+// Restraint, deliberately:
+//   - mobile only (hidden from 900px up, in CSS)
+//   - hidden while the hero CTA is on screen — it is redundant there
+//   - hidden again once the final close CTA is on screen, so the page
+//     never shows two competing buttons at the bottom
+//   - a slim bar, not an overlay; the close section carries extra
+//     bottom padding so the bar can never cover its microcopy
+//   - no library, one IntersectionObserver, no scroll listener
+//
+// It is tracked as cta_location="sticky" so its contribution is
+// measurable separately — if it earns nothing, it can be removed on
+// evidence. No new EVENT is introduced: it fires the same
+// funnel_cta_click / booking_click_* pair as every other funnel CTA.
+import FunnelCTA from './FunnelCTA.astro';
+import type { FunnelCta } from '../../lib/funnels/types';
+
+interface Props {
+  cta: FunnelCta;
+}
+
+const { cta } = Astro.props;
+---
+
+<div class="fnl-sticky" id="fnl-sticky" hidden>
+  <div class="fnl-sticky-inner">
+    <FunnelCTA cta={cta} location="sticky" compact />
+  </div>
+</div>
+
+<script>
+  const bar = document.getElementById('fnl-sticky');
+  const heroCta = document.querySelector('[data-cta-location="hero"]');
+  const finalCta = document.querySelector('[data-cta-location="final"]');
+
+  if (bar && heroCta && 'IntersectionObserver' in window) {
+    let heroVisible = true;
+    let finalVisible = false;
+
+    const sync = () => {
+      // Show only in the middle of the page: after the hero CTA has
+      // scrolled away, and before the final CTA arrives.
+      bar.hidden = heroVisible || finalVisible;
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.target === heroCta) heroVisible = entry.isIntersecting;
+          if (entry.target === finalCta) finalVisible = entry.isIntersecting;
+        }
+        sync();
+      },
+      { rootMargin: '0px' }
+    );
+
+    observer.observe(heroCta);
+    if (finalCta) observer.observe(finalCta);
+    sync();
+  }
+</script>
+
+<style>
+  .fnl-sticky {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background-color: rgba(8, 17, 31, 0.96);
+    border-top: 1px solid var(--color-border-dark);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Desktop has the CTA in view often enough; a fixed bar there is
+     just clutter. */
+  @media (min-width: 900px) {
+    .fnl-sticky {
+      display: none;
+    }
+  }
+
+  .fnl-sticky-inner {
+    max-width: 520px;
+    margin-inline: auto;
+  }
+</style>

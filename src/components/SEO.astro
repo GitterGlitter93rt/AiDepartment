@@ -7,16 +7,40 @@ interface Props {
   path: string; // e.g. "/" or "/ai-consulting/"
   ogImage?: string;
   noindex?: boolean;
+  /**
+   * Explicit robots directive, overriding the noindex boolean. Exists
+   * for the paid-social funnels, which need "noindex, follow" rather
+   * than the default "noindex, nofollow": they must stay out of the
+   * index so they cannot cannibalize the organic industry pages, while
+   * still passing link equity through their internal links.
+   * Leave unset everywhere else — the boolean remains the normal path.
+   */
+  robots?: string;
 }
 
-const { title, description, path, ogImage, noindex = false } = Astro.props;
+const { title, description, path, ogImage, noindex = false, robots } = Astro.props;
 const canonicalUrl = new URL(path, SITE.domain).toString();
+
+// An explicit directive wins; otherwise the boolean produces the
+// existing default. Null means "emit no robots meta at all", which is
+// what an ordinary indexable page has always done.
+const robotsDirective = robots ?? (noindex ? 'noindex, nofollow' : null);
+const isNoindex = robotsDirective !== null && robotsDirective.includes('noindex');
 ---
 
 <title>{title}</title>
 <meta name="description" content={description} />
-<link rel="canonical" href={canonicalUrl} />
-{noindex && <meta name="robots" content="noindex, nofollow" />}
+{/*
+  Canonical only on indexable pages. noindex utility routes (404,
+  booking-confirmed, assessment results, the internal full engine) have
+  no indexable URL to consolidate; emitting a canonical there — as it
+  previously did for the 404 page, pointing at the nonexistent /404/ —
+  creates a canonical-to-404 anomaly in Search Console reports.
+  Google treats a noindex page without a canonical as exactly what it
+  is: excluded by noindex.
+*/}
+{!isNoindex && <link rel="canonical" href={canonicalUrl} />}
+{robotsDirective && <meta name="robots" content={robotsDirective} />}
 
 <meta property="og:type" content="website" />
 <meta property="og:title" content={title} />

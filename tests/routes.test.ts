@@ -25,7 +25,7 @@ import {
   buildAssessmentCompleteParams,
   buildAssessmentLeadSubmitParams,
 } from '../src/lib/assessment/ga4Events.ts';
-import { AUDIT_PRICE_LABEL } from '../src/lib/auditRequest.ts';
+import { SCHEDULING } from '../src/lib/scheduling.ts';
 
 // ---- Helpers ---------------------------------------------------------------
 
@@ -60,8 +60,8 @@ describe('Permanent public routes exist', () => {
     assert.ok(existsSync('src/pages/comprehensive-ai-business-audit/index.astro'));
     const page = read('src/pages/comprehensive-ai-business-audit/index.astro');
     assert.ok(page.includes('path="/comprehensive-ai-business-audit/"'));
-    assert.ok(page.includes('submitAuditRequest'));
-    assert.ok(page.includes(AUDIT_PRICE_LABEL));
+    assert.ok(page.includes('Book Your'));
+    assert.ok(page.includes('SCHEDULING.comprehensiveAudit.price'));
     assert.equal(page.includes('noindex'), false);
   });
 
@@ -229,13 +229,6 @@ describe('GA4 funnel parameters', () => {
 // ---- Delivery + attribution sanity ----------------------------------------------
 
 describe('Web3Forms delivery targets still configured', () => {
-  test('audit request lib retains the $495 offer naming and endpoint', () => {
-    const lib = read('src/lib/auditRequest.ts');
-    assert.ok(lib.includes('https://api.web3forms.com/submit'));
-    assert.ok(lib.includes('Comprehensive AI Business Audit'));
-    assert.equal(AUDIT_PRICE_LABEL, '$495');
-  });
-
   test('both assessment lead submission modules retain the endpoint', () => {
     assert.ok(read('src/lib/assessment/leadSubmission.ts').includes('https://api.web3forms.com/submit'));
     assert.ok(read('src/lib/assessment/quickLeadSubmission.ts').includes('https://api.web3forms.com/submit'));
@@ -313,17 +306,21 @@ describe('Internal CTA targets', () => {
     const site = read('src/lib/site.ts');
     assert.ok(site.includes("href: '/free-ai-assessment/'"), 'PRIMARY_CTA must target /free-ai-assessment/');
     assert.ok(site.includes("label: 'Get Your AI Department Score'"));
-    assert.equal(site.includes("href: '/ai-assessment/'"), false);
+    // The bare legacy route may appear exactly once — as the footer's
+    // deliberate "Assessment Options" de-orphan link to the chooser page.
+    assert.equal((site.match(/href: '\/ai-assessment\/'/g) || []).length, 1);
   });
 
-  test('cold assessment CTAs no longer point at the legacy choice page', () => {
+  test('cold assessment CTAs do not use the legacy route (footer de-orphan link excluded)', () => {
     const offenders: string[] = [];
     for (const file of walk(join(process.cwd(), 'src'), ['.astro', '.ts', '.tsx', '.mdx'])) {
+      // site.ts carries the one intentional footer link to the chooser.
+      if (file.endsWith('src/lib/site.ts')) continue;
       const src = readFileSync(file, 'utf8');
       // href="/ai-assessment/" or '/ai-assessment/' or "/ai-assessment/" —
-      // the bare legacy route used as a link/CTA target. The choice page
-      // itself, /ai-assessment/full/, and /ai-assessment/results/ are
-      // legitimate and excluded by the boundary checks.
+      // the bare legacy route used as a link/CTA target. /ai-assessment/full/
+      // and /ai-assessment/results/ are legitimate and excluded by the
+      // boundary checks.
       if (
         src.includes('href="/ai-assessment/"') ||
         src.includes("href: '/ai-assessment/'") ||
@@ -351,7 +348,6 @@ describe('Final funnel corrections', () => {
     'src/pages/free-ai-assessment/index.astro',
     'src/pages/ai-assessment/full/index.astro',
     'src/components/assessment/quickAssessmentApp.ts',
-    'src/lib/auditRequest.ts',
   ];
 
   test('/ai-assessment/ contains no public link to /ai-assessment/full/', () => {
@@ -404,5 +400,107 @@ describe('Final funnel corrections', () => {
     assert.ok(page.includes('45-minute strategy review call'));
     assert.ok(page.includes('Personalized Audit Report'));
     assert.equal(page.includes('Written Audit Report'), false);
+  });
+});
+
+// ---- Paid Cal.com integration ------------------------------------------------
+//
+// The live paid booking event must be driven entirely by the existing
+// centralized scheduling / attribution / analytics architecture — no
+// hardcoded Cal URLs in the page, no manual query-string building, no
+// new PII-bearing events.
+
+describe('Paid Cal.com integration', () => {
+  test('centralized paid Cal URL is correct', () => {
+    assert.equal(SCHEDULING.comprehensiveAudit.url, 'https://cal.com/youraidepartment/comprehensive-ai-business-audit');
+    assert.equal(SCHEDULING.comprehensiveAudit.label, 'Comprehensive AI Business Audit');
+    assert.equal(SCHEDULING.comprehensiveAudit.durationMinutes, 45);
+    assert.equal(SCHEDULING.comprehensiveAudit.price, '$495');
+  });
+
+  test('paid audit CTA uses the centralized scheduling configuration — no hardcoded Cal URL in the page', () => {
+    const page = read('src/pages/comprehensive-ai-business-audit/index.astro');
+    assert.ok(page.includes('SCHEDULING.comprehensiveAudit.url'), 'CTA must reference the centralized config');
+    assert.ok(page.includes('Book Your'), 'purchase CTA wording required');
+    // The literal Cal URL must not appear in the page source — it can
+    // only arrive via the scheduling configuration.
+    assert.equal(page.includes('https://cal.com/youraidepartment/comprehensive-ai-business-audit'), false);
+  });
+
+  test('AttributionCapture enriches the paid audit booking link with the same architecture', async () => {
+    class MemoryStorage {
+      private store = new Map<string, string>();
+      getItem(key: string): string | null {
+        return this.store.has(key) ? this.store.get(key)! : null;
+      }
+      setItem(key: string, value: string): void {
+        this.store.set(key, String(value));
+      }
+      removeItem(key: string): void {
+        this.store.delete(key);
+      }
+      clear(): void {
+        this.store.clear();
+      }
+    }
+    (globalThis as any).window = { localStorage: new MemoryStorage() };
+    (globalThis as any).document = { referrer: '' };
+
+    // The site-wide capture component must list the paid URL alongside
+    // the other scheduling links (existing architecture, not rebuilt).
+    const component = read('src/components/AttributionCapture.astro');
+    assert.ok(component.includes('SCHEDULING.comprehensiveAudit.url'), 'paid URL must be in the enriched set');
+
+    // End-to-end: the exact merge AttributionCapture performs must
+    // carry rep + UTMs + gclid onto the paid booking URL.
+    const { captureAttribution, buildCalComForwardFields, appendAttributionToUrl } = await import('../src/lib/attribution.ts');
+    const { captureRepAttribution, buildCalComRepField } = await import('../src/lib/repAttribution.ts');
+
+    captureAttribution({
+      search: '?utm_source=google&utm_medium=cpc&utm_campaign=audit-launch&gclid=g-123&gbraid=b-1&wbraid=w-1',
+      landingPage: '/comprehensive-ai-business-audit/',
+    });
+    captureRepAttribution({ search: '?rep=michael' });
+
+    const merged = { ...buildCalComForwardFields(), ...buildCalComRepField() };
+    const enriched = appendAttributionToUrl(SCHEDULING.comprehensiveAudit.url, merged);
+
+    assert.ok(enriched.includes('gclid=g-123'), 'gclid must travel to the paid booking URL');
+    assert.ok(enriched.includes('gbraid=b-1'), 'gbraid must travel to the paid booking URL');
+    assert.ok(enriched.includes('wbraid=w-1'), 'wbraid must travel to the paid booking URL');
+    assert.ok(enriched.includes('utm_source=google'), 'UTM source must travel');
+    assert.ok(enriched.includes('utm_campaign=audit-launch'), 'UTM campaign must travel');
+    assert.ok(enriched.includes('utm_medium=cpc'), 'UTM medium must travel');
+    assert.ok(enriched.includes('rep=michael'), 'rep code must travel to the paid booking URL');
+  });
+
+  test('paid audit page contains no public link to /ai-assessment/full/', () => {
+    const page = read('src/pages/comprehensive-ai-business-audit/index.astro');
+    assert.equal(page.includes('href="/ai-assessment/full/'), false);
+    assert.equal(page.includes("href: '/ai-assessment/full/"), false);
+  });
+
+  test('paid audit booking click uses the existing booking_click_* architecture, non-PII only', () => {
+    const tracker = read('src/components/AnalyticsEvents.astro');
+    assert.ok(tracker.includes('booking_click_comprehensive_audit'), 'named booking-click event required');
+    assert.ok(tracker.includes('comprehensiveAuditUrl'), 'match target must come from centralized scheduling');
+    // Same non-PII payload shape as the other booking clicks.
+    const match = tracker.match(/booking_click_comprehensive_audit', \{ link_url: href \}\)/);
+    assert.ok(match, 'event must push only { link_url: href }');
+    // The event line must not carry any contact-field parameters.
+    const eventLine = tracker.split('\n').find((l) => l.includes('booking_click_comprehensive_audit')) || '';
+    assert.equal(eventLine.includes('email'), false);
+    assert.equal(eventLine.includes('name'), false);
+    assert.equal(eventLine.includes('phone'), false);
+  });
+
+  test('existing free strategy-call scheduling remains unchanged', () => {
+    assert.equal(SCHEDULING.strategyCall.url, 'https://cal.com/youraidepartment/ai-strategy-call');
+    assert.equal(SCHEDULING.strategyCall.durationMinutes, 30);
+    assert.equal(SCHEDULING.strategyCall.price, null);
+    const tracker = read('src/components/AnalyticsEvents.astro');
+    assert.ok(tracker.includes("booking_click_strategy"));
+    const component = read('src/components/AttributionCapture.astro');
+    assert.ok(component.includes('SCHEDULING.strategyCall.url'), 'strategy call must remain enriched');
   });
 });

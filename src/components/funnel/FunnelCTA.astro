@@ -1,0 +1,139 @@
+---
+// The single reusable funnel CTA button.
+//
+// Every funnel CTA renders through this component so that:
+//   1. the tracked data attributes can never be forgotten on one of them
+//   2. AttributionCapture.astro's site-wide Cal.com link enrichment
+//      still applies (the href is a plain centralized SCHEDULING url,
+//      so it is rewritten with UTMs / click IDs / creative_id / rep code
+//      exactly like every other booking link on the site)
+//   3. AnalyticsEvents.astro's existing booking_click_strategy handler
+//      still fires — the funnel-scoped event is ADDITIONAL
+//
+// Sized up in the conversion pass: 58px tall, 1.05rem label, a real
+// shadow, and a visible focus ring. A high-ticket CTA that reads as a
+// secondary link does not get clicked.
+import type { CtaLocation, FunnelCta } from '../../lib/funnels/types';
+
+interface Props {
+  cta: FunnelCta;
+  location: CtaLocation;
+  tone?: 'dark' | 'light';
+  align?: 'left' | 'center';
+  /** Compact variant for the sticky mobile bar. */
+  compact?: boolean;
+}
+
+const { cta, location, tone = 'dark', align = 'left', compact = false } = Astro.props;
+
+// The sticky bar is narrow; a long CTA wraps to two lines and reads as
+// clutter. Funnels may supply a shorter label for that one placement
+// only — everywhere else the full, message-matched label is used.
+const label = compact ? (cta.compactLabel ?? cta.label) : cta.label;
+---
+
+<div class:list={['fnl-cta-wrap', align, { compact }]}>
+  <a
+    href={cta.href}
+    class="fnl-cta"
+    data-funnel-cta
+    data-cta-location={location}
+    data-cta-type={cta.type}
+  >
+    {label}
+  </a>
+  {cta.microcopy && !compact && <p class:list={['fnl-cta-micro', tone]}>{cta.microcopy}</p>}
+</div>
+
+<style>
+  .fnl-cta-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .fnl-cta-wrap.center {
+    align-items: center;
+    text-align: center;
+  }
+
+  .fnl-cta-wrap.left {
+    align-items: flex-start;
+  }
+
+  .fnl-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Well above the 44px tap-target minimum, and wide enough to read
+       as the page's one obvious action on a phone. */
+    min-height: 58px;
+    padding: 16px 34px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.05rem;
+    line-height: 1.25;
+    text-align: center;
+    color: var(--color-pure-white);
+    background: var(--gradient-primary);
+    border-radius: var(--radius-button);
+    box-shadow: 0 14px 32px -12px rgba(37, 99, 235, 0.95);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+  }
+
+  .fnl-cta:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 18px 40px -12px rgba(37, 99, 235, 1);
+    transform: translateY(-1px);
+  }
+
+  .fnl-cta:active {
+    transform: translateY(1px);
+  }
+
+  /* Explicit focus ring — the gradient background would otherwise
+     swallow the global outline on dark sections. */
+  .fnl-cta:focus-visible {
+    outline: 3px solid var(--color-signal-cyan);
+    outline-offset: 3px;
+  }
+
+  /* On phones the CTA spans the column so it is unmissable. */
+  @media (max-width: 639px) {
+    .fnl-cta {
+      width: 100%;
+    }
+  }
+
+  .fnl-cta-micro {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    max-width: 46ch;
+  }
+
+  .fnl-cta-micro.dark {
+    color: var(--color-dark-muted-text);
+  }
+
+  .fnl-cta-micro.light {
+    color: var(--color-slate-gray);
+  }
+
+  /* Sticky-bar variant. */
+  .fnl-cta-wrap.compact {
+    gap: 0;
+    width: 100%;
+  }
+
+  .compact .fnl-cta {
+    width: 100%;
+    min-height: 52px;
+    padding: 14px 20px;
+    font-size: 1rem;
+    box-shadow: none;
+  }
+
+  .compact .fnl-cta:hover {
+    transform: none;
+  }
+</style>

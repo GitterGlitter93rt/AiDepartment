@@ -6,18 +6,28 @@ import InteriorHero from '../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../components/interior/SectionHeading.astro';
 import FAQSection from '../../components/interior/FAQSection.astro';
 import Icon from '../../components/Icon.astro';
-import { AUDIT_PRICE_LABEL } from '../../lib/auditRequest';
+import Button from '../../components/Button.astro';
+import { SCHEDULING } from '../../lib/scheduling';
 
 // PERMANENT public route for the paid offer. The previous route
 // (/ai-department-audit/) is a redirect in astro.config.mjs — it must
 // not exist as a duplicate indexable page.
 //
-// INTERNAL ACCESS NOTE: there is still no payment integration. Until
-// payment/authorization is actually implemented, paid-customer access
-// to the underlying comprehensive engine (/ai-assessment/full/) must
-// NOT be granted automatically, and that engine must not be exposed as
-// a public free workaround for this paid product. See also
-// src/lib/auditRequest.ts.
+// PURCHASE PATH: booking and the required $495 payment are handled by
+// Cal.com (SCHEDULING.comprehensiveAudit). This page never processes or
+// simulates payment.
+//
+// INTERNAL ACCESS NOTE: post-payment access delivery is NOT automated.
+// Cal.com does not automatically grant access to the underlying
+// comprehensive engine (/ai-assessment/full/), and this page must not
+// link to it. Comprehensive-assessment instructions are sent to the
+// buyer after booking; the engine route stays internal and unlisted
+// until post-payment access delivery is implemented.
+
+// Single source of truth for the price label: the centralized
+// scheduling configuration.
+const AUDIT_PRICE_LABEL = SCHEDULING.comprehensiveAudit.price;
+const AUDIT_BOOKING_URL = SCHEDULING.comprehensiveAudit.url;
 
 const includesItems = [
   {
@@ -44,19 +54,19 @@ const includesItems = [
 
 const steps = [
   {
-    icon: 'send',
-    title: '1. Request the Audit',
-    description: 'Submit the request form below. There is no payment on this website — nothing is charged when you request the audit.',
+    icon: 'credit-card',
+    title: '1. Book and Pay',
+    description: 'Book your audit through Cal.com. The required $495 payment is processed securely at booking through Cal.com — not on this website.',
   },
   {
-    icon: 'credit-card',
-    title: '2. Confirm Scope and Payment',
-    description: 'We confirm the audit scope with you and send payment instructions by email. The audit is scheduled once payment is confirmed.',
+    icon: 'send',
+    title: '2. Complete Your Assessment',
+    description: 'After booking, you receive instructions to complete the comprehensive business assessment that powers your audit.',
   },
   {
     icon: 'file-check-2',
-    title: '3. Receive Your Audit Report',
-    description: 'You complete the intake, the audit is prepared, and you receive your personalized audit report, prioritized AI opportunities, and a 45-minute strategy review call.',
+    title: '3. Strategy Review',
+    description: 'Your personalized audit report and prioritized AI opportunities, reviewed with you on your 45-minute strategy review call.',
   },
 ];
 
@@ -66,8 +76,8 @@ const faqs = [
     answer: 'The AI Opportunity Assessment is a free self-diagnostic — your answers scored against a fixed model. The Comprehensive AI Business Audit is a deeper, structured audit across your AI readiness, marketing and lead flow, sales follow-up, customer communication, operational automation, and AI agents and integrations — including financial-impact scenarios where your data supports them, a personalized audit report, and a 45-minute strategy review call. That deeper scope is why it carries a fixed price.',
   },
   {
-    question: 'What happens after I submit the request form?',
-    answer: 'You are not charged on this website. We review your request, confirm the audit scope with you, and send payment instructions by email. The audit begins once payment is confirmed.',
+    question: 'What happens after I book?',
+    answer: 'Booking and the required $495 payment are handled through Cal.com. After booking, you receive instructions to complete the comprehensive business assessment that powers your audit, and your 45-minute strategy review is scheduled for your booked time.',
   },
   {
     question: 'Should I take the free assessment first?',
@@ -82,25 +92,23 @@ const faqs = [
 
 <BaseLayout
   title={`Comprehensive AI Business Audit — ${AUDIT_PRICE_LABEL} | Your AI Department`}
-  description="A fixed-price $495 Comprehensive AI Business Audit: a deeper diagnostic across AI readiness, marketing and lead flow, sales follow-up, customer communication, operational automation, and AI agents and integrations — with a personalized audit report, prioritized AI opportunities, financial-impact analysis where supported, and a 45-minute strategy review call."
+  description="A $495 fixed-price deeper diagnostic across AI readiness, marketing, sales follow-up, and operations — with a personalized audit report and a 45-minute strategy review."
   path="/comprehensive-ai-business-audit/"
 >
   {/*
-    NOTE ON PAYMENT: this page intentionally does NOT simulate or
-    process payment. There is no checkout, no card form, and no payment
-    provider integration on this site today. The audit is gated by a
-    request form; payment is arranged manually (invoice / payment link)
-    after scope is confirmed. A real checkout integration (e.g.,
-    Stripe) is still required before payment could ever be collected
-    on-site — see src/lib/auditRequest.ts.
+    NOTE ON PAYMENT: this page intentionally does NOT process or
+    simulate payment. Booking and the required $495 payment are handled
+    by Cal.com (SCHEDULING.comprehensiveAudit). The booking links below
+    receive attribution enrichment and GA4 booking-click tracking via
+    the site-wide AttributionCapture / AnalyticsEvents architecture.
   */}
   <InteriorHero
     eyebrow="Paid Audit — Fixed Price"
     headline={`Comprehensive AI Business Audit — ${AUDIT_PRICE_LABEL}`}
     support="A deeper diagnostic across your AI readiness, marketing and lead flow, sales follow-up, customer communication, operational automation, and AI agents and integrations. You receive a personalized audit report, prioritized AI opportunities, financial-impact scenarios where your data supports them, and a 45-minute strategy review call."
-    primaryCta={{ label: `Request the ${AUDIT_PRICE_LABEL} Audit`, href: '#audit-request' }}
+    primaryCta={{ label: `Book Your ${AUDIT_PRICE_LABEL} Comprehensive AI Business Audit`, href: AUDIT_BOOKING_URL }}
     secondaryCta={{ label: 'Take the Free Assessment First', href: '/free-ai-assessment/' }}
-    supportCopy="No payment happens on this website. Request the audit, confirm scope with us, and payment is arranged directly."
+    supportCopy={`Your ${AUDIT_PRICE_LABEL} audit includes a 45-minute strategy review. Booking and the required payment are handled through Cal.com — not on this website.`}
   />
 
   <Section tone="light">
@@ -126,8 +134,8 @@ const faqs = [
     <Container>
       <SectionHeading
         eyebrow="How It Works"
-        heading="Request the Audit — Confirm Payment — Receive the Report"
-        support="The audit is gated by a request form, not a checkout. That keeps the process simple and gives you a chance to confirm scope before paying anything."
+        heading="Book and Pay — Complete Your Assessment — Strategy Review"
+        support="Booking and payment happen through Cal.com. After booking, you complete the comprehensive business assessment that powers your audit."
       />
       <div class="audit-steps">
         {steps.map((step) => (
@@ -141,67 +149,23 @@ const faqs = [
     </Container>
   </Section>
 
-  <Section tone="light" id="audit-request">
+  <Section tone="light">
     <Container>
       <SectionHeading
-        eyebrow="Request the Audit"
-        heading={`Request Your ${AUDIT_PRICE_LABEL} Comprehensive AI Business Audit`}
-        support="Tell us where to focus. We'll confirm scope and send payment instructions by email — the audit begins once payment is confirmed."
+        eyebrow="Book Your Audit"
+        heading={`Book Your ${AUDIT_PRICE_LABEL} Comprehensive AI Business Audit`}
+        support={`Your ${AUDIT_PRICE_LABEL} audit includes a 45-minute strategy review. Booking and the required payment are handled securely through Cal.com.`}
       />
-      <div class="audit-form-wrap">
-        <form id="audit-request-form" novalidate>
-          <div class="audit-field-row">
-            <label class="audit-field">
-              <span>First Name *</span>
-              <input type="text" name="firstName" required autocomplete="given-name" />
-            </label>
-            <label class="audit-field">
-              <span>Last Name</span>
-              <input type="text" name="lastName" autocomplete="family-name" />
-            </label>
-          </div>
-          <label class="audit-field">
-            <span>Business Email *</span>
-            <input type="email" name="email" required autocomplete="email" />
-          </label>
-          <div class="audit-field-row">
-            <label class="audit-field">
-              <span>Company *</span>
-              <input type="text" name="company" required autocomplete="organization" />
-            </label>
-            <label class="audit-field">
-              <span>Phone</span>
-              <input type="tel" name="phone" autocomplete="tel" />
-            </label>
-          </div>
-          <label class="audit-field">
-            <span>Website *</span>
-            <input type="url" name="website" required placeholder="https://" />
-          </label>
-          <label class="audit-field">
-            <span>What should we focus on?</span>
-            <textarea name="focus" rows="4" maxlength="1000" placeholder="The areas, problems, or questions you most want examined (optional)&hellip;"></textarea>
-          </label>
-
-          <label class="audit-checkbox">
-            <input type="checkbox" name="consent" required />
-            <span>By requesting the audit, you agree that Your AI Department may contact you to confirm scope, arrange payment, and deliver the audit. See our <a href="/privacy/">Privacy Policy</a> and <a href="/terms/">Terms of Use</a>.</span>
-          </label>
-
-          <p class="audit-form-error" id="audit-form-error" role="alert" hidden></p>
-
-          <button type="submit" class="audit-submit" id="audit-submit-btn">Request the {AUDIT_PRICE_LABEL} Audit</button>
-          <p class="audit-form-note">You are not charged on this website. Payment is arranged directly after we confirm scope with you.</p>
-        </form>
-
-        <div class="audit-form-success" id="audit-form-success" hidden>
-          <h3>Request received.</h3>
-          <p>
-            Thank you — your audit request is on its way to our team. We'll confirm the audit scope with you
-            and send payment instructions to the email you provided. The audit begins once payment is confirmed.
+      <div class="audit-booking">
+        <div class="audit-booking-card">
+          <p class="audit-booking-copy">
+            After booking, you'll receive instructions to complete the comprehensive business
+            assessment that powers your audit &mdash; then your personalized audit report and
+            prioritized AI opportunities are reviewed with you on your 45-minute strategy review call.
           </p>
-          <p class="audit-form-success-alt">
-            In the meantime, you can <a href="/free-ai-assessment/">get your free AI Department Score</a> in about 3-4 minutes.
+          <Button href={AUDIT_BOOKING_URL} variant="primary" size="large">Book Your {AUDIT_PRICE_LABEL} Comprehensive AI Business Audit</Button>
+          <p class="audit-booking-note">
+            45 minutes &bull; {AUDIT_PRICE_LABEL} &bull; Booking and payment are processed by Cal.com &mdash; not on this website.
           </p>
         </div>
       </div>
@@ -219,74 +183,6 @@ const faqs = [
   </Section>
 </BaseLayout>
 
-<script>
-  import { submitAuditRequest, validateAuditRequest } from '../../lib/auditRequest';
-
-  const form = document.getElementById('audit-request-form') as HTMLFormElement | null;
-  const errorEl = document.getElementById('audit-form-error') as HTMLElement | null;
-  const successEl = document.getElementById('audit-form-success') as HTMLElement | null;
-  const submitBtn = document.getElementById('audit-submit-btn') as HTMLButtonElement | null;
-
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!submitBtn) return;
-    const data = new FormData(form);
-    const consent = data.get('consent');
-
-    const request = {
-      firstName: String(data.get('firstName') || '').trim(),
-      lastName: String(data.get('lastName') || '').trim(),
-      email: String(data.get('email') || '').trim(),
-      phone: String(data.get('phone') || '').trim() || undefined,
-      company: String(data.get('company') || '').trim(),
-      website: String(data.get('website') || '').trim() || undefined,
-      focus: String(data.get('focus') || '').trim() || undefined,
-    };
-
-    const validationError = validateAuditRequest(request);
-    if (validationError) {
-      if (errorEl) {
-        errorEl.textContent = validationError;
-        errorEl.hidden = false;
-      }
-      return;
-    }
-    if (!consent) {
-      if (errorEl) {
-        errorEl.textContent = 'Please acknowledge the consent statement to continue.';
-        errorEl.hidden = false;
-      }
-      return;
-    }
-    if (errorEl) errorEl.hidden = true;
-
-    // Duplicate-submit protection.
-    submitBtn.disabled = true;
-
-    const outcome = await submitAuditRequest(request);
-
-    if (!outcome.delivered) {
-      if (errorEl) {
-        errorEl.textContent =
-          'We could not deliver your request just now. Please try again, or email us directly at michael@youraidepartment.ai.';
-        errorEl.hidden = false;
-      }
-      submitBtn.disabled = false;
-      return;
-    }
-
-    // Non-PII only — a lead correlation ID.
-    (window as any).dataLayer = (window as any).dataLayer || [];
-    (window as any).dataLayer.push({
-      event: 'paid_audit_request_submit',
-      lead_id: outcome.leadId,
-    });
-
-    form.hidden = true;
-    if (successEl) successEl.hidden = false;
-    successEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
-</script>
 
 <style>
   .audit-grid {
@@ -362,132 +258,32 @@ const faqs = [
     line-height: 1.6;
   }
 
-  .audit-form-wrap {
-    max-width: 640px;
+  /* ---------------- Booking section (Cal.com handles booking + payment) */
+  .audit-booking {
+    max-width: 720px;
     margin-inline: auto;
   }
 
-  .audit-field-row {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .audit-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--color-near-black);
-  }
-
-  .audit-field input,
-  .audit-field textarea {
-    background-color: var(--color-pure-white);
-    border: 1px solid var(--color-border-light);
-    border-radius: 8px;
-    color: var(--color-near-black);
-    padding: 12px 14px;
-    font-size: 0.95rem;
-    font-family: inherit;
-  }
-
-  .audit-field input:focus-visible,
-  .audit-field textarea:focus-visible {
-    outline: 2px solid var(--color-electric-blue);
-    outline-offset: 1px;
-  }
-
-  .audit-checkbox {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    font-size: 0.8rem;
-    font-weight: 400;
-    color: var(--color-slate-gray);
-    margin-bottom: 16px;
-    line-height: 1.5;
-  }
-
-  .audit-checkbox input {
-    margin-top: 3px;
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    accent-color: var(--color-electric-blue);
-  }
-
-  .audit-checkbox a {
-    color: var(--color-electric-blue);
-    text-decoration: underline;
-  }
-
-  .audit-form-error {
-    color: #b91c1c;
-    background-color: rgba(220, 38, 38, 0.08);
-    border: 1px solid rgba(220, 38, 38, 0.3);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    margin-bottom: 14px;
-  }
-
-  .audit-submit {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 0.95rem;
-    padding: 14px 28px;
-    border-radius: var(--radius-button);
-    border: 1px solid transparent;
-    cursor: pointer;
-    background-color: var(--color-electric-blue);
-    color: var(--color-pure-white);
-  }
-
-  .audit-submit:hover {
-    background-color: var(--color-electric-blue-hover);
-  }
-
-  .audit-submit:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .audit-form-note {
-    margin-top: 12px;
-    font-size: 0.78rem;
-    color: var(--color-slate-gray);
-  }
-
-  .audit-form-success {
+  .audit-booking-card {
     background-color: var(--color-pure-white);
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-card);
-    padding: 28px;
+    padding: 32px;
     box-shadow: var(--shadow-card-light);
     text-align: center;
   }
 
-  .audit-form-success h3 {
-    font-size: 1.15rem;
-    margin-bottom: 10px;
-  }
-
-  .audit-form-success p {
-    font-size: 0.92rem;
+  .audit-booking-copy {
+    font-size: 0.95rem;
     color: var(--color-slate-gray);
-    line-height: 1.6;
-    margin-bottom: 10px;
+    line-height: 1.65;
+    margin-bottom: 20px;
   }
 
-  .audit-form-success-alt a {
-    color: var(--color-electric-blue);
-    text-decoration: underline;
+  .audit-booking-note {
+    margin-top: 16px;
+    font-size: 0.78rem;
+    color: var(--color-slate-gray);
   }
 
   @media (min-width: 768px) {
@@ -498,10 +294,6 @@ const faqs = [
 
     .audit-grid {
       grid-template-columns: repeat(4, 1fr);
-    }
-
-    .audit-field-row {
-      grid-template-columns: 1fr 1fr;
     }
   }
 </style>

@@ -1,0 +1,50 @@
+---
+// Meta Pixel base installation — INERT until a real Pixel ID exists.
+//
+// Renders absolutely nothing today. No Meta code ships in the current
+// build, and no placeholder ID is invented, because an invalid Pixel ID
+// produces silent data loss that looks exactly like working tracking.
+//
+// Activation is a config change, not a code change: set
+// PUBLIC_META_PIXEL_ID in the build environment and rebuild. See
+// src/lib/metaPixel.ts and docs/analytics/meta-pixel-and-capi.md.
+//
+// Included once from BaseLayout so the base pixel is site-wide the
+// moment it is switched on — Meta retargeting and lookalike audiences
+// need coverage beyond the funnel pages themselves. Individual EVENTS
+// are mapped from the existing first-party dataLayer events through
+// GTM (META_EVENT_MAP), not hardcoded here, so there is one event
+// source of truth rather than two parallel tracking systems.
+//
+// An access token is NEVER referenced here. Conversions API is
+// server-side only; this static build has no server. See META_CAPI_STATUS.
+import { getMetaPixelId } from '../lib/metaPixel';
+
+const pixelId = getMetaPixelId();
+---
+
+{pixelId && (
+  <>
+    <script is:inline define:vars={{ pixelId }}>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window,document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', pixelId);
+      fbq('track', 'PageView');
+    </script>
+    <noscript>
+      <img
+        height="1"
+        width="1"
+        style="display:none"
+        alt=""
+        src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+      />
+    </noscript>
+  </>
+)}

@@ -1,0 +1,126 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+
+// Homepage secondary/premium path to the $495 Comprehensive AI Business
+// Audit. Deliberately positioned and styled BELOW the free-assessment
+// CTAs (Hero primary CTA and FinalCTA band) so the free funnel remains
+// the dominant conversion path — this section only makes the paid offer
+// discoverable. No results, savings, or client-outcome claims.
+---
+
+<Section tone="light" id="go-deeper" class="paid-audit-cta">
+  <Container wide>
+    <div class="go-deeper-grid">
+      <div class="go-deeper-copy">
+        <span class="eyebrow">Go Deeper</span>
+        <h2>Need a Deeper AI Analysis?</h2>
+        <p>
+          The free assessment gives you a fast AI opportunity score. The Comprehensive AI Business
+          Audit goes further with a deeper diagnostic across AI readiness, marketing and lead
+          flow, sales follow-up, customer communication, operations, automation opportunities,
+          AI agents, integrations, and implementation priorities.
+        </p>
+      </div>
+
+      <div class="go-deeper-card">
+        <span class="go-deeper-icon"><Icon name="file-search" size={22} /></span>
+        <h3>Comprehensive AI Business Audit</h3>
+        <p class="go-deeper-price">$495 &bull; Fixed Price</p>
+        <p class="go-deeper-includes">
+          Personalized audit report, prioritized AI opportunities, financial-impact scenarios
+          where your data supports them, and a 45-minute strategy review.
+        </p>
+        <Button href="/comprehensive-ai-business-audit/" variant="primary" size="large">Explore the $495 AI Business Audit</Button>
+        <p class="go-deeper-note">Booking and payment are handled through Cal.com &mdash; not on this website.</p>
+      </div>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  .go-deeper-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .go-deeper-copy .eyebrow {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-electric-blue);
+    margin-bottom: 10px;
+  }
+
+  .go-deeper-copy h2 {
+    font-size: var(--fs-h2);
+    margin-bottom: 14px;
+  }
+
+  .go-deeper-copy p {
+    font-size: 1rem;
+    color: var(--color-slate-gray);
+    line-height: 1.65;
+    max-width: 520px;
+  }
+
+  .go-deeper-card {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    padding: 26px;
+    box-shadow: var(--shadow-card-light);
+    text-align: center;
+  }
+
+  .go-deeper-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background-color: rgba(37, 99, 235, 0.1);
+    color: var(--color-electric-blue);
+    margin-bottom: 14px;
+  }
+
+  .go-deeper-card h3 {
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+  }
+
+  .go-deeper-price {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-electric-blue);
+    margin-bottom: 10px;
+  }
+
+  .go-deeper-includes {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+
+  .go-deeper-note {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: var(--color-slate-gray);
+  }
+
+  @media (min-width: 960px) {
+    .go-deeper-grid {
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 40px;
+    }
+  }
+</style>

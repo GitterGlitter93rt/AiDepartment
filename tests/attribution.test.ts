@@ -276,12 +276,12 @@ describe('Booking confirmation', () => {
     assert.equal(getBookingType(params), null);
   });
 
-  test('24. All four booking types are supported', () => {
+  test('24. All five booking types are supported (incl. the paid comprehensive audit)', () => {
     for (const type of ALLOWED_BOOKING_TYPES) {
       const params = new URLSearchParams(`?booking_type=${type}`);
       assert.equal(getBookingType(params), type);
     }
-    assert.equal(ALLOWED_BOOKING_TYPES.length, 4);
+    assert.equal(ALLOWED_BOOKING_TYPES.length, 5);
   });
 
   test('buildBookingConfirmedEvent never includes PII-shaped fields', () => {

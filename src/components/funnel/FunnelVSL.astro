@@ -1,0 +1,86 @@
+---
+// VSL (video sales letter) player for funnel heroes.
+//
+// WHERE THE VIDEO GETS CONFIGURED: src/data/funnels/<funnel>.ts, the
+// `vsl` field. Nothing about the player is set here. See
+// docs/funnels/paid-social-funnel-system.md for the exact steps and the
+// asset naming convention.
+//
+// If `vsl` is undefined, the funnel page never renders this component
+// at all — the hero falls back to a clean copy-led layout. There is no
+// empty player well and no "video coming soon" placeholder, because an
+// obviously unfinished page destroys the credibility the copy is
+// working to build.
+//
+// ANALYTICS: this component only renders markup and marks the element
+// with data-funnel-vsl. All dataLayer pushes live in
+// FunnelAnalytics.astro so there is exactly one analytics source.
+// Progress tracking is attached only for kind: 'file' — a cross-origin
+// iframe cannot be observed without the vendor's SDK, and a fabricated
+// engagement signal is worse than a missing one.
+import type { FunnelVsl } from '../../lib/funnels/types';
+
+interface Props {
+  vsl: FunnelVsl;
+}
+
+const { vsl } = Astro.props;
+const aspectRatio = vsl.aspectRatio ?? '16 / 9';
+---
+
+<div class="fnl-vsl" style={`--fnl-vsl-ratio: ${aspectRatio};`}>
+  {vsl.kind === 'file' ? (
+    <video
+      class="fnl-vsl-media"
+      data-funnel-vsl="file"
+      controls
+      playsinline
+      preload="none"
+      poster={vsl.poster}
+      muted={vsl.autoplayMuted ? true : undefined}
+      autoplay={vsl.autoplayMuted ? true : undefined}
+      loop={undefined}
+      aria-label={vsl.label}
+    >
+      <source src={vsl.src} />
+      {vsl.captions && <track kind="captions" src={vsl.captions} srclang="en" label="English" default />}
+      Your browser does not support embedded video.
+      <a href={vsl.src}>Open the video directly</a>.
+    </video>
+  ) : (
+    <iframe
+      class="fnl-vsl-media"
+      data-funnel-vsl="embed"
+      src={vsl.embedUrl}
+      title={vsl.label}
+      loading="lazy"
+      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+    ></iframe>
+  )}
+</div>
+
+<style>
+  .fnl-vsl {
+    width: 100%;
+    /* aspect-ratio holds the box before the media loads, so the hero
+       does not shift when the poster arrives (CLS). */
+    aspect-ratio: var(--fnl-vsl-ratio);
+    background-color: #000;
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    box-shadow: var(--shadow-panel-dark);
+  }
+
+  .fnl-vsl-media {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    /* Vertical UGC is common here; contain avoids cropping a talking
+       head when the configured ratio and the source ratio differ. */
+    object-fit: contain;
+    background-color: #000;
+  }
+</style>

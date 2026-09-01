@@ -36,11 +36,25 @@ export interface AttributionFields {
   gclid?: string;
   gbraid?: string;
   wbraid?: string;
+  /** Campaign ID from the sending platform. Smartlead cold-email
+   * sequences set this (e.g. sl_roofing_20260820) so a lead can be tied
+   * back to a specific send even when campaign names are reused. */
+  utm_id?: string;
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
   utm_term?: string;
   utm_content?: string;
+  /** Meta click ID. Captured for the same reason gclid/gbraid/wbraid
+   * are: it identifies a paid click and is required for any future
+   * Meta Conversions API deduplication/matching work. */
+  fbclid?: string;
+  /** Optional internal creative identifier (?creative_id=). SECONDARY
+   * to utm_content, which remains the primary Meta creative field —
+   * this exists so a human-readable internal label
+   * ("plumbing_v1_missed_calls_hook") can travel alongside the ad
+   * platform's own creative value. Sanitized on capture. */
+  creative_id?: string;
   campaignid?: string;
   adgroupid?: string;
   keyword?: string;
@@ -59,10 +73,30 @@ export interface AttributionRecord extends AttributionFields {
 }
 
 const URL_PARAM_KEYS: (keyof AttributionFields)[] = [
-  'gclid', 'gbraid', 'wbraid',
-  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  'gclid', 'gbraid', 'wbraid', 'fbclid',
+  'utm_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  'creative_id',
   'campaignid', 'adgroupid', 'keyword', 'matchtype', 'device', 'network', 'creative', 'targetid',
 ];
+
+/** Allowed characters for the internal creative_id: lowercase letters,
+ * digits, dot, underscore, hyphen. Everything else is stripped. This
+ * mirrors the rep-code discipline in src/lib/repAttribution.ts — the
+ * value is ours by convention, arrives from a URL, and is forwarded
+ * into booking URLs and GA4 custom dimensions, so it is normalized on
+ * capture rather than trusted verbatim. Note this is deliberately NOT
+ * applied to ad-platform-owned values (gclid, fbclid, utm_content),
+ * which must be preserved exactly as the platform issued them. */
+const CREATIVE_ID_DISALLOWED = /[^a-z0-9._-]/g;
+const CREATIVE_ID_MAX_LENGTH = 64;
+
+/** Normalize a raw ?creative_id= value. Returns null when nothing
+ * usable remains. Never throws. */
+export function sanitizeCreativeId(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim().toLowerCase().replace(CREATIVE_ID_DISALLOWED, '').slice(0, CREATIVE_ID_MAX_LENGTH);
+  return cleaned.length > 0 ? cleaned : null;
+}
 
 /** A touch is only "meaningful" (worth capturing/updating latest-touch
  * for) if it carries an actual paid-attribution or UTM signal. A bare
@@ -84,9 +118,13 @@ export function parseAttributionFromSearch(search: string): AttributionFields {
     const params = new URLSearchParams(search);
     for (const key of URL_PARAM_KEYS) {
       const raw = params.get(key);
-      if (raw !== null && raw.trim().length > 0) {
-        (result as Record<string, string>)[key] = raw;
+      if (raw === null || raw.trim().length === 0) continue;
+      if (key === 'creative_id') {
+        const cleaned = sanitizeCreativeId(raw);
+        if (cleaned) (result as Record<string, string>)[key] = cleaned;
+        continue;
       }
+      (result as Record<string, string>)[key] = raw;
     }
   } catch {
     // Malformed query string — return whatever was already collected
@@ -255,11 +293,14 @@ export function buildLeadAttributionFields(retentionDays: number = ATTRIBUTION_R
     mapField('', latest, 'gclid', 'gclid');
     mapField('', latest, 'gbraid', 'gbraid');
     mapField('', latest, 'wbraid', 'wbraid');
+    mapField('', latest, 'fbclid', 'fbclid');
+    mapField('', latest, 'utm_id', 'utm_id');
     mapField('', latest, 'utm_source', 'utm_source');
     mapField('', latest, 'utm_medium', 'utm_medium');
     mapField('', latest, 'utm_campaign', 'utm_campaign');
     mapField('', latest, 'utm_term', 'utm_term');
     mapField('', latest, 'utm_content', 'utm_content');
+    mapField('', latest, 'creative_id', 'creative_id');
     mapField('', latest, 'campaignid', 'campaign_id');
     mapField('', latest, 'adgroupid', 'adgroup_id');
     mapField('', latest, 'keyword', 'keyword');
@@ -332,12 +373,103 @@ export function buildCalComForwardFields(retentionDays: number = ATTRIBUTION_RET
   if (!latest) return {};
   const out: Record<string, string> = {};
   const keys: (keyof AttributionFields)[] = [
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-    'gclid', 'gbraid', 'wbraid',
+    'utm_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+    'creative_id',
+    'gclid', 'gbraid', 'wbraid', 'fbclid',
     'campaignid', 'adgroupid', 'keyword', 'matchtype', 'device', 'network', 'creative', 'targetid',
   ];
   for (const key of keys) {
     const val = latest[key];
+    if (typeof val === 'string' && val.length > 0) out[key] = val;
+  }
+  return out;
+}
+
+/** The creative-level attribution snapshot used to stamp funnel
+ * analytics events (non-PII by construction — these are ad-platform
+ * and internal campaign identifiers only).
+ *
+ * utm_content is the PRIMARY Meta creative field; creative_id is the
+ * OPTIONAL internal secondary identifier. Latest touch wins, with a
+ * fall back to first touch so a visitor who arrived on a creative and
+ * then navigated internally (e.g. funnel -> free assessment -> booking)
+ * still carries the creative that actually produced the visit. */
+export interface CreativeAttribution {
+  utm_id?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  creative_id?: string;
+}
+
+const CREATIVE_KEYS: (keyof CreativeAttribution)[] = [
+  'utm_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'creative_id',
+];
+
+/** Read the creative-level attribution for the current session.
+ * Prefers latest touch, falls back per-field to first touch. Returns
+ * only populated fields — never blank values, never PII. */
+export function getCreativeAttribution(
+  retentionDays: number = ATTRIBUTION_RETENTION_DAYS,
+): CreativeAttribution {
+  const latest = getLatestTouch(retentionDays);
+  const first = getFirstTouch(retentionDays);
+  const out: CreativeAttribution = {};
+  for (const key of CREATIVE_KEYS) {
+    const val = latest?.[key] ?? first?.[key];
+    if (typeof val === 'string' && val.length > 0) out[key] = val;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------
+// Campaign attribution (email / paid / any tagged source)
+// ---------------------------------------------------------------------
+
+/**
+ * The six standard UTM fields, and nothing else.
+ *
+ * This is the ONLY shape allowed onto GA4 assessment events. It is a
+ * fixed allowlist rather than a pass-through so that a future field
+ * added to AttributionFields can never silently start flowing into
+ * analytics — a new key has to be added here deliberately.
+ */
+export const CAMPAIGN_PARAM_KEYS = [
+  'utm_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+] as const;
+
+export type CampaignParams = Partial<Record<(typeof CAMPAIGN_PARAM_KEYS)[number], string>>;
+
+/**
+ * The campaign snapshot for the current session.
+ *
+ * Latest touch wins, falling back per-field to first touch, so a
+ * visitor who arrives from a Smartlead email and then navigates
+ * (landing page -> industry page -> /free-ai-assessment/) still carries
+ * the campaign that actually produced the visit. Internal navigation
+ * never overwrites it: captureAttribution() only updates latest touch
+ * when a pageview carries a genuine acquisition signal.
+ *
+ * Values are returned EXACTLY as the platform issued them. They are
+ * deliberately not lower-cased: utm_content in particular doubles as an
+ * ad-creative identifier elsewhere on this site, and normalising it
+ * would corrupt creative-level reporting. Lowercase naming is a
+ * convention applied when the links are AUTHORED — see
+ * docs/analytics/smartlead-campaign-links.md — not a runtime transform.
+ *
+ * Returns only populated fields, so an organic visitor produces {} and
+ * no blank parameters reach GA4. Never contains PII: every value here
+ * comes from a query string we publish ourselves.
+ */
+export function getCampaignAttribution(
+  retentionDays: number = ATTRIBUTION_RETENTION_DAYS,
+): CampaignParams {
+  const latest = getLatestTouch(retentionDays);
+  const first = getFirstTouch(retentionDays);
+  const out: CampaignParams = {};
+  for (const key of CAMPAIGN_PARAM_KEYS) {
+    const val = latest?.[key] ?? first?.[key];
     if (typeof val === 'string' && val.length > 0) out[key] = val;
   }
   return out;

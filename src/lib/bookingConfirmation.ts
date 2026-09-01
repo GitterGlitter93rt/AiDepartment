@@ -3,7 +3,7 @@
 // (browser-only globals like window.location and sessionStorage stay in
 // the page itself; everything here operates on plain values).
 
-export const ALLOWED_BOOKING_TYPES = ['strategy', 'enterprise', 'training', 'executive_advisory'] as const;
+export const ALLOWED_BOOKING_TYPES = ['strategy', 'enterprise', 'training', 'executive_advisory', 'comprehensive_audit'] as const;
 export type BookingType = (typeof ALLOWED_BOOKING_TYPES)[number];
 
 /** Candidate query-parameter names for Cal.com's forwarded booking

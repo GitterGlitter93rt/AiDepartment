@@ -1,0 +1,28 @@
+---
+// Layout for a paid-social VSL funnel page.
+//
+// Thin by design: it is BaseLayout with minimal chrome and the funnel's
+// own SEO/robots settings, so funnels inherit the exact same head, GTM
+// container, favicon system, attribution capture, and site-wide
+// analytics as every other page. There is deliberately no second
+// document shell to keep in sync.
+import BaseLayout from './BaseLayout.astro';
+import FunnelPage from '../components/funnel/FunnelPage.astro';
+import type { FunnelConfig } from '../lib/funnels/types';
+
+interface Props {
+  funnel: FunnelConfig;
+}
+
+const { funnel } = Astro.props;
+---
+
+<BaseLayout
+  title={funnel.seo.title}
+  description={funnel.seo.description}
+  path={funnel.path}
+  robots={funnel.seo.robots}
+  chrome="minimal"
+>
+  <FunnelPage funnel={funnel} />
+</BaseLayout>

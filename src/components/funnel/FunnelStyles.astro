@@ -1,0 +1,1243 @@
+---
+// Global styles for the paid-social funnel pages.
+//
+// Same pattern as AssessmentStyles.astro: one is:global block, every
+// selector namespaced .fnl-* so nothing leaks into the normal site, and
+// it only ships on pages that include it.
+//
+// CONVERSION-DESIGN PASS. What changed and why:
+//   - Content width 1160px (was the site's 1280px Container). Combined
+//     with wider inner measures, capability blocks no longer read as
+//     small islands centred in a large viewport.
+//   - Body copy 17px, 18px from 900px up (was 16px, with 0.88rem/14px
+//     card text). Sales copy at 14px is not sales copy.
+//   - Headlines carry substantially more weight; the offer price is
+//     rendered at display size.
+//   - Fewer, larger blocks: 2-3 column grids of substantial cards
+//     instead of 3-4 column grids of small ones.
+//   - Tone alternation reduced. Hero and leak run continuously dark as
+//     one "problem" block; the offer is the only mid-page dark section,
+//     so it reads as the page's centre of gravity.
+//   - CTA is 58px tall with a real shadow and a visible focus ring.
+//
+// All colors/radii/spacing come from src/styles/tokens.css.
+---
+
+<style is:global>
+  /* ---------------- Layout shell ---------------- */
+  .fnl-container {
+    width: 100%;
+    /* Premium direct-response proportions: wide enough that content
+       fills the frame, narrow enough to stay composed on a large
+       monitor. Inner measures below keep prose readable. */
+    max-width: 1160px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+
+  @media (min-width: 700px) {
+    .fnl-container {
+      padding-inline: 28px;
+    }
+  }
+
+  .fnl-section {
+    padding-block: 52px;
+    /* Decorative radial washes are painted inside sections; this stops
+       them ever producing a horizontal scrollbar on mobile. */
+    overflow-x: hidden;
+  }
+
+  @media (min-width: 900px) {
+    .fnl-section {
+      padding-block: 76px;
+    }
+  }
+
+  .fnl-dark {
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+  }
+
+  .fnl-dark-2 {
+    background-color: var(--color-dark-secondary-bg);
+    color: var(--color-pure-white);
+  }
+
+  .fnl-light {
+    background-color: var(--color-cloud-white);
+    color: var(--color-near-black);
+  }
+
+  .fnl-white {
+    background-color: var(--color-pure-white);
+    color: var(--color-near-black);
+  }
+
+  /* ---------------- Headings ---------------- */
+  .fnl-eyebrow {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .fnl-dark .fnl-eyebrow,
+  .fnl-dark-2 .fnl-eyebrow,
+  .fnl-close .fnl-eyebrow {
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-light .fnl-eyebrow,
+  .fnl-white .fnl-eyebrow {
+    color: var(--color-electric-blue);
+  }
+
+  .fnl-h2 {
+    font-size: clamp(1.75rem, 4.2vw, 2.7rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    max-width: 26ch;
+    margin-bottom: 16px;
+  }
+
+  .fnl-head {
+    margin-bottom: 36px;
+    max-width: 860px;
+  }
+
+  .fnl-head-center {
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .fnl-head-center .fnl-h2 {
+    margin-inline: auto;
+  }
+
+  .fnl-intro {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    max-width: 68ch;
+  }
+
+  @media (min-width: 900px) {
+    .fnl-intro {
+      font-size: 1.15rem;
+    }
+  }
+
+  .fnl-dark .fnl-intro,
+  .fnl-dark-2 .fnl-intro {
+    color: #CBD5E1;
+  }
+
+  .fnl-light .fnl-intro,
+  .fnl-white .fnl-intro {
+    color: #475569;
+  }
+
+  .fnl-p {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    margin-bottom: 16px;
+    max-width: 72ch;
+  }
+
+  @media (min-width: 900px) {
+    .fnl-p {
+      font-size: 1.125rem;
+    }
+  }
+
+  .fnl-p:last-child {
+    margin-bottom: 0;
+  }
+
+  .fnl-light .fnl-p,
+  .fnl-white .fnl-p {
+    color: #334155;
+  }
+
+  .fnl-dark .fnl-p,
+  .fnl-dark-2 .fnl-p {
+    color: #CBD5E1;
+  }
+
+  /* ---------------- Hero ---------------- */
+  .fnl-hero {
+    position: relative;
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+    padding-block: 40px 56px;
+    overflow-x: hidden;
+  }
+
+  @media (min-width: 900px) {
+    .fnl-hero {
+      padding-block: 68px 84px;
+    }
+  }
+
+  .fnl-hero-glow {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(37, 99, 235, 0.32), transparent 55%),
+      radial-gradient(circle at 90% 70%, rgba(34, 211, 238, 0.15), transparent 55%);
+    pointer-events: none;
+  }
+
+  .fnl-hero-inner {
+    position: relative;
+    display: grid;
+    gap: 34px;
+  }
+
+  @media (min-width: 980px) {
+    .fnl-hero-inner.has-vsl {
+      /* The VSL is a conversion anchor, not an illustration — it gets
+         near-equal width beside the copy on desktop, and sits directly
+         under the CTA on mobile. */
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+  }
+
+  .fnl-hero h1 {
+    font-size: clamp(2.15rem, 6.2vw, 3.7rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.028em;
+    margin-bottom: 18px;
+    max-width: 17ch;
+  }
+
+  .fnl-hero-line2 {
+    display: block;
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-hero-sub {
+    font-size: 1.125rem;
+    line-height: 1.55;
+    color: #CBD5E1;
+    max-width: 54ch;
+    margin-bottom: 28px;
+  }
+
+  @media (min-width: 900px) {
+    .fnl-hero-sub {
+      font-size: 1.28rem;
+    }
+  }
+
+  .fnl-hero-cta {
+    margin-bottom: 28px;
+  }
+
+  .fnl-price-anchor {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+
+  .fnl-price-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 20px;
+    background-color: rgba(148, 163, 184, 0.1);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-button);
+  }
+
+  .fnl-price-chip-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-dark-muted-text);
+  }
+
+  .fnl-price-chip-value {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--color-pure-white);
+  }
+
+  .fnl-hero-bullets {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .fnl-hero-bullets li {
+    position: relative;
+    padding-left: 28px;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: #CBD5E1;
+  }
+
+  .fnl-hero-bullets li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 7px;
+    width: 15px;
+    height: 8px;
+    border-left: 2px solid var(--color-signal-cyan);
+    border-bottom: 2px solid var(--color-signal-cyan);
+    transform: rotate(-45deg);
+  }
+
+  /* ---------------- Leak cards (3 big blocks) ---------------- */
+  .fnl-leak-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 860px) {
+    .fnl-leak-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+    }
+  }
+
+  .fnl-leak {
+    position: relative;
+    padding: 26px 24px;
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--color-border-dark);
+    background-color: rgba(148, 163, 184, 0.07);
+  }
+
+  .fnl-leak-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    background-color: rgba(34, 211, 238, 0.12);
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-leak h3 {
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-signal-cyan);
+    margin-bottom: 10px;
+  }
+
+  .fnl-leak p {
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: #CBD5E1;
+  }
+
+  /* ---------------- Flow diagram ---------------- */
+  .fnl-flow-scroll {
+    /* A chain is wide by nature. It scrolls inside its own box so the
+       page body never scrolls horizontally on a phone. */
+    overflow-x: auto;
+    padding-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 30px;
+  }
+
+  .fnl-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    min-width: max-content;
+  }
+
+  @media (min-width: 1080px) {
+    .fnl-flow {
+      min-width: 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
+
+  .fnl-flow-item {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .fnl-flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 16px 14px;
+    min-width: 116px;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--color-border-dark);
+    background-color: rgba(148, 163, 184, 0.07);
+    text-align: center;
+  }
+
+  .fnl-light .fnl-flow-step,
+  .fnl-white .fnl-flow-step {
+    border-color: var(--color-border-light);
+    background-color: var(--color-pure-white);
+    box-shadow: var(--shadow-card-light);
+  }
+
+  .fnl-flow-step .icon {
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-light .fnl-flow-step .icon,
+  .fnl-white .fnl-flow-step .icon {
+    color: var(--color-electric-blue);
+  }
+
+  .fnl-flow-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  /* Long chains (7+ stages) on phones: a two-column grid instead of a
+     sideways-scrolling row. Every stage stays visible and readable at
+     320px, nothing clips, and the connector at the end of each row
+     rotates to point down into the next row so the sequence still
+     reads correctly. Chains of six or fewer keep the existing
+     horizontal treatment untouched. */
+  @media (max-width: 699px) {
+    .fnl-flow.is-long {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .fnl-flow.is-long .fnl-flow-item {
+      align-items: center;
+      gap: 6px;
+      /* A grid item's automatic minimum is its min-content width, so
+         without this a long label could still push the two tracks wider
+         than the viewport. Pinning it to 0 makes overflow structurally
+         impossible rather than dependent on font metrics. */
+      min-width: 0;
+    }
+
+    .fnl-flow.is-long .fnl-flow-step {
+      flex: 1 1 auto;
+      /* The 116px desktop floor would overflow a 320px viewport once
+         the cell is halved. */
+      min-width: 0;
+      padding: 14px 8px;
+    }
+
+    .fnl-flow.is-long .fnl-flow-label {
+      font-size: 0.8rem;
+      /* "Qualification" is the longest unbreakable label. It fits at
+         320px, but `anywhere` also affects min-content sizing, so even
+         a wider font can only wrap the label — never clip it or widen
+         the grid. */
+      overflow-wrap: anywhere;
+    }
+
+    .fnl-flow.is-long .fnl-flow-item:nth-child(2n) .fnl-flow-arrow {
+      transform: rotate(90deg);
+    }
+  }
+
+  .fnl-flow-arrow {
+    align-self: center;
+    flex-shrink: 0;
+    color: rgba(148, 163, 184, 0.6);
+  }
+
+  .fnl-flow-note {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    max-width: 70ch;
+  }
+
+  .fnl-dark .fnl-flow-note,
+  .fnl-dark-2 .fnl-flow-note {
+    color: #CBD5E1;
+  }
+
+  .fnl-light .fnl-flow-note,
+  .fnl-white .fnl-flow-note {
+    color: #475569;
+  }
+
+  /* ---------------- Capability / proof cards ---------------- */
+  .fnl-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 660px) {
+    .fnl-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1000px) {
+    .fnl-grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .fnl-card {
+    padding: 24px;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--color-border-light);
+    background-color: var(--color-pure-white);
+  }
+
+  .fnl-light .fnl-card {
+    box-shadow: var(--shadow-card-light);
+  }
+
+  /* White-on-white would leave proof cards defined only by their
+     border; tint them so they stay legible as blocks. */
+  .fnl-white .fnl-card {
+    background-color: var(--color-cloud-white);
+  }
+
+  .fnl-dark .fnl-card,
+  .fnl-dark-2 .fnl-card {
+    background-color: rgba(148, 163, 184, 0.07);
+    border-color: var(--color-border-dark);
+  }
+
+  .fnl-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    margin-bottom: 15px;
+    background-color: rgba(37, 99, 235, 0.1);
+    color: var(--color-electric-blue);
+  }
+
+  .fnl-dark .fnl-card-icon,
+  .fnl-dark-2 .fnl-card-icon {
+    background-color: rgba(34, 211, 238, 0.12);
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-card h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 9px;
+  }
+
+  .fnl-card p {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #475569;
+  }
+
+  .fnl-dark .fnl-card p,
+  .fnl-dark-2 .fnl-card p {
+    color: var(--color-dark-muted-text);
+  }
+
+  /* ---------------- System pillars (4 large blocks) ---------------- */
+  .fnl-pillars {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 700px) {
+    .fnl-pillars {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1080px) {
+    .fnl-pillars {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .fnl-pillar {
+    padding: 26px 22px;
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--color-border-light);
+    background-color: var(--color-pure-white);
+    box-shadow: var(--shadow-card-light);
+    border-top: 3px solid var(--color-electric-blue);
+  }
+
+  .fnl-pillar-icon {
+    display: inline-flex;
+    color: var(--color-electric-blue);
+    margin-bottom: 14px;
+  }
+
+  .fnl-pillar h3 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    margin-bottom: 5px;
+  }
+
+  .fnl-pillar-sub {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-electric-blue);
+    margin-bottom: 11px;
+  }
+
+  .fnl-pillar p {
+    font-size: 1rem;
+    line-height: 1.58;
+    color: #475569;
+  }
+
+  /* ---------------- Boundary strip ---------------- */
+  .fnl-boundaries {
+    display: grid;
+    gap: 14px;
+    margin-top: 30px;
+    padding-top: 26px;
+    border-top: 1px solid var(--color-border-dark);
+  }
+
+  @media (min-width: 820px) {
+    .fnl-boundaries {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+  }
+
+  .fnl-light .fnl-boundaries,
+  .fnl-white .fnl-boundaries {
+    border-top-color: var(--color-border-light);
+  }
+
+  .fnl-boundary {
+    padding-left: 16px;
+    border-left: 3px solid var(--color-signal-cyan);
+  }
+
+  .fnl-light .fnl-boundary,
+  .fnl-white .fnl-boundary {
+    border-left-color: var(--color-electric-blue);
+  }
+
+  .fnl-boundary h3 {
+    font-size: 0.98rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+
+  .fnl-boundary p {
+    font-size: 0.98rem;
+    line-height: 1.55;
+  }
+
+  .fnl-dark .fnl-boundary p,
+  .fnl-dark-2 .fnl-boundary p {
+    color: var(--color-dark-muted-text);
+  }
+
+  .fnl-light .fnl-boundary p,
+  .fnl-white .fnl-boundary p {
+    color: #475569;
+  }
+
+  /* ---------------- Deliverables checklist ---------------- */
+  .fnl-deliverables {
+    display: grid;
+    gap: 14px 34px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 780px) {
+    .fnl-deliverables {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .fnl-deliverables li {
+    position: relative;
+    padding-left: 32px;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: #334155;
+  }
+
+  @media (min-width: 900px) {
+    .fnl-deliverables li {
+      font-size: 1.125rem;
+    }
+  }
+
+  .fnl-deliverables li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 7px;
+    width: 14px;
+    height: 8px;
+    border-left: 2.5px solid var(--color-electric-blue);
+    border-bottom: 2.5px solid var(--color-electric-blue);
+    transform: rotate(-45deg);
+  }
+
+  /* ---------------- Offer ---------------- */
+  .fnl-offer-panel {
+    border-radius: var(--radius-panel);
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    background-color: rgba(148, 163, 184, 0.06);
+    padding: 28px 24px;
+  }
+
+  @media (min-width: 820px) {
+    .fnl-offer-panel {
+      padding: 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 44px;
+      align-items: start;
+    }
+  }
+
+  .fnl-offer-name {
+    font-family: var(--font-heading);
+    font-size: clamp(1.35rem, 2.6vw, 1.7rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+
+  .fnl-offer-summary {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: #CBD5E1;
+    margin-bottom: 26px;
+  }
+
+  .fnl-price-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+
+  .fnl-price-line-label {
+    display: block;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-dark-muted-text);
+    margin-bottom: 4px;
+  }
+
+  /* The price is the single most scanned element in this section — it
+     is rendered at display size, not as body text in a table. */
+  .fnl-price-line-value {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: clamp(1.9rem, 4.4vw, 2.5rem);
+    font-weight: 800;
+    color: var(--color-signal-cyan);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+
+  .fnl-price-line-note {
+    display: block;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--color-dark-muted-text);
+    max-width: 42ch;
+  }
+
+  .fnl-includes-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--color-pure-white);
+  }
+
+  .fnl-check-list {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin-bottom: 26px;
+  }
+
+  .fnl-check-list li {
+    position: relative;
+    padding-left: 30px;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: #CBD5E1;
+  }
+
+  .fnl-check-list li::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 7px;
+    width: 14px;
+    height: 8px;
+    border-left: 2.5px solid var(--color-emerald);
+    border-bottom: 2.5px solid var(--color-emerald);
+    transform: rotate(-45deg);
+  }
+
+  .fnl-footnotes {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding-top: 20px;
+    margin-top: 24px;
+    border-top: 1px solid var(--color-border-dark);
+  }
+
+  .fnl-footnotes li {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--color-dark-muted-text);
+  }
+
+  /* ---------------- Process steps ---------------- */
+  .fnl-steps {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 1fr;
+    counter-reset: fnl-step;
+  }
+
+  @media (min-width: 700px) {
+    .fnl-steps {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1080px) {
+    .fnl-steps {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .fnl-steps.count-3 {
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 820px) {
+    .fnl-steps.count-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .fnl-step {
+    counter-increment: fnl-step;
+    padding: 24px 22px;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--color-border-light);
+    background-color: var(--color-pure-white);
+  }
+
+  .fnl-white .fnl-step {
+    background-color: var(--color-cloud-white);
+  }
+
+  .fnl-step::before {
+    content: counter(fnl-step);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    color: var(--color-pure-white);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1rem;
+    margin-bottom: 14px;
+  }
+
+  .fnl-step h3 {
+    font-size: 1.08rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .fnl-step p {
+    font-size: 1rem;
+    line-height: 1.58;
+    color: #475569;
+  }
+
+  .fnl-step-note {
+    margin-top: 26px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #475569;
+    max-width: 70ch;
+  }
+
+  /* ---------------- Illustrative workflow ---------------- */
+  .fnl-workflow {
+    padding: 26px 24px;
+    border-radius: var(--radius-panel);
+    border: 1px dashed var(--color-border-light);
+    background-color: var(--color-cloud-white);
+    margin-bottom: 32px;
+  }
+
+  .fnl-white .fnl-workflow {
+    background-color: var(--color-cloud-white);
+  }
+
+  .fnl-workflow-label {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    background-color: rgba(245, 158, 11, 0.16);
+    color: #92400E;
+    margin-bottom: 16px;
+  }
+
+  .fnl-workflow h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
+
+  .fnl-workflow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 18px;
+  }
+
+  .fnl-workflow-step {
+    display: flex;
+    gap: 16px;
+    padding-bottom: 16px;
+    position: relative;
+  }
+
+  .fnl-workflow-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 22px;
+    bottom: 0;
+    width: 2px;
+    background-color: rgba(37, 99, 235, 0.25);
+  }
+
+  .fnl-workflow-marker {
+    position: relative;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background-color: var(--color-electric-blue);
+  }
+
+  .fnl-workflow-step p {
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: #334155;
+  }
+
+  .fnl-workflow-step strong {
+    color: var(--color-near-black);
+  }
+
+  .fnl-workflow-disclaimer {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--color-slate-gray);
+  }
+
+  /* ---------------- Proof note ---------------- */
+  .fnl-proof-note {
+    margin-top: 28px;
+    padding: 18px 20px;
+    border-left: 3px solid var(--color-electric-blue);
+    background-color: rgba(37, 99, 235, 0.05);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+    font-size: 1rem;
+    line-height: 1.62;
+    color: #334155;
+    max-width: 76ch;
+  }
+
+  /* ---------------- Fit + FAQ ---------------- */
+  .fnl-fit {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 44px;
+  }
+
+  @media (min-width: 820px) {
+    .fnl-fit {
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+    }
+  }
+
+  .fnl-fit-col {
+    padding: 26px 24px;
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--color-border-light);
+    background-color: var(--color-pure-white);
+  }
+
+  .fnl-fit-col h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .fnl-fit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  .fnl-fit-list li {
+    position: relative;
+    padding-left: 30px;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: #334155;
+  }
+
+  .fnl-fit-yes li::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 7px;
+    width: 14px;
+    height: 8px;
+    border-left: 2.5px solid var(--color-emerald);
+    border-bottom: 2.5px solid var(--color-emerald);
+    transform: rotate(-45deg);
+  }
+
+  .fnl-fit-no li::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 12px;
+    width: 14px;
+    height: 2.5px;
+    background-color: var(--color-slate-gray);
+  }
+
+  .fnl-fit-no li {
+    color: #475569;
+  }
+
+  .fnl-faq {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 820px;
+  }
+
+  .fnl-faq-item {
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    background-color: var(--color-pure-white);
+    padding: 2px 22px;
+  }
+
+  .fnl-faq-q {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    /* Comfortably above the 44px minimum tap target. */
+    min-height: 60px;
+    padding-block: 16px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    color: var(--color-near-black);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .fnl-faq-q::-webkit-details-marker {
+    display: none;
+  }
+
+  .fnl-faq-toggle {
+    position: relative;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+  }
+
+  .fnl-faq-toggle::before,
+  .fnl-faq-toggle::after {
+    content: '';
+    position: absolute;
+    background-color: var(--color-electric-blue);
+    transition: transform var(--transition-fast), opacity var(--transition-fast);
+  }
+
+  .fnl-faq-toggle::before {
+    top: 10px;
+    left: 3px;
+    width: 16px;
+    height: 2px;
+  }
+
+  .fnl-faq-toggle::after {
+    top: 3px;
+    left: 10px;
+    width: 2px;
+    height: 16px;
+  }
+
+  .fnl-faq-item[open] .fnl-faq-toggle::after {
+    transform: rotate(90deg);
+    opacity: 0;
+  }
+
+  .fnl-faq-a {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: #475569;
+    padding-bottom: 20px;
+    max-width: 74ch;
+  }
+
+  .fnl-fit-cta {
+    margin-top: 40px;
+  }
+
+  /* ---------------- Final close ---------------- */
+  .fnl-close {
+    position: relative;
+    background-color: var(--color-midnight-navy);
+    color: var(--color-pure-white);
+    padding-block: 64px 76px;
+    overflow-x: hidden;
+    text-align: center;
+  }
+
+  .fnl-close-glow {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.34), transparent 62%);
+    pointer-events: none;
+  }
+
+  .fnl-close-inner {
+    position: relative;
+    max-width: 780px;
+    margin-inline: auto;
+  }
+
+  .fnl-close h2 {
+    font-size: clamp(1.9rem, 4.6vw, 2.9rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.024em;
+    margin-bottom: 16px;
+  }
+
+  .fnl-close-body {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: #CBD5E1;
+    margin-bottom: 32px;
+  }
+
+  .fnl-close .fnl-cta-wrap {
+    align-items: center;
+  }
+
+  .fnl-what-happens {
+    display: grid;
+    gap: 11px;
+    margin-top: 34px;
+    text-align: left;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
+  .fnl-what-happens li {
+    position: relative;
+    padding-left: 28px;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--color-dark-muted-text);
+  }
+
+  .fnl-what-happens li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 6px;
+    width: 14px;
+    height: 8px;
+    border-left: 2px solid var(--color-signal-cyan);
+    border-bottom: 2px solid var(--color-signal-cyan);
+    transform: rotate(-45deg);
+  }
+
+  /* Bottom breathing room on phones. The closing supporting copy was
+     sitting hard against the section edge, so it read as though the
+     transition into the footer was swallowing it. This also keeps it
+     clear of the ~72px sticky CTA bar. */
+  @media (max-width: 899px) {
+    .fnl-close {
+      padding-bottom: 132px;
+    }
+
+    /* Separates the supporting copy from the section edge without
+       moving it away from the button it belongs to. */
+    .fnl-what-happens {
+      margin-bottom: 14px;
+    }
+
+    /* When a funnel has no closing list, the CTA microcopy is the last
+       element and needs the same clearance. */
+    .fnl-close .fnl-cta-micro {
+      margin-bottom: 14px;
+    }
+  }
+</style>

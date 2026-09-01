@@ -1,0 +1,77 @@
+---
+// Minimal footer for funnel pages: legal links and the honest
+// disclosure line only. No sitemap, no mega-footer — the same reason
+// the header is minimal.
+
+const year = new Date().getFullYear();
+---
+
+<footer class="fnl-footer">
+  <div class="fnl-container">
+    <p class="fnl-footer-brand">YOUR AI DEPARTMENT</p>
+    <p class="fnl-footer-note">
+      Figures shown on this page describing implementation cost and ongoing service are
+      estimates or starting points, not quotes. Any illustrative example is labeled as such
+      and is not a projection of results.
+    </p>
+    <nav aria-label="Legal">
+      <ul class="fnl-footer-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/about/">About</a></li>
+        <li><a href="/contact/">Contact</a></li>
+        <li><a href="/privacy/">Privacy Policy</a></li>
+        <li><a href="/terms/">Terms of Use</a></li>
+      </ul>
+    </nav>
+    <p class="fnl-footer-copy">&copy; {year} Your AI Department. All rights reserved.</p>
+  </div>
+</footer>
+
+<style>
+  .fnl-footer {
+    background-color: var(--color-midnight-navy);
+    border-top: 1px solid var(--color-border-dark);
+    padding-block: 36px;
+    color: var(--color-dark-muted-text);
+  }
+
+  .fnl-footer-brand {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    color: var(--color-pure-white);
+    margin-bottom: 12px;
+  }
+
+  .fnl-footer-note {
+    font-size: 0.78rem;
+    line-height: 1.6;
+    max-width: 620px;
+    margin-bottom: 18px;
+  }
+
+  .fnl-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 16px;
+  }
+
+  .fnl-footer-links a {
+    font-size: 0.82rem;
+    color: var(--color-dark-muted-text);
+    /* 44px tap target on mobile without changing the visual rhythm. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .fnl-footer-links a:hover {
+    color: var(--color-signal-cyan);
+  }
+
+  .fnl-footer-copy {
+    font-size: 0.75rem;
+  }
+</style>

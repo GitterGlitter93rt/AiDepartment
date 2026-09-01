@@ -30,6 +30,13 @@ export const SCHEDULING = {
     price: '$750',
     intent: 'Paid one-on-one executive advisory session. Payment is processed by Stripe through Cal.com.',
   },
+  comprehensiveAudit: {
+    label: 'Comprehensive AI Business Audit',
+    url: 'https://cal.com/youraidepartment/comprehensive-ai-business-audit',
+    durationMinutes: 45,
+    price: '$495',
+    intent: 'Paid $495 Comprehensive AI Business Audit including a 45-minute strategy review. Booking and the required payment are processed through Cal.com — not on this website.',
+  },
   enterpriseDiscussion: {
     label: 'Enterprise Engagement Discussion',
     url: 'https://cal.com/youraidepartment/enterprise-engagement-discussion',

@@ -274,7 +274,14 @@ describe('10. Existing assessment scoring remains unchanged', () => {
   test('runAssessment on the shared fixture still produces a stable, deterministic result', () => {
     const a = runAssessment(BASE_ANSWERS);
     const b = runAssessment(BASE_ANSWERS);
-    assert.deepEqual(a, b);
+    // completedAt is a client-generated wall-clock timestamp — two calls
+    // can legitimately straddle a millisecond boundary, so it is
+    // excluded from the deep-equal (the determinism contract is about
+    // the scoring, flags, and recommendation payload, not the clock).
+    const { completedAt: _tsA, ...stableA } = a;
+    const { completedAt: _tsB, ...stableB } = b;
+    assert.deepEqual(stableA, stableB);
+    assert.equal(typeof a.completedAt, 'string');
     // Full coverage of scoring correctness lives in tests/assessment.test.ts
     // (29 tests, unmodified and still passing) — this test only confirms
     // that calling runAssessment from this new module's test context

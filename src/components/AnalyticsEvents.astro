@@ -28,6 +28,7 @@ import {
   enterpriseUrl: SCHEDULING.enterpriseDiscussion.url,
   trainingUrl: SCHEDULING.trainingConsultation.url,
   executiveUrl: SCHEDULING.executiveAdvisory.url,
+  comprehensiveAuditUrl: SCHEDULING.comprehensiveAudit.url,
   assessmentStartEventName: ASSESSMENT_EVENTS.start,
   freeStartParams: buildAssessmentStartParams(ASSESSMENT_TYPE.free),
   comprehensiveStartParams: buildAssessmentStartParams(ASSESSMENT_TYPE.comprehensive),
@@ -37,6 +38,28 @@ import {
 
   function pushEvent(eventName, extra) {
     window.dataLayer.push(Object.assign({ event: eventName }, extra || {}));
+  }
+
+  // The six UTM fields, read at call time from the snapshot published by
+  // AttributionCapture.astro. Read lazily (not captured once at parse)
+  // because this inline script runs before that module executes.
+  // Hard-coded allowlist: this script must never forward an arbitrary
+  // object into the dataLayer.
+  var CAMPAIGN_KEYS = ['utm_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+
+  function withCampaign(params) {
+    var merged = Object.assign({}, params);
+    try {
+      var snapshot = window.yaiCampaign || {};
+      for (var i = 0; i < CAMPAIGN_KEYS.length; i++) {
+        var key = CAMPAIGN_KEYS[i];
+        var value = snapshot[key];
+        if (typeof value === 'string' && value.length > 0) merged[key] = value;
+      }
+    } catch (e) {
+      /* campaign enrichment is best-effort */
+    }
+    return merged;
   }
 
   document.body.addEventListener('click', (e) => {
@@ -60,6 +83,12 @@ import {
         pushEvent('booking_click_training', { link_url: href });
       } else if (isSchedulingMatch(href, executiveUrl)) {
         pushEvent('booking_click_executive_advisory', { link_url: href });
+      } else if (isSchedulingMatch(href, comprehensiveAuditUrl)) {
+        // Paid Comprehensive AI Business Audit booking click — non-PII
+        // only: the enriched href (attribution click IDs / UTMs are
+        // not personal data) plus nothing else, same shape as the other
+        // booking_click_* events.
+        pushEvent('booking_click_comprehensive_audit', { link_url: href });
       }
 
       // Resource CTA clicks: any outbound click from within a resource
@@ -83,7 +112,9 @@ import {
     if (startBtn && !assessmentStartFired) {
       assessmentStartFired = true;
       const params = startBtn.id === 'a-quick-start-btn' ? freeStartParams : comprehensiveStartParams;
-      pushEvent(assessmentStartEventName, params);
+      // Still ONE push, still guarded by assessmentStartFired — the
+      // campaign fields are added to the existing event, not a new one.
+      pushEvent(assessmentStartEventName, withCampaign(params));
     }
   });
 </script>

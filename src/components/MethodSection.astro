@@ -35,6 +35,16 @@ const steps = [
         ))}
       </ol>
     </div>
+
+    {/*
+      This section previously had no link to the dedicated method page
+      it describes — a Tier-1 commercial page otherwise reachable only
+      via footer/nav, not contextually from the homepage section about
+      it. One direct link closes that gap without adding link clutter.
+    */}
+    <p class="method-link-wrap">
+      <a href="/ai-department-method/" class="method-link">See the Full AI Department Method &rarr;</a>
+    </p>
   </Container>
 </Section>
 
@@ -126,6 +136,22 @@ const steps = [
     line-height: 1.45;
     max-width: 160px;
     margin-inline: auto;
+  }
+
+  .method-link-wrap {
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .method-link {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-signal-cyan);
+  }
+
+  .method-link:hover {
+    text-decoration: underline;
   }
 
   @media (min-width: 768px) {

@@ -11,7 +11,13 @@ import { calculatePublicScoreShell } from '../../lib/assessment/calculatePublicS
 import { saveDraft, loadDraft, clearDraft, saveResult, saveContact, type ContactInfo } from '../../lib/assessment/persistence';
 import { submitAssessmentLead, buildLeadAnalyticsFields, validateContact } from '../../lib/assessment/leadSubmission';
 import { getVisibleOptions, isSelectedOptionStale } from '../../lib/assessment/optionVisibility';
-import { ASSESSMENT_EVENTS, ASSESSMENT_TYPE, buildAssessmentCompleteParams } from '../../lib/assessment/ga4Events';
+import {
+  ASSESSMENT_EVENTS,
+  ASSESSMENT_TYPE,
+  buildAssessmentCompleteParams,
+  withCampaignParams,
+} from '../../lib/assessment/ga4Events';
+import { getCampaignAttribution } from '../../lib/attribution';
 
 type ViewState = 'intro' | 'question' | 'contact' | 'submitting' | 'submit-error';
 
@@ -221,7 +227,7 @@ export class AssessmentApp {
     (window as any).dataLayer = (window as any).dataLayer || [];
     (window as any).dataLayer.push({
       event: ASSESSMENT_EVENTS.complete,
-      ...buildAssessmentCompleteParams(ASSESSMENT_TYPE.comprehensive),
+      ...withCampaignParams(buildAssessmentCompleteParams(ASSESSMENT_TYPE.comprehensive), getCampaignAttribution()),
     });
 
     this.pendingContact = contact;
@@ -262,7 +268,7 @@ export class AssessmentApp {
     // never contact fields, never the full result, never raw answers.
     (window as any).dataLayer.push({
       event: 'ai_assessment_lead_submit',
-      ...buildLeadAnalyticsFields(outcome.leadId, this.pendingResult),
+      ...withCampaignParams(buildLeadAnalyticsFields(outcome.leadId, this.pendingResult), getCampaignAttribution()),
     });
 
     clearDraft();

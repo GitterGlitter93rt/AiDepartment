@@ -1,0 +1,15 @@
+---
+// Paid-social VSL funnel: plumbing companies.
+//
+// Content lives in src/data/funnels/plumbing-ai.ts; structure lives in
+// src/components/funnel/FunnelPage.astro. This route is intentionally
+// three lines — a new vertical never copies a page template.
+//
+// Traffic source: Meta / Facebook / Instagram video ads only. Not
+// linked from site navigation, and noindex,follow so it cannot
+// cannibalize /industries/plumbing/.
+import FunnelLayout from '../../layouts/FunnelLayout.astro';
+import { plumbingAiFunnel } from '../../data/funnels/plumbing-ai';
+---
+
+<FunnelLayout funnel={plumbingAiFunnel} />

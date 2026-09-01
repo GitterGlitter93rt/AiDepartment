@@ -33,8 +33,10 @@ import {
   ASSESSMENT_TYPE,
   buildAssessmentCompleteParams,
   buildAssessmentLeadSubmitParams,
+  withCampaignParams,
 } from '../../lib/assessment/ga4Events';
 import { SCHEDULING } from '../../lib/scheduling';
+import { getCampaignAttribution } from '../../lib/attribution';
 
 type ViewState = 'intro' | 'question' | 'contact' | 'submitting' | 'submit-error' | 'results';
 
@@ -170,7 +172,10 @@ export class QuickAssessmentApp {
     (window as any).dataLayer = (window as any).dataLayer || [];
     (window as any).dataLayer.push({
       event: ASSESSMENT_EVENTS.complete,
-      ...buildAssessmentCompleteParams(ASSESSMENT_TYPE.free),
+      // Campaign fields come from the persisted session snapshot, so a
+      // visitor who arrived from a Smartlead email days earlier is still
+      // attributed correctly here.
+      ...withCampaignParams(buildAssessmentCompleteParams(ASSESSMENT_TYPE.free), getCampaignAttribution()),
     });
 
     this.pendingContact = contact;
@@ -205,7 +210,10 @@ export class QuickAssessmentApp {
     // Non-PII only: funnel identifiers, correlation ID, coarse score band.
     (window as any).dataLayer.push({
       event: ASSESSMENT_EVENTS.leadSubmit,
-      ...buildAssessmentLeadSubmitParams(ASSESSMENT_TYPE.free, outcome.leadId, this.pendingResult.overallScore),
+      ...withCampaignParams(
+        buildAssessmentLeadSubmitParams(ASSESSMENT_TYPE.free, outcome.leadId, this.pendingResult.overallScore),
+        getCampaignAttribution(),
+      ),
     });
 
     clearQuickDraft();
@@ -250,7 +258,11 @@ export class QuickAssessmentApp {
         </p>
       </div>
     `;
-    this.root.querySelector('#a-start-btn')?.addEventListener('click', this.startQuiz);
+    // NOTE: must match the button id above. This exact selector-id
+    // mismatch (button id renamed to a-quick-start-btn while this
+    // lookup still queried #a-start-btn) previously dead-wired the
+    // start button in production — see tests/quickStartButton.test.ts.
+    this.root.querySelector('#a-quick-start-btn')?.addEventListener('click', this.startQuiz);
   }
 
   private renderQuestion() {
@@ -490,19 +502,19 @@ export class QuickAssessmentApp {
             : `<p class="q-no-signals">Your answers show a mature AI foundation. A strategy conversation can help identify what to scale next.</p>`
         }
 
-        <div class="q-upgrade">
-          <div class="q-upgrade-card">
-            <span class="q-upgrade-tag">Deeper Diagnosis</span>
-            <h2>Comprehensive AI Business Audit — $495</h2>
-            <p>Want a deeper look at your AI readiness, marketing and lead flow, sales follow-up, customer communication, operational automation, and AI agents and integrations? Request the Comprehensive AI Business Audit and receive a personalized audit report, prioritized AI opportunities, financial-impact scenarios where your data supports them, and a 45-minute strategy review call.</p>
-            <a class="r-btn r-btn-primary" href="/comprehensive-ai-business-audit/">Request the $495 Audit</a>
-          </div>
-        </div>
-
         <div class="r-cta">
           <h2>${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Ready to Discuss Your Opportunities?'}</h2>
           <p>${isEnterprise ? 'Given the size of your organization, an enterprise conversation is the appropriate next step to explore AI opportunities in depth.' : 'Schedule a free strategy call to review your results and discuss what to prioritize first.'}</p>
-          <a class="r-btn r-btn-primary" href="${bookingUrl}">${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Schedule a Strategy Call'}</a>
+          <a class="r-btn r-btn-primary" href="${bookingUrl}">${isEnterprise ? 'Discuss an Enterprise Engagement' : 'Schedule a Free AI Strategy Call'}</a>
+        </div>
+
+        <div class="q-upgrade">
+          <div class="q-upgrade-card">
+            <span class="q-upgrade-tag">Go Deeper</span>
+            <h2>Comprehensive AI Business Audit — $495</h2>
+            <p>Want a deeper look at your AI readiness, marketing and lead flow, sales follow-up, customer communication, operational automation, and AI agents and integrations? Request the Comprehensive AI Business Audit and receive a personalized audit report, prioritized AI opportunities, financial-impact scenarios where your data supports them, and a 45-minute strategy review call.</p>
+            <a class="r-btn r-btn-secondary" href="/comprehensive-ai-business-audit/">Explore the $495 AI Business Audit</a>
+          </div>
         </div>
 
         <p class="r-disclaimer">This score provides an initial diagnostic based on your responses. It does not replace a full executive discovery process. Assessment version: ${QUICK_ASSESSMENT_VERSION}.</p>

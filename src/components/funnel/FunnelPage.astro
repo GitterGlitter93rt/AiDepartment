@@ -1,0 +1,417 @@
+---
+// Renders an entire paid-social VSL funnel from one FunnelConfig.
+//
+// SECTION ORDER is the direct-response sequence and is fixed here on
+// purpose. Each section answers exactly one question:
+//
+//   1 HERO           What is this and why should I care?
+//   2 LEAK           Do I have this problem?
+//   3 SYSTEM         How does this fix it?
+//   4 DELIVERABLES   What exactly do you build?     (attorney only)
+//   5 OFFER          What do I get, and what does it cost?
+//   6 PROCESS        How hard is this?              (optional)
+//   7 PROOF          Can I believe this?
+//   8 FIT + FAQ      What is stopping me?
+//   9 CLOSE          What do I do now?
+//
+// A funnel varies its content, never its argument. Optional sections
+// (deliverables, process, vsl, flow) are skipped when a config omits
+// them — family law, for example, merges its steps into `proof.steps`
+// rather than running a standalone process section.
+//
+// CTA PLACEMENT: four placements — hero, offer, fit/FAQ, close — plus
+// the mobile sticky bar. Deliberately NOT a CTA strip after every
+// section: the previous version had seven, which trained the reader to
+// scroll past them.
+import Icon from '../Icon.astro';
+import FunnelCTA from './FunnelCTA.astro';
+import FunnelVSL from './FunnelVSL.astro';
+import FunnelAnalytics from './FunnelAnalytics.astro';
+import FunnelStickyCta from './FunnelStickyCta.astro';
+import FunnelStyles from './FunnelStyles.astro';
+import type { FlowDiagram, FunnelConfig } from '../../lib/funnels/types';
+
+interface Props {
+  funnel: FunnelConfig;
+}
+
+const { funnel } = Astro.props;
+const { hero, leak, system, deliverables, offer, process, proof, fit, close } = funnel;
+
+// Rendered in two places (the leak chain and the mechanism flow), so
+// the markup lives in one local fragment rather than two copies.
+const flowSteps = (flow: FlowDiagram) => flow.steps;
+
+// A chain of seven or more stages cannot stay readable as a single
+// horizontal row on a phone — it either clips or forces a sideways
+// scroll. Long chains get a two-column mobile grid instead (see
+// .fnl-flow.is-long in FunnelStyles.astro). Six-stage chains, which is
+// what the plumbing and family-law funnels use, are unaffected.
+const LONG_FLOW_THRESHOLD = 7;
+const isLongFlow = (flow: FlowDiagram) => flow.steps.length >= LONG_FLOW_THRESHOLD;
+---
+
+<FunnelStyles />
+<FunnelAnalytics vertical={funnel.vertical} funnelId={funnel.funnelId} />
+
+{/* ============ 1. HERO ============ */}
+<section class="fnl-hero">
+  <div class="fnl-hero-glow" aria-hidden="true"></div>
+  <div class="fnl-container">
+    <div class:list={['fnl-hero-inner', { 'has-vsl': !!funnel.vsl }]}>
+      <div class="fnl-hero-copy">
+        <span class="fnl-eyebrow">{hero.eyebrow}</span>
+        {/* The explicit {' '} keeps the two lines from concatenating in
+            the accessible name and in extracted text — the visual break
+            comes from the span being display:block. */}
+        <h1>
+          {hero.headline}{hero.headlineLine2 && <>{' '}<span class="fnl-hero-line2">{hero.headlineLine2}</span></>}
+        </h1>
+        <p class="fnl-hero-sub">{hero.subhead}</p>
+
+        {/* Price anchor sits above the CTA so a plumbing visitor knows
+            the number before they decide to click. The attorney funnels
+            omit it — they qualify on fit first. */}
+        {hero.priceAnchor && (
+          <div class="fnl-price-anchor">
+            {hero.priceAnchor.map((item) => (
+              <div class="fnl-price-chip">
+                <span class="fnl-price-chip-label">{item.label}</span>
+                <span class="fnl-price-chip-value">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div class="fnl-hero-cta">
+          <FunnelCTA cta={hero.cta} location="hero" tone="dark" />
+        </div>
+
+        {hero.bullets && (
+          <ul class="fnl-hero-bullets">
+            {hero.bullets.map((b) => <li>{b}</li>)}
+          </ul>
+        )}
+      </div>
+
+      {funnel.vsl && (
+        <div class="fnl-hero-media">
+          <FunnelVSL vsl={funnel.vsl} />
+        </div>
+      )}
+    </div>
+  </div>
+</section>
+
+{/* ============ 2. THE LEAK ============
+    Runs continuously dark from the hero, so hook and problem read as
+    one block rather than two alternating stripes. */}
+<section class="fnl-section fnl-dark-2">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{leak.eyebrow}</span>
+      <h2 class="fnl-h2">{leak.heading}</h2>
+      {leak.intro && <p class="fnl-intro">{leak.intro}</p>}
+    </div>
+
+    {leak.flow && (
+      <>
+        <div class:list={['fnl-flow-scroll', { 'is-long': isLongFlow(leak.flow) }]}>
+          <ol class:list={['fnl-flow', { 'is-long': isLongFlow(leak.flow) }]}>
+            {flowSteps(leak.flow).map((step, i) => (
+              <li class="fnl-flow-item">
+                <span class="fnl-flow-step">
+                  <Icon name={step.icon} size={20} />
+                  <span class="fnl-flow-label">{step.label}</span>
+                </span>
+                {i < leak.flow!.steps.length - 1 && (
+                  <span class="fnl-flow-arrow" aria-hidden="true"><Icon name="arrow-right" size={16} /></span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
+        {leak.flow.note && <p class="fnl-flow-note" style="margin-bottom:34px">{leak.flow.note}</p>}
+      </>
+    )}
+
+    <div class="fnl-leak-grid">
+      {leak.items.map((item) => (
+        <div class="fnl-leak">
+          <span class="fnl-leak-icon"><Icon name={item.icon} size={22} /></span>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+{/* ============ 3. THE SYSTEM / MECHANISM ============ */}
+<section class="fnl-section fnl-light">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{system.eyebrow}</span>
+      <h2 class="fnl-h2">{system.heading}</h2>
+    </div>
+
+    {system.paragraphs.map((p) => <p class="fnl-p">{p}</p>)}
+
+    {system.flow && (
+      <div class:list={['fnl-flow-scroll', { 'is-long': isLongFlow(system.flow) }]} style="margin-top:34px">
+        <ol class:list={['fnl-flow', { 'is-long': isLongFlow(system.flow) }]}>
+          {flowSteps(system.flow).map((step, i) => (
+            <li class="fnl-flow-item">
+              <span class="fnl-flow-step">
+                <Icon name={step.icon} size={20} />
+                <span class="fnl-flow-label">{step.label}</span>
+              </span>
+              {i < system.flow!.steps.length - 1 && (
+                <span class="fnl-flow-arrow" aria-hidden="true"><Icon name="arrow-right" size={16} /></span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </div>
+    )}
+
+    {system.pillars && (
+      <div class="fnl-pillars" style="margin-top:34px">
+        {system.pillars.map((pillar) => (
+          <div class="fnl-pillar">
+            <span class="fnl-pillar-icon"><Icon name={pillar.icon} size={26} /></span>
+            <h3>{pillar.title}</h3>
+            <span class="fnl-pillar-sub">{pillar.subtitle}</span>
+            <p>{pillar.body}</p>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {system.capabilities && (
+      <div class="fnl-grid cols-3" style="margin-top:34px">
+        {system.capabilities.map((item) => (
+          <div class="fnl-card">
+            <span class="fnl-card-icon"><Icon name={item.icon} size={21} /></span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Compact boundary strip. Kept because it is a compliance
+        requirement in the legal verticals and a credibility mechanism
+        everywhere — but one short sentence each, not a card grid. */}
+    <div class="fnl-boundaries">
+      {system.boundaries.map((b) => (
+        <div class="fnl-boundary">
+          <h3>{b.title}</h3>
+          <p>{b.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+{/* ============ 4. WHAT WE BUILD & MANAGE (attorney funnels) ============
+    Shares the system section's tone deliberately: "how it works" and
+    "what we build" are one argument, and giving them separate
+    backgrounds produced the stripe effect the conversion pass removed. */}
+{deliverables && (
+  <section class="fnl-section fnl-light">
+    <div class="fnl-container">
+      <div class="fnl-head">
+        <span class="fnl-eyebrow">{deliverables.eyebrow}</span>
+        <h2 class="fnl-h2">{deliverables.heading}</h2>
+        {deliverables.intro && <p class="fnl-intro">{deliverables.intro}</p>}
+      </div>
+      <ul class="fnl-deliverables">
+        {deliverables.items.map((item) => <li>{item}</li>)}
+      </ul>
+    </div>
+  </section>
+)}
+
+{/* ============ 5. OFFER / INVESTMENT ============
+    The only dark section between the hero and the close, so it reads as
+    the page's centre of gravity. */}
+<section class="fnl-section fnl-dark">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{offer.eyebrow}</span>
+      <h2 class="fnl-h2">{offer.heading}</h2>
+    </div>
+
+    <div class="fnl-offer-panel">
+      <div class="fnl-offer-left">
+        <p class="fnl-offer-name">{offer.name}</p>
+        <p class="fnl-offer-summary">{offer.summary}</p>
+
+        <div class="fnl-price-lines">
+          {offer.priceLines.map((line) => (
+            <div class="fnl-price-line">
+              <span class="fnl-price-line-label">{line.label}</span>
+              <span class="fnl-price-line-value">{line.value}</span>
+              {line.note && <span class="fnl-price-line-note">{line.note}</span>}
+            </div>
+          ))}
+        </div>
+
+        <FunnelCTA cta={offer.cta} location="offer" tone="dark" />
+      </div>
+
+      <div class="fnl-offer-right">
+        <p class="fnl-includes-title">{offer.includesTitle}</p>
+        <ul class="fnl-check-list">
+          {offer.includes.map((item) => <li>{item}</li>)}
+        </ul>
+        <ul class="fnl-footnotes">
+          {offer.footnotes.map((note) => <li>{note}</li>)}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* ============ 6. HOW IT WORKS (optional) ============
+    Pairs with the proof section below on the same tone — process and
+    proof answer adjacent questions ("how hard is this?" / "can I
+    believe it?") and read better as one block. */}
+{process && (
+  <section class="fnl-section fnl-white">
+    <div class="fnl-container">
+      <div class="fnl-head">
+        <span class="fnl-eyebrow">{process.eyebrow}</span>
+        <h2 class="fnl-h2">{process.heading}</h2>
+      </div>
+      <div class:list={['fnl-steps', `count-${process.steps.length}`]}>
+        {process.steps.map((step) => (
+          <div class="fnl-step">
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </div>
+        ))}
+      </div>
+      {process.note && <p class="fnl-step-note">{process.note}</p>}
+    </div>
+  </section>
+)}
+
+{/* ============ 7. PROOF ============ */}
+<section class="fnl-section fnl-white">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{proof.eyebrow}</span>
+      <h2 class="fnl-h2">{proof.heading}</h2>
+      {proof.intro && <p class="fnl-intro">{proof.intro}</p>}
+    </div>
+
+    {/* Process steps render here when a funnel merges "how it works"
+        into proof instead of running a standalone section. */}
+    {proof.steps && (
+      <div class:list={['fnl-steps', `count-${proof.steps.length}`]} style="margin-bottom:38px">
+        {proof.steps.map((step) => (
+          <div class="fnl-step">
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {proof.workflow && (
+      <div class="fnl-workflow">
+        {/* The label renders visibly, never as a footnote — an
+            illustrative example must read as illustrative at a glance. */}
+        <span class="fnl-workflow-label">{proof.workflow.label}</span>
+        <h3>{proof.workflow.heading}</h3>
+        <div class="fnl-workflow-steps">
+          {proof.workflow.steps.map((step) => (
+            <div class="fnl-workflow-step">
+              <span class="fnl-workflow-marker" aria-hidden="true"></span>
+              <p><strong>{step.marker}</strong> {step.text}</p>
+            </div>
+          ))}
+        </div>
+        <p class="fnl-workflow-disclaimer">{proof.workflow.disclaimer}</p>
+      </div>
+    )}
+
+    <div class="fnl-grid">
+      {proof.demoSlots.map((slot) => (
+        <div class="fnl-card">
+          <span class="fnl-card-icon"><Icon name={slot.icon ?? 'play'} size={21} /></span>
+          <h3>{slot.title}</h3>
+          <p>{slot.body}</p>
+        </div>
+      ))}
+    </div>
+
+    {/* Optional closing line — the insertion point for a real,
+        permissioned client result when one exists. Never used to
+        announce the absence of results. */}
+    {proof.note && <p class="fnl-proof-note">{proof.note}</p>}
+  </div>
+</section>
+
+{/* ============ 8. FIT + OBJECTIONS ============ */}
+<section class="fnl-section fnl-light">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{fit.eyebrow}</span>
+      <h2 class="fnl-h2">{fit.heading}</h2>
+    </div>
+
+    <div class="fnl-fit">
+      <div class="fnl-fit-col">
+        <h3>{fit.fitHeading}</h3>
+        <ul class="fnl-fit-list fnl-fit-yes">
+          {fit.fitItems.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+      <div class="fnl-fit-col">
+        <h3>{fit.notFitHeading}</h3>
+        <ul class="fnl-fit-list fnl-fit-no">
+          {fit.notFitItems.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </div>
+
+    <div class="fnl-faq">
+      {fit.faqs.map((item) => (
+        <details class="fnl-faq-item">
+          <summary class="fnl-faq-q">
+            {item.question}
+            <span class="fnl-faq-toggle" aria-hidden="true"></span>
+          </summary>
+          <p class="fnl-faq-a">{item.answer}</p>
+        </details>
+      ))}
+    </div>
+
+    <div class="fnl-fit-cta">
+      <FunnelCTA cta={fit.cta} location="faq" tone="light" />
+    </div>
+  </div>
+</section>
+
+{/* ============ 9. FINAL CLOSE ============ */}
+<section class="fnl-close">
+  <div class="fnl-close-glow" aria-hidden="true"></div>
+  <div class="fnl-container">
+    <div class="fnl-close-inner">
+      <span class="fnl-eyebrow">{close.eyebrow}</span>
+      <h2>{close.heading}</h2>
+      <p class="fnl-close-body">{close.body}</p>
+      <FunnelCTA cta={close.cta} location="final" tone="dark" align="center" />
+      {close.whatHappens && (
+        <ul class="fnl-what-happens">
+          {close.whatHappens.map((item) => <li>{item}</li>)}
+        </ul>
+      )}
+    </div>
+  </div>
+</section>
+
+<FunnelStickyCta cta={hero.cta} />
