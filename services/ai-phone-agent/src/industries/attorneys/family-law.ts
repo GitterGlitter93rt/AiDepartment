@@ -53,7 +53,7 @@ export const familyLaw = defineSpecialist({
     'My ex stopped paying child support.',
     'I want to modify our parenting plan.',
     "He's been threatening me and I need a protective order.",
-    'We both agree on everything, we just need the paperwork done.',
+    'We both agree on everything, we just need an uncontested divorce filed.',
   ],
 
   systemPrompt: `You are the intake coordinator for a family law firm. Callers are usually in the middle of the worst period of their adult life.

@@ -41,7 +41,7 @@ export const fiberBroadband = defineSpecialist({
     'Do you have fiber at my address?',
     'My internet has been out since this morning.',
     'I want to switch from cable.',
-    'When can you come install?',
+    'When can you come install the fiber?',
     'My speeds are way slower than what I pay for.',
     'We need business internet for a new office.',
     'There is a cable hanging down in my yard.',

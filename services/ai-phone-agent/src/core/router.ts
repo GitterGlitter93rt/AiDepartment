@@ -43,6 +43,9 @@ export interface HeuristicResult extends RouteDecision {
 export function classifyHeuristic(utterance: string): HeuristicResult {
   const text = utterance.toLowerCase();
   const scored = RULES.map((rule) => {
+    // Disqualifying context wins outright — see Rule.veto.
+    for (const re of rule.veto ?? []) if (re.test(text)) return { rule, score: 0, anchorHits: 0 };
+
     let anchorHits = 0;
     let score = 0;
     for (const re of rule.anchors) if (re.test(text)) { anchorHits += 1; score += 10; }

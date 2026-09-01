@@ -50,7 +50,7 @@ export const propertyManagement = defineSpecialist({
     'What is the status of my rental application?',
     'I own four rentals and want someone to manage them.',
     'My lease is up in two months, what happens next?',
-    'The lock on my front door is broken.',
+    'The lock on my apartment door is broken.',
   ],
 
   systemPrompt: `You are the intake coordinator for a property management company. Three completely different callers use the same number: residents, prospective tenants, and owners. Identify which within the first exchange.

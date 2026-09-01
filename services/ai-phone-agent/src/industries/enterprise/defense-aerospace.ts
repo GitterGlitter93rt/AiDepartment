@@ -38,7 +38,7 @@ export const defenseAerospace = defineSpecialist({
     'We have an RFI going out and want to include your company.',
     'We are a supplier interested in getting qualified.',
     'I have a question about an existing contract.',
-    'There is a nonconformance on a delivered part.',
+    'There is a nonconformance on a delivered part under our AS9100 program.',
   ],
 
   systemPrompt: `You are the intake coordinator for a defense and aerospace supplier. This line is unsecured and general-purpose, and the discipline of that shapes everything.

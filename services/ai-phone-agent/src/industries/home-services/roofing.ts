@@ -54,7 +54,7 @@ export const roofing = defineSpecialist({
     'I think hail damaged my roof.',
     'A tree came down on my house.',
     'My roof is about twenty years old and I want it replaced.',
-    'My insurance adjuster is coming and I need my own inspection.',
+    'My insurance adjuster is coming out about the roof and I want my own inspection.',
     'I need a roof inspection for a home sale.',
   ],
 

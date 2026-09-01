@@ -44,8 +44,8 @@ export const restoration = defineSpecialist({
     'We had a fire last night and the house is full of smoke.',
     'A pipe burst while we were away and the whole floor is soaked.',
     'I found black mould behind the drywall.',
-    'Sewage backed up into the downstairs.',
-    'The hurricane took part of our roof and the rain came in.',
+    'Sewage backed up and the carpet and drywall need to come out.',
+    'The hurricane let rain in and everything upstairs is soaked.',
   ],
 
   systemPrompt: `You are the emergency intake coordinator for a restoration company. This is a 24/7 business and almost every call is someone having a bad day at a bad hour.

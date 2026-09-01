@@ -42,7 +42,7 @@ export const collisionRepair = defineSpecialist({
 
   sampleUtterances: [
     'I was just in an accident and my car is wrecked.',
-    'Someone rear-ended me in a parking lot.',
+    'Someone backed into my car in a parking lot and crumpled the bumper.',
     'I need an estimate for body work.',
     'Hail destroyed my hood and roof.',
     'My insurance told me to get an estimate from you.',

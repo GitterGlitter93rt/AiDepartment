@@ -41,7 +41,7 @@ export const insurance = defineSpecialist({
   sampleUtterances: [
     'I need a quote on auto insurance.',
     'I was in an accident and need to file a claim.',
-    'A tree fell on my house.',
+    'A tree fell on my house and I need to file a claim.',
     'I want to add a car to my policy.',
     'Is my roof covered?',
     'I need proof of insurance for my lender.',
