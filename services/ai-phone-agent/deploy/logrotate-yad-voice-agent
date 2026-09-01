@@ -1,0 +1,16 @@
+# /etc/logrotate.d/yad-voice-agent
+#
+# Only needed with PM2. Under systemd, journald handles rotation —
+# bound it instead with:
+#   sudo journalctl --vacuum-size=500M
+#   or SystemMaxUse=500M in /etc/systemd/journald.conf
+/var/log/yad-voice-agent/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su root root
+}

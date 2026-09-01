@@ -1,0 +1,63 @@
+# systemd unit for the AI phone demo line.
+#
+# Install:
+#   sudo cp deploy/yad-voice-agent.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now yad-voice-agent
+#
+# systemd is preferred over PM2 here: it is already on the VPS, starts
+# on boot without an extra resurrect step, gives journald log handling
+# and rotation for free, and needs no runtime of its own.
+
+[Unit]
+Description=YAD AI Voice Agent (Twilio + Claude)
+Documentation=https://github.com/GitterGlitter93rt/AiDepartment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yadvoice
+Group=yadvoice
+WorkingDirectory=/opt/yad-voice-agent/services/ai-phone-agent
+
+# Secrets live in a root-owned file readable only by the service user —
+# never in this unit, never in the repo.
+EnvironmentFile=/etc/yad-voice-agent.env
+
+ExecStart=/usr/bin/node --experimental-strip-types src/server.ts
+
+# Graceful shutdown: the service stops accepting connections and lets
+# calls in progress finish. SHUTDOWN_GRACE_MS (default 25s) must stay
+# below TimeoutStopSec or systemd will SIGKILL mid-call.
+KillSignal=SIGTERM
+TimeoutStopSec=35
+Restart=always
+RestartSec=3
+
+# Restart storm protection: if it crash-loops 5 times in 60s, stop and
+# leave it stopped so a bad deploy is obvious rather than silently
+# flapping.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yad-voice-agent
+
+# --- Hardening ---------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/yad-voice-agent/services/ai-phone-agent
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target
