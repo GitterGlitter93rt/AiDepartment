@@ -44,8 +44,9 @@ The training system is intentionally built in modules so salespeople can learn a
 - `module-05-hooks-and-opening-angles.md` - hook selection, money/speed/follow-up/capacity/attribution angles, phone vs field delivery, starter vertical hook banks, and hook certification.
 - `module-06-story-and-visualization-selling.md` - hypothetical/verified story discipline, verbal and visual workflow selling, industry story examples, CRM/capacity/attribution visuals, and story certification.
 - `module-07-objection-handling.md` - objection diagnosis, trust/risk/value/timing objections, employee-safe responses, pricing discipline, phone vs field handling, objection logging, roleplays, and certification.
+- `module-08-competitive-positioning.md` - ChatGPT/SaaS/freelancer/IT/agency/internal-hire comparisons, build-vs-buy judgment, orchestrator positioning, partnership language, phone/field responses, and certification.
 
-Future modules will cover competitive positioning, proposals/closing, industry playbooks, roleplays, sales management, and certification.
+Future modules will cover proposals/closing, industry playbooks, roleplays, sales management, and certification.
 
 ## Visual/PDF direction
 
