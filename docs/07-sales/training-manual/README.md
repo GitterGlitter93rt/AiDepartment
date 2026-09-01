@@ -47,8 +47,13 @@ The training system is intentionally built in modules so salespeople can learn a
 - `module-08-competitive-positioning.md` - ChatGPT/SaaS/freelancer/IT/agency/internal-hire comparisons, build-vs-buy judgment, orchestrator positioning, partnership language, phone/field responses, and certification.
 - `module-09-proposal-presentation-and-closing.md` - offer selection, proposal structure, ROI presentation, scope/assumption discipline, pricing, stakeholder decisions, phone/field closes, handoff, and certification.
 - `module-10-hvac-industry-playbook.md` - full HVAC vertical playbook covering economics, customer journey, prospect sourcing, paid-advertiser targeting, discovery, CRM/field-service workflow, YAD capabilities, ROI, phone and walk-in scripts, objections, field cheat sheet, evidence cards, and certification.
+- `module-11-plumbing-industry-playbook.md` - plumbing economics, urgent-call workflow, dispatch capacity, paid-advertiser targeting, CRM/field-service systems, larger-estimate follow-up, attribution, ROI, phone/walk-in scripts, evidence cards, and certification.
+- `module-12-roofing-industry-playbook.md` - roofing lead speed, storm surges, inspections, unsold proposals, financing/document follow-up, CRM, attribution, employee capacity, phone/walk-in scripts, ROI, evidence cards, and certification.
+- `module-13-collision-repair-industry-playbook.md` - collision estimate leads, front-office capacity, unsold estimates, customer-status communication, shop-management/CRM workflow, document administration, attribution, ROI, scripts, and certification.
+- `module-14-pdr-hail-industry-playbook.md` - event-driven hail markets, rapid market launch, field-sales lead capture, surge handling, appointment/no-show workflows, multi-market CRM, attribution, insurance/admin boundaries, scripts, ROI, and certification.
+- `module-15-law-firms-industry-playbook.md` - law-firm intake, after-hours response, consultation workflow, CRM/practice-management, marketing attribution, administrative capacity, AI governance, confidentiality guardrails, scripts, ROI, evidence cards, and certification.
 
-Future modules will continue with Plumbing, Roofing, Collision Repair, PDR/Hail, Law Firms, and the remaining priority verticals, followed by roleplay academy, sales management/coaching, and final certification.
+Future vertical modules should continue with General Contractors/Remodeling, Electrical, Dental, Med Spas, Automotive Dealerships, Property Management, Assisted Living/Senior Care, Insurance Agencies, Accounting/CPA, Medical, Real Estate, Gyms/Fitness, Restaurants/Catering, E-commerce, and additional supported industries. These will be followed by the roleplay academy, sales management/coaching system, and final certification.
 
 ## Visual/PDF direction
 
