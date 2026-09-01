@@ -43,8 +43,9 @@ The training system is intentionally built in modules so salespeople can learn a
 - `module-04c-prospect-qualification-and-target-scoring.md` - public prospect signals, Google industry/location advertiser sourcing, Meta Ad Library research, Google Ads Transparency research, Tier A-D prioritization, and phone/field target scoring.
 - `module-05-hooks-and-opening-angles.md` - hook selection, money/speed/follow-up/capacity/attribution angles, phone vs field delivery, starter vertical hook banks, and hook certification.
 - `module-06-story-and-visualization-selling.md` - hypothetical/verified story discipline, verbal and visual workflow selling, industry story examples, CRM/capacity/attribution visuals, and story certification.
+- `module-07-objection-handling.md` - objection diagnosis, trust/risk/value/timing objections, employee-safe responses, pricing discipline, phone vs field handling, objection logging, roleplays, and certification.
 
-Future modules will cover objections, competitive positioning, proposals/closing, industry playbooks, roleplays, sales management, and certification.
+Future modules will cover competitive positioning, proposals/closing, industry playbooks, roleplays, sales management, and certification.
 
 ## Visual/PDF direction
 
