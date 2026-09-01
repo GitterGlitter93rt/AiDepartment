@@ -1,0 +1,44 @@
+name: Generate ROI Forms
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tools/generate_roi_forms.py
+      - docs/07-sales/training-manual/roi-forms/one-page-roi-forms-spec.md
+      - .github/workflows/generate-roi-forms.yml
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PDF dependencies
+        run: pip install reportlab pypdf
+
+      - name: Generate one-page ROI PDFs
+        run: python tools/generate_roi_forms.py
+
+      - name: Commit generated PDFs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/07-sales/training-manual/roi-forms/generated/*.pdf
+          if git diff --cached --quiet; then
+            echo "Generated PDFs are already current."
+          else
+            git commit -m "Generate one-page ROI form PDFs"
+            git push
+          fi
