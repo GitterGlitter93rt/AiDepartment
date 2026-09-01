@@ -1,0 +1,50 @@
+name: Package Sales Manual Source
+
+on:
+  push:
+    paths:
+      - '.github/workflows/package-sales-manual-source.yml'
+      - 'docs/07-sales/training-manual/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Assemble full manual source
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path('docs/07-sales/training-manual')
+          modules = sorted(root.glob('module-*.md'))
+          out = Path('sales-manual-source')
+          out.mkdir(exist_ok=True)
+          combined = out / 'YourAI_Department_Full_Manual_Source.md'
+          with combined.open('w', encoding='utf-8') as f:
+              f.write('# Your AI Department - Full Sales Training Manual Source\n\n')
+              f.write('Generated from the repository source-of-truth modules.\n\n')
+              for p in modules:
+                  f.write('\n\n---\n\n')
+                  f.write(f'<!-- SOURCE: {p.as_posix()} -->\n\n')
+                  f.write(p.read_text(encoding='utf-8'))
+                  f.write('\n')
+              evidence = root / 'evidence-review-register.md'
+              if evidence.exists():
+                  f.write('\n\n---\n\n# APPENDIX - EVIDENCE REVIEW REGISTER\n\n')
+                  f.write(evidence.read_text(encoding='utf-8'))
+          print(f'Packaged {len(modules)} modules into {combined}')
+          PY
+
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: yad-sales-manual-source
+          path: sales-manual-source/YourAI_Department_Full_Manual_Source.md
+          retention-days: 7
