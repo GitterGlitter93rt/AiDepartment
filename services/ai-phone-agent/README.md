@@ -5,11 +5,11 @@ One phone number that becomes the right industry intake agent, automatically, wi
 A prospect calls, says what's going on in their own words, and the line responds as the appropriate specialist — a family-law intake coordinator, a plumbing dispatcher, a roofing scheduler — so they experience what an AI phone agent would feel like *for their business*.
 
 ```
-Caller ──▶ Twilio number ──▶ POST /voice ──▶ TwiML <ConversationRelay>
+Caller ──▶ Twilio number ──▶ POST /twilio/incoming ──▶ TwiML <ConversationRelay>
                                                     │
                           speech ⇄ text over WS ────┤
                                                     ▼
-                                            WS /relay ──▶ Router (stage 1)
+                                    WS /twilio/conversation ──▶ Router (stage 1)
                                                             │
                                                             ▼
                                                     Specialist (stage 2) ──▶ Claude
@@ -24,9 +24,21 @@ Caller ──▶ Twilio number ──▶ POST /voice ──▶ TwiML <Conversati
 | `/health` | GET | Liveness + redacted config snapshot |
 | `/twilio/incoming` | POST | Twilio inbound-call webhook → ConversationRelay TwiML |
 | `/twilio/status` | POST | Twilio call-status callback |
+| `/twilio/relay-action` | POST | Runs when the relay session ends — returns `<Dial>` for a warm transfer, otherwise `<Hangup>` |
 | `/twilio/conversation` | WS | ConversationRelay socket: transcripts in, speech out |
 
-Production: `https://voice.youraidepartment.ai` · **[DEPLOYMENT.md](./DEPLOYMENT.md)** is the VPS runbook.
+Production: `https://voice.youraidepartment.ai` · **[DEPLOYMENT.md](./DEPLOYMENT.md)** is the copy-pasteable VPS runbook.
+
+### Documentation
+
+| Document | What it covers |
+|---|---|
+| [Architecture](../../docs/voice-agent-architecture.md) | Two-stage design, scoring and vetoes, tool contract, guardrails, failure behaviour |
+| [Industry inventory](../../docs/voice-agent-industry-inventory.md) | All 28 website industries mapped to 31 specialists, plus the known gaps |
+| [Deployment](../../docs/voice-agent-deployment.md) | Topology, credentials, security posture, updates and rollback |
+| [Twilio setup](../../docs/voice-agent-twilio-setup.md) | Console configuration and troubleshooting |
+| [Testing](../../docs/voice-agent-testing.md) | What the 506 tests guarantee and how to add to them |
+| [Adding an industry](../../docs/adding-an-industry.md) | The website side and the agent side, in order |
 
 The service binds `127.0.0.1:3001` and is reached only through Nginx. The Node port is never exposed publicly.
 
@@ -74,10 +86,19 @@ The **family-law/divorce** brain is the deepest: it carries the legal-advice bou
 
 ## 4. Adding a new industry
 
-1. Create `src/industries/<name>.ts` implementing `IndustryModule`.
-2. Register it in `src/industries/index.ts`.
-3. Add keyword rules to `RULES` in `src/core/router.ts`.
-4. Add a routing test to `tests/router.test.ts`.
+Four files, in order:
+
+1. Add the ID to `INDUSTRY_IDS` and `INDUSTRY_LABELS` in `src/core/taxonomy.ts`.
+2. Create `src/industries/<sector>/<name>.ts` with `defineSpecialist()`.
+3. Register it in `REGISTRY` in `src/industries/index.ts`.
+4. Add weighted rules to `src/core/router-rules.ts`.
+
+After step 1 the suite fails until steps 2 and 4 are done, which is the
+point: an industry with no specialist, or a specialist that can never
+be routed to, is caught immediately.
+
+Full walkthrough with the failure modes to expect:
+**[docs/adding-an-industry.md](../../docs/adding-an-industry.md)**.
 
 Nothing else changes — orchestrator, sessions, tools and transport are all industry-agnostic.
 
@@ -149,7 +170,7 @@ Both default to mock and **fail safe**: even with `MOCK_SMS_MODE=false`, the rea
 
 **Implemented:**
 
-- **Twilio signature validation** on `/twilio/incoming` and `/twilio/status` (HMAC-SHA1, constant-time compare). On by default when `NODE_ENV=production`; requires `TWILIO_AUTH_TOKEN`. Fails closed — no token means no validation *and* no pretence of it, surfaced on `/health`.
+- **Twilio signature validation** on `/twilio/incoming`, `/twilio/status` and `/twilio/relay-action` (HMAC-SHA1, constant-time compare). On by default when `NODE_ENV=production`; requires `TWILIO_AUTH_TOKEN`. Fails closed — no token means no validation *and* no pretence of it, surfaced on `/health`.
 - **Rate limiting** — 120 requests/min per IP, fixed window, swept so the map cannot grow unbounded.
 - **Body size cap** — 64 KB on HTTP, `maxPayload` on the WebSocket.
 - **Loopback binding** — the Node port is not publicly reachable.
