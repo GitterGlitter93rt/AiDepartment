@@ -47,6 +47,7 @@ import Icon from '../../components/Icon.astro';
     evaluateBookingConfirmedFiring,
     buildBookingConfirmedEvent,
   } from '../../lib/bookingConfirmation';
+  import { getRepCode } from '../../lib/repAttribution';
 
   try {
     const params = new URLSearchParams(window.location.search);
@@ -79,7 +80,7 @@ import Icon from '../../components/Icon.astro';
 
     if (shouldFire) {
       (window as any).dataLayer = (window as any).dataLayer || [];
-      (window as any).dataLayer.push(buildBookingConfirmedEvent(bookingType));
+      (window as any).dataLayer.push(buildBookingConfirmedEvent(bookingType, getRepCode()));
     }
   } catch {
     // Never let this page's tracking logic break the confirmation

@@ -101,3 +101,26 @@ export function withCampaignParams(
   }
   return out;
 }
+
+/**
+ * Attach the sales-rep / business-card attribution code to an event.
+ *
+ * rep_code is an APPROVED non-PII analytics parameter. It is safe by
+ * construction, not by convention:
+ *   - it can only originate from ?rep= / ?r= on a URL we publish
+ *     ourselves (an employee QR code), never from anything a visitor
+ *     types into a form;
+ *   - sanitizeRepCode() in src/lib/repAttribution.ts strips it to
+ *     [a-z0-9._-] and caps it at 64 characters, so an email address,
+ *     phone number or free-text name cannot survive intact.
+ *
+ * Omitted entirely when absent, so organic visitors never carry a blank
+ * rep_code into GA4.
+ */
+export function withRepCode(
+  base: Record<string, string>,
+  repCode: string | null | undefined,
+): Record<string, string> {
+  if (typeof repCode !== 'string' || repCode.length === 0) return { ...base };
+  return { ...base, rep_code: repCode };
+}

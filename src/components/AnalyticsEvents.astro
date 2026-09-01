@@ -36,8 +36,11 @@ import {
   window.dataLayer = window.dataLayer || [];
   let assessmentStartFired = false;
 
+  // Every event pushed from this tracker carries rep_code when a
+  // business-card/QR visit is attributed, and omits it entirely
+  // otherwise — no blank parameter for organic visitors.
   function pushEvent(eventName, extra) {
-    window.dataLayer.push(Object.assign({ event: eventName }, extra || {}));
+    window.dataLayer.push(Object.assign({ event: eventName }, extra || {}, repParams()));
   }
 
   // The six UTM fields, read at call time from the snapshot published by
@@ -46,6 +49,18 @@ import {
   // Hard-coded allowlist: this script must never forward an arbitrary
   // object into the dataLayer.
   var CAMPAIGN_KEYS = ['utm_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+
+  // Sanitized rep code published by AttributionCapture.astro. Read
+  // lazily for the same reason as the campaign snapshot: this inline
+  // script runs before that module executes.
+  function repParams() {
+    try {
+      var rep = window.yaiRep;
+      return typeof rep === 'string' && rep.length > 0 ? { rep_code: rep } : {};
+    } catch (e) {
+      return {};
+    }
+  }
 
   function withCampaign(params) {
     var merged = Object.assign({}, params);

@@ -37,6 +37,74 @@ export function validateQuickContact(contact: Pick<QuickContactInfo, 'firstName'
   return null;
 }
 
+/** The contact form's live values. Every field is optional because the
+ * draft is captured continuously, including while half-filled. Holds
+ * only what the visitor typed into this one form — it is never sent to
+ * analytics and never leaves the page except through the normal lead
+ * submission. */
+export interface QuickContactDraft {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  website?: string;
+  consent?: boolean;
+  marketingOptIn?: boolean;
+}
+
+export interface ContactFieldError {
+  /** The `name` attribute of the control to focus. */
+  field: string;
+  message: string;
+}
+
+/** Loose email shape check — deliberately permissive. The authoritative
+ * test is whether delivery succeeds; this only catches obvious typos
+ * without rejecting valid-but-unusual addresses. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Field-level validation mirroring the form markup's native
+ * constraints, returning WHICH field failed so the caller can focus it
+ * and describe it accessibly.
+ *
+ * validateQuickContact() above is kept unchanged: it is the message-only
+ * contract other callers and tests already rely on. This is the richer
+ * variant, not a replacement.
+ *
+ * marketingOptIn is deliberately absent — it is optional, and a visitor
+ * must always be able to submit without opting into promotional email.
+ */
+export function validateQuickContactField(
+  contact: Pick<QuickContactInfo, 'firstName' | 'email' | 'company' | 'website'>,
+): ContactFieldError | null {
+  if (!contact.firstName || !contact.firstName.trim()) {
+    return { field: 'firstName', message: 'Please enter your first name.' };
+  }
+  if (!contact.email || !contact.email.trim()) {
+    return { field: 'email', message: 'Please enter your business email address.' };
+  }
+  if (!EMAIL_PATTERN.test(contact.email.trim())) {
+    return { field: 'email', message: 'Please enter a valid business email address.' };
+  }
+  if (!contact.company || !contact.company.trim()) {
+    return { field: 'company', message: 'Please enter your company name.' };
+  }
+  // Website is optional, but must be a usable URL when supplied.
+  if (contact.website && contact.website.trim()) {
+    const raw = contact.website.trim();
+    const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      const url = new URL(candidate);
+      if (!url.hostname.includes('.')) throw new Error('no tld');
+    } catch {
+      return { field: 'website', message: 'Please enter a valid website address, or leave it blank.' };
+    }
+  }
+  return null;
+}
+
 /** Human-readable "question — answer" block using each question's real
  * prompt and option labels, so the lead email reads naturally. */
 export function buildQuickAnswerSummary(answers: QuickAnswerMap, questions: QuickQuestionDef[]): string {

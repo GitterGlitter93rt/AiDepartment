@@ -9,15 +9,21 @@ import type { AnswerMap, QuestionDef, FullAssessmentResult } from '../../data/as
 import { runAssessment } from '../../lib/assessment/runAssessment';
 import { calculatePublicScoreShell } from '../../lib/assessment/calculatePublicScore';
 import { saveDraft, loadDraft, clearDraft, saveResult, saveContact, type ContactInfo } from '../../lib/assessment/persistence';
-import { submitAssessmentLead, buildLeadAnalyticsFields, validateContact } from '../../lib/assessment/leadSubmission';
+import { submitAssessmentLead, buildLeadAnalyticsFields } from '../../lib/assessment/leadSubmission';
+import {
+  validateQuickContactField,
+  type QuickContactDraft,
+} from '../../lib/assessment/quickLeadSubmission';
 import { getVisibleOptions, isSelectedOptionStale } from '../../lib/assessment/optionVisibility';
 import {
   ASSESSMENT_EVENTS,
   ASSESSMENT_TYPE,
   buildAssessmentCompleteParams,
   withCampaignParams,
+  withRepCode,
 } from '../../lib/assessment/ga4Events';
 import { getCampaignAttribution } from '../../lib/attribution';
+import { getRepCode } from '../../lib/repAttribution';
 
 type ViewState = 'intro' | 'question' | 'contact' | 'submitting' | 'submit-error';
 
@@ -36,6 +42,8 @@ export class AssessmentApp {
   private currentId: string;
   private state: ViewState = 'intro';
   private validationMessage: string | null = null;
+  /** Live snapshot of the contact form, so no re-render can lose it. */
+  private contactDraft: QuickContactDraft = {};
   // Preserved across a failed submission so retry doesn't require
   // re-entering contact info or re-answering questions — the assessment
   // is never lost on a network failure.
@@ -175,15 +183,58 @@ export class AssessmentApp {
     this.render();
   };
 
+  /** Snapshot every typed value so a re-render for ANY reason
+   * repopulates the form rather than wiping it. */
+  private captureContactDraft(form: HTMLFormElement) {
+    const data = new FormData(form);
+    this.contactDraft = {
+      firstName: String(data.get('firstName') || ''),
+      lastName: String(data.get('lastName') || ''),
+      email: String(data.get('email') || ''),
+      phone: String(data.get('phone') || ''),
+      company: String(data.get('company') || ''),
+      website: String(data.get('website') || ''),
+      consent: Boolean(data.get('consent')),
+      marketingOptIn: Boolean(data.get('marketingOptIn')),
+    };
+  }
+
+  /**
+   * Show a validation error WITHOUT re-rendering the form. Calling
+   * this.render() here rebuilt the form from a template string with no
+   * value attributes and erased everything the visitor had typed —
+   * after they had already answered 64 questions.
+   */
+  private showContactError(form: HTMLFormElement, message: string, invalidField: string) {
+    this.validationMessage = message;
+
+    let errorEl = form.parentElement?.querySelector<HTMLElement>('#a-contact-error') ?? null;
+    if (!errorEl) {
+      errorEl = document.createElement('p');
+      errorEl.id = 'a-contact-error';
+      errorEl.className = 'a-error';
+      errorEl.setAttribute('role', 'alert');
+      errorEl.setAttribute('aria-live', 'assertive');
+      form.parentElement?.insertBefore(errorEl, form);
+    }
+    errorEl.textContent = message;
+
+    form.querySelectorAll('[aria-invalid="true"]').forEach((el) => {
+      el.removeAttribute('aria-invalid');
+      el.removeAttribute('aria-describedby');
+    });
+    const field = form.querySelector<HTMLElement>(`[name="${invalidField}"]`);
+    if (field) {
+      field.setAttribute('aria-invalid', 'true');
+      field.setAttribute('aria-describedby', 'a-contact-error');
+      field.focus();
+    }
+  }
+
   private handleContactSubmit = async (form: HTMLFormElement) => {
     if (this.isSubmitting) return; // duplicate-submit protection
     const data = new FormData(form);
-    const consent = data.get('consent');
-    if (!consent) {
-      this.validationMessage = 'Please acknowledge the consent statement to continue.';
-      this.render();
-      return;
-    }
+    this.captureContactDraft(form);
     const contact: ContactInfo = {
       firstName: String(data.get('firstName') || '').trim(),
       lastName: String(data.get('lastName') || '').trim(),
@@ -193,12 +244,21 @@ export class AssessmentApp {
       website: String(data.get('website') || '').trim() || undefined,
       marketingOptIn: Boolean(data.get('marketingOptIn')),
     };
-    const contactError = validateContact(contact);
-    if (contactError) {
-      this.validationMessage = contactError;
-      this.render();
+    const fieldError = validateQuickContactField(contact);
+    if (fieldError) {
+      this.showContactError(form, fieldError.message, fieldError.field);
       return;
     }
+    if (!data.get('consent')) {
+      this.showContactError(
+        form,
+        'Please acknowledge the consent statement to continue.',
+        'consent',
+      );
+      return;
+    }
+
+    this.validationMessage = null;
 
     this.isSubmitting = true;
     this.state = 'submitting';
@@ -227,7 +287,10 @@ export class AssessmentApp {
     (window as any).dataLayer = (window as any).dataLayer || [];
     (window as any).dataLayer.push({
       event: ASSESSMENT_EVENTS.complete,
-      ...withCampaignParams(buildAssessmentCompleteParams(ASSESSMENT_TYPE.comprehensive), getCampaignAttribution()),
+      ...withRepCode(
+        withCampaignParams(buildAssessmentCompleteParams(ASSESSMENT_TYPE.comprehensive), getCampaignAttribution()),
+        getRepCode(),
+      ),
     });
 
     this.pendingContact = contact;
@@ -268,7 +331,10 @@ export class AssessmentApp {
     // never contact fields, never the full result, never raw answers.
     (window as any).dataLayer.push({
       event: 'ai_assessment_lead_submit',
-      ...withCampaignParams(buildLeadAnalyticsFields(outcome.leadId, this.pendingResult), getCampaignAttribution()),
+      ...withRepCode(
+        withCampaignParams(buildLeadAnalyticsFields(outcome.leadId, this.pendingResult), getCampaignAttribution()),
+        getRepCode(),
+      ),
     });
 
     clearDraft();
@@ -321,29 +387,32 @@ export class AssessmentApp {
 
   private renderContact() {
     const msg = this.validationMessage;
+    const d = this.contactDraft;
+    const v = (value: string | undefined) => (value ? ` value="${escapeHtml(value)}"` : '');
+    const c = (checked: boolean | undefined) => (checked ? ' checked' : '');
     this.root.innerHTML = `
       <div class="a-contact">
         <span class="a-eyebrow">Your AI Department Score is Ready</span>
         <h2>Enter your business information to view your overall score, category scores, biggest AI opportunities, and recommended next steps.</h2>
-        ${msg ? `<p class="a-error" role="alert">${escapeHtml(msg)}</p>` : ''}
+        ${msg ? `<p class="a-error" id="a-contact-error" role="alert" aria-live="assertive">${escapeHtml(msg)}</p>` : ''}
         <form id="a-contact-form" novalidate>
           <div class="a-field-row">
-            <label class="a-field"><span>First Name *</span><input type="text" name="firstName" required autocomplete="given-name" /></label>
-            <label class="a-field"><span>Last Name</span><input type="text" name="lastName" autocomplete="family-name" /></label>
+            <label class="a-field"><span>First Name *</span><input type="text" name="firstName" required autocomplete="given-name"${v(d.firstName)} /></label>
+            <label class="a-field"><span>Last Name</span><input type="text" name="lastName" autocomplete="family-name"${v(d.lastName)} /></label>
           </div>
-          <label class="a-field"><span>Business Email *</span><input type="email" name="email" required autocomplete="email" /></label>
+          <label class="a-field"><span>Business Email *</span><input type="email" name="email" required autocomplete="email"${v(d.email)} /></label>
           <div class="a-field-row">
-            <label class="a-field"><span>Company *</span><input type="text" name="company" required autocomplete="organization" /></label>
-            <label class="a-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel" /></label>
+            <label class="a-field"><span>Company *</span><input type="text" name="company" required autocomplete="organization"${v(d.company)} /></label>
+            <label class="a-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel"${v(d.phone)} /></label>
           </div>
-          <label class="a-field"><span>Website</span><input type="url" name="website" placeholder="https://" /></label>
+          <label class="a-field"><span>Website</span><input type="url" name="website" placeholder="https://"${v(d.website)} /></label>
 
           <label class="a-checkbox">
-            <input type="checkbox" name="consent" required />
+            <input type="checkbox" name="consent" required${c(d.consent)} />
             <span>By submitting this assessment, you agree that Your AI Department may process the information you provide to generate your assessment results and respond to your inquiry. See our <a href="/privacy/">Privacy Policy</a> and <a href="/terms/">Terms of Use</a>.</span>
           </label>
           <label class="a-checkbox">
-            <input type="checkbox" name="marketingOptIn" />
+            <input type="checkbox" name="marketingOptIn"${c(d.marketingOptIn)} />
             <span>I'd also like to receive AI growth insights, guides, and occasional updates.</span>
           </label>
 
@@ -356,6 +425,8 @@ export class AssessmentApp {
       e.preventDefault();
       this.handleContactSubmit(form);
     });
+    form?.addEventListener('input', () => this.captureContactDraft(form));
+    form?.addEventListener('change', () => this.captureContactDraft(form));
   }
 
   private renderSubmitError() {

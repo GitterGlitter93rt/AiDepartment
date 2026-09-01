@@ -26,7 +26,7 @@
     buildCalComForwardFields,
     appendAttributionToUrl,
   } from '../lib/attribution';
-  import { captureRepAttribution, buildCalComRepField } from '../lib/repAttribution';
+  import { captureRepAttribution, getRepCode, buildCalComRepField } from '../lib/repAttribution';
 
   try {
     captureAttribution();
@@ -53,6 +53,13 @@
     // between the two components does not matter.
     (window as unknown as { yaiCampaign?: Record<string, string> }).yaiCampaign =
       getCampaignAttribution();
+
+    // Same bridge for the business-card / QR rep code. Sanitized on
+    // capture, so this is a short [a-z0-9._-] token and never PII.
+    const repCode = getRepCode();
+    if (repCode) {
+      (window as unknown as { yaiRep?: string }).yaiRep = repCode;
+    }
   } catch {
     // Analytics enrichment is best-effort; a storage-disabled browser
     // still gets the assessment events, just without campaign fields.

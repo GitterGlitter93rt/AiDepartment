@@ -43,6 +43,7 @@ const { vertical, funnelId } = Astro.props;
     type FunnelIdentity,
   } from '../../lib/funnels/analytics';
   import { captureAttribution, getCreativeAttribution } from '../../lib/attribution';
+  import { getRepCode } from '../../lib/repAttribution';
   import type { CtaLocation, CtaType } from '../../lib/funnels/types';
 
   const root = document.getElementById('fnl-analytics-root');
@@ -68,16 +69,19 @@ const { vertical, funnelId } = Astro.props;
     // removes a real race on the very first funnel pageview — which is
     // exactly the pageview whose creative we most need.
     let creative: CreativeParams = {};
+    let repCode: string | null = null;
     try {
       captureAttribution();
       creative = getCreativeAttribution();
+      // Business-card / QR attribution, sanitized at capture.
+      repCode = getRepCode();
     } catch {
       // Storage-disabled browsers still get the funnel events, just
       // without creative parameters.
     }
 
     // ---- funnel_view --------------------------------------------------
-    push(FUNNEL_EVENTS.view, buildFunnelViewParams(identity, creative));
+    push(FUNNEL_EVENTS.view, buildFunnelViewParams(identity, creative, repCode));
 
     // ---- funnel_cta_click + booking_click_<funnel> --------------------
     // Delegated so it covers every FunnelCTA on the page, including any
@@ -89,12 +93,12 @@ const { vertical, funnelId } = Astro.props;
       const location = (target.dataset.ctaLocation || 'hero') as CtaLocation;
       const type = (target.dataset.ctaType || 'strategy_call') as CtaType;
 
-      push(FUNNEL_EVENTS.ctaClick, buildCtaClickParams(identity, location, type, creative));
+      push(FUNNEL_EVENTS.ctaClick, buildCtaClickParams(identity, location, type, creative, repCode));
 
       // Micro-conversion: clicked TOWARD a booking. Never a completed
       // booking — booking_confirmed on /booking-confirmed/ is the only
       // event that means a call was actually booked.
-      const booking = buildBookingClickEvent(identity, location, type, creative);
+      const booking = buildBookingClickEvent(identity, location, type, creative, repCode);
       push(booking.event, booking.params);
     });
 
@@ -108,7 +112,7 @@ const { vertical, funnelId } = Astro.props;
       video.addEventListener('play', () => {
         if (playFired) return;
         playFired = true;
-        push(FUNNEL_EVENTS.vslPlay, buildVslPlayParams(identity, creative));
+        push(FUNNEL_EVENTS.vslPlay, buildVslPlayParams(identity, creative, repCode));
       });
 
       const reached = new Set<number>();
@@ -119,7 +123,7 @@ const { vertical, funnelId } = Astro.props;
         for (const threshold of VSL_PROGRESS_THRESHOLDS) {
           if (percent >= threshold && !reached.has(threshold)) {
             reached.add(threshold);
-            push(FUNNEL_EVENTS.vslProgress, buildVslProgressParams(identity, threshold, creative));
+            push(FUNNEL_EVENTS.vslProgress, buildVslProgressParams(identity, threshold, creative, repCode));
           }
         }
       });
@@ -131,7 +135,7 @@ const { vertical, funnelId } = Astro.props;
         for (const threshold of VSL_PROGRESS_THRESHOLDS) {
           if (!reached.has(threshold)) {
             reached.add(threshold);
-            push(FUNNEL_EVENTS.vslProgress, buildVslProgressParams(identity, threshold, creative));
+            push(FUNNEL_EVENTS.vslProgress, buildVslProgressParams(identity, threshold, creative, repCode));
           }
         }
       });

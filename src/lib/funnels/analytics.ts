@@ -79,6 +79,19 @@ export function isPiiFreePayload(payload: Record<string, unknown>): boolean {
   });
 }
 
+/**
+ * Sales-rep / business-card attribution code, when the visitor arrived
+ * from an employee QR code. Sanitized at capture in
+ * src/lib/repAttribution.ts to [a-z0-9._-], max 64 chars — an approved
+ * non-PII parameter that can only come from a URL we publish, never
+ * from anything a visitor types.
+ */
+export type RepCode = string | null | undefined;
+
+function repOnly(repCode: RepCode): Record<string, string | undefined> {
+  return { rep_code: typeof repCode === 'string' && repCode.length > 0 ? repCode : undefined };
+}
+
 /** Drop empty/undefined values so GA4 never receives blank parameters. */
 function compact(fields: Record<string, string | number | undefined>): Record<string, string | number> {
   const out: Record<string, string | number> = {};
@@ -108,8 +121,9 @@ function creativeOnly(creative: CreativeParams | undefined): Record<string, stri
 export function buildFunnelViewParams(
   identity: FunnelIdentity,
   creative?: CreativeParams,
+  repCode?: RepCode,
 ): Record<string, string | number> {
-  return compact({ ...identity, ...creativeOnly(creative) });
+  return compact({ ...identity, ...creativeOnly(creative), ...repOnly(repCode) });
 }
 
 /** funnel_cta_click — any primary CTA click on a funnel page. */
@@ -118,12 +132,14 @@ export function buildCtaClickParams(
   ctaLocation: CtaLocation,
   ctaType: CtaType,
   creative?: CreativeParams,
+  repCode?: RepCode,
 ): Record<string, string | number> {
   return compact({
     ...identity,
     cta_location: ctaLocation,
     cta_type: ctaType,
     ...creativeOnly(creative),
+    ...repOnly(repCode),
   });
 }
 
@@ -131,8 +147,9 @@ export function buildCtaClickParams(
 export function buildVslPlayParams(
   identity: FunnelIdentity,
   creative?: CreativeParams,
+  repCode?: RepCode,
 ): Record<string, string | number> {
-  return compact({ ...identity, ...creativeOnly(creative) });
+  return compact({ ...identity, ...creativeOnly(creative), ...repOnly(repCode) });
 }
 
 /** vsl_progress — fired once per crossed threshold per pageview.
@@ -142,8 +159,9 @@ export function buildVslProgressParams(
   identity: FunnelIdentity,
   threshold: VslProgressThreshold,
   creative?: CreativeParams,
+  repCode?: RepCode,
 ): Record<string, string | number> {
-  return compact({ ...identity, vsl_progress: threshold, ...creativeOnly(creative) });
+  return compact({ ...identity, vsl_progress: threshold, ...creativeOnly(creative), ...repOnly(repCode) });
 }
 
 /** booking_click_<funnel> — micro-conversion. Adds the same creative
@@ -154,9 +172,10 @@ export function buildBookingClickEvent(
   ctaLocation: CtaLocation,
   ctaType: CtaType,
   creative?: CreativeParams,
+  repCode?: RepCode,
 ): { event: string; params: Record<string, string | number> } {
   return {
     event: FUNNEL_BOOKING_CLICK_EVENTS[identity.funnel_id],
-    params: buildCtaClickParams(identity, ctaLocation, ctaType, creative),
+    params: buildCtaClickParams(identity, ctaLocation, ctaType, creative, repCode),
   };
 }

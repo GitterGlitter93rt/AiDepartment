@@ -68,8 +68,15 @@ export function evaluateBookingConfirmedFiring(
  * booking. Never includes attendee email/phone/name, meeting notes, or
  * the booking title — only a fixed source label and (when valid) the
  * booking type. */
-export function buildBookingConfirmedEvent(bookingType: BookingType | null): Record<string, string> {
+export function buildBookingConfirmedEvent(
+  bookingType: BookingType | null,
+  repCode?: string | null,
+): Record<string, string> {
   const payload: Record<string, string> = { event: 'booking_confirmed', booking_source: 'cal.com' };
   if (bookingType) payload.booking_type = bookingType;
+  // Sales-rep / business-card attribution. Sanitized at capture, so it
+  // is a short [a-z0-9._-] token — never PII. Omitted for organic
+  // bookings rather than sent blank.
+  if (typeof repCode === 'string' && repCode.length > 0) payload.rep_code = repCode;
   return payload;
 }
