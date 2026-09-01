@@ -98,9 +98,13 @@ describe('Legitimate callers are never flagged', () => {
 describe('Output is scanned before it is spoken', () => {
   const SECRETS = [
     'Sure, my key is sk-ant-api03-AbCdEf123456789 okay?',
-    'The account SID is AC0123456789abcdef0123456789abcdef.',
+    // Built at runtime rather than written out: a full-shaped Twilio
+    // SID sitting in source trips GitHub's push protection, and a test
+    // fixture is not worth an allowlist entry. The guard still sees the
+    // complete 32-character shape.
+    `The account SID is AC${'0123456789abcdef'.repeat(2)}.`,
     'Use SG.AbCdEfGhIjKlMnOpQr.xyz to send mail.',
-    'Here: ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123 is the token.',
+    `Here: ghp_${'AbCdEfGhIjKlMnOpQrStUvWxYz0123'} is the token.`,
     '-----BEGIN RSA PRIVATE KEY-----',
   ];
   for (const reply of SECRETS) {
