@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - tools/generate_roi_forms.py
+      - tools/generate_roi_core_field_kit.py
       - docs/07-sales/training-manual/roi-forms/one-page-roi-forms-spec.md
       - .github/workflows/generate-roi-forms.yml
 
@@ -30,6 +31,9 @@ jobs:
 
       - name: Generate one-page ROI PDFs
         run: python tools/generate_roi_forms.py
+
+      - name: Generate compact field kit
+        run: python tools/generate_roi_core_field_kit.py
 
       - name: Commit generated PDFs
         run: |
