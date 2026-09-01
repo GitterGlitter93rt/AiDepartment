@@ -21,6 +21,8 @@ import { parseRelayMessage, textResponse, chunkForSpeech } from './twilio/relay.
 import { validateTwilioSignature, formToRecord } from './twilio/signature.ts';
 import { RateLimiter, readBodyLimited, clientIp, MAX_BODY_BYTES } from './http/guards.ts';
 import { PATHS } from './http/paths.ts';
+import { buildCallSummary, buildDemoAnalytics } from './core/call-summary.ts';
+import { selectSpecialist } from './industries/index.ts';
 
 const cfg = loadConfig();
 const log = createLogger({ svc: 'ai-phone-agent' });
@@ -28,7 +30,7 @@ const sessions = new SessionStore();
 const claude = cfg.anthropicApiKey ? createClaudeClient(cfg.anthropicApiKey, cfg.claudeModel) : null;
 const tools = createToolbox(cfg, log);
 const orchestrator = new Orchestrator({
-  sessions, claude, log,
+  sessions, claude, log, tools,
   confidenceThreshold: cfg.routerConfidenceThreshold,
 });
 
@@ -134,20 +136,29 @@ const server = createServer(async (req, res) => {
 async function endCall(callSid: string, reason: string) {
   const session = sessions.get(callSid);
   if (!session) return;
+
+  // The CRM push must not be able to take down the summary. A failed
+  // integration is a thing to fix later; losing the record of what
+  // happened on the call is a thing you can never recover.
   try {
     await tools.crm.pushLead(session);
   } catch (err) {
     log.log('tool.failed', { callSid, tool: 'crm', error: String(err).slice(0, 200) });
   }
-  const ended = sessions.end(callSid);
-  log.log('call.ended', {
-    callSid, reason,
-    industry: ended?.route.industry ?? null,
-    specialty: ended?.route.specialty ?? null,
-    turns: ended?.turns.length ?? 0,
-    fieldsCaptured: Object.keys({ ...ended?.contact, ...ended?.qualification }).length,
-    toolCalls: ended?.toolCalls.length ?? 0,
-  });
+
+  const ended = sessions.end(callSid) ?? session;
+  const spec = selectSpecialist(ended);
+  const summary = buildCallSummary(ended, spec?.qualificationSchema.map((f) => f.key) ?? []);
+
+  log.log('call.ended', { callSid, reason, headline: summary.headline });
+
+  // Two records on purpose. The summary is for a human reading one
+  // call; the analytics event is for counting many, and carries no
+  // personal data at all.
+  if (cfg.callSummaryEnabled) {
+    log.log('call.summary', summary as unknown as Record<string, unknown>);
+  }
+  log.log('call.summary', buildDemoAnalytics(ended) as unknown as Record<string, unknown>);
 }
 
 /** Phone numbers are personal data; logs keep only enough to correlate. */

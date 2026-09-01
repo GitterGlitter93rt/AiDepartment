@@ -38,6 +38,9 @@ export interface Config {
 
   anthropicApiKey: string;
   claudeModel: string;
+  /** Log a full end-of-call summary. Off in environments where the
+   * summary would duplicate a CRM record. */
+  callSummaryEnabled: boolean;
   routerConfidenceThreshold: number;
 
   twilioAccountSid: string;
@@ -92,6 +95,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
     anthropicApiKey: str('ANTHROPIC_API_KEY'),
     claudeModel: str('CLAUDE_MODEL', 'claude-sonnet-5'),
+    callSummaryEnabled: bool('CALL_SUMMARY_ENABLED', true),
     routerConfidenceThreshold: num('ROUTER_CONFIDENCE_THRESHOLD', 0.6),
 
     twilioAccountSid: str('TWILIO_ACCOUNT_SID'),

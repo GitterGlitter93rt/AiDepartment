@@ -8,7 +8,8 @@
 
 export interface ClaudeMessage {
   role: 'user' | 'assistant';
-  content: string;
+  /** Plain text, or raw content blocks when tool results are in play. */
+  content: string | unknown[];
 }
 
 export interface CompleteOptions {
@@ -16,36 +17,100 @@ export interface CompleteOptions {
   messages: ClaudeMessage[];
   maxTokens?: number;
   temperature?: number;
+  /** Overrides the client's default model for this request. */
+  model?: string;
+  /** Tool schemas the model may request. Omit for a plain completion. */
+  tools?: unknown[];
+}
+
+/** What the API actually charged us for. Never spoken, only logged. */
+export interface Usage {
+  inputTokens: number;
+  outputTokens: number;
+  /** Cache reads are billed at a fraction of input tokens. */
+  cacheReadTokens?: number;
+}
+
+/** A tool the model asked us to run. */
+export interface ToolUseBlock {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export interface CompleteResult {
+  text: string;
+  toolUses: ToolUseBlock[];
+  stopReason: string | null;
+  usage: Usage;
+  model: string;
+  /** Raw assistant content blocks, needed to continue a tool exchange. */
+  raw: unknown[];
 }
 
 export interface ClaudeClient {
   complete(opts: CompleteOptions): Promise<string>;
+  /** Full-fidelity call: tool requests, stop reason and token usage. */
+  send?(opts: CompleteOptions): Promise<CompleteResult>;
 }
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
+interface ApiResponse {
+  content?: { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }[];
+  stop_reason?: string | null;
+  model?: string;
+  usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number };
+}
+
 export function createClaudeClient(apiKey: string, model: string, fetchImpl: typeof fetch = fetch): ClaudeClient {
+  async function send(opts: CompleteOptions): Promise<CompleteResult> {
+    const { system, messages, maxTokens = 300, temperature = 0.6, tools } = opts;
+    const body: Record<string, unknown> = {
+      model: opts.model ?? model,
+      max_tokens: maxTokens,
+      temperature,
+      system,
+      messages,
+    };
+    if (tools && tools.length > 0) body.tools = tools;
+
+    const res = await fetchImpl(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as ApiResponse;
+    const blocks = data.content ?? [];
+
+    return {
+      text: blocks.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('').trim(),
+      toolUses: blocks
+        .filter((b) => b.type === 'tool_use')
+        .map((b) => ({ id: b.id ?? '', name: b.name ?? '', input: b.input ?? {} })),
+      stopReason: data.stop_reason ?? null,
+      model: data.model ?? (opts.model ?? model),
+      usage: {
+        inputTokens: data.usage?.input_tokens ?? 0,
+        outputTokens: data.usage?.output_tokens ?? 0,
+        cacheReadTokens: data.usage?.cache_read_input_tokens,
+      },
+      raw: blocks,
+    };
+  }
+
   return {
-    async complete({ system, messages, maxTokens = 300, temperature = 0.6 }) {
-      const res = await fetchImpl(ANTHROPIC_URL, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({ model, max_tokens: maxTokens, temperature, system, messages }),
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(`anthropic ${res.status}: ${body.slice(0, 200)}`);
-      }
-      const data = (await res.json()) as { content?: { type: string; text?: string }[] };
-      return (data.content ?? [])
-        .filter((b) => b.type === 'text')
-        .map((b) => b.text ?? '')
-        .join('')
-        .trim();
+    send,
+    async complete(opts) {
+      return (await send(opts)).text;
     },
   };
 }
@@ -90,5 +155,34 @@ export function createRecordingClaudeClient(
       calls.push(opts);
       return typeof reply === 'function' ? reply(opts) : reply;
     },
+  };
+}
+
+/**
+ * Stub that plays a scripted sequence of full responses, so a tool
+ * exchange can be exercised end to end with no network: first response
+ * asks for a tool, second response speaks the result.
+ */
+export function createScriptedClaudeClient(
+  script: Partial<CompleteResult>[],
+): ClaudeClient & { calls: CompleteOptions[] } {
+  const calls: CompleteOptions[] = [];
+  let i = 0;
+  function next(): CompleteResult {
+    const step = script[Math.min(i, script.length - 1)] ?? {};
+    i += 1;
+    return {
+      text: step.text ?? '',
+      toolUses: step.toolUses ?? [],
+      stopReason: step.stopReason ?? (step.toolUses?.length ? 'tool_use' : 'end_turn'),
+      usage: step.usage ?? { inputTokens: 100, outputTokens: 30 },
+      model: step.model ?? 'stub',
+      raw: step.raw ?? [],
+    };
+  }
+  return {
+    calls,
+    async send(opts) { calls.push(opts); return next(); },
+    async complete(opts) { calls.push(opts); return next().text; },
   };
 }

@@ -20,6 +20,10 @@ import {
   inspectCallerUtterance, inspectAgentReply,
   PERSISTENT_PROBE_REPLY, PROBE_LIMIT,
 } from './guardrails.ts';
+import { TOOL_SCHEMAS, executeToolRequest } from './tool-protocol.ts';
+import { resolveModels, type ModelConfig } from '../claude/models.ts';
+import type { Toolbox } from '../tools/index.ts';
+import type { CompleteResult, ClaudeMessage } from '../claude/client.ts';
 
 export const GREETING =
   "Thanks for calling. Tell me a bit about what's going on and I'll get you to the right place.";
@@ -32,6 +36,21 @@ export interface OrchestratorDeps {
   /** Max clarifying questions before we route on best guess rather
    * than interrogating a caller who is already frustrated. */
   maxClarifyAttempts?: number;
+  /** Tools the agent may request. Omitted means text-only. */
+  tools?: Toolbox;
+  /** Per-role model settings. Defaults come from the environment. */
+  models?: ModelConfig;
+  /** Ceiling on tool round-trips inside one turn. A phone call cannot
+   * absorb more than a couple before the silence is noticeable. */
+  maxToolRounds?: number;
+}
+
+/** Rolling token accounting for one process. Never spoken, only logged. */
+export interface UsageTotals {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
 }
 
 export class Orchestrator {
@@ -39,9 +58,14 @@ export class Orchestrator {
   // session.ts: parameter properties are unsupported under
   // --experimental-strip-types.
   private readonly deps: OrchestratorDeps;
+  private readonly models: ModelConfig;
+
+  /** Cumulative usage across every call this process has handled. */
+  readonly usage: UsageTotals = { requests: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
 
   constructor(deps: OrchestratorDeps) {
     this.deps = deps;
+    this.models = deps.models ?? resolveModels();
   }
 
   async handleCallerUtterance(callSid: string, utterance: string): Promise<string> {
@@ -195,7 +219,7 @@ export class Orchestrator {
 
     try {
       log.log('llm.request', { callSid: session.callSid, turns: messages.length });
-      const reply = await claude.complete({ system, messages, maxTokens: 220, temperature: 0.7 });
+      const reply = await this.runTurn(session, system, messages);
       if (!reply) return "Sorry — could you say that once more?";
 
       // Last check before this reaches text-to-speech.
@@ -208,6 +232,90 @@ export class Orchestrator {
       log.log('llm.failed', { callSid: session.callSid, error: String(err).slice(0, 200) });
       return "Sorry, I didn't catch that — could you say it again?";
     }
+  }
+
+  /**
+   * One turn, including any tool round-trips.
+   *
+   * The loop is the whole tool-call contract: Claude REQUESTS, this
+   * code VALIDATES and EXECUTES, the result goes back as a normal
+   * tool_result message, and Claude speaks. The model never reaches
+   * the calendar or the phone network itself.
+   *
+   * Bounded by maxToolRounds because every round is another second of
+   * silence on a live call. When the budget runs out we take whatever
+   * text we have rather than looping.
+   */
+  private async runTurn(session: Session, system: string, messages: ClaudeMessage[]): Promise<string> {
+    const { claude, log, tools, maxToolRounds = 2 } = this.deps;
+    if (!claude) return '';
+
+    // Without a tool-capable client or a toolbox, this is a plain
+    // completion — which is what the tests and the no-credential
+    // demo path use.
+    if (!claude.send || !tools) {
+      return claude.complete({
+        system, messages,
+        model: this.models.specialist.model,
+        maxTokens: this.models.specialist.maxTokens,
+        temperature: this.models.specialist.temperature,
+      });
+    }
+
+    const convo: ClaudeMessage[] = [...messages];
+    let spoken = '';
+
+    for (let round = 0; round <= maxToolRounds; round += 1) {
+      const res: CompleteResult = await claude.send({
+        system,
+        messages: convo,
+        model: this.models.specialist.model,
+        maxTokens: this.models.specialist.maxTokens,
+        temperature: this.models.specialist.temperature,
+        tools: round < maxToolRounds ? TOOL_SCHEMAS : undefined,
+      });
+      this.recordUsage(session, res);
+      spoken = res.text || spoken;
+
+      if (res.toolUses.length === 0) return spoken;
+
+      // Claude asked for tools. Run them, then hand the results back.
+      convo.push({ role: 'assistant', content: res.raw });
+      const results = [];
+      for (const use of res.toolUses) {
+        const outcome = await executeToolRequest(
+          { id: use.id, name: use.name, input: use.input },
+          { tools, log, session },
+        );
+        results.push({
+          type: 'tool_result',
+          tool_use_id: outcome.id,
+          content: outcome.content,
+          is_error: !outcome.ok,
+        });
+      }
+      convo.push({ role: 'user', content: results });
+    }
+
+    // Out of rounds. Say whatever was produced rather than looping —
+    // a caller listening to silence has already hung up.
+    log.log('tool.failed', { callSid: session.callSid, reason: 'tool_round_budget_exhausted' });
+    return spoken || "Let me get that sorted and someone will confirm with you shortly.";
+  }
+
+  private recordUsage(session: Session, res: CompleteResult): void {
+    this.usage.requests += 1;
+    this.usage.inputTokens += res.usage.inputTokens;
+    this.usage.outputTokens += res.usage.outputTokens;
+    this.usage.cacheReadTokens += res.usage.cacheReadTokens ?? 0;
+    this.deps.log.log('llm.usage', {
+      callSid: session.callSid,
+      model: res.model,
+      inputTokens: res.usage.inputTokens,
+      outputTokens: res.usage.outputTokens,
+      cacheReadTokens: res.usage.cacheReadTokens ?? 0,
+      stopReason: res.stopReason,
+    });
   }
 
   /** Tells the model what is already known, so it never re-asks. */
