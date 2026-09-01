@@ -5,7 +5,7 @@ on:
   push:
     paths:
       - tools/generate_roi_forms.py
-      - tools/generate_roi_core_field_kit.py
+      - tools/generate_roi_forms_compact.py
       - docs/07-sales/training-manual/roi-forms/one-page-roi-forms-spec.md
       - .github/workflows/generate-roi-forms.yml
 
@@ -29,11 +29,8 @@ jobs:
       - name: Install PDF dependencies
         run: pip install reportlab pypdf
 
-      - name: Generate one-page ROI PDFs
-        run: python tools/generate_roi_forms.py
-
-      - name: Generate compact field kit
-        run: python tools/generate_roi_core_field_kit.py
+      - name: Generate compact numbered ROI PDFs
+        run: python tools/generate_roi_forms_compact.py
 
       - name: Commit generated PDFs
         run: |
@@ -43,6 +40,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Generated PDFs are already current."
           else
-            git commit -m "Generate one-page ROI form PDFs"
+            git commit -m "Generate compact numbered ROI form PDFs"
             git push
           fi
