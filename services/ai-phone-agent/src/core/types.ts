@@ -52,4 +52,11 @@ export interface Session {
   routed: boolean;
   clarifyAttempts: number;
   toolCalls: { name: string; ok: boolean; at: string }[];
+  /** Turns on which the caller probed the system rather than
+   * describing a need. Past a threshold the model is not called at
+   * all — see core/guardrails.ts. */
+  probeCount: number;
+  /** Scenario switches during this call. Expected on a demo line; a
+   * prospect wants to hear the plumbing agent after the divorce one. */
+  scenarioSwitches: number;
 }

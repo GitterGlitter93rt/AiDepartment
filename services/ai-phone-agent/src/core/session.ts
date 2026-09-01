@@ -39,6 +39,8 @@ export class SessionStore {
       routed: false,
       clarifyAttempts: 0,
       toolCalls: [],
+      probeCount: 0,
+      scenarioSwitches: 0,
     };
     this.sessions.set(callSid, session);
     return session;

@@ -58,3 +58,37 @@ export function createStubClaudeClient(reply: string | ((o: CompleteOptions) => 
     },
   };
 }
+
+/**
+ * Stub that records every request it receives.
+ *
+ * Tests that need to assert on the assembled system prompt must use
+ * this rather than echoing the prompt back as the reply: the output
+ * guardrail correctly blocks a reply that recites the agent's own
+ * instructions, so a prompt returned through the speech path never
+ * survives to be asserted on. Inspecting `calls` reads the prompt
+ * out-of-band, which is also closer to what the test actually means.
+ */
+export interface RecordingClaudeClient extends ClaudeClient {
+  calls: CompleteOptions[];
+  /** The system prompt of the most recent request. */
+  lastSystem(): string;
+}
+
+export function createRecordingClaudeClient(
+  reply: string | ((o: CompleteOptions) => string) = 'Understood.',
+): RecordingClaudeClient {
+  const calls: CompleteOptions[] = [];
+  return {
+    calls,
+    lastSystem() {
+      const last = calls[calls.length - 1];
+      if (!last) throw new Error('no requests recorded');
+      return last.system;
+    },
+    async complete(opts) {
+      calls.push(opts);
+      return typeof reply === 'function' ? reply(opts) : reply;
+    },
+  };
+}

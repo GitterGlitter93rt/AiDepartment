@@ -16,6 +16,10 @@ import type { SessionStore } from './session.ts';
 import { route, detectScenarioChange } from './router.ts';
 import { selectSpecialist } from '../industries/index.ts';
 import { CORE_AGENT_RULES } from '../prompts/core-agent.ts';
+import {
+  inspectCallerUtterance, inspectAgentReply,
+  PERSISTENT_PROBE_REPLY, PROBE_LIMIT,
+} from './guardrails.ts';
 
 export const GREETING =
   "Thanks for calling. Tell me a bit about what's going on and I'll get you to the right place.";
@@ -45,6 +49,26 @@ export class Orchestrator {
     const session = sessions.ensure(callSid);
     sessions.addTurn(callSid, 'caller', utterance);
 
+    // Guardrails run before anything else. A caller probing the system
+    // is not describing a need, so there is nothing to route and
+    // nothing to qualify.
+    const guard = inspectCallerUtterance(utterance);
+    if (guard.flagged) {
+      session.probeCount += 1;
+      log.log('guard.flagged', {
+        callSid, kinds: guard.kinds, count: session.probeCount,
+      });
+
+      // Past the limit we stop calling the model entirely. That removes
+      // the attack surface rather than relying on the model to hold the
+      // line, and stops a caller burning tokens by repeating himself.
+      if (session.probeCount > PROBE_LIMIT) {
+        log.log('guard.blocked', { callSid, count: session.probeCount });
+        sessions.addTurn(callSid, 'agent', PERSISTENT_PROBE_REPLY);
+        return PERSISTENT_PROBE_REPLY;
+      }
+    }
+
     // Already routed? Check whether the caller has moved on to a
     // different scenario. On a demo line this is common and expected —
     // a prospect wants to hear the plumbing agent after the divorce
@@ -60,6 +84,7 @@ export class Orchestrator {
         });
         session.routed = false;
         session.clarifyAttempts = 0;
+        session.scenarioSwitches += 1;
         // A new scenario means a clean slate for qualification — the
         // previous industry's answers do not apply to this one.
         session.qualification = {};
@@ -86,7 +111,7 @@ export class Orchestrator {
       }
     }
 
-    const reply = await this.specialistTurn(session);
+    const reply = await this.specialistTurn(session, guard.reinforcement);
     sessions.addTurn(callSid, 'agent', reply);
     return reply;
   }
@@ -145,7 +170,7 @@ export class Orchestrator {
   }
 
   /** Stage 2. The specialist owns the conversation from here. */
-  private async specialistTurn(session: Session): Promise<string> {
+  private async specialistTurn(session: Session, reinforcement: string | null = null): Promise<string> {
     const { claude, log } = this.deps;
     const spec = selectSpecialist(session);
 
@@ -160,6 +185,8 @@ export class Orchestrator {
       CORE_AGENT_RULES,
       spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
       this.stateBrief(session, spec?.qualificationSchema.map((f) => f.goal) ?? []),
+      // Appended last so it is the most recent thing the model read.
+      ...(reinforcement ? [reinforcement] : []),
     ].join('\n\n---\n\n');
 
     const messages = session.turns
@@ -169,7 +196,14 @@ export class Orchestrator {
     try {
       log.log('llm.request', { callSid: session.callSid, turns: messages.length });
       const reply = await claude.complete({ system, messages, maxTokens: 220, temperature: 0.7 });
-      return reply || "Sorry — could you say that once more?";
+      if (!reply) return "Sorry — could you say that once more?";
+
+      // Last check before this reaches text-to-speech.
+      const checked = inspectAgentReply(reply);
+      if (!checked.safe) {
+        log.log('guard.output_blocked', { callSid: session.callSid, reason: checked.reason });
+      }
+      return checked.text;
     } catch (err) {
       log.log('llm.failed', { callSid: session.callSid, error: String(err).slice(0, 200) });
       return "Sorry, I didn't catch that — could you say it again?";

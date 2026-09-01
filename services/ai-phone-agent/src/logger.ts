@@ -22,6 +22,11 @@ export type LogEvent =
   | 'llm.failed'
   | 'transcript.caller'
   | 'transcript.agent'
+  | 'guard.flagged'
+  | 'guard.blocked'
+  | 'guard.output_blocked'
+  | 'call.summary'
+  | 'llm.usage'
   | 'error';
 
 /** Keys whose values are never printed, at any depth. */

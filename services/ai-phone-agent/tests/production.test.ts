@@ -9,7 +9,7 @@ import { detectScenarioChange } from '../src/core/router.ts';
 import { loadConfig } from '../src/config.ts';
 import { Orchestrator } from '../src/core/orchestrator.ts';
 import { SessionStore } from '../src/core/session.ts';
-import { createStubClaudeClient } from '../src/claude/client.ts';
+import { createStubClaudeClient, createRecordingClaudeClient } from '../src/claude/client.ts';
 import { createLogger } from '../src/logger.ts';
 
 describe('Twilio signature validation', () => {
@@ -174,9 +174,10 @@ describe('Scenario re-routing on a demo call', () => {
 
   test('end to end: divorce call switches to plumbing and back to a fresh slate', async () => {
     const sessions = new SessionStore();
+    const claude = createRecordingClaudeClient('Got it — let me take a couple of details.');
     const orch = new Orchestrator({
       sessions,
-      claude: createStubClaudeClient((o) => `SYS::${o.system}`),
+      claude,
       log: createLogger({}, () => {}),
     });
 
@@ -189,8 +190,9 @@ describe('Scenario re-routing on a demo call', () => {
     assert.match(switched, /shut off|valve/i, 'opens as the plumbing agent');
     assert.deepEqual(sessions.get('CA_demo')!.qualification, {}, 'previous scenario answers do not carry over');
 
-    const next = await orch.handleCallerUtterance('CA_demo', 'Yes, I shut it off.');
-    assert.match(next, /dispatcher for a plumbing company/i, 'plumbing brain is now in charge');
+    await orch.handleCallerUtterance('CA_demo', 'Yes, I shut it off.');
+    assert.match(claude.lastSystem(), /dispatcher for a plumbing company/i, 'plumbing brain is now in charge');
+    assert.doesNotMatch(claude.lastSystem(), /family law/i, 'the divorce persona is fully gone');
   });
 });
 
