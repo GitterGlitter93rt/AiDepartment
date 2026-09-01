@@ -45,8 +45,9 @@ The training system is intentionally built in modules so salespeople can learn a
 - `module-06-story-and-visualization-selling.md` - hypothetical/verified story discipline, verbal and visual workflow selling, industry story examples, CRM/capacity/attribution visuals, and story certification.
 - `module-07-objection-handling.md` - objection diagnosis, trust/risk/value/timing objections, employee-safe responses, pricing discipline, phone vs field handling, objection logging, roleplays, and certification.
 - `module-08-competitive-positioning.md` - ChatGPT/SaaS/freelancer/IT/agency/internal-hire comparisons, build-vs-buy judgment, orchestrator positioning, partnership language, phone/field responses, and certification.
+- `module-09-proposal-presentation-and-closing.md` - offer selection, proposal structure, ROI presentation, scope/assumption discipline, pricing, stakeholder decisions, phone/field closes, handoff, and certification.
 
-Future modules will cover proposals/closing, industry playbooks, roleplays, sales management, and certification.
+Future modules will cover industry playbooks, roleplay academy, sales management/coaching, and final certification.
 
 ## Visual/PDF direction
 
