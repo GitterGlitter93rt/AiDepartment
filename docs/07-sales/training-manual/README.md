@@ -46,8 +46,9 @@ The training system is intentionally built in modules so salespeople can learn a
 - `module-07-objection-handling.md` - objection diagnosis, trust/risk/value/timing objections, employee-safe responses, pricing discipline, phone vs field handling, objection logging, roleplays, and certification.
 - `module-08-competitive-positioning.md` - ChatGPT/SaaS/freelancer/IT/agency/internal-hire comparisons, build-vs-buy judgment, orchestrator positioning, partnership language, phone/field responses, and certification.
 - `module-09-proposal-presentation-and-closing.md` - offer selection, proposal structure, ROI presentation, scope/assumption discipline, pricing, stakeholder decisions, phone/field closes, handoff, and certification.
+- `module-10-hvac-industry-playbook.md` - full HVAC vertical playbook covering economics, customer journey, prospect sourcing, paid-advertiser targeting, discovery, CRM/field-service workflow, YAD capabilities, ROI, phone and walk-in scripts, objections, field cheat sheet, evidence cards, and certification.
 
-Future modules will cover industry playbooks, roleplay academy, sales management/coaching, and final certification.
+Future modules will continue with Plumbing, Roofing, Collision Repair, PDR/Hail, Law Firms, and the remaining priority verticals, followed by roleplay academy, sales management/coaching, and final certification.
 
 ## Visual/PDF direction
 
