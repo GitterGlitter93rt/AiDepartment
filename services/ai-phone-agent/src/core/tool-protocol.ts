@@ -22,6 +22,7 @@
 import type { Session } from './types.ts';
 import type { Toolbox } from '../tools/index.ts';
 import type { Logger } from '../logger.ts';
+import { resolveWhen, speakSlot } from './when.ts';
 
 export interface ToolSchema {
   name: string;
@@ -50,8 +51,13 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         to: { type: 'string', description: 'ISO 8601 end of the window to search.' },
         durationMinutes: { type: 'number', description: 'Appointment length. Use the specialist default if unsure.' },
         timezone: { type: 'string', description: 'IANA timezone, e.g. America/New_York.' },
+        spokenWhen: {
+          type: 'string',
+          description:
+            "What the caller actually said about timing, in their own words — \"Thursday morning\", \"tomorrow\", \"as soon as possible\". Pass this whenever they gave one; it is more reliable than a window you calculate, and it overrides from/to.",
+        },
       },
-      required: ['from', 'to', 'durationMinutes'],
+      required: ['durationMinutes'],
     },
   },
   {
@@ -174,14 +180,28 @@ export function validateToolRequest(
 
   switch (req.name) {
     case 'check_availability': {
-      const from = iso(input, 'from');
-      const to = iso(input, 'to');
       const duration = Number(input.durationMinutes);
-      if (!from || !to) return { ok: false, reason: 'from and to must both be valid ISO 8601 timestamps.' };
-      if (to <= from) return { ok: false, reason: 'to must be after from.' };
       if (!Number.isFinite(duration) || duration <= 0 || duration > MAX_DURATION) {
         return { ok: false, reason: `durationMinutes must be between 1 and ${MAX_DURATION}.` };
       }
+
+      // The caller's own words beat any window the model computed.
+      // "Thursday morning" is unambiguous to a person and routinely
+      // becomes the wrong Thursday, or the wrong year, once a model
+      // turns it into a timestamp.
+      const spoken = str(input, 'spokenWhen');
+      const resolved = spoken ? resolveWhen(spoken, now) : null;
+
+      let from = resolved?.from ?? iso(input, 'from');
+      let to = resolved?.to ?? iso(input, 'to');
+
+      // Neither a phrase nor a usable window: search the next fortnight
+      // rather than making the caller repeat themselves.
+      if (!from || !to || to <= from) {
+        from = now;
+        to = new Date(now.getTime() + 14 * 86_400_000);
+      }
+
       // A window in the past is a model mistake, usually a wrong year.
       // Clamp rather than reject: the caller asked a reasonable
       // question and should not hear about it.
@@ -194,6 +214,7 @@ export function validateToolRequest(
           to: (to > horizon ? horizon : to).toISOString(),
           durationMinutes: duration,
           timezone: str(input, 'timezone') ?? 'America/New_York',
+          interpreted: resolved?.interpreted ?? 'unspecified',
         },
       };
     }
@@ -353,6 +374,7 @@ export async function executeToolRequest(req: ToolRequest, deps: ExecuteDeps): P
 
 async function run(name: string, args: Record<string, unknown>, deps: ExecuteDeps): Promise<string> {
   const { tools, session } = deps;
+  const now = deps.now?.() ?? new Date();
 
   switch (name) {
     case 'check_availability': {
@@ -366,8 +388,12 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
       }
       // Three is the most a caller can hold in their head on a phone
       // call. Offering ten is how you lose a booking.
-      const offer = slots.slice(0, 3);
-      return JSON.stringify({ available: offer, note: 'Offer these as specific times. Do not invent others.' });
+      const offer = slots.slice(0, 3).map((s) => ({ ...s, say: speakSlot(s.start, now) }));
+      return JSON.stringify({
+        available: offer,
+        interpreted: args.interpreted,
+        note: 'Offer these using the "say" wording. Do not read ISO timestamps aloud and do not invent other times.',
+      });
     }
 
     case 'book_appointment': {
@@ -416,6 +442,15 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         summary: summarise(session),
         callSid: session.callSid,
       });
+      if (res.accepted) {
+        // Record it rather than acting on it. The caller is mid-sentence
+        // and cutting the media now would clip the agent's last words.
+        session.pendingTransfer = {
+          reason: String(args.reason),
+          summary: summarise(session),
+          target: res.targetNumber,
+        };
+      }
       if (!res.accepted) {
         // No transfer number configured is a deployment gap, not
         // something the caller should hear about.

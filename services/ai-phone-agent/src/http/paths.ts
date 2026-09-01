@@ -10,4 +10,7 @@ export const PATHS = {
   incoming: '/twilio/incoming',
   status: '/twilio/status',
   relay: '/twilio/conversation',
+  /** Twilio POSTs here when the relay session ends, which is how a
+   * warm transfer becomes an actual <Dial>. */
+  relayAction: '/twilio/relay-action',
 } as const;

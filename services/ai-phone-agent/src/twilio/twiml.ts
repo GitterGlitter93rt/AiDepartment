@@ -14,18 +14,26 @@ export interface RelayTwimlOptions {
   language?: string;
   /** Lets the caller cut in mid-sentence, as on a real call. */
   interruptible?: boolean;
+  /**
+   * Where Twilio POSTs when the relay session ends. This is what makes
+   * a warm transfer possible: the relay hands back control, and the
+   * TwiML returned at this URL decides whether the call is dialled on
+   * to a person or simply hung up.
+   */
+  actionUrl?: string;
 }
 
 export function conversationRelayTwiml(opts: RelayTwimlOptions): string {
   const {
     relayUrl, welcomeGreeting,
     voice = 'en-US-Journey-O', language = 'en-US', interruptible = true,
+    actionUrl,
   } = opts;
 
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Connect>` +
+    `<Connect${actionUrl ? ` action="${escapeXml(actionUrl)}"` : ''}>` +
     `<ConversationRelay ` +
     `url="${escapeXml(relayUrl)}" ` +
     `welcomeGreeting="${escapeXml(welcomeGreeting)}" ` +
@@ -37,6 +45,24 @@ export function conversationRelayTwiml(opts: RelayTwimlOptions): string {
     `</Connect>` +
     `</Response>`
   );
+}
+
+/**
+ * Dials a human after the relay session ends.
+ *
+ * `callerId` is omitted deliberately: Twilio uses the original caller's
+ * number, so whoever answers sees who is actually on the line.
+ */
+export function transferTwiml(target: string, timeoutSeconds = 30): string {
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response><Dial timeout="${timeoutSeconds}">${escapeXml(target)}</Dial></Response>`
+  );
+}
+
+/** Nothing further to do — the relay ended normally. */
+export function hangupTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`;
 }
 
 /** Spoken fallback when the service cannot start a relay session —

@@ -11,6 +11,13 @@ import { Orchestrator } from '../src/core/orchestrator.ts';
 import { SessionStore } from '../src/core/session.ts';
 import { createStubClaudeClient, createRecordingClaudeClient } from '../src/claude/client.ts';
 import { createLogger } from '../src/logger.ts';
+import { PATHS } from '../src/http/paths.ts';
+import { conversationRelayTwiml, transferTwiml, hangupTwiml } from '../src/twilio/twiml.ts';
+import { executeToolRequest } from '../src/core/tool-protocol.ts';
+import { createMockCalendar } from '../src/tools/calendar.ts';
+import { createMockSms } from '../src/tools/sms.ts';
+import { createTransferTool } from '../src/tools/transfer.ts';
+import { createPlaceholderCrm } from '../src/tools/crm.ts';
 
 describe('Twilio signature validation', () => {
   const token = 'test_auth_token_value';
@@ -222,5 +229,66 @@ describe('Public path contract', () => {
     try {
       assert.equal(loadConfig().relayUrl, 'ws://localhost:3001/twilio/conversation');
     } finally { process.env = prev; }
+  });
+});
+
+describe('Warm transfer actually moves the call', () => {
+  // ConversationRelay owns the media while it is running, so a transfer
+  // cannot be a tool side effect. It has to be an <Dial> returned after
+  // the relay lets go, which is what the action URL is for.
+  test('the TwiML gives Twilio somewhere to come back to', () => {
+    const xml = conversationRelayTwiml({
+      relayUrl: 'wss://voice.example.com/twilio/conversation',
+      welcomeGreeting: 'Thanks for calling.',
+      actionUrl: 'https://voice.example.com/twilio/relay-action',
+    });
+    assert.match(xml, /<Connect action="https:\/\/voice\.example\.com\/twilio\/relay-action">/);
+  });
+
+  test('without an action URL the Connect element stays valid', () => {
+    const xml = conversationRelayTwiml({
+      relayUrl: 'wss://voice.example.com/twilio/conversation',
+      welcomeGreeting: 'Thanks for calling.',
+    });
+    assert.match(xml, /<Connect>/);
+    assert.doesNotMatch(xml, /action=/);
+  });
+
+  test('the dial does not override caller ID, so the human sees who is calling', () => {
+    const xml = transferTwiml('+19045550100');
+    assert.match(xml, /<Dial timeout="30">\+19045550100<\/Dial>/);
+    assert.doesNotMatch(xml, /callerId/);
+  });
+
+  test('a transfer target is escaped, not interpolated raw', () => {
+    assert.doesNotMatch(transferTwiml('+1904555<script>'), /<script>/);
+  });
+
+  test('requesting a transfer records the intent rather than cutting the media', async () => {
+    // Ending the relay mid-turn would clip the last thing the agent
+    // said to the caller.
+    const sessions = new SessionStore();
+    const s = sessions.ensure('CA_x');
+    const out = await executeToolRequest(
+      { id: 't', name: 'transfer_to_human', input: { reason: 'caller asked for a person' } },
+      {
+        tools: {
+          calendar: createMockCalendar(), sms: createMockSms(),
+          transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
+          modes: { calendar: 'mock', sms: 'mock' },
+        },
+        log: createLogger({}, () => {}),
+        session: s,
+      },
+    );
+    assert.equal(out.ok, true);
+    assert.equal(s.pendingTransfer?.target, '+19045550100');
+    assert.match(s.pendingTransfer!.summary, /caller|CA_x|unknown/i, 'carries context for whoever picks up');
+  });
+
+  test('the relay action path is one shared constant, not two strings', () => {
+    // The relay path was a real bug once: config derived one path while
+    // the socket listened on another, and every call dropped at connect.
+    assert.equal(PATHS.relayAction, '/twilio/relay-action');
   });
 });

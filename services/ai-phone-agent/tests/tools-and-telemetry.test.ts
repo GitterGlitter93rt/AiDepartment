@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { validateToolRequest, executeToolRequest, TOOL_SCHEMAS } from '../src/core/tool-protocol.ts';
 import { buildCallSummary, buildDemoAnalytics, ANALYTICS_FORBIDDEN_KEYS } from '../src/core/call-summary.ts';
 import { resolveModels, DEFAULT_MODELS } from '../src/claude/models.ts';
+import { resolveWhen, speakSlot } from '../src/core/when.ts';
 import { SessionStore } from '../src/core/session.ts';
 import { Orchestrator } from '../src/core/orchestrator.ts';
 import { createScriptedClaudeClient } from '../src/claude/client.ts';
@@ -371,5 +372,92 @@ describe('Model configuration is centralised', () => {
   test('an empty env var does not blank out the model name', () => {
     const m = resolveModels({ CLAUDE_MODEL: '   ' });
     assert.equal(m.specialist.model, DEFAULT_MODELS.specialist.model);
+  });
+});
+
+describe('What the caller said about time beats what the model computed', () => {
+  // Tuesday 1 September 2026, 14:00 local.
+  const TUE = new Date('2026-09-01T14:00:00');
+
+  test('a named weekday means the next one, never one that has passed', () => {
+    const w = resolveWhen('Thursday morning', TUE)!;
+    assert.equal(w.interpreted, 'thursday');
+    assert.equal(w.from.getDay(), 4);
+    assert.ok(w.from > TUE);
+    assert.equal(w.to.getHours(), 12, 'morning ends at noon');
+  });
+
+  test('the same weekday as today means next week, not four minutes ago', () => {
+    const w = resolveWhen('Tuesday', TUE)!;
+    assert.equal(w.from.getDate(), 8, 'the following Tuesday');
+  });
+
+  test('"next Thursday" skips a week past the coming one', () => {
+    const soon = resolveWhen('Thursday', TUE)!;
+    const later = resolveWhen('next Thursday', TUE)!;
+    assert.ok(later.from > soon.from);
+  });
+
+  test('afternoon and evening shift the start of the window', () => {
+    assert.equal(resolveWhen('Friday afternoon', TUE)!.from.getHours(), 12);
+    assert.equal(resolveWhen('Friday evening', TUE)!.from.getHours(), 16);
+  });
+
+  test('a window never starts in the past', () => {
+    const w = resolveWhen('today', TUE)!;
+    assert.ok(w.from >= TUE);
+  });
+
+  test('phrases with no time information return null so the agent asks', () => {
+    assert.equal(resolveWhen('I need someone to come out'), null);
+    assert.equal(resolveWhen('my roof is leaking'), null);
+  });
+
+  test('the spoken phrase overrides a window the model got wrong', () => {
+    const v = validateToolRequest(
+      {
+        id: '1', name: 'check_availability',
+        input: {
+          // A plausible-looking window with the wrong year.
+          from: '2019-09-03T08:00:00Z', to: '2019-09-03T18:00:00Z',
+          durationMinutes: 60, spokenWhen: 'Thursday morning',
+        },
+      },
+      session(), TUE,
+    );
+    assert.equal(v.ok, true);
+    assert.equal(new Date(v.value!.from as string).getFullYear(), 2026);
+    assert.equal(v.value!.interpreted, 'thursday');
+  });
+
+  test('no phrase and no usable window searches the next fortnight rather than failing', () => {
+    // Making the caller repeat themselves because the model omitted an
+    // argument is the worst available outcome.
+    const v = validateToolRequest(
+      { id: '1', name: 'check_availability', input: { durationMinutes: 60 } },
+      session(), TUE,
+    );
+    assert.equal(v.ok, true);
+    assert.equal(new Date(v.value!.from as string).getTime(), TUE.getTime());
+  });
+
+  test('slots come back with wording a person would actually say', async () => {
+    const out = await executeToolRequest(
+      { id: 'x', name: 'check_availability', input: { durationMinutes: 60, spokenWhen: 'this week' } },
+      { tools: mockTools(), log: silent, session: session(), now: () => NOW },
+    );
+    const parsed = JSON.parse(out.content) as { available: { say: string }[]; note: string };
+    for (const slot of parsed.available) {
+      assert.match(slot.say, /at \d/, `unspeakable slot: ${slot.say}`);
+      assert.doesNotMatch(slot.say, /\d{4}-\d{2}-\d{2}|T\d{2}:|Z$/, 'never read an ISO timestamp aloud');
+    }
+    assert.match(parsed.note, /do not read ISO timestamps aloud/i);
+  });
+
+  test('speakSlot says today and tomorrow rather than a date', () => {
+    const t = new Date('2026-09-01T09:00:00');
+    assert.match(speakSlot(new Date('2026-09-01T15:00:00').toISOString(), t), /^today at 3 in the afternoon$/);
+    assert.match(speakSlot(new Date('2026-09-02T09:00:00').toISOString(), t), /^tomorrow at 9 in the morning$/);
+    assert.match(speakSlot(new Date('2026-09-04T13:30:00').toISOString(), t), /^Friday at 1:30 in the afternoon$/);
   });
 });

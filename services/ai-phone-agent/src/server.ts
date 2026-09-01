@@ -16,8 +16,8 @@ import { SessionStore } from './core/session.ts';
 import { Orchestrator, GREETING } from './core/orchestrator.ts';
 import { createClaudeClient } from './claude/client.ts';
 import { createToolbox } from './tools/index.ts';
-import { conversationRelayTwiml, fallbackTwiml } from './twilio/twiml.ts';
-import { parseRelayMessage, textResponse, chunkForSpeech } from './twilio/relay.ts';
+import { conversationRelayTwiml, fallbackTwiml, transferTwiml, hangupTwiml } from './twilio/twiml.ts';
+import { parseRelayMessage, textResponse, endResponse, chunkForSpeech } from './twilio/relay.ts';
 import { validateTwilioSignature, formToRecord } from './twilio/signature.ts';
 import { RateLimiter, readBodyLimited, clientIp, MAX_BODY_BYTES } from './http/guards.ts';
 import { PATHS } from './http/paths.ts';
@@ -102,7 +102,40 @@ const server = createServer(async (req, res) => {
       return send(res, 200, conversationRelayTwiml({
         relayUrl: cfg.relayUrl,
         welcomeGreeting: GREETING,
+        actionUrl: publicUrlFor(PATHS.relayAction, req),
       }), 'text/xml');
+    }
+
+    // The relay session has ended. If the agent asked to hand the call
+    // to a person, this is where that actually happens — the relay owns
+    // the media while it is running, so a transfer can only be a <Dial>
+    // returned after it lets go.
+    if (req.method === 'POST' && url.pathname === PATHS.relayAction) {
+      const { body: raw, truncated } = await readBodyLimited(req, MAX_BODY_BYTES);
+      if (truncated) return send(res, 413, 'payload too large');
+      if (cfg.validateTwilioSignature) {
+        const ok = validateTwilioSignature(
+          cfg.twilioAuthToken,
+          req.headers['x-twilio-signature'] as string | undefined,
+          publicUrlFor(PATHS.relayAction, req),
+          formToRecord(raw),
+        );
+        if (!ok) return send(res, 403, 'forbidden');
+      }
+      const body = new URLSearchParams(raw);
+      const callSid = body.get('CallSid') ?? '';
+      const session = sessions.get(callSid);
+      const target = session?.pendingTransfer?.target;
+
+      if (target) {
+        log.log('tool.completed', {
+          callSid, tool: 'transfer_to_human',
+          reason: session?.pendingTransfer?.reason,
+          to: maskPhone(target),
+        });
+        return send(res, 200, transferTwiml(target), 'text/xml');
+      }
+      return send(res, 200, hangupTwiml(), 'text/xml');
     }
 
     if (req.method === 'POST' && url.pathname === PATHS.status) {
@@ -212,6 +245,19 @@ async function startWebSocket() {
           chunks.forEach((chunk, i) => {
             socket.send(textResponse(chunk, i === chunks.length - 1));
           });
+
+          // A transfer requested during this turn is carried out only
+          // now, after the agent's closing sentence has been sent.
+          // Ending the relay any earlier clips the last thing the
+          // caller was told.
+          const session = sessions.get(callSid);
+          if (session?.pendingTransfer) {
+            socket.send(endResponse({
+              reason: 'transfer',
+              target: session.pendingTransfer.target,
+              summary: session.pendingTransfer.summary,
+            }));
+          }
           return;
         }
 

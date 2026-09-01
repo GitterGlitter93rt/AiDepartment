@@ -59,4 +59,14 @@ export interface Session {
   /** Scenario switches during this call. Expected on a demo line; a
    * prospect wants to hear the plumbing agent after the divorce one. */
   scenarioSwitches: number;
+  /**
+   * Set when the agent has asked to hand the call to a person.
+   *
+   * The tool cannot move the call itself: ConversationRelay owns the
+   * media, so a transfer means ending the relay session and letting
+   * Twilio follow the <Connect action=...> URL to a <Dial>. The tool
+   * records the intent here; the socket carries it out after the
+   * agent's last sentence has been spoken.
+   */
+  pendingTransfer?: { reason: string; summary: string; target: string };
 }
