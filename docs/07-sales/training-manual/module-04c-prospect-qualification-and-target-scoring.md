@@ -74,64 +74,164 @@ Never invent those facts.
 
 ---
 
-# 3. WHERE REPS SHOULD CHECK
+# 3. FAST CANDIDATE-FINDING WORKFLOW
 
-## META
+This is one of the simplest ways a rep can build a stronger prospect list.
 
-Use the public Meta Ad Library to look for currently active Facebook and Instagram advertising.
+## METHOD A - GOOGLE INDUSTRY + LOCATION SEARCH
 
-Search by:
+Search Google using the service / industry plus a target city or market.
 
-- company / advertiser name
-- brand name
-- relevant keyword when useful
+Examples:
 
-Look for:
+> HVAC Jacksonville FL
 
-- whether active ads exist
-- number and variety of visible creatives
-- services / offers being promoted
-- locations mentioned
-- lead-generation offers
-- seasonal campaigns
-- financing / promotional messaging where appropriate
+> emergency plumber St Augustine FL
 
-Do not infer exact spend from the number of creatives.
+> roofing company Orlando FL
 
-## GOOGLE
+> personal injury lawyer Tampa FL
 
-Use Google's Ads Transparency Center to research ads from advertisers where available.
+> collision repair Jacksonville FL
 
-Search by:
+> cosmetic dentist Ponte Vedra FL
 
-- advertiser name
-- website / domain
+> med spa Orlando FL
 
-Use region and date filters where helpful.
+Look for businesses appearing in clearly labeled Sponsored / Ad placements.
 
-The rep may also spot-check relevant Google searches and note clearly labeled sponsored placements. Search results vary by location, timing, auction conditions, and other factors, so one search is not proof that a company is or is not consistently advertising.
+Those companies become potential high-priority prospects because they are actively competing for customer acquisition in that market at that moment.
 
-## COMPANY WEBSITE
+Record:
 
-Also inspect the landing experience:
+- company
+- website
+- phone
+- city / service area
+- advertised service
+- offer / CTA
+- landing page used
+- whether the ad emphasizes phone call, form, quote, consultation, appointment, financing, emergency service, etc.
 
-- phone number prominence
-- lead forms
-- online scheduling
-- chat
-- service-area pages
-- dedicated landing pages
-- financing offers
-- emergency / after-hours positioning
-- call-to-action structure
+Then ask:
 
-The goal is not to conduct a free full audit.
+> What happens after this paid prospect clicks or calls?
 
-The goal is to create one intelligent prospecting hypothesis.
+That question creates the YAD prospecting hypothesis.
+
+### IMPORTANT
+
+One Google search is only a signal.
+
+Search ads can vary by:
+
+- location
+- time
+- keyword
+- auction conditions
+- campaign settings
+- device and other factors
+
+Do not conclude that a company never advertises simply because it did not appear in one search.
+
+Do not estimate the company's spend from its ad position.
 
 ---
 
-# 4. THE PAID-AD PROSPECTING HYPOTHESIS
+## METHOD B - META / FACEBOOK AD LIBRARY
+
+Use Meta's public Ad Library to find currently running advertising across Meta technologies.
+
+A rep can search by:
+
+- business / page name
+- advertiser
+- brand
+- relevant keyword when useful
+
+For a known prospect, search its business/page name and inspect its active ads.
+
+Look for:
+
+- what service is being pushed
+- current offers
+- lead-generation ads
+- consultations
+- quote requests
+- financing offers where applicable
+- geographic campaigns
+- seasonal offers
+- repeated creative themes
+- whether the CTA drives to a form, website, call, message, or booking flow
+
+Do not infer exact advertising spend from the number of ads or creatives.
+
+### EXAMPLE
+
+A rep finds an HVAC company's Facebook Page in Meta Ad Library and sees active ads promoting AC replacement financing.
+
+Potential hook:
+
+> I saw you guys are actively promoting replacement financing right now. When somebody responds to one of those ads but does not book on the first contact, what happens next?
+
+That is researched relevance.
+
+It is not a claim that the company has bad follow-up.
+
+---
+
+## METHOD C - GOOGLE ADS TRANSPARENCY CENTER
+
+Google's Ads Transparency Center can also be used to research advertisers by advertiser name or website / domain where available.
+
+This can help confirm that a business is publishing ads through Google even if it does not appear during one manual search.
+
+Use this as another research signal, not as a substitute for discovery.
+
+---
+
+# 4. CROSS-PLATFORM PRIORITY SIGNAL
+
+A business advertising on more than one platform may deserve even more attention.
+
+Example:
+
+Active Google Search ads
++
+Active Meta ads
++
+High-value service
++
+Prominent phone / form CTA
++
+Fast-response industry
+=
+strong YAD prospecting candidate.
+
+Why?
+
+The business is investing across multiple acquisition channels, so downstream problems involving:
+
+- response speed
+- missed calls
+- CRM
+- follow-up
+- attribution
+- appointment setting
+- sales conversion
+- reporting
+
+may have meaningful economic leverage.
+
+Again:
+
+This is a reason to investigate.
+
+It is not proof that anything is broken.
+
+---
+
+# 5. THE PAID-AD PROSPECTING HYPOTHESIS
 
 Example:
 
@@ -159,7 +259,7 @@ unless the prospect has actually provided spend data.
 
 ---
 
-# 5. WHY PAID LEADS CAN CREATE A DOUBLE-LOSS PROBLEM
+# 6. WHY PAID LEADS CAN CREATE A DOUBLE-LOSS PROBLEM
 
 When a business pays to create an opportunity and then fails to handle it effectively, two forms of economic exposure may exist:
 
@@ -192,7 +292,7 @@ or:
 
 ---
 
-# 6. YAD PROSPECT PRIORITY SCORE - STARTING MODEL
+# 7. YAD PROSPECT PRIORITY SCORE - STARTING MODEL
 
 This is an internal prioritization tool, not a public ROI score.
 
@@ -252,7 +352,7 @@ This scoring system should be improved over time using actual YAD conversion dat
 
 ---
 
-# 7. ADVERTISING SHOULD NOT BE THE ONLY QUALIFICATION SIGNAL
+# 8. ADVERTISING SHOULD NOT BE THE ONLY QUALIFICATION SIGNAL
 
 Do not make the mistake of targeting only companies running ads.
 
@@ -286,7 +386,7 @@ It is not the entire YAD market.
 
 ---
 
-# 8. TARGETING BY INDUSTRY + AD SIGNAL
+# 9. TARGETING BY INDUSTRY + AD SIGNAL
 
 ## HVAC / PLUMBING / ELECTRICAL
 
@@ -378,7 +478,7 @@ Primary hypotheses:
 
 ---
 
-# 9. HOW PHONE REPS USE THE SCORE
+# 10. HOW PHONE REPS USE THE SCORE
 
 Before dialing, the rep should know:
 
@@ -399,7 +499,7 @@ That is much better than:
 
 ---
 
-# 10. HOW FIELD REPS USE THE SCORE
+# 11. HOW FIELD REPS USE THE SCORE
 
 Field routes should favor clusters of higher-scoring prospects.
 
@@ -416,13 +516,69 @@ If a rep sees that a company is actively promoting a specific offer, they can us
 
 Example:
 
-> I saw you guys are advertising roof inspections pretty aggressively right now. I had one question about what happens to the homeowner after the inspection if they do not sign immediately.
+> I saw you guys are advertising roof inspections right now. I had one question about what happens to the homeowner after the inspection if they do not sign immediately.
 
 Do not walk into the business claiming you know its advertising economics.
 
 ---
 
-# 11. DO NOT CREATE FAKE LEADS TO TEST THEM
+# 12. BUILDING A DAILY ADVERTISER PROSPECT LIST
+
+A rep or sales coordinator can build a target list by market.
+
+Example assignment:
+
+Market:
+Jacksonville, Florida
+
+Vertical:
+HVAC
+
+Step 1:
+Search several high-intent Google terms such as:
+
+- AC repair Jacksonville FL
+- emergency HVAC Jacksonville FL
+- AC replacement Jacksonville FL
+
+Step 2:
+Record businesses appearing in Sponsored placements.
+
+Step 3:
+Visit their websites and identify:
+
+- service promoted
+- CTA
+- phone / form / booking path
+- 24/7 claim
+- number of locations
+- financing / offer
+
+Step 4:
+Search those businesses in Meta Ad Library.
+
+Step 5:
+Record whether active Meta ads exist and what they promote.
+
+Step 6:
+Score the prospect.
+
+Step 7:
+Assign:
+
+- primary hook
+- backup hook
+- phone priority
+- field-route priority
+
+Step 8:
+Load the research into the CRM.
+
+This turns public ad activity into a repeatable B2B prospecting system.
+
+---
+
+# 13. DO NOT CREATE FAKE LEADS TO TEST THEM
 
 Do not submit fake quote forms, fake appointments, fake legal inquiries, fake patient inquiries, or other deceptive customer requests simply to test response time.
 
@@ -434,7 +590,7 @@ If a prospect later authorizes YAD to perform a structured mystery-shop or respo
 
 ---
 
-# 12. PROSPECT RESEARCH CARD
+# 14. PROSPECT RESEARCH CARD
 
 Every high-priority prospect record should eventually capture:
 
@@ -443,9 +599,11 @@ Industry
 Location(s)
 Website
 Decision-maker if known
-Google ad signal: Yes / No / Unknown
-Meta ad signal: Yes / No / Unknown
+Google sponsored-ad signal: Yes / No / Unknown
+Google Ads Transparency signal: Yes / No / Unknown
+Meta active-ad signal: Yes / No / Unknown
 Offer / service advertised
+Landing page / CTA
 Emergency / after-hours: Yes / No
 High-ticket economics: Likely / Unknown
 Multi-location: Yes / No
@@ -463,7 +621,7 @@ This should ultimately live inside the YAD prospecting CRM workflow rather than 
 
 ---
 
-# 13. THE BEST-PROSPECT CONCEPT
+# 15. THE BEST-PROSPECT CONCEPT
 
 A particularly strong YAD prospect often has several characteristics at once:
 
@@ -499,6 +657,9 @@ It does not replace discovery.
 
 A rep passes when they can:
 
+- use Google industry + location searches to identify visible Sponsored advertisers
+- use Meta Ad Library to research active ads by business / page / advertiser
+- use Google Ads Transparency Center as an additional advertiser research source
 - identify strong public qualification signals
 - verify visible ad activity without inventing spend
 - explain why advertisers may have greater downstream ROI leverage
