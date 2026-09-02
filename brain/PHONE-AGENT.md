@@ -1,71 +1,169 @@
-# Your AI Department — AI Phone / Outbound Sales Brain
+# Your AI Department — Prospect Factory / Outbound Sales Brain
 
-**Status:** In implementation  
+**Status:** Architecture substantially defined; implementation must begin with Claude Code Gate 0 audit  
 **Started:** 2026-09-02  
 **Branch:** `feature/outbound-sales-brain`
 
-## Objective
+## Current objective
 
-Build a reusable AI phone system that can research businesses before outreach, choose a sales angle from the canonical sales manual, enforce calling/suppression rules, place Twilio calls, run a natural conversational sales agent, and persist structured outcomes for CRM follow-up and learning.
+Build a reusable prospecting and outbound-sales system where the most important upstream capability is not dialing — it is deciding **who should be contacted, why, and what should be discussed**.
 
-## Current architecture
+The architecture is now Market-Miner-first:
 
-1. Lead intake
-2. Prospect research adapters
-3. Evidence-normalized dossier (`confirmed`, `likely`, `unknown`)
-4. Sales-manual retrieval
-5. ICP scoring and strategy generation
-6. Compliance/suppression gate
-7. Twilio outbound dialing + AMD
-8. Twilio ConversationRelay / realtime voice runtime
-9. Sales-agent actions: booking, transfer, SMS/email, DNC
-10. Post-call structured summary
-11. CRM/storage update
-12. performance/learning loop
+1. territory / market definition
+2. Google advertiser-first prospect discovery
+3. business identity resolution and deduplication
+4. independent website/business research
+5. evidence normalization (`confirmed`, `likely`, `unknown`, contradicted/stale history)
+6. canonical Sales Manual Module 4C score / Tier A-D
+7. opportunity + current YAD offer hypothesis
+8. Sales Manual retrieval
+9. compact prospect-specific Call Pack
+10. Human Assist sales queue
+11. deterministic compliance/suppression gate
+12. controlled/reviewed Twilio voice runtime later
+13. structured CRM outcome/follow-up
+14. call QA, provider economics, and learning
 
-## Source-of-truth rule
+The phone is a downstream consumer of the prospect factory, not the foundation of the system.
 
-Sales messaging and objection logic must retrieve from `docs/07-sales/training-manual/**`. The phone agent must not maintain an independently drifting copy of the sales manual.
+## Implementation ownership
 
-## First vertical
+- ChatGPT: architecture/product/sales-brain design and specifications.
+- Claude Code on the EdgeXpert: code implementation, local execution, tests, debugging, deployment preparation, and coherent commits.
+- GitHub: source control and architecture/source-of-truth storage.
 
-HVAC / Plumbing is the recommended first end-to-end production playbook because it has strong fit with paid lead acquisition, emergency/after-hours demand, missed-call recovery, lead-speed, dispatch/booking, CRM automation, and measurable attribution.
+ChatGPT should not continuously implement/run production code in GitHub.
 
-## Implementation now present
+Automatic GitHub Actions remain manual-only unless Michael explicitly asks to re-enable them.
 
-Under `phone-agent/`:
+## Architecture authority
 
-- architecture README
-- typed lead/evidence/dossier/strategy/compliance/call contracts
-- multi-adapter research orchestrator
-- strategy engine and deterministic ICP scoring baseline
-- compliance/suppression gate
-- Twilio outbound-call adapter with AMD parameters
-- ConversationRelay TwiML builder
-- realtime voice-agent prompt builder
-- persistence schema for leads, dossiers, compliance checks, calls, suppressions, and call events
+Start at:
 
-## Production blockers
+- `docs/09-software/outbound-sales-brain-index.md` when available
+- `docs/09-software/outbound-ai-sales-brain-master-spec.md`
+- `docs/09-software/outbound-ai-sales-brain-claude-handoff.md`
+- `docs/09-software/outbound-sales-brain-implementation-gates.md`
 
-Production autonomous dialing is intentionally disabled until all of the following are resolved:
+Market Miner specifications live under `docs/09-software/market-miner-*.md`.
 
-- Twilio account SID/auth token/from number are supplied through secrets/environment configuration.
-- Public voice callback/WebSocket endpoint is deployed and TLS verified.
-- Twilio webhook signature validation is implemented.
-- Persistent database is selected and migrations are run.
-- Line-type/contact-basis enrichment policy is selected.
-- Calling-hours and jurisdiction policy is reviewed.
-- Internal DNC/suppression import is available.
-- Realtime LLM provider/model and latency target are selected.
-- Calendar/CRM/SMS/email actions are wired.
-- End-to-end test calls are completed with non-customer test numbers before any prospect campaign.
+Canonical Sales Manual remains:
 
-## Design decisions
+`docs/07-sales/training-manual/**`
 
-- Research and live conversation are separate stages.
-- The live voice agent receives a compact dossier rather than the entire manual every turn.
-- All research claims carry confidence and source metadata.
-- The agent may not invent ad spend, CRM integrations, lead volume, revenue leakage, ROI, or results.
-- Existing CRMs are generally treated as systems to extend/integrate, not automatically replace.
-- DNC intent immediately suppresses future dialing.
-- The same runtime can later support `inbound_receptionist`, but outbound and inbound prompts/policies remain separate.
+Current commercial truth remains:
+
+`docs/00-company/launch-decisions.md`
+
+## First implementation milestone
+
+Before autonomous voice work, Claude must prove:
+
+> HVAC — Jacksonville + St. Augustine — advertiser-first — Tier B+ — target 100 research-ready prospects.
+
+The output must be deduplicated and include evidence-backed scoring, current Google ad observations where available, website/CTA research, system signals, primary/backup hypotheses, current YAD offer hypotheses, hooks, provenance, freshness, and provider cost.
+
+If fewer than 100 genuinely meet criteria, the correct output is the true number plus an honest coverage/shortfall report.
+
+No real prospect calling is required for this milestone.
+
+## First verticals
+
+1. HVAC — Sales Manual Vertical Priority 1
+2. Plumbing — Sales Manual Vertical Priority 2
+
+Machine-readable profiles now exist for both.
+
+Do not expand into every vertical until the profile/research architecture is proven in implementation.
+
+## Google-first prospect strategy
+
+For advertiser-first campaigns, prioritize actual current Google paid-search/Local Services observations.
+
+Architecture currently recommends benchmarking:
+
+- DataForSEO for bulk paid-SERP mining
+- SerpApi for fallback/validation/LSA cases
+- Google Places as a gap-filler/identity source, not proof of active advertising
+- first-party company websites as durable business-intelligence sources
+- Apollo/licensed equivalents for decision-maker/contact enrichment
+- Google Ads Transparency as supporting advertiser evidence
+- Meta as a secondary cross-platform signal
+
+Provider choice is not final until Claude runs the documented provider benchmark and terms/storage review.
+
+## Critical truth rules
+
+- Tracking pixels/tags do not prove current advertising.
+- One Google search without an ad does not prove a company is not advertising.
+- A ServiceTitan/HubSpot/etc. frontend signal does not prove the backend workflow.
+- Absence of a detected CRM signature does not prove no CRM exists.
+- Multiple ad observations of the same company remain one Account.
+- Existing CRM/receptionist/IT/marketing agency is normally something to understand and extend, not automatically replace.
+- Never invent ad spend, lead volume, missed-call rate, revenue loss, ROI, integrations, results, or guarantees.
+- A correct outcome may be no sale / leave the strong existing workflow alone.
+
+## Current `phone-agent/` prototype
+
+The code currently under `phone-agent/` was an early architecture experiment.
+
+It is NOT the current source of truth.
+
+Claude must audit it at Gate 0 and may keep, refactor, replace, or delete pieces as appropriate.
+
+Do not preserve prototype architecture merely because code exists.
+
+## Production autonomous dialing
+
+Production autonomous AI prospect calling remains intentionally disabled.
+
+The compliance architecture treats AI-generated voice as a distinct contact technology and does not equate B2B prospecting with automatic permission to use autonomous AI voice.
+
+Until formal policy/legal/company review is complete:
+
+- Market Miner can be built.
+- Human Assist can be built and used under approved human-sales procedures.
+- controlled test calls may use explicit allowlisted test participants after implementation reaches the relevant gate.
+- real autonomous cold prospect calling remains gated/off.
+
+## Implementation gates
+
+Claude must follow:
+
+`docs/09-software/outbound-sales-brain-implementation-gates.md`
+
+Key order:
+
+Gate 0 audit
+-> data model
+-> scoring/profile loader
+-> geography/mining jobs
+-> Google advertiser miner
+-> entity resolution
+-> website intelligence
+-> Market Miner acceptance
+-> Human Assist
+-> Sales Manual RAG
+-> Call Pack/roleplay
+-> compliance software
+-> realtime voice benchmarking
+-> controlled Twilio
+-> action tools
+-> audio certification
+-> explicit approval before real-prospect pilot.
+
+A commit is not proof a gate passed. Claude must run tests locally and report actual results.
+
+## Development safety / workflow
+
+- no secrets in repository
+- no automatic GitHub CI spam
+- no fake customer lead submissions
+- no real prospect calls during normal development
+- no merge to main without explicit review/request
+- persistent DNC/suppression required before any production outreach
+- global kill switch required before autonomous production use
+- public control/dial APIs must be authenticated
+- Twilio/provider webhooks must be validated
+- voice stack selected through measured end-to-end latency benchmarks, not brand preference
