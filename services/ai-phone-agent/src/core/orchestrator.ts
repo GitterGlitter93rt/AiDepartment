@@ -24,6 +24,9 @@ import { TOOL_SCHEMAS, executeToolRequest } from './tool-protocol.ts';
 import { resolveModels, type ModelConfig } from '../claude/models.ts';
 import type { Toolbox } from '../tools/index.ts';
 import type { CompleteResult, ClaudeMessage } from '../claude/client.ts';
+import { knowledgeFor } from '../knowledge/index.ts';
+import { matchKnowledge, renderKnowledge } from '../knowledge/types.ts';
+import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../business/profile.ts';
 
 export const GREETING =
   "Thanks for calling. Tell me a bit about what's going on and I'll get you to the right place.";
@@ -43,6 +46,15 @@ export interface OrchestratorDeps {
   /** Ceiling on tool round-trips inside one turn. A phone call cannot
    * absorb more than a couple before the silence is noticeable. */
   maxToolRounds?: number;
+  /**
+   * Resolves the business the agent is answering for.
+   *
+   * In DEMO mode this returns a generic profile per industry, which is
+   * why the demo agent knows the trade but not the prices. In CLIENT
+   * mode it returns that client's real profile and the industry never
+   * changes. See docs/voice-agent-client-onboarding.md.
+   */
+  resolveProfile?: (industry: string | null) => BusinessProfile;
 }
 
 /** Rolling token accounting for one process. Never spoken, only logged. */
@@ -205,10 +217,35 @@ export class Orchestrator {
         : "Thanks for that. Let me take a few details so the right person can call you back.";
     }
 
+    // The business the agent is answering for. Everything it may state
+    // as fact about prices, hours, coverage and credentials comes from
+    // here — and the absent fields are stated just as explicitly as the
+    // present ones, because that is what stops it inventing them.
+    const profile = this.profileFor(session.route.industry);
+
+    // Only the knowledge relevant to what the caller just said. Sending
+    // an entire FAQ bank every turn costs tokens on every turn of every
+    // call to carry answers to questions nobody asked, and buries the
+    // instructions that do apply.
+    const lastCaller = [...session.turns].reverse().find((t) => t.role === 'caller');
+    const matched = matchKnowledge(lastCaller?.text ?? '', knowledgeFor(spec?.id ?? null, session.route.industry), profile);
+    const knowledgeBlock = renderKnowledge(matched);
+    if (matched.length > 0) {
+      log.log('knowledge.matched', {
+        callSid: session.callSid,
+        entries: matched.map((m) => m.entry.id),
+        unanswerable: matched.filter((m) => !m.answerable).map((m) => m.entry.id),
+      });
+    }
+
     const system = [
       CORE_AGENT_RULES,
       spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
+      renderBusinessProfile(profile),
       this.stateBrief(session, spec?.qualificationSchema.map((f) => f.goal) ?? []),
+      // The caller's actual question comes after the state brief so it
+      // is not buried behind a list of fields still to collect.
+      ...(knowledgeBlock ? [knowledgeBlock] : []),
       // Appended last so it is the most recent thing the model read.
       ...(reinforcement ? [reinforcement] : []),
     ].join('\n\n---\n\n');
@@ -316,6 +353,12 @@ export class Orchestrator {
       cacheReadTokens: res.usage.cacheReadTokens ?? 0,
       stopReason: res.stopReason,
     });
+  }
+
+  /** The business profile for this call. */
+  private profileFor(industry: string | null): BusinessProfile {
+    if (this.deps.resolveProfile) return this.deps.resolveProfile(industry);
+    return demoProfile((industry ?? 'professional_services') as Parameters<typeof demoProfile>[0]);
   }
 
   /** Tells the model what is already known, so it never re-asks. */

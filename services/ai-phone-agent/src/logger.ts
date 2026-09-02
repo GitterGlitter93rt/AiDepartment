@@ -25,6 +25,7 @@ export type LogEvent =
   | 'guard.flagged'
   | 'guard.blocked'
   | 'guard.output_blocked'
+  | 'knowledge.matched'
   | 'call.summary'
   | 'llm.usage'
   | 'error';
