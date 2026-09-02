@@ -90,8 +90,16 @@ const GOALS: Record<string, IndustryGoal> = {
 export function renderGoal(session: Session, industry: string | null): string | null {
   // A body shop's shop-business calls get a different goal from its
   // crash calls. Same industry, different conversation.
-  if (industry === 'collision_repair' && SHOP_BUSINESS_INTENTS.has(session.route.intent ?? '')) {
-    return renderGoalBlock(session, COLLISION_SHOP_BUSINESS_GOAL);
+  if (industry === 'collision_repair') {
+    const intent = session.route.intent ?? '';
+    if (COLLISION_PROJECT_INTENTS.has(intent)) return renderGoalBlock(session, COLLISION_SHOP_BUSINESS_GOAL);
+    if (COLLISION_QUESTION_INTENTS.has(intent)) {
+      // A question becomes a project the moment they describe work
+      // they want doing — then, and only then, the handover applies.
+      const q = session.qualification as Record<string, unknown>;
+      const turnedIntoAJob = Boolean(q.projectDescription) || Boolean(q.advisorCallbackStatus);
+      return renderGoalBlock(session, turnedIntoAJob ? COLLISION_SHOP_BUSINESS_GOAL : COLLISION_QUESTION_GOAL);
+    }
   }
 
   const goal = GOALS[industry ?? ''];
@@ -137,6 +145,32 @@ function renderGoalBlock(session: Session, goal: IndustryGoal): string {
  * the accident goal — tow, scene, claim — is the wrong shape for them
  * entirely.
  */
+/**
+ * Someone who rang to ask one question.
+ *
+ * Rates, whether the shop takes insurance, whether it does colour
+ * matching — these have answers, and the answer may be all they
+ * wanted. The project goal below ends in a repair advisor ringing them
+ * back, which is exactly wrong for a caller who said "okay, thanks":
+ * told that a handover "is what finishes this call", the agent goes
+ * looking for a project that does not exist.
+ */
+const COLLISION_QUESTION_GOAL: IndustryGoal = {
+  outcome: 'their question is answered properly, and they are helped further only if they want to be',
+  path: [
+    'answer what they actually asked, first, plainly, and completely',
+    'ask whether there is something specific they are looking to get done',
+    'if there IS a job — then take it: what they want done, the vehicle, photos if it needs eyes on it, and their details for an advisor',
+    'if there is NOT, let them go warmly. A question answered is a call that went well',
+  ],
+  avoid: [
+    'collecting their details when they only asked a question',
+    'pushing a photo link or an advisor callback at someone who has not asked for work',
+    'running the accident intake: nobody crashed, so do not ask about injuries, a scene, a claim or a tow',
+    'quoting a price for a repair, a repaint, a custom job or a restoration — none of those have a phone number price',
+  ],
+};
+
 const COLLISION_SHOP_BUSINESS_GOAL: IndustryGoal = {
   outcome: 'their question is answered, and if it needs a human look, an advisor has photos and a reason to call them back',
   path: [
@@ -157,10 +191,20 @@ const COLLISION_SHOP_BUSINESS_GOAL: IndustryGoal = {
   ],
 };
 
-/** Collision intents that are ordinary shop business, not a crash. */
-const SHOP_BUSINESS_INTENTS = new Set([
-  'labor_rate_question', 'custom_work', 'restoration', 'paint_color_match',
-  'general_estimate', 'service_question', 'insurance_repair', 'mechanical_repair',
+/**
+ * Shop business that is a PROJECT — it ends with an advisor ringing.
+ */
+const COLLISION_PROJECT_INTENTS = new Set([
+  'custom_work', 'restoration', 'general_estimate',
+]);
+
+/**
+ * Shop business that is a QUESTION. It ends when the question is
+ * answered, unless the caller turns it into a project themselves.
+ */
+const COLLISION_QUESTION_INTENTS = new Set([
+  'labor_rate_question', 'paint_color_match', 'insurance_repair',
+  'service_question', 'mechanical_repair',
 ]);
 
 export function renderOfferMemory(session: Session): string | null {

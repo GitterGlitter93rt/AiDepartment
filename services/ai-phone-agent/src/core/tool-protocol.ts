@@ -1576,8 +1576,14 @@ const GATED_TOOLS: Record<string, (session: Session, said: string) => boolean> =
   // A tow becomes relevant when the vehicle cannot move, or when
   // somebody raises it.
   dispatch_tow: (s, said) => {
+    // A crash in progress has it from the first turn. Gating it behind
+    // the word "tow" meant an emergency on a bridge could not dispatch
+    // one until somebody said it out loud, while a routine "I wrecked
+    // my BMW" could — exactly backwards.
+    if (s.route.urgency === 'emergency') return true;
+    if (s.route.intent === 'accident_repair' || s.route.intent === 'towing_needed') return true;
     const q = s.qualification as Record<string, unknown>;
-    return q.vehicleDrivable === false || Boolean(q.towStatus) || /\btow(ing|ed)?\b|\bwreck|\bflat ?bed\b|won'?t (drive|start|move)|can'?t be driven\b/i.test(said);
+    return q.vehicleDrivable === false || Boolean(q.towStatus) || /\btow(ing|ed)?\b|\bwreck|\bflat ?bed\b|\btotal(l)?ed\b|won'?t (drive|start|move)|can'?t be driven\b/i.test(said);
   },
   // Paperwork follows a decision to proceed, never precedes it.
   send_esign_packet: (s, said) => {

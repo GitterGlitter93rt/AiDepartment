@@ -58,6 +58,18 @@ describe('the advisor handover exists at all', () => {
     assert.ok(!names.includes('request_advisor_callback'), 'a crash ends in a tow, not a project quote');
   });
 
+  test('a crash call DOES carry the tow from the first turn', () => {
+    // Gating the truck behind the word "tow" meant an emergency on a
+    // bridge could not dispatch one until somebody said it out loud,
+    // while a routine "I wrecked my BMW" could. Exactly backwards.
+    for (const said of ['I just got into a car accident on the Buckman Bridge', 'I need a tow', 'My car is totaled']) {
+      const { session } = shopCall(said);
+      if (session.route.industry !== 'collision_repair') continue;
+      const names = toolsFor('collision_repair', undefined, session).map((t) => t.name);
+      assert.ok(names.includes('dispatch_tow'), `no truck available for: ${said}`);
+    }
+  });
+
   test('a project photo purpose exists that is not damage photos', () => {
     // A man in his garage with a project car is not at a roadside
     // scene, and the damage-photo purpose carries a traffic-safety
@@ -206,6 +218,8 @@ describe('each intent converts the way it should', () => {
   test('a labor-rate call does not force a project on them', () => {
     // They asked a question. If that is all they wanted, the call ends
     // there — the goal must not demand a handover.
+    // They asked a question. If that is all they wanted, the call ends
+    // there — the goal must not demand a handover.
     const { session } = shopCall('What are your labor rates?');
     const goal = renderGoal(session, 'collision_repair')!;
     assert.match(goal, /answer what they actually asked, first/i);
@@ -234,15 +248,36 @@ describe('each intent converts the way it should', () => {
     assert.ok(goals.some((g) => /insurance company/i.test(g)), 'claim fields remain reachable');
   });
 
-  test('every shop intent shares the one conversion goal', () => {
-    for (const said of ['Do you guys do custom work?', 'Do you guys do full restorations?', 'How much would it cost to fix a dent?', 'Can you match my paint?']) {
-      const { session } = shopCall(said);
-      const goal = renderGoal(session, 'collision_repair')!;
+  test('a PROJECT ends with an advisor ringing back', () => {
+    for (const said of ['Do you guys do custom work?', 'Do you guys do full restorations?', 'How much would it cost to fix a dent?']) {
+      const goal = renderGoal(shopCall(said).session, 'collision_repair')!;
       assert.match(goal, /photos, if it cannot be judged without seeing it/i, said);
       assert.match(goal, /their name and a good number/i, said);
       assert.match(goal, /request_advisor_callback/, said);
       assert.match(goal, /quoting a price/i, said);
     }
+  });
+
+  test('a QUESTION ends when it is answered', () => {
+    // The defect this pins: told a handover "is what finishes this
+    // call", the agent goes looking for a project that does not exist.
+    // Someone who asked a rate and said "okay, thanks" is a call that
+    // went well, not a lead that got away.
+    for (const said of ['What are your labor rates?', 'Can you match my paint?', 'Do you work with insurance?']) {
+      const goal = renderGoal(shopCall(said).session, 'collision_repair')!;
+      assert.match(goal, /let them go warmly/i, said);
+      assert.match(goal, /collecting their details when they only asked a question/i, said);
+      assert.match(goal, /pushing a photo link or an advisor callback at someone who has not asked/i, said);
+      assert.doesNotMatch(goal, /that is what finishes this call/i, said);
+    }
+  });
+
+  test('a question that turns into a job gets the project goal', () => {
+    const { session } = shopCall('Can you match my paint?');
+    assert.match(renderGoal(session, 'collision_repair')!, /let them go warmly/i);
+    // They describe work they want doing. Now the handover applies.
+    (session.qualification as Record<string, unknown>).projectDescription = 'respray the bonnet and blend the wings';
+    assert.match(renderGoal(session, 'collision_repair')!, /request_advisor_callback/);
   });
 });
 
