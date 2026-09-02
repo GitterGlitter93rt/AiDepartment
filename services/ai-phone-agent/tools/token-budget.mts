@@ -61,7 +61,7 @@ for (const [i, said] of script.said.entries()) {
 const spec = selectSpecialist(session);
 const { system, blocks, cachedSystemPrefix } = orchestrator.buildSystemPrompt(session, spec);
 
-const toolSchemas = toolsFor(session.route.industry, session.demoPhase);
+const toolSchemas = toolsFor(session.route.industry, session.demoPhase, session);
 const toolChars = JSON.stringify(toolSchemas).length;
 const historyChars = session.turns.reduce((n, t) => n + t.text.length, 0);
 

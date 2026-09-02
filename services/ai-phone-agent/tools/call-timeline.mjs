@@ -138,9 +138,27 @@ for (const [callSid, call] of calls) {
     }
 
     if (interrupt !== undefined) {
+      const ir = rec('INTERRUPT_RECEIVED', turn);
       console.log(`  ${pad('INTERRUPT_RECEIVED', 36)}${pad(ms(interrupt), 10)}  from call start`);
+      if (ir?.hadInFlight === false) {
+        // Not a failure. Twilio interrupts its own PLAYBACK, which
+        // outlives generation — by the time someone talks over a long
+        // reply we finished producing it seconds ago.
+        console.log(`  ${pad('  (generation already finished', 36)}${pad('', 10)}  Twilio stopped its own playback)`);
+      }
       row('interrupt -> generation aborted', aborted !== undefined ? aborted - interrupt : undefined, 'our code (barge-in share)');
       console.log(`  ${pad('interrupt -> playback stopped', 36)}${pad('NOT MEASURABLE', 10)}  ConversationRelay`);
+      if (ir?.droppedChars) {
+        // How much we generated that the caller never heard. The only
+        // lever we have on talking over people is generating less, so
+        // this is the number that says whether we are overrunning.
+        const total = (tc?.replyChars ?? 0) || (ir.droppedChars + 1);
+        const pct = Math.round((ir.droppedChars / total) * 100);
+        console.log(`  ${pad('generated but never heard', 36)}${pad(`${ir.droppedChars}ch`, 10)}  ${pct}% of the reply${pct > 50 ? '   <-- OVERRUNNING: shorten turns' : ''}`);
+      }
+      if (ir?.playedMs !== undefined) {
+        console.log(`  ${pad('audio played before cut-in', 36)}${pad(ms(ir.playedMs), 10)}  ConversationRelay (reported)`);
+      }
     }
   }
 

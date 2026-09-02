@@ -9,9 +9,22 @@ import {
 } from './policies.ts';
 import type { Industry } from '../core/taxonomy.ts';
 
+export interface PolicyRelevance {
+  /**
+   * Whether the caller has asked how long a repair will take.
+   *
+   * The repair timeline is a page of explanation that the block itself
+   * says to use "when they ask how long it will take" — so carrying it
+   * on every turn of every call pays for an answer to a question
+   * nobody asked. Once asked, it stays: withdrawing it mid-call would
+   * leave the agent unable to finish explaining what it started.
+   */
+  repairTimeline?: boolean;
+}
+
 export function renderActionPolicies(industry: Industry | null, modes: {
   tow: string; esign: string; uploadLink: string; referral: string;
-}): string | null {
+}, relevance: PolicyRelevance = {}): string | null {
   const p: ActionPolicies = policiesFor(industry);
   const blocks: string[] = [];
 
@@ -24,7 +37,7 @@ export function renderActionPolicies(industry: Industry | null, modes: {
     ].join('\n'));
   }
 
-  if (p.collisionRepair) {
+  if (p.collisionRepair && relevance.repairTimeline) {
     const r = p.collisionRepair;
     blocks.push([
       'HOW THE REPAIR ACTUALLY GOES — use this when they ask how long it will take',

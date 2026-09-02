@@ -88,6 +88,16 @@ export interface Session {
    * instead of the model re-attempting the same blocked call.
    */
   toolBlocks?: { tool: string; missing: string[]; attempts: number }[];
+  /**
+   * Gated tools that have become relevant to this call.
+   *
+   * Unlocking is one-way: a schema that appears and disappears between
+   * turns can be withdrawn from under a model mid-decision, and it
+   * invalidates the prompt cache each time it moves.
+   */
+  unlockedTools?: string[];
+  /** The caller has asked about repair timing; the explanation stays. */
+  askedRepairTimeline?: boolean;
   /** Turns on which the caller probed the system rather than
    * describing a need. Past a threshold the model is not called at
    * all — see core/guardrails.ts. */

@@ -35,6 +35,17 @@ export interface CompleteOptions {
   model?: string;
   /** Tool schemas the model may request. Omit for a plain completion. */
   tools?: unknown[];
+  /**
+   * Whether the model may actually call them.
+   *
+   * 'none' is how a follow-up after a tool round trip is expressed:
+   * the history contains tool_use blocks, so the definitions have to
+   * be declared for that history to be interpretable, but the turn is
+   * for speaking, not for reaching for another tool. Dropping `tools`
+   * instead would leave tool_use blocks in the conversation with
+   * nothing defining them.
+   */
+  toolChoice?: 'auto' | 'none';
 }
 
 /** What the API actually charged us for. Never spoken, only logged. */
@@ -231,7 +242,10 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
       system: buildSystemField(system, opts.cachedSystemPrefix),
       messages,
     };
-    if (tools && tools.length > 0) body.tools = withToolCache(tools);
+    if (tools && tools.length > 0) {
+      body.tools = withToolCache(tools);
+      if (opts.toolChoice) body.tool_choice = { type: opts.toolChoice };
+    }
 
     const res = await fetchImpl(ANTHROPIC_URL, {
       method: 'POST',
@@ -285,7 +299,10 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
       messages,
       stream: true,
     };
-    if (tools && tools.length > 0) body.tools = withToolCache(tools);
+    if (tools && tools.length > 0) {
+      body.tools = withToolCache(tools);
+      if (opts.toolChoice) body.tool_choice = { type: opts.toolChoice };
+    }
 
     const res = await fetchImpl(ANTHROPIC_URL, {
       method: 'POST',

@@ -1440,11 +1440,57 @@ const SALES_TOOLS = ['capture_prospect', 'book_discovery_call'];
  * paying to describe one on every turn is latency the caller hears as
  * silence.
  */
-export function toolsFor(industry: string | null, demoPhase?: string): ToolSchema[] {
+export function toolsFor(industry: string | null, demoPhase?: string, session?: Session): ToolSchema[] {
   const allowed = new Set([
     ...UNIVERSAL_TOOLS,
     ...(INDUSTRY_TOOLS[industry ?? ''] ?? []),
     ...(demoPhase === 'yad_sales' ? SALES_TOOLS : []),
   ]);
-  return TOOL_SCHEMAS.filter((t) => allowed.has(t.name));
+  const schemas = TOOL_SCHEMAS.filter((t) => allowed.has(t.name));
+  return session ? schemas.filter((t) => isUnlocked(t.name, session)) : schemas;
+}
+
+/**
+ * Tools that stay hidden until the call could actually use them.
+ *
+ * Each gate is a fact, not a guess: you cannot move an appointment
+ * that was never booked, and a truck is not dispatched to a car that
+ * drove itself in. Anything without a precondition that certain is
+ * left permanently visible — a tool the model cannot see is a thing
+ * the business cannot do, which is a far worse failure than the tokens
+ * it saves.
+ */
+const GATED_TOOLS: Record<string, (session: Session, said: string) => boolean> = {
+  // You cannot change an appointment that does not exist.
+  change_appointment: (s) => Boolean((s.qualification as Record<string, unknown>).appointmentId),
+  // A tow becomes relevant when the vehicle cannot move, or when
+  // somebody raises it.
+  dispatch_tow: (s, said) => {
+    const q = s.qualification as Record<string, unknown>;
+    return q.vehicleDrivable === false || Boolean(q.towStatus) || /\btow(ing|ed)?\b|\bwreck|\bflat ?bed\b|won'?t (drive|start|move)|can'?t be driven\b/i.test(said);
+  },
+  // Paperwork follows a decision to proceed, never precedes it.
+  send_esign_packet: (s, said) => {
+    const q = s.qualification as Record<string, unknown>;
+    return Boolean(q.esignStatus) || Boolean(q.dropOffScheduled) || /\b(paperwork|authoriz|authoris|sign|direction to pay|estimate approval)\b/i.test(said);
+  },
+  create_partner_referral: (_s, said) => /\b(rental|rent a car|attorney|lawyer|glass|windshield|referral|recommend)\b/i.test(said),
+};
+
+/** Whether a gated tool has become relevant to this call. */
+function isUnlocked(name: string, session: Session): boolean {
+  const gate = GATED_TOOLS[name];
+  if (!gate) return true;
+  // Unlocking is one-way. A tool that flickers out of the schema list
+  // between turns can be withdrawn from under a model that was about
+  // to use it, and it re-breaks the prompt cache every time it moves.
+  session.unlockedTools ??= [];
+  if (session.unlockedTools.includes(name)) return true;
+
+  // Only the caller's own words. What the agent said is not evidence
+  // that the caller wants the thing.
+  const said = session.turns.filter((t) => t.role === 'caller').map((t) => t.text).join(' ');
+  if (!gate(session, said)) return false;
+  session.unlockedTools.push(name);
+  return true;
 }

@@ -61,6 +61,21 @@ export const MAX_SPEECH_CHARS = 340;
  */
 export const MAX_GOALS_SHOWN = 6;
 
+/**
+ * Has the caller asked how long the repair will take?
+ *
+ * Monotonic, like the gated tools: once they have asked, the timeline
+ * stays in the prompt for the rest of the call, so a follow-up
+ * question does not find the explanation gone.
+ */
+function wantsRepairTimeline(session: Session): boolean {
+  if (session.askedRepairTimeline) return true;
+  const said = session.turns.filter((t) => t.role === 'caller').map((t) => t.text).join(' ');
+  const asked = /\bhow long\b|\bhow many (days|weeks)\b|\bwhen will it be (done|ready)\b|\btimeline\b|\bhow soon\b|\bturnaround\b|\bget it back\b/i.test(said);
+  if (asked) session.askedRepairTimeline = true;
+  return asked;
+}
+
 /** One labelled section of the system prompt: [name, text]. */
 export type PromptBlock = [name: string, text: string];
 
@@ -465,7 +480,7 @@ export class Orchestrator {
           esign: this.deps.tools.modes.esign,
           uploadLink: this.deps.tools.modes.uploadLink,
           referral: this.deps.tools.modes.referral,
-        })
+        }, { repairTimeline: wantsRepairTimeline(session) })
       : null;
 
     // The demo-host layer. Demo mode only — a client's caller must
@@ -641,7 +656,7 @@ export class Orchestrator {
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
-        tools: toolsFor(session.route.industry, session.demoPhase),
+        tools: toolsFor(session.route.industry, session.demoPhase, session),
         onClause: delivery.onClause,
         signal: delivery.signal,
         onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
@@ -669,11 +684,21 @@ export class Orchestrator {
         return res.text;
       }
 
+      // The tools are declared again, and forbidden.
+      //
+      // `convo` now contains tool_use blocks, so the definitions have
+      // to be present for that history to mean anything — dropping
+      // them leaves the conversation referring to tools the request
+      // never declares. tool_choice 'none' keeps the original intent:
+      // this pass is for speaking, not another round trip. Re-sending
+      // them is free, because they are inside the cached prefix.
       const follow = await claude.stream({
         system, messages: convo, cachedSystemPrefix,
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
+        tools: toolsFor(session.route.industry, session.demoPhase, session),
+        toolChoice: 'none',
         onClause: delivery.onClause,
         signal: delivery.signal,
         onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
@@ -695,7 +720,11 @@ export class Orchestrator {
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
-        tools: round < maxToolRounds ? toolsFor(session.route.industry, session.demoPhase) : undefined,
+        // Always declared, because `convo` may already carry tool_use
+        // blocks; the final round simply forbids their use rather than
+        // leaving those blocks undefined.
+        tools: toolsFor(session.route.industry, session.demoPhase, session),
+        toolChoice: round < maxToolRounds ? 'auto' : 'none',
       });
       this.recordUsage(session, res);
       spoken = res.text || spoken;

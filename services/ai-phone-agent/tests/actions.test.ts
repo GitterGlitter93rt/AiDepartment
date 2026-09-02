@@ -179,13 +179,24 @@ describe('Repair process explanation', () => {
   });
 
   test('the rendered block gives the process AND refuses a date', () => {
-    const block = renderActionPolicies('collision_repair', { tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' })!;
+    const block = renderActionPolicies('collision_repair', { tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' }, { repairTimeline: true })!;
     assert.match(block, /1 to 2 business days/);
     assert.match(block, /1 to 4 weeks/);
     assert.match(block, /date comes after teardown/i);
     assert.match(block, /hidden damage/i);
     // Rental is never promised as covered.
     assert.match(block, /Do not say rental is covered/i);
+  });
+
+  test('the timeline is not carried until someone asks for it', () => {
+    // It is a page of explanation whose own heading says "use this
+    // when they ask how long it will take". Carrying it on every turn
+    // pays for an answer to a question nobody asked.
+    const block = renderActionPolicies('collision_repair', { tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' })!;
+    assert.doesNotMatch(block, /1 to 2 business days/);
+    assert.doesNotMatch(block, /HOW THE REPAIR ACTUALLY GOES/);
+    // Everything else the agent needs on an ordinary turn is still there.
+    assert.match(block, /TOWING/);
   });
 
   test('towing billing never guarantees payment anywhere it is rendered', () => {
