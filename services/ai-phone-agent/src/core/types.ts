@@ -24,6 +24,31 @@ export interface ContactRecord {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  /**
+   * Where the number came from.
+   *
+   * 'caller_id' is provisional — Twilio told us, the caller has not.
+   * 'caller_provided' means they said it out loud.
+   */
+  phoneSource?: 'caller_id' | 'caller_provided';
+  /**
+   * Whether the caller has actually agreed this is the right number.
+   *
+   * Deliberately separate from having one. A number we have is not a
+   * number they want used, and the difference decides whether the agent
+   * confirms it or asks for it from scratch.
+   */
+  phoneConfirmed?: boolean;
+  /**
+   * A different number for texting, when the caller wants one.
+   *
+   * "Call me on this one but text the other" is a real thing people
+   * say, and falling back to a single number would send the link to a
+   * desk phone.
+   */
+  smsPhone?: string;
+  /** False when the caller has said not to text them. */
+  smsAllowed?: boolean;
   email?: string;
   company?: string;
   address?: string;
@@ -141,6 +166,9 @@ export interface ProspectRecord {
   lastName?: string;
   companyName?: string;
   phone?: string;
+  /** Caller ID is real even when the caller is role-playing. */
+  phoneSource?: 'caller_id' | 'caller_provided';
+  phoneConfirmed?: boolean;
   email?: string;
   website?: string;
   industry?: string;

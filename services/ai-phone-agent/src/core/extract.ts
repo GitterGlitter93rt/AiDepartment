@@ -89,6 +89,10 @@ export function extractFromUtterance(utterance: string): Extracted {
     const looksLikeAddress = ADDRESS_CONTEXT.test(around) && !/\b(call|phone|number|reach|text|cell|mobile)\b/i.test(around);
     if (!looksLikeAddress && !NON_PHONE_CONTEXT.test(around)) {
       contact.phone = `+1${phone[1]}${phone[2]}${phone[3]}`;
+      // They said it out loud, so it is theirs and it is confirmed —
+      // unlike the caller ID, which Twilio supplied before they spoke.
+      contact.phoneSource = 'caller_provided';
+      contact.phoneConfirmed = true;
       fields.push('phone');
     }
   }
@@ -128,13 +132,21 @@ export function mergeContact(
   const changed: string[] = [];
   const corrected: string[] = [];
 
-  for (const [key, value] of Object.entries(found) as [keyof ContactRecord, string][]) {
-    if (!value) continue;
-    const before = existing[key];
+  const record = existing as Record<string, unknown>;
+  for (const [key, value] of Object.entries(found)) {
+    if (typeof value !== 'string' || value === '') continue;
+    const before = record[key];
     if (before === value) continue;
     if (before) corrected.push(key);
     else changed.push(key);
-    existing[key] = value;
+    record[key] = value;
+  }
+
+  // Flags travel with the value they describe but are not themselves
+  // "captured fields" — reporting phoneConfirmed as a correction would
+  // clutter every log line that follows a number.
+  for (const key of ['phoneConfirmed', 'smsAllowed'] as const) {
+    if (typeof found[key] === 'boolean') record[key] = found[key];
   }
 
   return { merged: existing, changed, corrected };

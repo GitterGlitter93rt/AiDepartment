@@ -28,7 +28,7 @@ function crash(qual: Record<string, unknown> = {}): Session {
     industry: 'collision_repair', specialty: 'general', intent: 'accident_repair',
     urgency: 'emergency', confidence: 0.9, source: 'heuristic',
   });
-  Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
+  Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142', phoneSource: 'caller_id', phoneConfirmed: true });
   Object.assign(s.qualification, qual);
   return s;
 }
@@ -381,8 +381,12 @@ describe('Personal injury packet requires an explicit "no lawyer"', () => {
     const store = new SessionStore();
     const s = store.ensure('CA_pi', '+19045550142', '+1904');
     store.setRoute('CA_pi', { industry: 'attorneys', specialty: 'personal_injury', intent: 'car_accident', urgency: 'high', confidence: 0.9, source: 'heuristic' });
-    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
-    Object.assign(s.qualification, { incidentType: 'rear-ended', incidentDate: '2026-09-01', ...qual });
+    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142', phoneSource: 'caller_id', phoneConfirmed: true });
+    Object.assign(s.qualification, {
+      incidentType: 'rear-ended', incidentDate: '2026-09-01',
+      // The packet needs somewhere it happened; either key satisfies it.
+      location: 'Jacksonville, FL', ...qual,
+    });
     return s;
   }
   const send = (s: Session) => validateToolRequest(

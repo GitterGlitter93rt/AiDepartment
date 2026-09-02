@@ -29,6 +29,7 @@ import { matchKnowledge, renderKnowledge } from '../knowledge/types.ts';
 import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../business/profile.ts';
 import { extractFromUtterance, mergeContact } from './extract.ts';
 import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
+import { isUsableNumber, renderPhoneGuidance } from './contact-routing.ts';
 import { renderActionPolicies } from '../business/render-policies.ts';
 import { detectSalesIntent, isDecliningOffer, renderDemoHost } from './demo-host.ts';
 import { DEMO_GREETING } from '../business/greeting.ts';
@@ -183,10 +184,14 @@ export class Orchestrator {
     // of thing that makes an automated system feel automated. It is
     // recorded as provisional so the agent still confirms it once, and
     // any number they actually give replaces it.
-    if (!session.contact.phone && /^\+?[1-9]\d{7,14}$/.test(session.from)) {
+    if (!session.contact.phone && isUsableNumber(session.from)) {
       session.contact.phone = session.from;
-      session.qualification.phoneFromCallerId = true;
-      log.log('field.captured', { callSid, fields: ['phone'], source: 'caller-id' });
+      session.contact.phoneSource = 'caller_id';
+      // Provisional. Twilio told us; the caller has not. The agent
+      // confirms it rather than asking for a number we already have.
+      session.contact.phoneConfirmed = false;
+      // Field names and provenance only — never the number itself.
+      log.log('field.captured', { callSid, fields: ['phone'], source: 'caller_id', confirmed: false });
     }
 
     // Catch the details a caller volunteers in passing, before anything
@@ -414,6 +419,9 @@ export class Orchestrator {
         })
       : null;
 
+    // Confirm the number we already have rather than asking for one.
+    const phoneBlock = renderPhoneGuidance(session, session.route.industry);
+
     // How to pronounce what has already been captured.
     const speechBlock = renderSpeechGuidance(session.contact);
 
@@ -425,6 +433,7 @@ export class Orchestrator {
       ...(pricingBlock ? [pricingBlock] : []),
       ...(actionBlock ? [actionBlock] : []),
       ...(speechBlock ? [speechBlock] : []),
+      ...(phoneBlock ? [phoneBlock] : []),
       // Earlier narrative, once the call has outgrown the history
       // window. Structured state below covers the fields; this covers
       // what was said that never became one.

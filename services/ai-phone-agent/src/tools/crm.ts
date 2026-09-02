@@ -13,7 +13,7 @@ export interface CrmLead {
   specialty: string | null;
   intent: string | null;
   urgency: string;
-  contact: Record<string, string | undefined>;
+  contact: Record<string, string | boolean | undefined>;
   qualification: Record<string, unknown>;
   turnCount: number;
 }

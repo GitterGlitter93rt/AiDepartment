@@ -138,6 +138,15 @@ export interface EsignPacket {
    * engagement packet reaches somebody who already has a lawyer.
    */
   requiresFalse?: string[];
+  /**
+   * Groups where any one member satisfies the requirement.
+   *
+   * The incident location is recorded under `location` by the PI brain
+   * and `accidentLocation` by the collision brain, and a referral can
+   * arrive from either. Requiring both would mean storing the same fact
+   * twice to satisfy a validator.
+   */
+  requiresOneOf?: string[][];
   /** What is in the packet, for the high-level explanation. */
   components?: PacketComponent[];
   /** Whether a claim number must exist first. False for the demo. */
@@ -192,6 +201,7 @@ export const ESIGN_PACKETS: EsignPacket[] = [
     // acts for is a professional problem, so an unanswered question
     // blocks it exactly as a "yes" does.
     requiresFalse: ['existingRepresentation'],
+    requiresOneOf: [['location', 'accidentLocation']],
     createsRelationshipOnSignature: false,
     afterSendLanguage:
       'Say the firm will review the signed packet and the intake, and confirm representation. Do NOT say they are represented, that the firm has taken the case, or that they now have a lawyer. Signing a packet is not the same as a firm accepting a matter.',

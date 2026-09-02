@@ -28,6 +28,7 @@ import {
 } from '../business/policies.ts';
 import { speechFor } from '../tools/actions.ts';
 import { speakZip } from './speech.ts';
+import { resolveSmsRecipient, resolveCallbackRecipient, isUsableNumber } from './contact-routing.ts';
 import { YAD_DISCOVERY_CALL } from '../business/policies.ts';
 
 export interface ToolSchema {
@@ -114,6 +115,9 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         city: { type: 'string' },
         state: { type: 'string' },
         zip: { type: 'string' },
+        phoneConfirmed: { type: 'boolean', description: 'True once they have agreed the number you have is the right one. Set it as soon as they say yes, so nobody asks twice.' },
+        smsPhone: { type: 'string', description: 'A different number they want texts sent to, if they nominated one.' },
+        smsAllowed: { type: 'boolean', description: 'False if they said not to text them.' },
         notes: {
           type: 'object',
           description: 'Anything else worth keeping that does not fit the fields above — answers to your qualifying questions, constraints they mentioned. Keys should be short and descriptive.',
@@ -242,6 +246,7 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         firstName: { type: 'string' }, lastName: { type: 'string' },
         companyName: { type: 'string' }, email: { type: 'string' },
         phone: { type: 'string', description: 'Only if different from the number they are calling from.' },
+        phoneConfirmed: { type: 'boolean', description: 'True once they confirm the number is right for our team to use.' },
         website: { type: 'string' }, industry: { type: 'string' },
         companySize: { type: 'string' },
         problemToSolve: { type: 'string', description: 'What they actually want AI to fix.' },
@@ -448,10 +453,20 @@ export function validateToolRequest(
 
     case 'capture_details': {
       const value: Record<string, unknown> = {};
-      for (const key of ['firstName', 'lastName', 'phone', 'email', 'company', 'address', 'city', 'state', 'zip'] as const) {
+      for (const key of ['firstName', 'lastName', 'phone', 'email', 'company', 'address', 'city', 'state', 'zip', 'smsPhone'] as const) {
         const v = str(input, key);
         if (v) value[key] = v;
       }
+      for (const key of ['phoneConfirmed', 'smsAllowed'] as const) {
+        if (typeof input[key] === 'boolean') value[key] = input[key];
+      }
+      const alt = value.smsPhone as string | undefined;
+      if (alt && !isUsableNumber(alt)) {
+        return { ok: false, reason: 'That texting number does not look right. Confirm it with them.' };
+      }
+      // A number they spoke is theirs, so it arrives confirmed.
+      if (value.phone && value.phoneConfirmed === undefined) value.phoneConfirmed = true;
+      if (value.phone) value.phoneSource = 'caller_provided';
       const email = value.email as string | undefined;
       if (email && !EMAIL.test(email)) {
         return { ok: false, reason: 'That email address does not look right. Read it back to the caller and confirm it.' };
@@ -533,6 +548,12 @@ export function validateToolRequest(
       if (!phone || !E164.test(phone.replace(/[\s()-]/g, ''))) {
         return { ok: false, reason: 'A valid callback number is required — the driver needs to reach them.' };
       }
+      // Confirmed, not merely present. A driver ringing a number the
+      // caller never agreed to is a driver who cannot find them.
+      const callback = resolveCallbackRecipient(session);
+      if (!callback.confirmed) {
+        return { ok: false, reason: callback.reason ?? "Confirm the callback number before dispatching — don't make them recite it, just check the one you have." };
+      }
       // Somebody has to actually want a tow. The word appearing in a
       // sentence is not a request — "do you do towing?" is a question.
       const q = session.qualification as Record<string, unknown>;
@@ -591,14 +612,13 @@ export function validateToolRequest(
     }
 
     case 'create_location_link': {
-      // Nothing worth validating from the model: the recipient is the
-      // number they called from, the URL is ours, and the coordinates
-      // come from the caller's own browser. That is the point.
-      const locPhone = session.contact.phone ?? session.from;
-      if (!E164.test(String(locPhone).replace(/[\s()-]/g, ''))) {
-        return { ok: false, reason: 'No usable mobile number to text. Confirm the number first.' };
-      }
-      return { ok: true, value: { phone: locPhone, reason: str(input, 'reason') ?? undefined } };
+      // The model supplies no recipient — the backend resolves it, and
+      // the caller has to have agreed to the destination before the
+      // first text goes out.
+      const loc = resolveSmsRecipient(session);
+      if (!loc.phone) return { ok: false, reason: loc.reason ?? 'No usable mobile number.' };
+      if (!loc.confirmed) return { ok: false, reason: loc.reason ?? 'Confirm the number is okay to text first.' };
+      return { ok: true, value: { phone: loc.phone, reason: str(input, 'reason') ?? undefined } };
     }
 
     case 'create_upload_link': {
@@ -607,6 +627,12 @@ export function validateToolRequest(
 
       const policy = policiesFor(session.route.industry).upload;
       if (!policy?.enabled) return { ok: false, reason: 'This business does not accept uploads.' };
+
+      // The link is useless if it cannot be delivered, so the
+      // destination is settled before the link is made.
+      const uploadTo = resolveSmsRecipient(session);
+      if (!uploadTo.phone) return { ok: false, reason: uploadTo.reason ?? 'No usable mobile number.' };
+      if (!uploadTo.confirmed) return { ok: false, reason: uploadTo.reason ?? 'Confirm the number is okay to text first.' };
       // The allowed list is the whole security boundary. A purpose the
       // model invented, or one belonging to another trade, stops here.
       if (!policy.allowedPurposes.includes(purposeId)) {
@@ -649,6 +675,19 @@ export function validateToolRequest(
       // and conflating them sends an engagement packet to somebody who
       // is already represented.
       const state = { ...session.contact, ...session.qualification } as Record<string, unknown>;
+      // Alternative fields: the incident location may be recorded under
+      // either key depending on which brain took the call, and requiring
+      // both would mean storing the same fact twice.
+      for (const group of packet.requiresOneOf ?? []) {
+        const present = group.some((f) => {
+          const v = state[f];
+          return v !== undefined && v !== null && v !== '';
+        });
+        if (!present) {
+          return { ok: false, reason: `Ask where the incident happened — you have none of ${group.join(' or ')}.` };
+        }
+      }
+
       for (const field of packet.requiresFalse ?? []) {
         if (state[field] === undefined) {
           return { ok: false, reason: `You have not established ${field}. Ask before sending anything.` };
@@ -673,10 +712,12 @@ export function validateToolRequest(
       if (channel === 'email') {
         if (!email || !EMAIL.test(email)) return { ok: false, reason: 'An email address is needed to send it by email. Ask for it, or offer to text it instead.' };
       }
-      const phone = session.contact.phone ?? session.from;
-      if (channel === 'sms' && !E164.test(String(phone).replace(/[\s()-]/g, ''))) {
-        return { ok: false, reason: 'No usable mobile number on file. Confirm the number, or offer to email it.' };
+      const esignTo = resolveSmsRecipient(session);
+      if (channel === 'sms') {
+        if (!esignTo.phone) return { ok: false, reason: esignTo.reason ?? 'No usable mobile number. Offer to email it instead.' };
+        if (!esignTo.confirmed) return { ok: false, reason: esignTo.reason ?? 'Confirm the number is okay to text first.' };
       }
+      const phone = esignTo.phone ?? session.from;
 
       return {
         ok: true,
@@ -726,7 +767,7 @@ export function validateToolRequest(
         const v = str(input, k);
         if (v) value[k] = v;
       }
-      for (const k of ['missesCalls', 'runsPaidAds'] as const) {
+      for (const k of ['missesCalls', 'runsPaidAds', 'phoneConfirmed'] as const) {
         if (typeof input[k] === 'boolean') value[k] = input[k];
       }
       const email = value.email as string | undefined;
@@ -938,10 +979,18 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
       // and a system that keeps the first is broken in a way nobody
       // reports — they simply never get the call back.
       const captured: string[] = [];
-      for (const key of ['firstName', 'lastName', 'phone', 'email', 'company', 'address', 'city', 'state', 'zip'] as const) {
+      for (const key of ['firstName', 'lastName', 'phone', 'email', 'company', 'address', 'city', 'state', 'zip', 'smsPhone', 'phoneSource'] as const) {
         const v = args[key];
         if (typeof v === 'string' && v.trim()) {
-          session.contact[key] = v.trim();
+          (session.contact as Record<string, unknown>)[key] = v.trim();
+          captured.push(key);
+        }
+      }
+      // Confirmation flags are booleans, not strings, and false is a
+      // meaningful value — "do not text me" has to survive.
+      for (const key of ['phoneConfirmed', 'smsAllowed'] as const) {
+        if (typeof args[key] === 'boolean') {
+          session.contact[key] = args[key] as boolean;
           captured.push(key);
         }
       }
@@ -1104,10 +1153,11 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
       // logged: it carries a token, and a token in a log is a token in
       // a backup.
       let smsMode: string = 'not_attempted';
-      if (res.url && session.contact.phone) {
+      const uploadTo = resolveSmsRecipient(session);
+      if (res.url && uploadTo.phone && uploadTo.confirmed) {
         try {
           await tools.sms.send({
-            to: session.contact.phone,
+            to: uploadTo.phone,
             body: `Here is a secure link to send ${String(args.purposeLabel)}: ${res.url}`,
           });
           smsMode = tools.modes.sms === 'mock' ? 'mocked' : 'sent';
@@ -1218,9 +1268,14 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         (session.prospect as Record<string, unknown>)[k] = v;
         captured.push(k);
       }
-      // The number they are calling from is genuinely theirs, unlike
-      // everything else they may have said during the demo.
-      session.prospect.phone ??= session.from;
+      // Caller ID is real infrastructure data even when the caller is
+      // playing a character, so it is the ONE thing that may carry over
+      // — provisionally, until they confirm it for our team's use.
+      if (!session.prospect.phone && isUsableNumber(session.from)) {
+        session.prospect.phone = session.from;
+        session.prospect.phoneSource = 'caller_id';
+        session.prospect.phoneConfirmed ??= false;
+      }
 
       deps.log.log('field.captured', { callSid: session.callSid, scope: 'prospect', fields: captured });
       return JSON.stringify({

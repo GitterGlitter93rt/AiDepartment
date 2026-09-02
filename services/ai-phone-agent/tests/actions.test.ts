@@ -52,7 +52,9 @@ function collisionSession(over: Partial<Session['contact']> = {}, qual: Record<s
     industry: 'collision_repair', specialty: 'general', intent: 'accident_repair',
     urgency: 'emergency', confidence: 0.9, source: 'heuristic',
   });
-  Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' }, over);
+  // Confirmed by default: these fixtures represent a call where the
+  // caller has already agreed the number we have is the right one.
+  Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142', phoneSource: 'caller_id', phoneConfirmed: true }, over);
   Object.assign(s.qualification, qual);
   return s;
 }
@@ -261,9 +263,10 @@ describe('E-signature packets', () => {
     const store = new SessionStore();
     const s = store.ensure('CA_pi', '+19045550142', '+1904');
     store.setRoute('CA_pi', { industry: 'attorneys', specialty: 'personal_injury', intent: 'car_accident', urgency: 'high', confidence: 0.9, source: 'heuristic' });
-    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
+    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142', phoneConfirmed: true });
     Object.assign(s.qualification, {
       incidentType: 'rear-ended', incidentDate: '2026-09-01', existingRepresentation: false,
+      accidentLocation: 'Buckman Bridge northbound',
     });
 
     const out = await executeToolRequest(
@@ -338,7 +341,7 @@ describe('Secure upload links', () => {
     const store = new SessionStore();
     const s = store.ensure('CA_con', '+19045550142', '+1904');
     store.setRoute('CA_con', { industry: 'construction', specialty: 'general', intent: 'general_inquiry', urgency: 'normal', confidence: 0.9, source: 'heuristic' });
-    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
+    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142', phoneConfirmed: true });
 
     const out = await executeToolRequest(
       { id: '1', name: 'create_upload_link', input: { purposeId: 'construction_bid_documents', callerIsSafe: true } },
@@ -627,9 +630,10 @@ describe('END TO END — the midnight personal injury call', () => {
 
     // Everything the packet needs — including an explicit "no, I don't
     // already have a lawyer" — and then it is allowed.
-    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
+    Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142', phoneConfirmed: true });
     Object.assign(s.qualification, {
       incidentType: 'rear-ended', incidentDate: '2026-09-01', existingRepresentation: false,
+      accidentLocation: 'Buckman Bridge northbound',
     });
     assert.equal(validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms', consentConfirmed: true } }, s).ok, true);
   });

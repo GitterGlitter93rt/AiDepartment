@@ -7,7 +7,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { serviceLocalTime, addMinutesLocal, spokenRange, partOfDay, DEFAULT_SERVICE_AREA } from '../src/business/service-area.ts';
 import { PLUMBING_DEMO_PRICING, PLUMBING_DEMO_ETA, currentRate, rateBandFor, etaWindow, renderPricing } from '../src/business/pricing.ts';
-import { speakAddress, speakZip, speakPhone, speakServiceAddress, renderSpeechGuidance, spellDigits } from '../src/core/speech.ts';
+import { speakAddress, speakZip, speakPhone, spellPhoneDigits, speakServiceAddress, renderSpeechGuidance, spellDigits } from '../src/core/speech.ts';
 import { route, detectAmbiguity, classifyHeuristic } from '../src/core/router.ts';
 import { Orchestrator } from '../src/core/orchestrator.ts';
 import { SessionStore } from '../src/core/session.ts';
@@ -196,9 +196,21 @@ describe('Speech normalisation — stored value and spoken value are different',
     assert.equal(speakZip('32084-1234'), '3 2 0 8 4, 1 2 3 4');
   });
 
-  test('a phone number is read in American groupings', () => {
-    assert.equal(speakPhone('+19045550142'), '9 0 4, 5 5 5, 0 1 4 2');
-    assert.equal(speakPhone('904-555-0142'), '9 0 4, 5 5 5, 0 1 4 2');
+  test('a phone number is spoken the way it is printed, not as E.164', () => {
+    // The stored value is correct for a record and wrong for a person:
+    // handing "+19045550142" to TTS produces "plus one nine zero
+    // four...", which is how nobody says a phone number.
+    assert.equal(speakPhone('+19045550142'), '(904) 555-0142');
+    assert.equal(speakPhone('904-555-0142'), '(904) 555-0142');
+    assert.equal(speakPhone('19045550142'), '(904) 555-0142');
+  });
+
+  test('a non-US number is left alone rather than forced into a US shape', () => {
+    assert.equal(speakPhone('+442071234567'), '+442071234567');
+  });
+
+  test('digit-by-digit is still available for dictation', () => {
+    assert.equal(spellPhoneDigits('+19045550142'), '9 0 4, 5 5 5, 0 1 4 2');
   });
 
   test('the full read-back is short, not a postal address', () => {

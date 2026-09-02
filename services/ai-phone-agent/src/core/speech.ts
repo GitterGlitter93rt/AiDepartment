@@ -56,10 +56,33 @@ export function speakZip(zip: string): string {
 }
 
 /**
- * A phone number in the groupings Americans actually say them in:
- * area code, exchange, then the last four.
+ * A phone number, written the way it is printed.
+ *
+ * The stored value is E.164 — "+19045551234" — which is correct for a
+ * record and wrong for a person. Handing that to text-to-speech
+ * produces "plus one nine zero four...", which is how nobody says a
+ * phone number. The national format reads naturally instead, and the
+ * TTS voice already handles the grouping.
+ *
+ * Non-US numbers are left in their stored form rather than forced into
+ * a shape they do not have.
  */
 export function speakPhone(phone: string): string {
+  let d = phone.replace(/\D/g, '');
+  if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
+  if (d.length !== 10) return phone.trim();
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
+/**
+ * The same number, digit by digit.
+ *
+ * For the rare case where a number is being dictated for someone to
+ * write down rather than confirmed back. Confirmation should use
+ * speakPhone: "is (904) 555-1234 right?" is easier to say yes to than
+ * ten separate digits.
+ */
+export function spellPhoneDigits(phone: string): string {
   let d = phone.replace(/\D/g, '');
   if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
   if (d.length !== 10) return spellDigits(d);
@@ -153,7 +176,7 @@ export function renderSpeechGuidance(parts: {
     if (spoken !== parts.address) lines.push(`  address: say "${spoken}"`);
   }
   if (parts.zip) lines.push(`  ZIP: say the digits separately — "${speakZip(parts.zip)}"`);
-  if (parts.phone) lines.push(`  phone: say "${speakPhone(parts.phone)}"`);
+  if (parts.phone) lines.push(`  phone: say "${speakPhone(parts.phone)}" — never the stored +1 form`);
 
   if (lines.length === 0) return null;
 
