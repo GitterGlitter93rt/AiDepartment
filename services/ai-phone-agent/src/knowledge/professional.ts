@@ -427,3 +427,160 @@ export const ECOMMERCE_KNOWLEDGE: KnowledgeEntry[] = [
       'A confidently wrong spec generates a return.',
   },
 ];
+
+// ---------------------------------------------------------------------
+// Depth added after the quality audit flagged these banks as thin.
+// ---------------------------------------------------------------------
+
+INSURANCE_KNOWLEDGE.push(
+  {
+    id: 'ins.cancel_policy',
+    question: 'about cancelling, lapsing, or switching away',
+    triggers: [/\b(cancel|cancelling|canceling|lapse|lapsed|switch\w*|leave|non.?renew\w*|drop)\b/i, /\bstop (my )?coverage\b/i],
+    source: 'escalate',
+    guidance:
+      'Do not process, confirm, or discourage a cancellation, and never say a policy has been cancelled — a customer who believes they are covered when they are not is the worst outcome in this industry. ' +
+      'Take the policy number and get them to a licensed agent. If they mention a lapse or a missed payment, treat it as urgent.',
+  },
+  {
+    id: 'ins.proof_of_insurance',
+    question: 'for an ID card, proof of insurance, or documents',
+    triggers: [/\b(id card|insurance card|proof of insurance|declaration|dec page|binder|certificate|coi)\b/i, /\bsend me\b[^.]{0,25}\b(card|proof|paperwork)\b/i],
+    source: 'escalate',
+    guidance:
+      'You cannot issue or email documents. Do not say one has been sent. Take the policy number and what they need it for — a lender, a DMV stop, a new landlord — since that sets the urgency, and route it.',
+  },
+  {
+    id: 'ins.add_vehicle_driver',
+    question: 'about adding or removing a vehicle, driver, or property',
+    triggers: [/\b(add|remove|take off|put)\b[^.]{0,30}\b(car|vehicle|driver|teenager|son|daughter|house|property|policy)\b/i, /\bnew (car|house|driver)\b/i],
+    source: 'escalate',
+    guidance:
+      'Do not tell them a change is effective, and never imply new coverage is in force — a gap here is a genuine financial exposure. ' +
+      'Capture what they want changed and when it needs to be effective, then get it to an agent. A vehicle bought today is time-critical.',
+  },
+);
+
+LOGISTICS_KNOWLEDGE.push(
+  {
+    id: 'log.what_can_you_haul',
+    question: 'whether the carrier handles a particular type of freight',
+    triggers: [/\b(hazmat|hazardous|reefer|refrigerat\w+|frozen|oversize|over.?dimensional|flatbed|liquid|livestock|white glove|residential|liftgate)\b/i, /\bdo you (haul|carry|handle|move)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Equipment and authority genuinely limit this — hazmat, reefer and oversize each need specific capability, and claiming one the carrier lacks is a compliance problem, not just a service one. ' +
+      'Do not assume. Capture the commodity, weight, dimensions, and any special handling, and route it.',
+  },
+  {
+    id: 'log.detention_accessorial',
+    question: 'about detention, layover, or extra charges',
+    triggers: [/\b(detention|layover|accessorial|lumper|fuel surcharge|extra charge|waiting|sat there)\b/i, /\bwhy (was i|am i) (charged|billed)\b/i],
+    source: 'escalate',
+    guidance:
+      'Do not quote accessorial rates, explain a charge, or agree it was wrong. Billing disputes need the record in front of someone. ' +
+      'Take the PRO number and the invoice number, and route it. Do not become defensive.',
+  },
+  {
+    id: 'log.delivery_appointment',
+    question: 'about scheduling or changing a delivery appointment',
+    triggers: [/\b(delivery|appointment|window|dock|receiving hours|reschedul\w*)\b/i, /\bwhen (will|can) (it|they) deliver\b/i],
+    source: 'escalate',
+    guidance:
+      'You cannot see dispatch. Do not commit to a delivery window and do not confirm an appointment was moved. ' +
+      'Take the PRO number, the receiving hours, and the contact at the consignee, and route it to dispatch.',
+  },
+);
+
+MANUFACTURING_KNOWLEDGE.push(
+  {
+    id: 'mfg.minimum_order',
+    question: 'about minimum quantities, prototypes, or one-off parts',
+    triggers: [/\b(minimum|moq|prototype|one.?off|single|small run|just one|low volume)\b/i, /\bwill you (do|make|quote)\b[^.]{0,25}\b(one|a few|small)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Do not state a minimum order quantity or turn anyone away — a prototype enquiry is frequently the front end of a production programme, and refusing it at the switchboard is expensive. ' +
+      'Capture the part, quantity, and whether more is expected to follow, and route it.',
+  },
+  {
+    id: 'mfg.certifications_quality',
+    question: 'about quality certifications, inspection, or documentation',
+    triggers: [/\b(iso|as9100|ppap|fai|first article|cofc|certificate of conformance|material cert|inspection report|cmm|traceab\w+)\b/i],
+    source: 'business_config',
+    requires: ['licensing'],
+    guidance:
+      'Never assert a certification or a documentation capability that was not configured. A promised PPAP or first article that does not materialise loses the programme, and a claimed registration you do not hold is worse. ' +
+      'Take what documentation they require and route it to quality.',
+  },
+  {
+    id: 'mfg.tooling_ip',
+    question: 'about tooling ownership, NDAs, or protecting their design',
+    triggers: [/\b(tooling|mold|mould|die|fixture|nda|confidential|intellectual property|ip|our design|proprietary)\b/i, /\bwho owns\b/i],
+    source: 'escalate',
+    guidance:
+      'Do not comment on tooling ownership or agree to confidentiality terms — those are contractual and not yours to settle. ' +
+      'Say the commercial team will put an agreement in place before anything sensitive changes hands, and do not invite them to send designs to a general address.',
+  },
+);
+
+ENERGY_KNOWLEDGE.push(
+  {
+    id: 'energy.high_bill',
+    question: 'about an unexpectedly high bill',
+    triggers: [/\b(bill|billing|charge|rate|meter)\b[^.]{0,35}\b(high|wrong|double|jumped|spike|expensive|error)\b/i, /\bwhy is my bill\b/i, /\bmeter (reading|is wrong)\b/i],
+    source: 'escalate',
+    guidance:
+      'Do not explain the charge, speculate about a faulty meter, or promise an adjustment. Do not become defensive either — most of these callers are genuinely worried about money. ' +
+      'Take the account number and the service address and route it to billing.',
+  },
+  {
+    id: 'energy.tree_line_contact',
+    question: 'about vegetation touching lines, or work near lines',
+    triggers: [/\b(tree|branch|limb|vegetation)\b[^.]{0,35}\b(line|wire|pole|transformer)\b/i, /\b(dig|digging|excavat\w+|811|call before you dig|trench)\b/i, /\bnear (the )?(line|wire|pole)\b/i],
+    source: 'escalate',
+    guidance:
+      'Anything touching a line is a utility job and nobody else\'s — tell them plainly not to trim it themselves and not to let a landscaper near it. ' +
+      'For digging, direct them to the 811 locate service before any excavation. Take the address and route it. If a line is down or arcing, that is 911 first.',
+  },
+  {
+    id: 'energy.medical_equipment',
+    question: 'about someone on life-sustaining equipment',
+    triggers: [/\b(oxygen|dialysis|ventilator|life support|medical equipment|cpap|insulin|refrigerated medication)\b/i, /\bmedical (need|condition|device)\b/i],
+    source: 'escalate',
+    guidance:
+      'This changes the priority of an outage completely and must be escalated immediately, not logged. ' +
+      'Take the service address and the contact, and say it is being flagged as a medical priority. If the equipment is failing now and there is no backup, tell them to call 911.',
+  },
+);
+
+DEFENSE_KNOWLEDGE.push(
+  {
+    id: 'def.lead_time_capacity',
+    question: 'about lead times, capacity, or delivery schedules',
+    triggers: [/\b(lead ?time|capacity|schedule|deliver\w*|when can you|backlog|expedite|aog)\b/i],
+    source: 'needs_more_info',
+    guidance:
+      'Do not commit to a lead time or a delivery date. In this sector a missed schedule commitment carries contractual consequences well beyond a disappointed customer. ' +
+      'Capture the part, quantity, and required date, and route it to planning. AOG or line-down situations are urgent.',
+  },
+  {
+    id: 'def.pricing_contract',
+    question: 'about pricing, contract terms, or a purchase order',
+    triggers: [/\b(price|pricing|cost|quote|contract|terms|purchase order|po|far|dfars clause|payment)\b/i],
+    source: 'business_config',
+    requires: ['pricing'],
+    guidance:
+      'Do not quote prices or agree to any contract term, flow-down clause, or payment condition. Those are negotiated positions with legal weight. ' +
+      'Take the enquiry and the contact and route it to contracts.',
+  },
+  {
+    id: 'def.security_clearance',
+    question: 'about facility clearance, personnel clearance, or classified work',
+    triggers: [/\b(clearance|cleared|classified|secret|scif|fso|facility clearance|personnel security)\b/i],
+    source: 'refuse',
+    guidance:
+      'Do not confirm or deny clearance status, discuss classified work, or describe facility security arrangements on an unverified inbound call. ' +
+      'That is true even when the question sounds routine. Take a name and a company and route it to the facility security officer.',
+  },
+);

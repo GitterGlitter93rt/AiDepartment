@@ -93,6 +93,34 @@ export const ELECTRICAL_KNOWLEDGE: KnowledgeEntry[] = [
       'These are project jobs rather than service calls and usually need a site visit, and often a permit. Capture the panel\'s current amperage if they know it, the property age, and what they want to add. ' +
       'Do not quote, and do not tell them what their panel can support.',
   },
+  {
+    id: 'elec.flickering_lights',
+    question: 'about flickering or dimming lights',
+    triggers: [/\b(flicker\w*|dim\w+|brighten|surge|blink\w*)\b/i, /\blights?\b[^.]{0,30}\b(flicker|dim|go out)\w*/i],
+    source: 'needs_more_info',
+    guidance:
+      'Worth separating: one fixture flickering is usually local, while lights dimming across the house — especially when a large appliance starts — points at something upstream and is more serious. ' +
+      'Ask which it is. Flickering across the whole house together with any warmth or smell at the panel is an emergency, not a booking.',
+  },
+  {
+    id: 'elec.gfci_outlet_dead',
+    question: 'about outlets that have stopped working',
+    triggers: [/\boutlets?\b[^.]{0,30}\b(dead|not work\w*|stopped|no power)\b/i, /\bgfci\b/i, /\bbathroom (outlet|plug)\b/i, /\bkitchen (outlet|plug)\b/i],
+    source: 'industry_general',
+    guidance:
+      'One safe check that resolves a fair number of these: bathroom, kitchen, garage and outdoor outlets are usually on a GFCI, and a tripped GFCI kills every outlet downstream of it. ' +
+      'They can press the reset button on the GFCI outlet itself. If it will not reset or trips again, stop there — that is a fault, not a nuisance trip.',
+  },
+  {
+    id: 'elec.who_does_what',
+    question: 'whether a job is electrical work at all',
+    triggers: [/\bis (that|this) (an )?electric\w*/i, /\bdo you (do|handle)\b[^.]{0,30}\b(appliance|hvac|ac|pool|low voltage|cable|phone|alarm|tv)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Some of this genuinely belongs to another trade — appliance repair, HVAC controls, low-voltage and cabling are often separate. Do not claim it without configuration. ' +
+      'Take what they need and let a person confirm rather than sending an electrician to a job they cannot do.',
+  },
 ];
 
 export const PEST_KNOWLEDGE: KnowledgeEntry[] = [
@@ -166,6 +194,34 @@ export const GARAGE_DOOR_KNOWLEDGE: KnowledgeEntry[] = [
       'A door stuck open is a security problem, not just an inconvenience, and should be treated with real urgency — especially after dark. ' +
       'One safe general check: the photo-eye sensors near the floor commonly get knocked out of alignment or blocked, and a blinking light on the opener often points at that. That is worth mentioning; nothing further.',
   },
+  {
+    id: 'garage.opener_replace',
+    question: 'about replacing an opener or adding smart features',
+    triggers: [/\b(new|replace|upgrade)\b[^.]{0,25}\b(opener|motor)\b/i, /\b(myq|smart|wifi|app|phone)\b/i, /\bbelt drive\b/i, /\bquieter\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Do not name brands, models or prices. Useful and general: belt-drive units are quieter than chain, which matters when there is a bedroom over the garage. ' +
+      'Ask how old the current opener is and whether the door itself is in good shape — replacing an opener on a failing door is money wasted.',
+  },
+  {
+    id: 'garage.noise',
+    question: 'about a door that has become noisy',
+    triggers: [/\b(loud|noisy|grinding|squeal\w+|screech\w+|rattl\w+|bang\w+)\b/i, /\bmakes? a (noise|sound|racket)\b/i],
+    source: 'needs_more_info',
+    guidance:
+      'Ask what kind of noise and when — a grinding or banging noise is different from a squeak, and a bang on opening can mean a spring. ' +
+      'Do not diagnose it and do not suggest they lubricate or adjust anything themselves; the moving parts on a garage door are under serious tension.',
+  },
+  {
+    id: 'garage.maintenance',
+    question: 'about servicing or tuning up the door',
+    triggers: [/\b(tune.?up|maintenance|service|inspect\w*|check it over|annual)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Do not quote a maintenance price or describe what is included without configuration. Take the door age and any symptoms, and book the visit.',
+  },
 ];
 
 export const POOL_KNOWLEDGE: KnowledgeEntry[] = [
@@ -198,6 +254,34 @@ export const POOL_KNOWLEDGE: KnowledgeEntry[] = [
       'Weekly service is the common pattern and it is safe to say so generally. Do not quote a monthly rate or promise what a plan includes. ' +
       'Capture pool size, whether it is chlorine or salt, and whether there is a spa attached — those determine the quote.',
   },
+  {
+    id: 'pool.losing_water',
+    question: 'about the pool losing water',
+    triggers: [/\b(losing|lost|leak\w*|drop\w*|low)\b[^.]{0,30}\b(water|level|inches?)\b/i, /\bfilling it (every|up)\b/i],
+    source: 'industry_general',
+    guidance:
+      'Generally worth saying: some loss to evaporation is normal, and more in hot windy weather. A useful home check is the bucket test — a bucket of pool water on a step loses water at the same rate as the pool if it is evaporation, and slower than the pool if there is a leak. ' +
+      'Do not estimate a leak location or cost. Ask roughly how much they are losing and how quickly.',
+  },
+  {
+    id: 'pool.opening_closing',
+    question: 'about opening, closing, draining or resurfacing',
+    triggers: [/\b(open|close|opening|closing|winteriz\w+|drain|resurfac\w+|replaster|acid wash|tile)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'These are separate services many companies do not all offer. Do not assume. Take what they want, the pool size, and the surface type if they know it. ' +
+      'One thing genuinely worth flagging: draining a pool is not a DIY job — an empty pool can lift out of the ground. Do not talk anyone through it.',
+  },
+  {
+    id: 'pool.safety',
+    question: 'anything involving a child, an accident, or the pool being unsafe',
+    triggers: [/\b(child|kid|toddler|drown\w*|fell in|accident|unsafe|fence|gate|alarm|cover)\b/i],
+    source: 'escalate',
+    guidance:
+      'If anything suggests a child has been in the water or is at risk right now, that is 911, not a service call, and it comes before every other thing on this call. ' +
+      'For barrier, fence or safety-cover questions, do not state code requirements — they vary by jurisdiction — and get it to a person.',
+  },
 ];
 
 export const SCREEN_KNOWLEDGE: KnowledgeEntry[] = [
@@ -228,6 +312,33 @@ export const SCREEN_KNOWLEDGE: KnowledgeEntry[] = [
     guidance:
       'Different screen materials genuinely exist for pets, insects, and sun, so the question is a good one. Do not promise a specific product is stocked or quote an upcharge. ' +
       'Note what they want and let the estimate cover it.',
+  },
+  {
+    id: 'screen.how_long',
+    question: 'how long a rescreen or repair takes',
+    triggers: [/\bhow long\b/i, /\bwhen (can|could) you\b/i, /\bsame day\b/i, /\bone day\b/i],
+    source: 'needs_more_info',
+    guidance:
+      'Do not commit to a duration or a start date. Panel counts and access drive it, and a full cage rescreen is a different job from two panels. ' +
+      'Capture how many panels and whether it is single or two-storey.',
+  },
+  {
+    id: 'screen.permit_hoa',
+    question: 'about permits or HOA approval for an enclosure',
+    triggers: [/\b(permit|hoa|association|approval|code|setback|neighbou?r)\b/i],
+    source: 'industry_general',
+    guidance:
+      'Generally: new structures usually need a permit and often HOA approval, and contractors typically handle the permit while the owner handles the HOA. ' +
+      'Do not tell them whether theirs needs one, and do not comment on their HOA rules. Note it for the estimator.',
+  },
+  {
+    id: 'screen.insurance_claim',
+    question: 'whether to claim an enclosure on insurance',
+    triggers: [/\b(insurance|claim|deductible|adjuster)\b/i],
+    source: 'industry_general',
+    guidance:
+      'Do not predict coverage — screen enclosures are treated inconsistently across policies, and some exclude them entirely. ' +
+      'Tell them to photograph the damage before anything is cleared. Capture the carrier and claim number if one exists.',
   },
 ];
 
@@ -271,6 +382,35 @@ export const LANDSCAPING_KNOWLEDGE: KnowledgeEntry[] = [
       'Project work needs a site visit; there is no way to price it by phone and no point pretending otherwise. ' +
       'Capture what they want, roughly the area, and any deadline such as an event or a sale. Then get the consultation booked.',
   },
+  {
+    id: 'land.lawn_problems',
+    question: 'about brown patches, weeds, or a struggling lawn',
+    triggers: [/\b(brown|dead|patch\w*|bare|weeds?|fungus|chinch|grub|bug|yellow)\b/i, /\bgrass (is|looks)\b/i],
+    source: 'needs_more_info',
+    guidance:
+      'Do not diagnose it from a description — drought stress, fungus, chinch bugs and irrigation failure all look similar over the phone and the treatments differ completely. ' +
+      'Ask when it started, whether it is spreading, and whether the irrigation reaches that area. It needs eyes on it.',
+  },
+  {
+    id: 'land.cleanup_debris',
+    question: 'about storm cleanup or hauling debris away',
+    triggers: [/\b(cleanup|clean up|debris|haul|branches|limbs|storm|mess|pile)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Hauling and disposal are often priced separately or not offered at all, so do not promise it. ' +
+      'Capture roughly how much there is and whether it is already piled or still where it fell — that changes the job considerably.',
+  },
+  {
+    id: 'land.chemicals_pets',
+    question: 'whether treatments are safe for pets or children',
+    triggers: [/\b(safe|toxic|harmful|chemical|spray|fertiliz\w+|weed killer|pesticide)\b[^.]{0,35}\b(pets?|dogs?|cats?|kids?|children)\b/i, /\b(pets?|kids?|children)\b[^.]{0,30}\b(safe|chemical|spray)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Do not name products or state re-entry times. Generally, applications carry label instructions about keeping off treated areas until dry. ' +
+      'Note that they have pets or children so the technician leads with it.',
+  },
 ];
 
 export const RESTORATION_KNOWLEDGE: KnowledgeEntry[] = [
@@ -311,6 +451,33 @@ export const RESTORATION_KNOWLEDGE: KnowledgeEntry[] = [
       'Water damage genuinely gets worse by the hour, so urgency here is real rather than manufactured — treat active water intrusion as an emergency. ' +
       'Do not promise an arrival time. Check availability, offer the soonest, and flag it for a person if it is severe.',
   },
+  {
+    id: 'resto.what_do_i_do_now',
+    question: 'what to do in the first few minutes',
+    triggers: [/\bwhat (do|should) i do\b/i, /\bright now\b/i, /\bshould i (move|start|clean|throw)\b/i, /\bcan i (clean|dry|move)\b/i],
+    source: 'industry_general',
+    guidance:
+      'Practical and genuinely useful: stop the source if it is safe to do so, photograph everything before moving anything, lift what can be lifted off wet flooring, and do not run the air conditioning if there is a sewage or heavy contamination concern. ' +
+      'Do not tell them to start tearing anything out — insurers want to see it, and what gets removed matters to the claim.',
+  },
+  {
+    id: 'resto.how_long_dry',
+    question: 'how long drying or the whole job takes',
+    triggers: [/\bhow long\b/i, /\bwhen (can|will) (we|i)\b[^.]{0,25}\b(move back|be done|use)\b/i, /\bdays?\b/i, /\bequipment\b/i],
+    source: 'industry_general',
+    guidance:
+      'General: drying equipment typically runs for several days and the rebuild is a separate phase afterwards. Do not give a number for their job. ' +
+      'Do not promise anything can be saved — flooring, cabinets and drywall decisions are made on site.',
+  },
+  {
+    id: 'resto.contents',
+    question: 'about damaged belongings and whether they can be saved',
+    triggers: [/\b(furniture|belongings|contents|photos?|clothes|documents|electronics|antique|carpet)\b/i, /\bcan (it|that|they) be saved\b/i],
+    source: 'needs_more_info',
+    guidance:
+      'Do not promise anything can be restored, and do not tell them to throw things away — an insurer usually wants an inventory first. ' +
+      'Say to photograph it and leave it in place if it is safe to. Note anything irreplaceable, which changes how a crew handles the job.',
+  },
 ];
 
 export const CONSTRUCTION_KNOWLEDGE: KnowledgeEntry[] = [
@@ -341,6 +508,34 @@ export const CONSTRUCTION_KNOWLEDGE: KnowledgeEntry[] = [
     guidance:
       'Do not commit to a start date or a duration. If they name a hard deadline — an event, a sale, a birth — capture it, because it decides whether the project is even feasible. ' +
       'Say scheduling depends on scope and current workload, which is honest.',
+  },
+  {
+    id: 'const.live_in_it',
+    question: 'about living in the house during the work',
+    triggers: [/\b(live|stay|move out|kids?|pets?|dust|noise|water|kitchen)\b[^.]{0,35}\b(during|while|through)\b/i, /\bcan we stay\b/i, /\bhow (bad|much) (is )?(the )?(dust|mess|noise)\b/i],
+    source: 'industry_general',
+    guidance:
+      'Honest and general: most people stay through a bathroom or kitchen remodel, though losing a kitchen for several weeks is harder than people expect and dust control varies with the scope. ' +
+      'Do not promise a timeline or a containment approach for their job. It is a good question to flag for the estimator.',
+  },
+  {
+    id: 'const.design_drawings',
+    question: 'about plans, drawings, or an architect',
+    triggers: [/\b(plans?|drawings?|architect|designer|blueprint|render\w*|3d)\b/i, /\bdo (i|we) need\b[^.]{0,25}\b(plans?|architect)\b/i],
+    source: 'business_config',
+    requires: ['services'],
+    guidance:
+      'Some firms do design-build and some require the owner to bring drawings. Do not assume. ' +
+      'Ask whether they already have plans — that single answer changes the whole conversation and is the most useful thing to capture.',
+  },
+  {
+    id: 'const.existing_job',
+    question: 'about a job already underway',
+    triggers: [/\b(our|the) (project|job|remodel|build)\b/i, /\bcrew\b/i, /\bchange order\b/i, /\bpunch list\b/i, /\bnobody (showed|came)\b/i],
+    source: 'escalate',
+    guidance:
+      'You cannot see schedules or job files. Do not confirm a start date, explain why nobody showed, or accept blame. ' +
+      'Take the name, the address, and the short version, and get it to a person quickly — a live job with an unhappy owner is not a message to leave in a queue.',
   },
 ];
 
@@ -382,6 +577,33 @@ export const COLLISION_KNOWLEDGE: KnowledgeEntry[] = [
     guidance:
       'Do not give a duration. It depends on the damage, parts availability, and insurer approval, all of which are unknown until it is estimated. ' +
       'Say the estimate is what produces a real timeline, and get them booked in for one.',
+  },
+  {
+    id: 'collision.oem_parts',
+    question: 'about the parts used in the repair',
+    triggers: [/\b(oem|aftermarket|used|recycled|genuine|original)\b[^.]{0,20}\bparts?\b/i, /\bwhat parts\b/i],
+    source: 'industry_general',
+    guidance:
+      'General and fair: which parts get used is often driven by the insurance policy rather than the shop, and owners can usually discuss it. ' +
+      'Do not promise OEM parts, and do not disparage aftermarket. Note the question so the estimator addresses it.',
+  },
+  {
+    id: 'collision.paint_match',
+    question: 'about paint matching or the quality of the finish',
+    triggers: [/\b(paint|colou?r|match\w*|blend\w*|clear ?coat|finish)\b/i, /\bwill (it|you) (match|notice)\b/i],
+    source: 'industry_general',
+    guidance:
+      'General: modern paint is matched by code and blended into adjacent panels, and on faded older paint blending is what makes it invisible. ' +
+      'Do not guarantee an invisible repair on their vehicle. Capture year, make, model and colour.',
+  },
+  {
+    id: 'collision.total_loss',
+    question: 'about the car being totalled',
+    triggers: [/\btotal\w*\b/i, /\bwrite it off\b/i, /\bworth (fixing|repairing|more than)\b/i, /\bsalvage\b/i],
+    source: 'refuse',
+    guidance:
+      'Do not tell anyone their vehicle is or is not a total loss. That is the insurer\'s determination, it depends on value against repair cost, and being wrong either way is damaging. ' +
+      'Say the estimate and the carrier settle it, and get the vehicle looked at.',
   },
 ];
 
@@ -433,3 +655,35 @@ export const AUTO_DEALER_KNOWLEDGE: KnowledgeEntry[] = [
       'Do not confirm whether a recall applies to their VIN or whether work is covered under warranty; that needs a lookup you cannot do.',
   },
 ];
+
+AUTO_DEALER_KNOWLEDGE.push(
+  {
+    id: 'dealer.hours_location',
+    question: 'about visiting — hours, location, or whether they need an appointment',
+    triggers: [/\b(open|hours|close|where are you|located|address|directions|appointment needed|just come)\b/i],
+    source: 'business_config',
+    requires: ['hours'],
+    guidance:
+      'Do not state hours or an address without configuration. Turn it into the appointment instead — someone asking whether they can just come in is telling you they intend to visit, ' +
+      'and a booked visit is worth far more than an unbooked one.',
+  },
+  {
+    id: 'dealer.warranty_coverage',
+    question: 'about warranty coverage on a vehicle',
+    triggers: [/\bwarrant\w+/i, /\b(covered|coverage)\b[^.]{0,25}\b(repair|part|still)\b/i, /\bextended (warranty|service)\b/i, /\bcertified pre.?owned\b/i],
+    source: 'refuse',
+    guidance:
+      'Do not tell anyone whether a repair is covered. It depends on the vehicle, the mileage, the contract and the specific failure, and a wrong yes becomes a bill they did not expect. ' +
+      'Take the VIN or the vehicle details and route it to service.',
+  },
+);
+
+SCREEN_KNOWLEDGE.push({
+  id: 'screen.structural_safety',
+  question: 'about a cage or enclosure that is bent, leaning, or partly down',
+  triggers: [/\b(collaps\w+|leaning|bent|sagging|coming down|unsafe|falling)\b/i, /\bis it (safe|going to)\b/i],
+  source: 'refuse',
+  guidance:
+    'Do not tell anyone whether a damaged enclosure is safe or whether it will hold — that is a structural judgement you cannot make from a phone call, and a pool cage coming down on someone is a serious injury. ' +
+    'Say to keep people and pets out from under it until it has been looked at, and get someone out. Do not suggest they prop it up or pull it straight.',
+});
