@@ -239,6 +239,17 @@ export const UPLOAD_PURPOSES: UploadPurpose[] = [
     guidance: 'a photo of the insurance card, the information exchange sheet, or anything the officer gave them',
     safetyPrecondition: 'ONLY once they are out of traffic and somewhere safe. Reading a policy number off a card in a live lane is not worth it.',
   },
+  {
+    // Custom work, restorations and "how much to fix this" all need a
+    // human to look before anyone can say anything useful. Distinct
+    // from damage photos because the caller is standing in their own
+    // garage, not on a hard shoulder — the roadside safety
+    // precondition would be nonsense here, and attaching one would
+    // teach the agent to ask a man with a project car whether he is
+    // clear of traffic.
+    id: 'collision_project_photos', label: 'photos of the vehicle and the work', industries: ['collision_repair'],
+    guidance: 'a few photos of the vehicle and the areas they want worked on, plus anything they want it to look like',
+  },
   { id: 'roof_damage_photos', label: 'roof or storm damage photos', industries: ['roofing'], guidance: 'photos of the damage from the ground', safetyPrecondition: 'From the ground only. Never suggest anyone climb onto a roof.' },
   { id: 'water_damage_photos', label: 'water or fire damage photos', industries: ['restoration'], guidance: 'photos of the affected areas', safetyPrecondition: 'Only if the property is safe to be in. Not if there is standing water near electrics, structural damage, or contamination.' },
   { id: 'hvac_equipment_photos', label: 'equipment photos', industries: ['hvac'], guidance: 'a photo of the model and serial label on the unit', safetyPrecondition: 'Only if the label is easily visible. Never suggest opening a panel or removing a cover.' },
@@ -336,7 +347,7 @@ export function policiesFor(industry: Industry | null): ActionPolicies {
         tow: COLLISION_DEMO_TOW,
         collisionRepair: COLLISION_DEMO_REPAIR,
         esignPacketIds: ['collision_repair_intake'],
-        upload: { enabled: true, allowedPurposes: ['collision_damage_photos', 'collision_insurance_documents'], expiryHours: 72 },
+        upload: { enabled: true, allowedPurposes: ['collision_damage_photos', 'collision_insurance_documents', 'collision_project_photos'], expiryHours: 72 },
         referral: { enabled: true, allowedPartnerIds: ['pi_partner_demo'], requiresExplicitConsent: true },
       };
     case 'attorneys':

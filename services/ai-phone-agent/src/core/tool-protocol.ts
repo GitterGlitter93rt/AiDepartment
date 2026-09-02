@@ -144,6 +144,26 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
     },
   },
   {
+    name: 'request_advisor_callback',
+    description:
+      'Hand a project to a repair advisor to price and call back on. This is how a custom job, a restoration or a "how much would it cost" ends — those cannot be quoted on a call, so the outcome is a briefed human ringing them. It records the request; it does not contact anyone itself, so never tell the caller an advisor is calling until this comes back successful.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        phone: { type: 'string', description: 'Best number for the advisor to call.' },
+        email: { type: 'string', description: 'Where the advisor sends the written estimate.' },
+        vehicleYear: { type: 'string' },
+        vehicleMake: { type: 'string' },
+        vehicleModel: { type: 'string' },
+        projectDescription: { type: 'string', description: "What they want done, in the caller's own words." },
+        projectType: { type: 'string', enum: ['custom_work', 'restoration', 'paint_or_color', 'estimate', 'other'] },
+      },
+      required: ['projectDescription', 'projectType'],
+    },
+  },
+  {
     name: 'change_appointment',
     description:
       'Reschedule or cancel an appointment the caller says they already have. You cannot look up bookings, so this records the request for a person to action — it does NOT change anything by itself. Never tell the caller their appointment has been moved or cancelled; tell them someone will confirm.',
@@ -636,6 +656,55 @@ export function validateToolRequest(
       return { ok: true, value: { phone: loc.phone, reason: str(input, 'reason') ?? undefined } };
     }
 
+    case 'request_advisor_callback': {
+      const description = str(input, 'projectDescription');
+      const projectType = str(input, 'projectType');
+
+      // Named gaps rather than one prose complaint, so a rejection
+      // turns into the next question instead of another attempt.
+      const missing: string[] = [];
+      if (!str(input, 'firstName') && !session.contact.firstName) missing.push('caller_first_name');
+      if (!str(input, 'lastName') && !session.contact.lastName) missing.push('caller_last_name');
+
+      // The advisor has to be able to ring them, and a number nobody
+      // agreed to is a number that wastes the advisor's morning.
+      const callback = resolveCallbackRecipient(session);
+      if (!callback.confirmed) missing.push('callback_phone_confirmed');
+
+      if (!str(input, 'email') && !session.contact.email) missing.push('caller_email');
+      if (!description) missing.push('project_description');
+
+      // The vehicle, as one gap. Asking for a year, then a make, then
+      // a model is three questions for something people say in one
+      // breath.
+      const q = session.qualification as Record<string, unknown>;
+      const hasVehicle = (str(input, 'vehicleMake') || q.vehicleMake) && (str(input, 'vehicleModel') || q.vehicleModel);
+      if (!hasVehicle) missing.push('vehicle_year_make_model');
+
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          reason: 'Not yet — an advisor cannot do anything useful without this.',
+          missing,
+        };
+      }
+      if (!projectType) return { ok: false, reason: 'projectType is required.', missing: ['project_type'] };
+
+      return {
+        ok: true,
+        value: {
+          firstName: str(input, 'firstName') ?? session.contact.firstName,
+          lastName: str(input, 'lastName') ?? session.contact.lastName,
+          phone: callback.phone,
+          email: str(input, 'email') ?? session.contact.email,
+          vehicleYear: str(input, 'vehicleYear') ?? q.vehicleYear,
+          vehicleMake: str(input, 'vehicleMake') ?? q.vehicleMake,
+          vehicleModel: str(input, 'vehicleModel') ?? q.vehicleModel,
+          projectDescription: description,
+          projectType,
+        },
+      };
+    }
     case 'create_upload_link': {
       const purposeId = str(input, 'purposeId');
       if (!purposeId) return { ok: false, reason: 'purposeId is required.' };
@@ -903,11 +972,20 @@ function recordToolBlock(session: Session, tool: string, missing: string[]): voi
   session.toolBlocks ??= [];
   const existing = session.toolBlocks.find((b) => b.tool === tool);
   if (existing) {
-    existing.attempts += 1;
+    // Only a repeat with NO progress counts against the retry budget.
+    // A six-field handover is refused several times on the way to being
+    // complete, and closing the tool for gathering information would
+    // strand the caller one field short of the thing they rang for.
+    // Looping is asking for the same missing set twice; this is not.
+    if (sameSet(missing, existing.missing)) existing.attempts += 1;
     existing.missing = missing;
     return;
   }
   session.toolBlocks.push({ tool, missing, attempts: 1 });
+}
+
+function sameSet(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((x) => b.includes(x));
 }
 
 /** A tool that succeeded is no longer blocked. */
@@ -1188,6 +1266,38 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
       });
     }
 
+    case 'request_advisor_callback': {
+      // No adapter to call: this is a record, not an integration. The
+      // advisor's queue is whatever the CRM write and the call summary
+      // land in, which is exactly how a shop actually works.
+      const merge: Record<string, unknown> = {
+        advisorCallbackStatus: 'requested',
+        projectType: args.projectType,
+        projectDescription: args.projectDescription,
+      };
+      if (args.vehicleYear) merge.vehicleYear = args.vehicleYear;
+      if (args.vehicleMake) merge.vehicleMake = args.vehicleMake;
+      if (args.vehicleModel) merge.vehicleModel = args.vehicleModel;
+      Object.assign(session.qualification as Record<string, unknown>, merge);
+      if (args.firstName || args.lastName || args.email) {
+        Object.assign(session.contact, {
+          ...(args.firstName ? { firstName: String(args.firstName) } : {}),
+          ...(args.lastName ? { lastName: String(args.lastName) } : {}),
+          ...(args.email ? { email: String(args.email) } : {}),
+        });
+      }
+      deps.log.log('tool.completed', {
+        callSid: session.callSid, tool: 'request_advisor_callback',
+        projectType: String(args.projectType),
+      });
+
+      return JSON.stringify({
+        status: 'requested',
+        speech: `A repair advisor has the project and will call them back about it.`,
+        note: "Tell them an advisor will call and roughly what they will go through. Do NOT quote a price, a range or a timeline — that is the advisor's job and the whole reason this exists. Do not offer the callback again; it is booked.",
+      });
+    }
+
     case 'create_upload_link': {
       const res = await tools.uploadLink.create({
         purposeId: String(args.purposeId),
@@ -1413,7 +1523,7 @@ const UNIVERSAL_TOOLS = [
 
 /** Tools that only make sense for particular industries. */
 const INDUSTRY_TOOLS: Record<string, string[]> = {
-  collision_repair: ['dispatch_tow', 'create_location_link', 'create_upload_link', 'send_esign_packet', 'create_partner_referral'],
+  collision_repair: ['dispatch_tow', 'create_location_link', 'create_upload_link', 'send_esign_packet', 'create_partner_referral', 'request_advisor_callback'],
   attorneys: ['send_esign_packet', 'create_upload_link'],
   construction: ['create_upload_link'],
   roofing: ['create_upload_link'],
@@ -1475,7 +1585,16 @@ const GATED_TOOLS: Record<string, (session: Session, said: string) => boolean> =
     return Boolean(q.esignStatus) || Boolean(q.dropOffScheduled) || /\b(paperwork|authoriz|authoris|sign|direction to pay|estimate approval)\b/i.test(said);
   },
   create_partner_referral: (_s, said) => /\b(rental|rent a car|attorney|lawyer|glass|windshield|referral|recommend)\b/i.test(said),
+  // Only on calls that end in an advisor ringing back. A crash call
+  // ends with a tow and a booking, not with a project quote.
+  request_advisor_callback: (s) => SHOP_BUSINESS_INTENTS.has(s.route.intent ?? ''),
 };
+
+/** Collision intents that are ordinary shop business, not a crash. */
+const SHOP_BUSINESS_INTENTS = new Set([
+  'labor_rate_question', 'custom_work', 'restoration', 'paint_color_match',
+  'general_estimate', 'service_question', 'insurance_repair', 'mechanical_repair',
+]);
 
 /** Whether a gated tool has become relevant to this call. */
 function isUnlocked(name: string, session: Session): boolean {

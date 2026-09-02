@@ -106,10 +106,19 @@ export class SessionStore {
   mergeContact(callSid: string, patch: ContactRecord): void {
     const s = this.sessions.get(callSid);
     if (!s) return;
+    const target = s.contact as Record<string, unknown>;
     for (const [k, v] of Object.entries(patch)) {
-      if (typeof v === 'string' && v.trim().length > 0) {
-        (s.contact as Record<string, string>)[k] = v.trim();
+      // Strings are trimmed, and a blank one is not an update — a
+      // caller saying "erm" must not wipe a name we already have.
+      if (typeof v === 'string') {
+        if (v.trim().length > 0) target[k] = v.trim();
+        continue;
       }
+      // phoneConfirmed and smsAllowed are booleans, and false is a
+      // meaningful value: "do not text this number" has to survive.
+      // Dropping every non-string silently discarded exactly the
+      // fields the contact-routing rules are built on.
+      if (typeof v === 'boolean') target[k] = v;
     }
   }
 

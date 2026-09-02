@@ -145,6 +145,7 @@ const COLLISION_SHOP_BUSINESS_GOAL: IndustryGoal = {
     'the vehicle: year, make, model',
     'photos, if it cannot be judged without seeing it',
     'their name and a good number, and an email if the advisor needs to send anything',
+    'hand it to a repair advisor with request_advisor_callback — that is what finishes this call',
     'tell them what happens next and who is calling',
   ],
   avoid: [
@@ -152,6 +153,7 @@ const COLLISION_SHOP_BUSINESS_GOAL: IndustryGoal = {
     'running the accident intake: nobody crashed, so do not ask about injuries, a scene, a claim or a tow',
     'making them answer questions before you answer theirs',
     'offering the photo link more than once',
+    'saying an advisor will call before request_advisor_callback has come back successful',
   ],
 };
 
@@ -166,6 +168,7 @@ export function renderOfferMemory(session: Session): string | null {
   const done: string[] = [];
   if (q.locationLinkStatus) done.push('the location link has been dealt with');
   if (q.uploadLinkStatus) done.push('the upload link has been dealt with');
+  if (q.advisorCallbackStatus) done.push('a repair advisor callback is already booked — do not offer it again, and do not re-collect their details');
   if (q.esignStatus) done.push('the paperwork has been sent');
   if (q.towRequested) done.push('a tow has been arranged');
   if (q.referralOffered) done.push('the referral has been offered');
@@ -183,6 +186,12 @@ export function renderOfferMemory(session: Session): string | null {
 /** Field names the model will not recognise, spelled as questions. */
 const MISSING_FIELD_PROMPTS: Record<string, string> = {
   caller_name: 'their name',
+  caller_first_name: 'their first name',
+  caller_last_name: 'their last name',
+  caller_email: 'an email address for the advisor to send the estimate to',
+  project_description: 'what they actually want done, in their own words',
+  project_type: 'what kind of project it is',
+  vehicle_year_make_model: 'the year, make and model — ask for it as one question, not three',
   callback_phone: 'a callback number',
   callback_phone_confirmed: 'confirmation that the number you have is the right one to call',
   incident_location: 'where it happened',
