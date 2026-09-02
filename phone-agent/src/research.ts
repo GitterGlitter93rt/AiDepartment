@@ -1,4 +1,4 @@
-import type { Evidence, Lead, ProspectDossier } from './types';
+import type { Evidence, Lead, ProspectDossier } from './types.js';
 
 export interface ResearchAdapter {
   name: string;
@@ -34,8 +34,8 @@ export class ResearchOrchestrator {
       industry: lead.industry,
       summary: summarize(lead, rawFacts),
       ads: {
-        google: booleanEvidence(rawFacts, ['google ads', 'sponsored', 'ads transparency'], 'google-ads-research'),
-        meta: booleanEvidence(rawFacts, ['meta ad', 'facebook ad', 'instagram ad', 'ad library'], 'meta-ads-research'),
+        google: booleanEvidence(rawFacts, ['google active ads', 'google ads', 'sponsored', 'ads transparency'], 'google-ads-research'),
+        meta: booleanEvidence(rawFacts, ['meta active ads', 'meta ad', 'facebook ad', 'instagram ad', 'ad library'], 'meta-ads-research'),
       },
       tracking: evidenceList(tags, 'tracking-detector'),
       leadCapture: evidenceList(leadCapture, 'lead-capture-detector'),
@@ -64,10 +64,11 @@ function evidenceList(values: string[], source: string): Evidence<string[]> {
 }
 
 function booleanEvidence(facts: Evidence[], needles: string[], source: string): Evidence<boolean> {
-  const matched = facts.some((fact) => needles.some((needle) => String(fact.value).toLowerCase().includes(needle)));
+  const confirmed = facts.some((fact) => fact.confidence === 'confirmed' && needles.some((needle) => String(fact.value).toLowerCase().includes(needle)));
+  const likely = !confirmed && facts.some((fact) => fact.confidence === 'likely' && needles.some((needle) => String(fact.value).toLowerCase().includes(needle)));
   return {
-    value: matched,
-    confidence: matched ? 'confirmed' : 'unknown',
+    value: confirmed || likely,
+    confidence: confirmed ? 'confirmed' : likely ? 'likely' : 'unknown',
     source,
     observedAt: new Date().toISOString(),
   };
