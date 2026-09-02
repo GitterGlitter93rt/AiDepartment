@@ -12,7 +12,8 @@
     "start": "node --experimental-strip-types src/server.ts",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "voice:simulate": "node --experimental-strip-types src/sim/run.ts"
+    "voice:simulate": "node --experimental-strip-types src/sim/run.ts",
+    "voice:coverage": "node --experimental-strip-types src/sim/coverage.ts"
   },
   "dependencies": {
     "ws": "^8.18.0"

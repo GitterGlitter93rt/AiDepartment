@@ -176,3 +176,37 @@ describe('Registry and documentation cannot silently drift apart', () => {
     assert.deepEqual(uncovered, [], `specialists with no scenario: ${uncovered.join(', ')}`);
   });
 });
+
+describe('Website and agent industry lists cannot drift apart', () => {
+  // The website and the service are separate build graphs, so nothing
+  // else catches a 29th website industry being added with no
+  // specialist behind it — a prospect in that trade would reach the
+  // wrong business.
+  test('coverage is complete in both directions', async () => {
+    const { buildCoverage } = await import('../src/sim/coverage.ts');
+    const r = buildCoverage();
+
+    assert.deepEqual(r.missingSpecialist, [],
+      `website industries with no specialist: ${r.missingSpecialist.map((m) => m.name).join(', ')}`);
+    assert.deepEqual(r.unmappedSlugs, [],
+      `website industries not mapped to an agent id — probably newly added: ${r.unmappedSlugs.join(', ')}`);
+    assert.deepEqual(r.undeclaredExtra, [],
+      `agent industries with no website page and no declared reason: ${r.undeclaredExtra.join(', ')}`);
+    assert.deepEqual(r.noRoutingRule, []);
+    assert.deepEqual(r.noKnowledgeBank, []);
+    assert.deepEqual(r.noScenario, []);
+    assert.deepEqual(r.missingFromInventory, [],
+      `agent industries missing from the inventory doc: ${r.missingFromInventory.join(', ')}`);
+  });
+
+  test('Pressure Washing is preserved as a deliberate extra', async () => {
+    // It is an active sales target with no website page. Recording it
+    // explicitly means removing it has to be a decision, not a tidy-up
+    // by a session that assumed it was a mistake.
+    const { buildCoverage } = await import('../src/sim/coverage.ts');
+    const r = buildCoverage();
+    const pw = r.intentionalExtras.find((e) => e.id === 'pressure_washing');
+    assert.ok(pw, 'pressure_washing must remain a declared intentional extra');
+    assert.match(pw!.reason, /website content gap/i);
+  });
+});

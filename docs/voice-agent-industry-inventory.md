@@ -138,6 +138,15 @@ alike.
 
 ## Gaps and deliberate decisions
 
+### Pressure Washing — DELIBERATE. Do not remove.
+
+> **This is checked automatically.** `npm run voice:coverage` and
+> `tests/scenarios.test.ts` both assert that `pressure_washing` remains
+> a *declared* intentional extra. Removing the specialist, or removing
+> the declaration in `src/sim/coverage.ts`, fails the build — which is
+> the point: a future session must not mistake it for an oversight and
+> tidy it away.
+
 ### Pressure Washing — a specialist with no website page
 
 `pressure_washing` ships a full specialist, but there is **no Pressure
@@ -145,10 +154,15 @@ Washing entry in `src/lib/industries.ts` and no page under
 `src/pages/industries/`**. A search across `src/`, `docs/02-website/`
 and `docs/12-industries/` returned no hits.
 
-It was built because it was explicitly requested and because it fits
-the existing Home & Field Services category cleanly. It is flagged here
-as a **website content gap**, not an agent gap: the agent can handle
+It was built because it is an **active sales and demo target**, and
+because it fits the existing Home & Field Services category cleanly. It
+is a **website content gap**, not an agent gap: the agent can handle
 these calls today, and the website cannot currently sell to them.
+
+The count is therefore **28 website industries + 1 = 29 demo
+industries**. Do not assume 29 stays correct — run
+`npm run voice:coverage`, which re-reads the website registry every
+time rather than trusting this number.
 
 Adding the page would need a registry entry, a page under
 `src/pages/industries/pressure-washing/`, and an assessment dropdown
@@ -183,7 +197,12 @@ least one routing rule, so the mapping cannot silently rot.
 
 ## How this stays true
 
-Three tests fail if this document goes stale:
+`npm run voice:coverage` re-reads `src/lib/industries.ts` directly and
+compares it against the specialist registry **in both directions**,
+plus routing rules, knowledge banks, demo scenarios, and this document.
+It is also run as a test, so it gates the suite.
+
+Four further tests fail if this document goes stale:
 
 1. **Every taxonomy industry has a specialist.** Adding an ID without a
    module fails the build.
@@ -193,6 +212,7 @@ Three tests fail if this document goes stale:
    The samples are the module author's claim about what they handle;
    the test holds them to it.
 
-What no test can catch is the website registry gaining a 29th industry
-without a matching specialist, because the two live in different build
-graphs. `docs/adding-an-industry.md` is the checklist for that case.
+A website industry added with no specialist behind it — previously the
+one silent failure, because the website and the service are separate
+build graphs — is now caught by the coverage check, which reports the
+unmapped slug by name. `docs/adding-an-industry.md` is the checklist.
