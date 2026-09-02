@@ -171,6 +171,86 @@ export function createMockUploadLink(baseUrl = 'https://upload.example-demo.inva
 }
 
 // ---------------------------------------------------------------------
+// Secure location sharing
+// ---------------------------------------------------------------------
+
+/** How a location reached us. */
+export type LocationSource = 'spoken' | 'current_location' | 'pin' | 'live';
+
+/**
+ * Where the vehicle actually is.
+ *
+ * Coordinates live in application state and in the dispatch payload,
+ * and nowhere else. They are never logged, never returned to the model,
+ * and never read aloud — "I have the vehicle location" is the whole of
+ * what a caller needs to hear.
+ */
+export interface RoadsideLocation {
+  source: LocationSource;
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
+  /** A pin's label, or the caller's own words for a spoken location. */
+  label?: string;
+  capturedAt?: string;
+  confirmed: boolean;
+}
+
+export interface LocationLinkRequest {
+  callSid: string;
+  /** Fixed for now; the type exists so live sharing can be added. */
+  purpose: 'roadside_dispatch';
+  expiryMinutes: number;
+}
+
+export interface LocationLinkResult extends ActionResult {
+  /**
+   * The link, for texting only.
+   *
+   * Carries an opaque token bound to the call. Deliberately never
+   * logged and never handed to the model: a token in a log file is a
+   * token in a backup, and a token the model can see is a token it can
+   * read out loud.
+   */
+  url?: string;
+  expiresAt?: string;
+}
+
+export interface LocationLinkTool {
+  create(req: LocationLinkRequest): Promise<LocationLinkResult>;
+  /**
+   * What the caller submitted, if anything.
+   *
+   * Polled by the application, never by the model. A real provider
+   * would push this; the mock has nothing to report, which is honest —
+   * a demo has no browser on the other end granting geolocation.
+   */
+  submitted(callSid: string): Promise<RoadsideLocation | null>;
+  mode: 'mock' | 'live';
+}
+
+export function createMockLocationLink(baseUrl = 'https://loc.example-demo.invalid'): LocationLinkTool {
+  return {
+    mode: 'mock',
+    async create(req) {
+      // Opaque and random. The CallSid is an identifier, not a secret,
+      // and using it as one would let anyone who saw a call log open
+      // somebody's location page.
+      const token = randomBytes(24).toString('base64url');
+      return {
+        mode: 'mocked',
+        url: `${baseUrl}/l/${token}`,
+        reference: `loc-${shortId()}`,
+        expiresAt: new Date(Date.now() + req.expiryMinutes * 60_000).toISOString(),
+      };
+    },
+    async submitted() {
+      return null;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
 // Partner referral
 // ---------------------------------------------------------------------
 

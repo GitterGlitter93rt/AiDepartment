@@ -106,6 +106,21 @@ export const COLLISION_DEMO_REPAIR: CollisionRepairPolicy = {
 // Electronic signature packets
 // ---------------------------------------------------------------------
 
+/** A form inside a packet, described at the level a receptionist may speak. */
+export interface PacketComponent {
+  id: string;
+  label: string;
+  /**
+   * The sentence or two the agent may say about it.
+   *
+   * Written by the business, never generated. The legal effect belongs
+   * to the document, and an agent paraphrasing a Direction to Pay into
+   * "insurance has to pay us" would be describing something the form
+   * does not say.
+   */
+  plainExplanation: string;
+}
+
 export interface EsignPacket {
   id: string;
   /** How the agent describes it. Never a description of legal terms. */
@@ -115,6 +130,18 @@ export interface EsignPacket {
   templateId: string;
   /** Fields that must exist on the session before it may be sent. */
   requires: string[];
+  /**
+   * Fields that must be explicitly `false`, not merely absent.
+   *
+   * Undefined is not false. "We never asked" and "they told us no" are
+   * different states, and treating the first as the second is how an
+   * engagement packet reaches somebody who already has a lawyer.
+   */
+  requiresFalse?: string[];
+  /** What is in the packet, for the high-level explanation. */
+  components?: PacketComponent[];
+  /** Whether a claim number must exist first. False for the demo. */
+  requiresClaimNumber?: boolean;
   /**
    * Whether signing this packet, by itself, creates the relationship.
    *
@@ -134,7 +161,23 @@ export const ESIGN_PACKETS: EsignPacket[] = [
     label: 'repair authorisation packet',
     industry: 'collision_repair',
     templateId: 'tpl_collision_repair_intake_v1',
-    requires: ['firstName', 'phone'],
+    requires: ['firstName', 'phone', 'vehicleMake', 'vehicleModel', 'repairIntentConfirmed'],
+    // A crash victim on a bridge has not opened a claim yet, and making
+    // the paperwork wait for one would strand them.
+    requiresClaimNumber: false,
+    components: [
+      {
+        id: 'repair_authorization',
+        label: 'repair and teardown authorisation',
+        plainExplanation: 'It lets the shop take the vehicle apart far enough to see the full damage and write the repair plan.',
+      },
+      {
+        id: 'direction_to_pay',
+        label: 'Direction to Pay',
+        plainExplanation:
+          'It allows eligible insurance claim payments to go directly to the repair facility, so they are not left coordinating the payment back to the shop themselves. Say only that. Do NOT say insurance has to pay the shop, that it guarantees payment, or that it assigns their claim — the document governs that, not you.',
+      },
+    ],
     createsRelationshipOnSignature: false,
     afterSendLanguage:
       'Say the packet is on its way and they can sign it whenever they are somewhere safe. Do not describe what the forms say — the shop wrote them, not you.',
@@ -144,7 +187,11 @@ export const ESIGN_PACKETS: EsignPacket[] = [
     label: "the firm's engagement packet",
     industry: 'attorneys',
     templateId: 'tpl_pi_engagement_v1',
-    requires: ['firstName', 'phone', 'incidentType'],
+    requires: ['firstName', 'phone', 'incidentType', 'incidentDate'],
+    // Sending an engagement packet to somebody another firm already
+    // acts for is a professional problem, so an unanswered question
+    // blocks it exactly as a "yes" does.
+    requiresFalse: ['existingRepresentation'],
     createsRelationshipOnSignature: false,
     afterSendLanguage:
       'Say the firm will review the signed packet and the intake, and confirm representation. Do NOT say they are represented, that the firm has taken the case, or that they now have a lawyer. Signing a packet is not the same as a firm accepting a matter.',
@@ -176,6 +223,11 @@ export const UPLOAD_PURPOSES: UploadPurpose[] = [
     id: 'collision_damage_photos', label: 'damage photos', industries: ['collision_repair'],
     guidance: 'a few photos of the damage from a safe distance',
     safetyPrecondition: 'ONLY once they are out of traffic and somewhere safe. Never ask someone at a roadside scene to walk around the vehicle.',
+  },
+  {
+    id: 'collision_insurance_documents', label: 'insurance paperwork', industries: ['collision_repair'],
+    guidance: 'a photo of the insurance card, the information exchange sheet, or anything the officer gave them',
+    safetyPrecondition: 'ONLY once they are out of traffic and somewhere safe. Reading a policy number off a card in a live lane is not worth it.',
   },
   { id: 'roof_damage_photos', label: 'roof or storm damage photos', industries: ['roofing'], guidance: 'photos of the damage from the ground', safetyPrecondition: 'From the ground only. Never suggest anyone climb onto a roof.' },
   { id: 'water_damage_photos', label: 'water or fire damage photos', industries: ['restoration'], guidance: 'photos of the affected areas', safetyPrecondition: 'Only if the property is safe to be in. Not if there is standing water near electrics, structural damage, or contamination.' },
@@ -274,7 +326,7 @@ export function policiesFor(industry: Industry | null): ActionPolicies {
         tow: COLLISION_DEMO_TOW,
         collisionRepair: COLLISION_DEMO_REPAIR,
         esignPacketIds: ['collision_repair_intake'],
-        upload: { enabled: true, allowedPurposes: ['collision_damage_photos'], expiryHours: 72 },
+        upload: { enabled: true, allowedPurposes: ['collision_damage_photos', 'collision_insurance_documents'], expiryHours: 72 },
         referral: { enabled: true, allowedPartnerIds: ['pi_partner_demo'], requiresExplicitConsent: true },
       };
     case 'attorneys':

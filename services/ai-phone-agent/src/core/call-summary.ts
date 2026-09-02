@@ -20,6 +20,7 @@
 // aggregated, not to be read.
 
 import type { Session } from './types.ts';
+import { buildCollisionRecord, type CollisionRecord } from './collision-summary.ts';
 
 export interface CallSummary {
   callSid: string;
@@ -46,6 +47,14 @@ export interface CallSummary {
   guardrailHits: number;
   /** One-line plain-language description. */
   headline: string;
+  /**
+   * The collision record, when this was one.
+   *
+   * A separate structure because two insurers, two policy numbers and
+   * two claim numbers appear on the same call, and flattening them into
+   * one bag is how a shop bills the wrong carrier.
+   */
+  collision?: CollisionRecord;
   /**
    * Outbound actions taken during the call.
    *
@@ -113,6 +122,7 @@ export function buildCallSummary(
     guardrailHits: session.probeCount,
     headline: headlineFor(session, appointmentBooked, transferred, contact),
     actions: extractActions(session),
+    collision: session.route.industry === 'collision_repair' ? buildCollisionRecord(session) : undefined,
   };
 }
 

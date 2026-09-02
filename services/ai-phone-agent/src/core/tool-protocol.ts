@@ -180,6 +180,18 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
     },
   },
   {
+    name: 'create_location_link',
+    description:
+      "Text the caller a secure link so they can share exactly where the vehicle is — either their current location, or a pin they drop on a map. Use this when they cannot describe the spot well enough for a driver to find it, which on a bridge or a highway is most of the time. You supply no address, no coordinates and no phone number: the system texts the number they called from.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: 'Why it is needed — "on a bridge, no exit known". Recorded, not spoken.' },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'create_upload_link',
     description:
       'Create a secure link the caller can use to send photos or documents, and text it to them. Choose the purpose from the list the business allows — you cannot supply a web address, and one you invented would be rejected. Never ask anyone to take photos while they are somewhere unsafe.',
@@ -202,8 +214,9 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         packetId: { type: 'string', description: 'One of the packet ids in your business configuration.' },
         deliveryChannel: { type: 'string', enum: ['sms', 'email'] },
         recipientEmail: { type: 'string', description: 'Required when delivering by email.' },
+        consentConfirmed: { type: 'boolean', description: 'True only if you asked and they said yes on this call. Handing you an email address is not consent to sign anything.' },
       },
-      required: ['packetId', 'deliveryChannel'],
+      required: ['packetId', 'deliveryChannel', 'consentConfirmed'],
     },
   },
   {
@@ -520,15 +533,38 @@ export function validateToolRequest(
       if (!phone || !E164.test(phone.replace(/[\s()-]/g, ''))) {
         return { ok: false, reason: 'A valid callback number is required — the driver needs to reach them.' };
       }
-      // A road name alone will not find anybody. A driver needs a
-      // direction, an exit, a landmark or a mile marker, and asking for
-      // one more detail is cheaper than a truck circling a bridge.
-      const direction = str(input, 'directionOfTravel');
-      if (pickup === null || pickup.length < 8) {
-        return { ok: false, reason: 'That location is not specific enough for a driver to find them. Ask which direction they were heading, the nearest exit, or a landmark.' };
+      // Somebody has to actually want a tow. The word appearing in a
+      // sentence is not a request — "do you do towing?" is a question.
+      const q = session.qualification as Record<string, unknown>;
+      const condition = str(input, 'vehicleCondition') ?? '';
+      const undrivable = q.towNeeded === true
+        || q.vehicleDrivable === false
+        || /\b(undrivable|not drivable|won'?t (drive|start|move)|totaled|totalled|airbag|blocking|leaking|smoking|crushed|no wheels)\b/i.test(condition);
+      if (!undrivable) {
+        return { ok: false, reason: 'Confirm the vehicle actually cannot be driven, or that they want it towed, before sending a truck.' };
       }
-      if (/\b(bridge|highway|interstate|i-\d+|freeway|turnpike|expressway|\bhwy\b)\b/i.test(pickup) && !direction) {
-        return { ok: false, reason: 'On a bridge or highway a driver needs the direction of travel. Ask which way they were heading before dispatching.' };
+
+      // A driver has to find the right car on a dark shoulder.
+      const make = str(input, 'vehicleMake');
+      const model = str(input, 'vehicleModel');
+      if (!make || !model) {
+        return { ok: false, reason: 'Ask what they are driving — the make and model at least, and the colour if it is roadside.' };
+      }
+
+      // A submitted secure location already gives dispatch precise
+      // coordinates. Continuing to ask for a mile marker would be
+      // interrogating somebody who has already answered.
+      const hasSecureLocation = session.roadsideLocation?.confirmed === true
+        && session.roadsideLocation.latitude !== undefined;
+
+      const direction = str(input, 'directionOfTravel');
+      if (!hasSecureLocation) {
+        if (pickup === null || pickup.length < 8) {
+          return { ok: false, reason: 'That location is not specific enough for a driver to find them. Ask the direction of travel, the nearest exit, or a landmark — or offer the secure location link.' };
+        }
+        if (/\b(bridge|highway|interstate|i-\d+|freeway|turnpike|expressway|\bhwy\b)\b/i.test(pickup) && !direction) {
+          return { ok: false, reason: 'On a bridge or highway a driver needs the direction of travel. Ask which way they were heading, or send the secure location link.' };
+        }
       }
 
       // The destination is the business's, never the model's.
@@ -552,6 +588,17 @@ export function validateToolRequest(
           destinationName: destination.name,
         },
       };
+    }
+
+    case 'create_location_link': {
+      // Nothing worth validating from the model: the recipient is the
+      // number they called from, the URL is ours, and the coordinates
+      // come from the caller's own browser. That is the point.
+      const locPhone = session.contact.phone ?? session.from;
+      if (!E164.test(String(locPhone).replace(/[\s()-]/g, ''))) {
+        return { ok: false, reason: 'No usable mobile number to text. Confirm the number first.' };
+      }
+      return { ok: true, value: { phone: locPhone, reason: str(input, 'reason') ?? undefined } };
     }
 
     case 'create_upload_link': {
@@ -592,6 +639,25 @@ export function validateToolRequest(
       const packet = packetById(packetId);
       if (!packet) return { ok: false, reason: `Unknown packet "${packetId}".` };
 
+      // Handing over an email address is not agreeing to sign anything.
+      if (input.consentConfirmed !== true) {
+        return { ok: false, reason: 'Ask them first, and only send it if they say yes. An email address is not consent to sign something.' };
+      }
+
+      // Undefined is not false. "We never asked whether they have a
+      // lawyer" and "they told us they do not" are different states,
+      // and conflating them sends an engagement packet to somebody who
+      // is already represented.
+      const state = { ...session.contact, ...session.qualification } as Record<string, unknown>;
+      for (const field of packet.requiresFalse ?? []) {
+        if (state[field] === undefined) {
+          return { ok: false, reason: `You have not established ${field}. Ask before sending anything.` };
+        }
+        if (state[field] !== false) {
+          return { ok: false, reason: `${field} is true. This packet cannot be sent.` };
+        }
+      }
+
       // A signature request is not something to send at someone who has
       // not finished telling you who they are.
       const record = { ...session.contact, ...session.qualification } as Record<string, unknown>;
@@ -620,6 +686,7 @@ export function validateToolRequest(
           recipientEmail: email ?? undefined,
           recipientPhone: channel === 'sms' ? phone : undefined,
           recipientName: session.contact.firstName ?? 'the caller',
+          components: packet.components?.map((c) => `${c.label}: ${c.plainExplanation}`),
           afterSendLanguage: packet.afterSendLanguage,
           createsRelationshipOnSignature: packet.createsRelationshipOnSignature,
         },
@@ -985,6 +1052,47 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
       });
     }
 
+    case 'create_location_link': {
+      const res = await tools.locationLink.create({
+        callSid: session.callSid,
+        purpose: 'roadside_dispatch',
+        expiryMinutes: 120,
+      });
+
+      let smsMode: string = 'not_attempted';
+      if (res.url) {
+        try {
+          await tools.sms.send({
+            to: String(args.phone),
+            body: `Tap to share where your vehicle is so we can send the driver straight to you: ${res.url}`,
+          });
+          smsMode = tools.modes.sms === 'mock' ? 'mocked' : 'sent';
+        } catch {
+          smsMode = 'failed';
+        }
+      }
+
+      session.qualification.locationLinkStatus = res.mode;
+      // Field names only. The token, the URL and any coordinates stay
+      // out of the log entirely — a token in a log is a token in a
+      // backup.
+      deps.log.log('tool.completed', {
+        callSid: session.callSid, tool: 'create_location_link',
+        mode: res.mode, smsMode, purpose: 'roadside_dispatch',
+      });
+
+      return JSON.stringify({
+        mode: res.mode,
+        smsMode,
+        speech: speechFor(
+          smsMode === 'sent' ? 'sent' : res.mode,
+          'the link is on its way — they can share their current location or drop a pin right where the vehicle is.',
+          'this demo can text them a secure link to share their location or drop a pin — say the system does that, not that you just sent it.',
+        ),
+        note: 'Never read a link, a token or any coordinates aloud. Once a location comes back, "I have the vehicle location" is all they need to hear.',
+      });
+    }
+
     case 'create_upload_link': {
       const res = await tools.uploadLink.create({
         purposeId: String(args.purposeId),
@@ -1049,6 +1157,7 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
           `the ${String(args.label)} is on its way.`,
           `this demo can send the ${String(args.label)} electronically — say the system does that, not that you just sent it.`,
         ),
+        contains: args.components,
         afterSend: args.afterSendLanguage,
         // The single most important line in this result. Signing is not
         // the same as a business accepting the matter.

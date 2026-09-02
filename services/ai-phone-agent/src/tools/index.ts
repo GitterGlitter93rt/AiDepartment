@@ -8,8 +8,8 @@ import { createMockSms, createTwilioSms, type SmsTool } from './sms.ts';
 import { createTransferTool, type TransferTool } from './transfer.ts';
 import { createPlaceholderCrm, type CrmTool } from './crm.ts';
 import {
-  createMockTow, createMockEsign, createMockUploadLink, createMockReferral,
-  type TowTool, type EsignTool, type UploadLinkTool, type PartnerReferralTool,
+  createMockTow, createMockEsign, createMockUploadLink, createMockReferral, createMockLocationLink,
+  type TowTool, type EsignTool, type UploadLinkTool, type PartnerReferralTool, type LocationLinkTool,
 } from './actions.ts';
 
 export interface Toolbox {
@@ -25,6 +25,8 @@ export interface Toolbox {
   uploadLink: UploadLinkTool;
   /** Consent-gated partner referrals. */
   referral: PartnerReferralTool;
+  /** Secure roadside location sharing. */
+  locationLink: LocationLinkTool;
   /**
    * What is real and what is not, reported on /health.
    *
@@ -38,6 +40,7 @@ export interface Toolbox {
     esign: 'mock' | 'docusign';
     uploadLink: 'mock' | 'live';
     referral: 'mock' | 'live';
+    locationLink: 'mock' | 'live';
   };
 }
 
@@ -62,6 +65,7 @@ export function createToolbox(cfg: Config, log: Logger): Toolbox {
   const esign = createMockEsign((r) => log.log('tool.completed', { tool: 'send_esign_packet', mode: 'mocked', packetId: r.packetId }));
   const uploadLink = createMockUploadLink(cfg.uploadLinkBaseUrl);
   const referral = createMockReferral((r) => log.log('tool.completed', { tool: 'create_partner_referral', mode: 'mocked', partnerId: r.partnerId }));
+  const locationLink = createMockLocationLink(cfg.locationLinkBaseUrl);
 
   return {
     calendar,
@@ -72,6 +76,7 @@ export function createToolbox(cfg: Config, log: Logger): Toolbox {
     esign,
     uploadLink,
     referral,
+    locationLink,
     modes: {
       calendar: cfg.mockCalendarMode ? 'mock' : 'google',
       sms: cfg.mockSmsMode ? 'mock' : 'twilio',
@@ -79,6 +84,7 @@ export function createToolbox(cfg: Config, log: Logger): Toolbox {
       esign: esign.mode,
       uploadLink: uploadLink.mode,
       referral: referral.mode,
+      locationLink: locationLink.mode,
     },
   };
 }
@@ -102,10 +108,11 @@ export function createMockToolbox(over: Partial<Toolbox> = {}): Toolbox {
     transfer: createTransferTool('+19045550100'),
     crm: createPlaceholderCrm(),
     tow, esign, uploadLink, referral,
-    modes: { calendar: 'mock', sms: 'mock', tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' },
+    locationLink: createMockLocationLink(),
+    modes: { calendar: 'mock', sms: 'mock', tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock', locationLink: 'mock' },
     ...over,
   };
 }
 
 export type { CalendarTool, SmsTool, TransferTool, CrmTool };
-export type { TowTool, EsignTool, UploadLinkTool, PartnerReferralTool };
+export type { TowTool, EsignTool, UploadLinkTool, PartnerReferralTool, LocationLinkTool };

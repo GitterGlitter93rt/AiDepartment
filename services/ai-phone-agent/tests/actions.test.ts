@@ -38,6 +38,13 @@ function affirmativeSentences(text: string): string[] {
     .filter((s) => !/\b(never|do not|don'?t|must not|cannot|can'?t|no\b.*\b(promise|guarantee))\b/i.test(s));
 }
 
+/** A session with everything the collision packet now requires. */
+function packetReady(qual: Record<string, unknown> = {}): Session {
+  return collisionSession({}, {
+    vehicleMake: 'BMW', vehicleModel: 'X5', repairIntentConfirmed: true, ...qual,
+  });
+}
+
 function collisionSession(over: Partial<Session['contact']> = {}, qual: Record<string, unknown> = {}): Session {
   const store = new SessionStore();
   const s = store.ensure('CA_act', '+19045550142', '+19045550100');
@@ -52,11 +59,22 @@ function collisionSession(over: Partial<Session['contact']> = {}, qual: Record<s
 
 const deps = (tools: Toolbox, session: Session) => ({ tools, log: silent, session });
 
+/**
+ * A tow request with everything the hardened validator needs: the
+ * vehicle a driver has to spot, and a number to reach them on.
+ */
+const TOW = {
+  callerName: 'Michael', callbackPhone: '+19045550142',
+  vehicleMake: 'BMW', vehicleModel: 'X5',
+};
+/** Session state proving the vehicle genuinely cannot be driven. */
+const UNDRIVABLE = { towNeeded: true };
+
 describe('Tow dispatch', () => {
   test('a bridge without a direction is refused — a driver cannot find them', () => {
     const v = validateToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'the Buckman Bridge in Jacksonville' } },
-      collisionSession(),
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'the Buckman Bridge in Jacksonville' } },
+      collisionSession({}, UNDRIVABLE),
     );
     assert.equal(v.ok, false);
     assert.match(v.reason!, /direction of travel/i);
@@ -64,8 +82,8 @@ describe('Tow dispatch', () => {
 
   test('with a direction it goes through', () => {
     const v = validateToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'Buckman Bridge, on the shoulder', directionOfTravel: 'northbound' } },
-      collisionSession(),
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Buckman Bridge, on the shoulder', directionOfTravel: 'northbound' } },
+      collisionSession({}, UNDRIVABLE),
     );
     assert.equal(v.ok, true);
     assert.equal(v.value!.directionOfTravel, 'northbound');
@@ -74,23 +92,23 @@ describe('Tow dispatch', () => {
   test('a vague location is refused', () => {
     for (const pickup of ['I-95', 'here', 'the bridge']) {
       const v = validateToolRequest(
-        { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: pickup } },
-        collisionSession(),
+        { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: pickup } },
+        collisionSession({}, UNDRIVABLE),
       );
       assert.equal(v.ok, false, `accepted "${pickup}"`);
     }
   });
 
   test('no name or no callback number is refused', () => {
-    const s = collisionSession();
-    assert.equal(validateToolRequest({ id: '1', name: 'dispatch_tow', input: { callbackPhone: '+19045550142', pickupLocation: 'Oak Street near the school' } }, s).ok, false);
-    assert.equal(validateToolRequest({ id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '555', pickupLocation: 'Oak Street near the school' } }, s).ok, false);
+    const s = collisionSession({}, UNDRIVABLE);
+    assert.equal(validateToolRequest({ id: '1', name: 'dispatch_tow', input: { ...TOW, callerName: undefined, pickupLocation: 'Oak Street near the school' } }, s).ok, false);
+    assert.equal(validateToolRequest({ id: '1', name: 'dispatch_tow', input: { ...TOW, callbackPhone: '555', pickupLocation: 'Oak Street near the school' } }, s).ok, false);
   });
 
   test('the destination comes from configuration, not the model', () => {
     const v = validateToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'Oak Street by the school', destinationId: 'some_other_yard', destinationName: 'Bobs Towing' } },
-      collisionSession(),
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Oak Street by the school', destinationId: 'some_other_yard', destinationName: 'Bobs Towing' } },
+      collisionSession({}, UNDRIVABLE),
     );
     assert.equal(v.ok, true);
     assert.equal(v.value!.destinationId, COLLISION_DEMO_TOW.defaultDestinationId, 'the model cannot pick a destination');
@@ -101,15 +119,15 @@ describe('Tow dispatch', () => {
     const store = new SessionStore();
     const s = store.ensure('CA_no_tow');
     store.setRoute('CA_no_tow', { industry: 'roofing', specialty: 'general', intent: 'active_leak', urgency: 'high', confidence: 0.9, source: 'heuristic' });
-    const v = validateToolRequest({ id: '1', name: 'dispatch_tow', input: { callerName: 'A', callbackPhone: '+19045550142', pickupLocation: 'Oak Street by the school' } }, s);
+    const v = validateToolRequest({ id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Oak Street by the school' } }, s);
     assert.equal(v.ok, false);
     assert.match(v.reason!, /does not arrange towing/i);
   });
 
   test('executing records state and never invents an ETA or a company', async () => {
-    const s = collisionSession();
+    const s = collisionSession({}, UNDRIVABLE);
     const out = await executeToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'Buckman Bridge shoulder', directionOfTravel: 'northbound' } },
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Buckman Bridge shoulder', directionOfTravel: 'northbound' } },
       deps(createMockToolbox(), s),
     );
     assert.equal(out.ok, true);
@@ -130,12 +148,12 @@ describe('Tow dispatch', () => {
   });
 
   test('a live provider ETA is used when one is returned', async () => {
-    const s = collisionSession();
+    const s = collisionSession({}, UNDRIVABLE);
     const tools = createMockToolbox({
       tow: { mode: 'live', async dispatch(r) { return { mode: 'sent', destinationName: r.destinationName, driverEtaMinutes: 38 }; } },
     });
     const out = await executeToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'Oak Street by the school' } },
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Oak Street by the school' } },
       deps(tools, s),
     );
     const parsed = JSON.parse(out.content) as { eta: string; speech: string };
@@ -186,14 +204,14 @@ describe('Repair process explanation', () => {
 describe('E-signature packets', () => {
   test('only a configured packet id is accepted', () => {
     const s = collisionSession();
-    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'tpl_anything_i_want', deliveryChannel: 'sms' } }, s);
+    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'tpl_anything_i_want', deliveryChannel: 'sms', consentConfirmed: true } }, s);
     assert.equal(v.ok, false);
     assert.match(v.reason!, /not a packet this business sends/i);
   });
 
   test('a packet belonging to another industry is rejected', () => {
     const s = collisionSession();
-    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms' } }, s);
+    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms', consentConfirmed: true } }, s);
     assert.equal(v.ok, false);
   });
 
@@ -201,21 +219,21 @@ describe('E-signature packets', () => {
     const store = new SessionStore();
     const s = store.ensure('CA_bare', '+19045550142', '+1904');
     store.setRoute('CA_bare', { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair', urgency: 'normal', confidence: 0.9, source: 'heuristic' });
-    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'collision_repair_intake', deliveryChannel: 'sms' } }, s);
+    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'collision_repair_intake', deliveryChannel: 'sms', consentConfirmed: true } }, s);
     assert.equal(v.ok, false);
     assert.match(v.reason!, /missing firstName/i);
   });
 
   test('email delivery without an email address is refused', () => {
-    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'collision_repair_intake', deliveryChannel: 'email' } }, collisionSession());
+    const v = validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'collision_repair_intake', deliveryChannel: 'email', consentConfirmed: true } }, packetReady());
     assert.equal(v.ok, false);
     assert.match(v.reason!, /email address is needed/i);
   });
 
   test('a valid send resolves the template from config and records state', async () => {
-    const s = collisionSession();
+    const s = packetReady();
     const out = await executeToolRequest(
-      { id: '1', name: 'send_esign_packet', input: { packetId: 'collision_repair_intake', deliveryChannel: 'sms' } },
+      { id: '1', name: 'send_esign_packet', input: { packetId: 'collision_repair_intake', deliveryChannel: 'sms', consentConfirmed: true } },
       deps(createMockToolbox(), s),
     );
     assert.equal(out.ok, true);
@@ -244,10 +262,12 @@ describe('E-signature packets', () => {
     const s = store.ensure('CA_pi', '+19045550142', '+1904');
     store.setRoute('CA_pi', { industry: 'attorneys', specialty: 'personal_injury', intent: 'car_accident', urgency: 'high', confidence: 0.9, source: 'heuristic' });
     Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
-    s.qualification.incidentType = 'rear-ended';
+    Object.assign(s.qualification, {
+      incidentType: 'rear-ended', incidentDate: '2026-09-01', existingRepresentation: false,
+    });
 
     const out = await executeToolRequest(
-      { id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms' } },
+      { id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms', consentConfirmed: true } },
       deps(createMockToolbox(), s),
     );
     const parsed = JSON.parse(out.content) as { relationship: string };
@@ -441,12 +461,12 @@ describe('Mock and live speech are distinguished', () => {
 
 describe('Tools fail safely', () => {
   test('a failing provider never produces success speech', async () => {
-    const s = collisionSession();
+    const s = collisionSession({}, UNDRIVABLE);
     const tools = createMockToolbox({
       tow: { mode: 'live', async dispatch() { throw new Error('provider 503'); } },
     });
     const out = await executeToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'Oak Street by the school' } },
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Oak Street by the school' } },
       deps(tools, s),
     );
     assert.equal(out.ok, false);
@@ -584,12 +604,12 @@ describe('END TO END — the Buckman Bridge video demo', () => {
   });
 
   test('declining the referral leaves no trace and blocks nothing', async () => {
-    const s = collisionSession({}, { referralOffered: true });
+    const s = collisionSession({}, { referralOffered: true, ...UNDRIVABLE, vehicleMake: 'BMW', vehicleModel: 'X5' });
     // The caller said no, so the tool is simply never called.
     assert.equal(s.qualification.referralConsent, undefined);
     // And the collision work carries on — the tow is unaffected.
     const v = validateToolRequest(
-      { id: '1', name: 'dispatch_tow', input: { callerName: 'Michael', callbackPhone: '+19045550142', pickupLocation: 'Buckman Bridge shoulder', directionOfTravel: 'northbound' } },
+      { id: '1', name: 'dispatch_tow', input: { ...TOW, pickupLocation: 'Buckman Bridge shoulder', directionOfTravel: 'northbound' } },
       s,
     );
     assert.equal(v.ok, true);
@@ -603,12 +623,15 @@ describe('END TO END — the midnight personal injury call', () => {
     store.setRoute('CA_night', { industry: 'attorneys', specialty: 'personal_injury', intent: 'car_accident', urgency: 'high', confidence: 0.9, source: 'heuristic' });
 
     // Nothing captured yet.
-    assert.equal(validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms' } }, s).ok, false);
+    assert.equal(validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms', consentConfirmed: true } }, s).ok, false);
 
-    // Name, number and incident type — then it is allowed.
+    // Everything the packet needs — including an explicit "no, I don't
+    // already have a lawyer" — and then it is allowed.
     Object.assign(s.contact, { firstName: 'Michael', phone: '+19045550142' });
-    s.qualification.incidentType = 'rear-ended';
-    assert.equal(validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms' } }, s).ok, true);
+    Object.assign(s.qualification, {
+      incidentType: 'rear-ended', incidentDate: '2026-09-01', existingRepresentation: false,
+    });
+    assert.equal(validateToolRequest({ id: '1', name: 'send_esign_packet', input: { packetId: 'pi_engagement_packet', deliveryChannel: 'sms', consentConfirmed: true } }, s).ok, true);
   });
 
   test('"am I represented now?" is answered by configuration, not by the model', () => {

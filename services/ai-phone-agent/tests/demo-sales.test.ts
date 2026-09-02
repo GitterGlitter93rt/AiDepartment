@@ -302,7 +302,7 @@ describe('SCENARIO E — a live calendar may be confirmed', () => {
           return { id: 'evt-1', start: input.start, end: input.end, mocked: false };
         },
       },
-      modes: { calendar: 'google', sms: 'mock', tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' },
+      modes: { calendar: 'google', sms: 'mock', tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock', locationLink: 'mock' },
     });
 
     const start = new Date(Date.now() + 86_400_000).toISOString();

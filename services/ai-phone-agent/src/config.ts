@@ -51,6 +51,8 @@ export interface Config {
   serviceAreaTimezone: string;
   /** Base for generated upload links. The backend builds every URL. */
   uploadLinkBaseUrl: string;
+  /** Base for secure roadside location links. Backend-built, always. */
+  locationLinkBaseUrl: string;
   /**
    * DEMO is the Your AI Department sales line. CLIENT is a business's
    * own receptionist and must never mention us.
@@ -127,6 +129,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Deliberately an .invalid host by default: a demo link that goes
     // nowhere is safer than one that resolves to something unexpected.
     uploadLinkBaseUrl: str('UPLOAD_LINK_BASE_URL', 'https://upload.example-demo.invalid'),
+    locationLinkBaseUrl: str('LOCATION_LINK_BASE_URL', 'https://loc.example-demo.invalid'),
     // Demo by default: this number IS the demo line. A client
     // deployment sets DEPLOYMENT_MODE=client, which switches the
     // greeting and removes the whole sales layer.

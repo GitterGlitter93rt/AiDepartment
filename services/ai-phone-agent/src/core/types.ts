@@ -3,6 +3,8 @@
 // working and there is still one place to look for session types.
 export type { Industry, Urgency } from './taxonomy.ts';
 import type { Industry, Urgency } from './taxonomy.ts';
+import type { RoadsideLocation } from '../tools/actions.ts';
+export type { RoadsideLocation };
 
 export interface RouteDecision {
   industry: Industry | null;
@@ -109,6 +111,14 @@ export interface Session {
   /** The single soft CTA has been made. Never make it twice. */
   ctaOffered?: boolean;
   ctaDeclined?: boolean;
+
+  /**
+   * Where the vehicle actually is, when a secure link was used.
+   *
+   * Coordinates live here and in the dispatch payload and nowhere else
+   * — never in a log, never in the prompt, never read aloud.
+   */
+  roadsideLocation?: RoadsideLocation;
 
   /**
    * The REAL business owner on the line.
