@@ -1,0 +1,33 @@
+name: Phone Agent CI
+
+on:
+  push:
+    branches:
+      - feature/outbound-sales-brain
+    paths:
+      - 'phone-agent/**'
+      - '.github/workflows/phone-agent-ci.yml'
+  pull_request:
+    paths:
+      - 'phone-agent/**'
+      - '.github/workflows/phone-agent-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: phone-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: phone-agent/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
