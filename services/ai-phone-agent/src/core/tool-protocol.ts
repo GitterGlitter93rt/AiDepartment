@@ -110,6 +110,23 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
     },
   },
   {
+    name: 'change_appointment',
+    description:
+      'Reschedule or cancel an appointment the caller says they already have. You cannot look up bookings, so this records the request for a person to action — it does NOT change anything by itself. Never tell the caller their appointment has been moved or cancelled; tell them someone will confirm.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['reschedule', 'cancel'] },
+        callerName: { type: 'string' },
+        phone: { type: 'string' },
+        currentAppointment: { type: 'string', description: 'What the caller says their existing appointment is. Their words, not a lookup.' },
+        preferredNewTime: { type: 'string', description: 'For a reschedule: what they said about the new time, in their words.' },
+        reason: { type: 'string' },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'transfer_to_human',
     description:
       'Hand the call to a person. Use when the caller asks for one, is in distress, or the situation is outside what you can handle.',
@@ -299,6 +316,33 @@ export function validateToolRequest(
       };
     }
 
+    case 'change_appointment': {
+      const action = str(input, 'action');
+      if (action !== 'reschedule' && action !== 'cancel') {
+        return { ok: false, reason: "action must be 'reschedule' or 'cancel'." };
+      }
+      // A reschedule with no idea when is not a reschedule request, it
+      // is an unfinished conversation.
+      if (action === 'reschedule' && !str(input, 'preferredNewTime')) {
+        return { ok: false, reason: 'Ask the caller when they would like to move it to before recording the change.' };
+      }
+      const phone = str(input, 'phone');
+      if (phone && !E164.test(phone.replace(/[\s()-]/g, ''))) {
+        return { ok: false, reason: 'That phone number does not look right. Confirm it with the caller.' };
+      }
+      return {
+        ok: true,
+        value: {
+          action,
+          callerName: str(input, 'callerName') ?? undefined,
+          phone: phone ?? session.from,
+          currentAppointment: str(input, 'currentAppointment') ?? undefined,
+          preferredNewTime: str(input, 'preferredNewTime') ?? undefined,
+          reason: str(input, 'reason') ?? undefined,
+        },
+      };
+    }
+
     case 'transfer_to_human': {
       const reason = str(input, 'reason');
       if (!reason) return { ok: false, reason: 'reason is required.' };
@@ -433,6 +477,33 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
 
       const res = await tools.crm.pushLead(session);
       return JSON.stringify({ saved: res.ok, id: res.id });
+    }
+
+    case 'change_appointment': {
+      // Recorded as a lead, not executed. Without CRM or calendar
+      // lookup there is no booking to change, and the one thing worse
+      // than not changing it is telling the caller it was changed —
+      // they stop expecting the visit, or they sit at home waiting for
+      // one that was never cancelled.
+      const action = String(args.action);
+      Object.assign(session.qualification, {
+        appointmentChangeRequested: action,
+        currentAppointment: args.currentAppointment,
+        preferredNewTime: args.preferredNewTime,
+      });
+      if (args.callerName && typeof args.callerName === 'string') {
+        session.contact.firstName ??= args.callerName;
+      }
+      if (args.phone && typeof args.phone === 'string') session.contact.phone = args.phone;
+
+      const res = await tools.crm.pushLead(session);
+      return JSON.stringify({
+        recorded: res.ok,
+        changed: false,
+        note:
+          `The ${action} request is logged for a person to action. Tell the caller someone will confirm it shortly. ` +
+          `Do NOT say the appointment has been ${action === 'cancel' ? 'cancelled' : 'moved'} — nothing has changed yet.`,
+      });
     }
 
     case 'transfer_to_human': {

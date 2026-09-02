@@ -14,6 +14,11 @@ import { Orchestrator, GREETING } from '../src/core/orchestrator.ts';
 import { SessionStore } from '../src/core/session.ts';
 import { createStubClaudeClient, createRecordingClaudeClient } from '../src/claude/client.ts';
 import { createLogger, type LogEvent } from '../src/logger.ts';
+import { DEFAULT_MODELS } from '../src/claude/models.ts';
+import { createMockCalendar } from '../src/tools/calendar.ts';
+import { createMockSms } from '../src/tools/sms.ts';
+import { createTransferTool } from '../src/tools/transfer.ts';
+import { createPlaceholderCrm } from '../src/tools/crm.ts';
 import { selectSpecialist } from '../src/industries/index.ts';
 
 function harness() {
@@ -238,5 +243,109 @@ describe('Conversation quality guarantees', () => {
 
     const second = await orch.handleCallerUtterance('CA_nokey', 'Tony.');
     assert.ok(second.length > 0);
+  });
+});
+
+describe('Long calls do not forget what was said early', () => {
+  // A ten-minute demo is the stated sales goal, and history is trimmed
+  // to a recent window to keep latency and cost bounded. Without a
+  // rolling summary, a fact stated in minute two is simply gone by
+  // minute fifteen.
+  function longCallHarness(summaryText = 'Caller is Tony. Neighbour saw the tree come down. He is leaving for work at four and needs someone before then.') {
+    const sessions = new SessionStore();
+    const calls: { system: string; model?: string }[] = [];
+    const claude = {
+      async send(opts: { system: string; model?: string }) {
+        calls.push({ system: opts.system, model: opts.model });
+        const isSummary = /compressing a phone call/i.test(opts.system);
+        return {
+          text: isSummary ? summaryText : 'Understood — what else can you tell me?',
+          toolUses: [], stopReason: 'end_turn',
+          usage: { inputTokens: 50, outputTokens: 20 }, model: 'stub', raw: [],
+        };
+      },
+      async complete() { return 'Understood.'; },
+    };
+    // A toolbox is supplied so the specialist turn takes the tool-capable
+    // path (claude.send) rather than the plain-completion fallback —
+    // otherwise the assembled system prompt is never recorded.
+    const tools = {
+      calendar: createMockCalendar(), sms: createMockSms(),
+      transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
+      modes: { calendar: 'mock' as const, sms: 'mock' as const },
+    };
+    const orch = new Orchestrator({ sessions, claude, tools, log: createLogger({}, () => {}) });
+    return { sessions, calls, orch };
+  }
+
+  test('a short call never pays for summarisation', async () => {
+    // Below the threshold the whole call still fits in the window, so a
+    // summary would be a second copy of what the model already sees.
+    const { sessions, calls, orch } = longCallHarness();
+    await orch.handleCallerUtterance('CA_short', 'My roof is leaking after the storm.');
+    for (let i = 0; i < 3; i += 1) await orch.handleCallerUtterance('CA_short', `Answer ${i}.`);
+
+    assert.equal(sessions.get('CA_short')!.summary, undefined);
+    assert.equal(calls.filter((c) => /compressing a phone call/i.test(c.system)).length, 0,
+      'no summary request should have been made');
+  });
+
+  test('a long call builds a summary and puts it in the prompt', async () => {
+    const { sessions, calls, orch } = longCallHarness();
+    await orch.handleCallerUtterance('CA_long', 'My roof is leaking after the storm.');
+    for (let i = 0; i < 12; i += 1) await orch.handleCallerUtterance('CA_long', `Another thing, number ${i}.`);
+
+    const session = sessions.get('CA_long')!;
+    assert.ok(session.summary, 'a long call must build a rolling summary');
+    assert.ok(session.summary!.throughTurn > 0);
+
+    await orch.handleCallerUtterance('CA_long', 'So when can you come?');
+    const specialistCalls = calls.filter((c) => !/compressing a phone call/i.test(c.system));
+    const last = specialistCalls[specialistCalls.length - 1].system;
+    assert.match(last, /EARLIER IN THIS CALL/);
+    assert.match(last, /Tony/, 'a fact from early in the call must survive into the prompt');
+    assert.match(last, /never read aloud/i, 'the summary is internal context, not a script');
+  });
+
+  test('summarisation uses the cheap model, not the specialist model', async () => {
+    const { calls, orch } = longCallHarness();
+    await orch.handleCallerUtterance('CA_model', 'My roof is leaking after the storm.');
+    for (let i = 0; i < 12; i += 1) await orch.handleCallerUtterance('CA_model', `Detail ${i}.`);
+
+    const summaryCall = calls.find((c) => /compressing a phone call/i.test(c.system));
+    assert.ok(summaryCall);
+    assert.equal(summaryCall!.model, DEFAULT_MODELS.summary.model);
+  });
+
+  test('it refreshes periodically rather than on every turn', async () => {
+    const { calls, orch } = longCallHarness();
+    await orch.handleCallerUtterance('CA_freq', 'My roof is leaking after the storm.');
+    for (let i = 0; i < 24; i += 1) await orch.handleCallerUtterance('CA_freq', `Point ${i}.`);
+
+    const summaryCalls = calls.filter((c) => /compressing a phone call/i.test(c.system)).length;
+    assert.ok(summaryCalls >= 1, 'should summarise at least once');
+    assert.ok(summaryCalls <= 5, `summarised ${summaryCalls} times — it must not run every turn`);
+  });
+
+  test('a failed summarisation does not break the call', async () => {
+    const sessions = new SessionStore();
+    const claude = {
+      async send(opts: { system: string }) {
+        if (/compressing a phone call/i.test(opts.system)) throw new Error('upstream down');
+        return {
+          text: 'Go on.', toolUses: [], stopReason: 'end_turn',
+          usage: { inputTokens: 10, outputTokens: 5 }, model: 'stub', raw: [],
+        };
+      },
+      async complete() { return 'Go on.'; },
+    };
+    const orch = new Orchestrator({ sessions, claude, log: createLogger({}, () => {}) });
+
+    await orch.handleCallerUtterance('CA_sumfail', 'My roof is leaking after the storm.');
+    for (let i = 0; i < 14; i += 1) {
+      const r = await orch.handleCallerUtterance('CA_sumfail', `Thing ${i}.`);
+      assert.ok(r.length > 0, 'the caller keeps hearing replies');
+    }
+    assert.equal(sessions.get('CA_sumfail')!.summary, undefined, 'no summary, but the call survived');
   });
 });

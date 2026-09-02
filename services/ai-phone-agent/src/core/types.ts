@@ -69,4 +69,19 @@ export interface Session {
    * agent's last sentence has been spoken.
    */
   pendingTransfer?: { reason: string; summary: string; target: string };
+  /**
+   * Rolling narrative summary for long calls.
+   *
+   * History is trimmed to a recent window to keep latency and cost
+   * bounded, which means a caller who mentions something in minute two
+   * and books in minute fifteen would otherwise have lost it. Contact
+   * details and qualification answers already survive trimming as
+   * structured state; this covers the narrative that never became a
+   * field — that the caller is in a hurry, that the neighbour saw it
+   * happen, that they already spoke to someone last week.
+   *
+   * Regenerated in the background AFTER a reply is sent, never before,
+   * so it costs the caller no silence.
+   */
+  summary?: { text: string; throughTurn: number };
 }

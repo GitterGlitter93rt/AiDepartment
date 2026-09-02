@@ -28,6 +28,26 @@ import { knowledgeFor } from '../knowledge/index.ts';
 import { matchKnowledge, renderKnowledge } from '../knowledge/types.ts';
 import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../business/profile.ts';
 
+/** Turns of history sent verbatim. A phone call's working memory. */
+export const HISTORY_WINDOW = 20;
+
+/**
+ * Turn count past which a rolling summary is maintained.
+ *
+ * Below this the whole call still fits in the window, so a summary
+ * would be a second copy of what the model can already see.
+ */
+export const SUMMARY_THRESHOLD = 14;
+
+/** How often the summary is refreshed once it exists. */
+export const SUMMARY_INTERVAL = 8;
+
+const SUMMARY_SYSTEM = `You are compressing a phone call in progress so the agent handling it does not lose track.
+
+Write at most six short lines covering ONLY things that would change how the rest of the call is handled: what the caller needs, anything they have said about urgency or timing, constraints they mentioned, decisions already made, questions already answered, and anything emotionally significant (a bereavement, a safety concern, frustration with a previous visit).
+
+Do NOT include: contact details, pleasantries, the agent's own questions, or anything already obvious from the last few turns. Do not speculate. Do not add advice. Plain sentences, no bullets, no headings.`;
+
 export const GREETING =
   "Thanks for calling. Tell me a bit about what's going on and I'll get you to the right place.";
 
@@ -149,6 +169,12 @@ export class Orchestrator {
 
     const reply = await this.specialistTurn(session, guard.reinforcement);
     sessions.addTurn(callSid, 'agent', reply);
+
+    // Fire-and-forget: the caller is already hearing the reply, so this
+    // costs them no silence. A failure here degrades the next turn's
+    // context slightly and must never break the call.
+    void this.maybeSummarise(session);
+
     return reply;
   }
 
@@ -242,6 +268,12 @@ export class Orchestrator {
       CORE_AGENT_RULES,
       spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
       renderBusinessProfile(profile),
+      // Earlier narrative, once the call has outgrown the history
+      // window. Structured state below covers the fields; this covers
+      // what was said that never became one.
+      ...(session.summary
+        ? [`EARLIER IN THIS CALL (internal — never read aloud):\n${session.summary.text}`]
+        : []),
       this.stateBrief(session, spec?.qualificationSchema.map((f) => f.goal) ?? []),
       // The caller's actual question comes after the state brief so it
       // is not buried behind a list of fields still to collect.
@@ -251,7 +283,7 @@ export class Orchestrator {
     ].join('\n\n---\n\n');
 
     const messages = session.turns
-      .slice(-20) // a phone call's working memory; keeps latency down
+      .slice(-HISTORY_WINDOW) // keeps latency and cost bounded on long calls
       .map((t) => ({ role: (t.role === 'caller' ? 'user' : 'assistant') as 'user' | 'assistant', content: t.text }));
 
     try {
@@ -353,6 +385,55 @@ export class Orchestrator {
       cacheReadTokens: res.usage.cacheReadTokens ?? 0,
       stopReason: res.stopReason,
     });
+  }
+
+  /**
+   * Refreshes the rolling summary when the call has grown past the
+   * history window.
+   *
+   * Deliberately called AFTER the reply has been handed back, not
+   * before: summarising on the critical path would add a model round
+   * trip to a turn the caller is waiting on, which is the one thing a
+   * phone call cannot absorb.
+   */
+  private async maybeSummarise(session: Session): Promise<void> {
+    const { claude, log } = this.deps;
+    if (!claude?.send) return;
+
+    const turnCount = session.turns.length;
+    if (turnCount < SUMMARY_THRESHOLD) return;
+    if (session.summary && turnCount - session.summary.throughTurn < SUMMARY_INTERVAL) return;
+
+    // Everything except the turns the model can still see for itself.
+    const older = session.turns.slice(0, Math.max(0, turnCount - HISTORY_WINDOW + SUMMARY_INTERVAL));
+    if (older.length === 0) return;
+
+    const transcript = older
+      .map((t) => `${t.role === 'caller' ? 'Caller' : 'Agent'}: ${t.text}`)
+      .join('\n');
+
+    try {
+      const res = await claude.send({
+        system: SUMMARY_SYSTEM,
+        messages: [{
+          role: 'user',
+          content: session.summary
+            ? `Existing summary:\n${session.summary.text}\n\nNewer part of the call:\n${transcript}\n\nProduce an updated summary covering both.`
+            : `Call so far:\n${transcript}`,
+        }],
+        model: this.models.summary.model,
+        maxTokens: this.models.summary.maxTokens,
+        temperature: this.models.summary.temperature,
+      });
+      this.recordUsage(session, res);
+      if (res.text.trim()) {
+        session.summary = { text: res.text.trim(), throughTurn: turnCount };
+        log.log('call.summary', { callSid: session.callSid, rolling: true, throughTurn: turnCount });
+      }
+    } catch (err) {
+      // The call continues on the recent window alone.
+      log.log('llm.failed', { callSid: session.callSid, stage: 'summary', error: String(err).slice(0, 200) });
+    }
   }
 
   /** The business profile for this call. */
