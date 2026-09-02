@@ -305,3 +305,69 @@ describe('Safety contract — the classifier never confidently misroutes', () =>
     assert.deepEqual(violations, [], `confident misroutes:\n  ${violations.join('\n  ')}`);
   });
 });
+
+// What speech-to-text actually hands us.
+//
+// Every utterance the router sees has been through a transcription
+// engine on a phone line, and phone audio is narrowband, compressed
+// and frequently noisy. The engine drops apostrophes, splits compound
+// words, mishears similar-sounding terms, and renders numbers
+// inconsistently. Tests written in clean prose measure the router on
+// input it will never receive.
+const TRANSCRIPTION_ARTEFACTS: [string, Industry, string][] = [
+  // --- word splitting, the single most common artefact ---
+  ['my roof in has a leak', 'roofing', '"roofing" split into "roof in"'],
+  ['i need some plumb ing help water everywhere under the sink', 'plumbing', '"plumbing" split'],
+  ['the air condition er stopped working and its 95 degrees', 'hvac', '"conditioner" split'],
+  ['need a land scaper for the yard', 'landscaping', '"landscaper" split'],
+
+  // --- missing apostrophes and punctuation, which STT drops routinely ---
+  ['my toilets overflowing and i cant stop it', 'plumbing', 'no apostrophes at all'],
+  ['theres water coming through my ceiling from the storm', 'roofing', '"theres"'],
+  ['i dont have any hot water since this morning', 'plumbing', '"dont"'],
+  ['my ac wont turn on', 'hvac', '"wont"'],
+
+  // --- homophones and near-misses ---
+  ['i need a real tour to sell my house', 'real_estate', '"realtor" heard as "real tour"'],
+  ['im going through a divorce and we have to settle custody', 'attorneys', 'clean but lowercase, no apostrophe'],
+  ['somebody rear ended me and my neck hurts', 'attorneys', '"rear-ended" unhyphenated'],
+  ['i got a d u i last night', 'attorneys', 'letters spelled out'],
+
+  // --- filler and false starts, which STT transcribes verbatim ---
+  ['um so like my my roof is is leaking pretty bad', 'roofing', 'stutter and repetition'],
+  ['yeah hi so uh i was calling about uh a pest problem roaches in the kitchen', 'pest_control', 'heavy filler'],
+  ['okay so basically the thing is my garage door spring broke', 'garage_door', 'preamble before the subject'],
+
+  // --- run-ons with no sentence boundary at all ---
+  ['hi yes my name is tony and i have a leak under my kitchen sink its been going since last night and theres water all over the floor now',
+    'plumbing', 'one long unpunctuated sentence'],
+  ['so we had that big storm last night and this morning theres shingles all over my yard and a wet spot on the ceiling in the back bedroom',
+    'roofing', 'run-on with the subject buried'],
+
+  // --- numbers rendered as words ---
+  ['my ac quit and its ninety six degrees inside', 'hvac', 'numbers spelled out'],
+  ['i have two kids seven and eleven and my wife took them', 'attorneys', 'spelled numbers in a custody call'],
+];
+
+describe('Speech-to-text artefacts still route correctly', () => {
+  for (const [utterance, expected, why] of TRANSCRIPTION_ARTEFACTS) {
+    test(`${why}: "${utterance.slice(0, 44)}"`, () => {
+      const r = classifyHeuristic(utterance);
+      assert.equal(r.industry, expected,
+        `got ${r.industry}/${r.intent} @ ${r.confidence.toFixed(2)}`);
+    });
+  }
+
+  test('no transcription artefact routes confidently into the wrong industry', () => {
+    // Degraded input is exactly where a confident wrong answer is most
+    // likely and most damaging.
+    const violations: string[] = [];
+    for (const [u, expected] of TRANSCRIPTION_ARTEFACTS) {
+      const r = classifyHeuristic(u);
+      if (r.industry && r.industry !== expected && r.confidence >= 0.8) {
+        violations.push(`"${u}" -> ${r.industry} @ ${r.confidence.toFixed(2)}`);
+      }
+    }
+    assert.deepEqual(violations, []);
+  });
+});

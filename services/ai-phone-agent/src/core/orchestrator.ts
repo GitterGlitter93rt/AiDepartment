@@ -27,6 +27,7 @@ import type { CompleteResult, ClaudeMessage } from '../claude/client.ts';
 import { knowledgeFor } from '../knowledge/index.ts';
 import { matchKnowledge, renderKnowledge } from '../knowledge/types.ts';
 import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../business/profile.ts';
+import { extractFromUtterance, mergeContact } from './extract.ts';
 
 /** Turns of history sent verbatim. A phone call's working memory. */
 export const HISTORY_WINDOW = 20;
@@ -104,6 +105,17 @@ export class Orchestrator {
     const { sessions, claude, log } = this.deps;
     const session = sessions.ensure(callSid);
     sessions.addTurn(callSid, 'caller', utterance);
+
+    // Catch the details a caller volunteers in passing, before anything
+    // else. They rarely answer one question at a time, and a number
+    // said out loud that never reaches the record is a lost lead.
+    const found = extractFromUtterance(utterance);
+    if (found.fields.length > 0) {
+      const { changed, corrected } = mergeContact(session.contact, found.contact);
+      // Values are personal data, so only the field NAMES are logged.
+      if (changed.length) log.log('field.captured', { callSid, fields: changed });
+      if (corrected.length) log.log('field.updated', { callSid, fields: corrected });
+    }
 
     // Guardrails run before anything else. A caller probing the system
     // is not describing a need, so there is nothing to route and

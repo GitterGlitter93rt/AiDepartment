@@ -93,6 +93,30 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
     },
   },
   {
+    name: 'capture_details',
+    description:
+      'Record details the caller has given you, as soon as they give them — do not wait until the end of the call. Call this whenever they volunteer a name, a way to reach them, an address, or an answer to something you needed. Send only what they actually said; never guess at a spelling or fill in a field they did not mention.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        phone: { type: 'string' },
+        email: { type: 'string' },
+        company: { type: 'string' },
+        address: { type: 'string', description: 'Street address as they said it.' },
+        city: { type: 'string' },
+        state: { type: 'string' },
+        zip: { type: 'string' },
+        notes: {
+          type: 'object',
+          description: 'Anything else worth keeping that does not fit the fields above — answers to your qualifying questions, constraints they mentioned. Keys should be short and descriptive.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'save_lead',
     description:
       'Record what you have gathered so a human can follow up. Call this once you have a name and a way to reach them, even if no appointment was booked.',
@@ -294,6 +318,31 @@ export function validateToolRequest(
       return { ok: true, value: { to, body } };
     }
 
+    case 'capture_details': {
+      const value: Record<string, unknown> = {};
+      for (const key of ['firstName', 'lastName', 'phone', 'email', 'company', 'address', 'city', 'state', 'zip'] as const) {
+        const v = str(input, key);
+        if (v) value[key] = v;
+      }
+      const email = value.email as string | undefined;
+      if (email && !EMAIL.test(email)) {
+        return { ok: false, reason: 'That email address does not look right. Read it back to the caller and confirm it.' };
+      }
+      const phone = value.phone as string | undefined;
+      if (phone && !E164.test(phone.replace(/[\s()-]/g, ''))) {
+        return { ok: false, reason: 'That phone number does not look right. Confirm it with the caller.' };
+      }
+      const notes = input.notes;
+      if (notes !== undefined && (typeof notes !== 'object' || notes === null || Array.isArray(notes))) {
+        return { ok: false, reason: 'notes must be an object of short key/value pairs.' };
+      }
+      if (Object.keys(value).length === 0 && !notes) {
+        return { ok: false, reason: 'Nothing to record — send at least one field the caller actually gave you.' };
+      }
+      if (notes) value.notes = notes;
+      return { ok: true, value };
+    }
+
     case 'save_lead': {
       const summary = str(input, 'summary');
       if (!summary) return { ok: false, reason: 'summary is required.' };
@@ -460,6 +509,34 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
     case 'send_sms': {
       const res = await tools.sms.send({ to: String(args.to), body: String(args.body) });
       return JSON.stringify({ sent: true, id: res.sid });
+    }
+
+    case 'capture_details': {
+      // A later value replaces an earlier one. That is the rule callers
+      // expect: the last number they gave is the one they want used,
+      // and a system that keeps the first is broken in a way nobody
+      // reports — they simply never get the call back.
+      const captured: string[] = [];
+      for (const key of ['firstName', 'lastName', 'phone', 'email', 'company', 'address', 'city', 'state', 'zip'] as const) {
+        const v = args[key];
+        if (typeof v === 'string' && v.trim()) {
+          session.contact[key] = v.trim();
+          captured.push(key);
+        }
+      }
+      if (args.notes && typeof args.notes === 'object') {
+        for (const [k, v] of Object.entries(args.notes as Record<string, unknown>)) {
+          if (v === undefined || v === null || v === '') continue;
+          session.qualification[k] = v;
+          captured.push(k);
+        }
+      }
+      // Field names only — the values are personal data.
+      deps.log.log('field.captured', { callSid: session.callSid, fields: captured });
+      return JSON.stringify({
+        recorded: captured.length,
+        note: 'Got it. Do not read these back unless you need to confirm a phone number or an email, and do not ask for any of them again.',
+      });
     }
 
     case 'save_lead': {

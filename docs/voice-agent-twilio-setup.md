@@ -58,6 +58,15 @@ Under **Call Status Changes**:
 | URL | `https://voice.youraidepartment.ai/twilio/status` |
 | HTTP method | **POST** |
 
+There is a **third** endpoint you do not configure here:
+`/twilio/relay-action`. It is passed to Twilio inside the TwiML as the
+`action` attribute on `<Connect>`, so the service supplies it
+automatically from `PUBLIC_BASE_URL`. Twilio POSTs to it when the relay
+session ends, and the service answers with `<Dial>` for a warm transfer
+or `<Hangup>` otherwise. If `PUBLIC_BASE_URL` is wrong, transfers fail
+silently while everything else appears to work — worth knowing when a
+transfer does nothing.
+
 The status callback is what triggers the end-of-call summary and the
 CRM push. Without it those still fire when the WebSocket closes, but
 the status callback is the reliable signal — a socket can drop for
@@ -86,6 +95,63 @@ Then `sudo systemctl restart yad-voice-agent`.
 
 ---
 
+## 3b. What the TwiML actually contains
+
+You never write TwiML by hand — the service generates it — but knowing
+what Twilio receives makes debugging much faster. On an inbound call
+`/twilio/incoming` returns:
+
+```xml
+<Response>
+  <Connect action="https://voice.youraidepartment.ai/twilio/relay-action">
+    <ConversationRelay
+      url="wss://voice.youraidepartment.ai/twilio/conversation"
+      welcomeGreeting="Thanks for calling. Tell me a bit about what's going on..."
+      voice="en-US-Journey-O"
+      language="en-US"
+      transcriptionProvider="google"
+      interruptible="true" />
+  </Connect>
+</Response>
+```
+
+| Attribute | Effect | Where to change it |
+|---|---|---|
+| `url` | The WebSocket the transcripts stream to. Derived from `PUBLIC_BASE_URL` unless `TWILIO_CONVERSATION_RELAY_URL` overrides it. | `.env` |
+| `welcomeGreeting` | Spoken by Twilio before the socket carries anything. This is why the first thing a caller hears is instant — it does not wait on a model. | `GREETING` in `src/core/orchestrator.ts` |
+| `voice` | The TTS voice. | `conversationRelayTwiml()` in `src/twilio/twiml.ts` |
+| `transcriptionProvider` | Which STT engine Twilio uses. | same |
+| `interruptible` | Lets the caller talk over the agent, as on a real call. Turning this off makes it feel like an IVR. | same |
+| `action` | Where Twilio goes when the relay ends — this is what makes a warm transfer possible. | derived from `PUBLIC_BASE_URL` |
+
+**On voice and language:** consult Twilio's ConversationRelay
+documentation for the currently supported voice identifiers and
+transcription providers rather than assuming the values above are
+still current. They change, and an unsupported value fails at call
+time, not at configuration time.
+
+## 3c. Messages on the socket
+
+Twilio sends JSON frames; the service replies with JSON frames. Useful
+when reading `journalctl` output.
+
+**Inbound (Twilio → service)**
+
+| `type` | Carries | Handled by |
+|---|---|---|
+| `setup` | `callSid`, `from`, `to` | Creates the session. Sends nothing back — the greeting is already playing. |
+| `prompt` | `voicePrompt` (the transcript), `last` | The turn. Goes to the orchestrator. |
+| `interrupt` | `utteranceUntilInterrupt` | Caller talked over the agent. Playback already stopped; nothing to undo. |
+| `error` | `description` | Logged. |
+
+**Outbound (service → Twilio)**
+
+| Frame | Purpose |
+|---|---|
+| `{"type":"text","token":"…","last":false}` | A clause to speak. Long replies are chunked so speech starts before the whole reply exists. |
+| `{"type":"text","token":"…","last":true}` | Final chunk of the turn; the relay starts listening again. |
+| `{"type":"end","handoffData":"…"}` | Ends the relay session. Sent only AFTER the final text frame, so a transfer never clips the agent's closing sentence. |
+
 ## 4. Signature validation
 
 Leave `VALIDATE_TWILIO_SIGNATURE` unset — it defaults ON when
@@ -101,6 +167,19 @@ trailing slash, `www`, a stale ngrok hostname — every request will fail
 with 403. When debugging a 403, check that first.
 
 ---
+
+## 4b. Reading the Twilio debugger
+
+Twilio Console → **Monitor → Logs → Calls**, then open a call.
+
+- **Request Inspector** shows the exact TwiML the service returned. If
+  a transfer is not working, this is where you confirm the `action`
+  URL.
+- **Errors** carries Twilio's own warnings (11200 is an HTTP retrieval
+  failure — usually a 403 from signature validation, or a timeout).
+- The service's own view is `journalctl -u yad-voice-agent -f`, and the
+  two are best read side by side: Twilio tells you what it asked for,
+  the service tells you what it decided.
 
 ## 5. Place a test call
 
@@ -171,6 +250,10 @@ production.**
 | Agent takes details but never books | Calendar mocked (expected without Google credentials) or the model is not requesting the tool. Check for `tool.requested` in the log. |
 | Wrong industry | Check `router.decision` for confidence and source. Low confidence with `source: heuristic` means the sentence needs a rule; see `docs/adding-an-industry.md`. |
 | Everything works, no summary | Status callback not configured (step 2). |
+| Transfer says "connecting you" then hangs up | `PUBLIC_BASE_URL` wrong, so the `action` URL Twilio was given does not resolve. Check the TwiML in the Twilio call log. |
+| Agent talks over the caller / cannot be interrupted | `interruptible` is false, or the client is not sending `interrupt` frames. |
+| First greeting is slow | It should be instant — it is spoken by Twilio from the TwiML and does not wait on a model. If it is slow, the delay is Twilio reaching `/twilio/incoming`. |
+| Replies arrive all at once after a pause | Chunking is not happening. Check `chunkForSpeech` output in the logs. |
 
 ---
 

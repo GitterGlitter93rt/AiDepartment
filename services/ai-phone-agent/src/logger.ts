@@ -15,6 +15,7 @@ export type LogEvent =
   | 'router.clarify'
   | 'specialist.selected'
   | 'field.captured'
+  | 'field.updated'
   | 'tool.requested'
   | 'tool.completed'
   | 'tool.failed'

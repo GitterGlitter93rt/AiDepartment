@@ -9,7 +9,7 @@ session can pick the work up cold.
 | Branch | `feature/twilio-ai-phone-agent` |
 | Latest commit | see `git log -1` |
 | Pushed | **NO** — 12+ commits ahead. See [External blockers](#external-blockers) |
-| Service tests | **653 passing, 0 failing** (58 suites) |
+| Service tests | **706 passing, 0 failing** |
 | Service typecheck | clean (`npm run typecheck`) |
 | Demo scenarios | **94/94 clean** (`npm run voice:simulate -- --check`) |
 | Industry coverage | complete (`npm run voice:coverage`) |
@@ -125,6 +125,7 @@ services/ai-phone-agent/
 │   │   ├── guardrails.ts         injection detection, output scanning
 │   │   ├── tool-protocol.ts      TOOL_SCHEMAS, validate, execute
 │   │   ├── call-summary.ts       human summary + anonymous analytics
+│   │   ├── extract.ts            deterministic phone/email/ZIP capture
 │   │   └── when.ts               "Thursday morning" → a real window
 │   ├── knowledge/                WHAT THE AGENT MAY SAY
 │   │   ├── types.ts              KnowledgeEntry, AnswerSource, matching
@@ -471,10 +472,12 @@ There is **no ESLint config** in this repo. `tsc --noEmit` (service) and
 2. **Sessions are in-memory.** One process only. Multiple processes
    would need shared state, since ConversationRelay pins a call to a
    socket.
-3. **Field extraction relies on the model.** There is no separate
-   extraction pass writing `session.contact`/`qualification`; the tools
-   are what persist it. **This is the biggest remaining gap** — see
-   NEXT SESSION START HERE.
+3. **Extraction covers only high-confidence shapes.** `src/core/extract.ts`
+   deterministically captures phone numbers, emails and ZIP codes from
+   every caller turn; names and addresses are left to the
+   `capture_details` tool, because "I'm at the end of my rope" is not
+   an address. If the model does not call the tool, those go
+   uncaptured.
 4. **Google Calendar OAuth is untested against Google.** The HTTP shape
    is tested with a stub `fetch`.
 5. **Pressure Washing has no website page** (deliberate — see the
@@ -510,66 +513,56 @@ None of these block further development.
 
 Roughly in value order:
 
-1. **Structured extraction** — see NEXT SESSION START HERE.
-2. **Live-model evaluation.** Run `npm run voice:simulate` with a real
-   `ANTHROPIC_API_KEY` and read the transcripts. The content assertions
-   (`prohibited`, `NEVER_SAY`, `expectMentions`) only run with a live
-   model, so nothing has yet verified that the agent *says* the right
-   thing — only that the structure is there.
-3. **Multi-tenant profile lookup**, keyed by the called number.
-4. **A real CRM adapter.**
-5. **STT-confusion tests** — the router is tested against slang, typos
-   and run-ons, but not against actual speech-recognition errors
-   ("roofing" → "roof in", "realtor" → "real tour").
+1. **Live-model evaluation** — see NEXT SESSION START HERE.
+2. **Multi-tenant profile lookup**, keyed by the called number. The
+   seam exists (`OrchestratorDeps.resolveProfile`).
+3. **A real CRM adapter** — `CrmTool.pushLead` is the one method.
+4. **First live Twilio call** — needs credentials.
 
 ---
 
 ## NEXT SESSION START HERE
 
-**Exact next task: structured field extraction during the turn.**
+**Exact next task: run the simulator against the live model and read
+the transcripts.**
 
-Why first: it is the largest remaining gap in runtime behaviour. Today
-`session.contact` and `session.qualification` are populated only when a
-tool runs. A caller who says *"I'm Tony, 123 Main Street, and you can
-reach me on 904-555-0142"* and then hangs up before booking leaves
-almost nothing structured behind — so the end-of-call summary reports
-"no contact details captured" even though they were said out loud.
+Why first: everything structural is now in place and tested, and
+nothing has yet verified that the agent *says* the right thing. The
+content assertions in `src/sim/scenarios.ts` — `prohibited`,
+`NEVER_SAY`, `expectMentions` — only execute when a real model is
+answering. Without a key they are skipped, by design, because with the
+fixed fallback copy they would pass trivially and mean nothing.
 
-**The constraint that shapes the design:** it must NOT add a model
-round trip per turn. The caller listens to silence during every model
-call. Two viable approaches:
+```bash
+cd services/ai-phone-agent
+export ANTHROPIC_API_KEY=…
+npm run voice:simulate -- --check                # all 94, terse
+npm run voice:simulate -- --scenario DIVORCE_01  # one, with transcript
+npm run voice:simulate -- --industry plumbing    # one trade
+```
 
-- **(preferred)** Add a `capture_details` tool to `TOOL_SCHEMAS` that
-  the agent calls when the caller volunteers information. It costs
-  nothing extra — the tool round trip already exists — and reuses the
-  validation in `tool-protocol.ts`. Downside: it depends on the model
-  choosing to call it.
-- **(fallback)** A deterministic extractor for the high-confidence
-  shapes — phone numbers, emails, ZIP codes — run over each caller turn
-  with no model at all. Cheap and reliable, but narrow.
+**What to look for, in priority order:**
 
-Doing both is reasonable: deterministic for the shapes a regex nails,
-the tool for everything else.
+1. **Fabrication.** Any dollar figure, any "we've been in business N
+   years", any promised arrival time. `NEVER_SAY` catches the obvious
+   shapes; read for the ones it does not.
+2. **Refusals that come out preachy.** Declining to predict a custody
+   outcome is correct; delivering a paragraph about it is not. These
+   should be one sentence and then back to work.
+3. **Reply length.** The harness flags anything over 90 words. On a
+   phone that is already too long.
+4. **Ignored questions.** If a caller asks something and the agent
+   carries on with its own question, the knowledge match did not fire —
+   check `knowledge.matched` in the logs.
+5. **Re-asking.** Anything already in the state brief must never be
+   asked again.
 
-**Files to touch**
+Fix by editing the specialist prompt or the knowledge entry's
+`guidance`, then re-run. Prompt changes need no test updates unless an
+assertion in `tests/conversation.test.ts` names the wording.
 
-| File | Change |
-|---|---|
-| `src/core/tool-protocol.ts` | add `capture_details` to `TOOL_SCHEMAS`; validate and merge into `session.contact` / `session.qualification` |
-| `src/core/extract.ts` (new) | deterministic phone / email / ZIP extraction from a caller turn |
-| `src/core/orchestrator.ts` | run the deterministic extractor on each caller turn before assembling the prompt |
-| `tests/` | a caller who gives details and never books must still produce a summary with `contactCaptured: true` |
-
-**Rules that must hold:**
-
-- **The latest explicit correction wins.** *"Actually use my other
-  number, 904-555-5678"* replaces the first, silently.
-- Never re-ask for something already captured — the state brief exists
-  for exactly this.
-- Digits in an address must not be captured as a phone number.
-
-**Then, in order:** live-model evaluation with a real API key,
-multi-tenant profile lookup, a real CRM adapter, STT-confusion tests.
+**Then, in order:** multi-tenant profile lookup keyed by the called
+number, a real CRM adapter, and a first live Twilio call.
 
 **Before stopping, always:**
 
