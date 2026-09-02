@@ -1,0 +1,385 @@
+fixture_set: yad_outbound_scoring_research_v1
+version: 1.0.0
+canonical_scoring_source: docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+
+score_rules:
+  google_paid_search_confirmed: 4
+  meta_active_ads_confirmed: 3
+  multiple_paid_channels_confirmed: 1
+  high_value_economics_signal: 2
+  operationally_important_lead_volume_signal: 2
+  emergency_after_hours: 1
+  appointment_estimate_consultation_intake_heavy: 1
+  multiple_locations_or_service_territories: 1
+  visible_growth_hiring: 1
+  strong_phone_dependence: 1
+  prominent_forms_booking_quote_consultation_cta: 1
+
+tiers:
+  A: ">=9"
+  B: "6..8"
+  C: "3..5"
+  D: "0..2"
+
+scoring_fixtures:
+  - id: hvac_google_emergency_replacement
+    description: Single-location HVAC advertiser with 24/7 emergency, replacement focus, phone dependence and quote CTA.
+    inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: true
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected:
+      total_points: 12
+      tier: A
+      primary_hook_family: paid_after_hours
+
+  - id: hvac_google_meta_multichannel
+    description: HVAC business with confirmed Google and Meta paid activity plus strong lead/phone/estimate characteristics.
+    inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: true
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected:
+      multiple_paid_channels_confirmed: true
+      total_points: 16
+      tier: A
+
+  - id: hvac_meta_only
+    description: Meta advertiser with high-value replacement/estimate business, phone dependence and web lead capture but no confirmed Google ad.
+    inputs:
+      google_paid_search_confirmed: false
+      google_paid_search_status_semantics: unknown_not_negative
+      meta_active_ads_confirmed: true
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected:
+      multiple_paid_channels_confirmed: false
+      total_points: 10
+      tier: A
+
+  - id: non_advertiser_strong_phone_business
+    description: HVAC company with no confirmed ad evidence but high-value, lead-heavy, emergency, estimate, phone and form signals.
+    inputs:
+      google_paid_search_confirmed: false
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: true
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected:
+      total_points: 8
+      tier: B
+      note: Paid advertising is strong but not required for a good YAD prospect.
+
+  - id: basic_small_contractor
+    description: High-value HVAC category and phone dependence only; public evidence otherwise thin.
+    inputs:
+      google_paid_search_confirmed: false
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: false
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: false
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: false
+    expected:
+      total_points: 3
+      tier: C
+
+  - id: low_evidence_business
+    description: Business discovered but no strong economic/workflow qualification evidence yet.
+    inputs:
+      google_paid_search_confirmed: false
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: false
+      operationally_important_lead_volume_signal: false
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: false
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: false
+      prominent_forms_booking_quote_consultation_cta: false
+    expected:
+      total_points: 0
+      tier: D
+      research_action: do_not_invent_points
+
+  - id: multi_location_growth_no_ads
+    description: Established multi-location HVAC operator with hiring, phone, estimates/forms and high-value/lead-heavy economics but no confirmed paid ads.
+    inputs:
+      google_paid_search_confirmed: false
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: true
+      visible_growth_hiring: true
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected:
+      total_points: 10
+      tier: A
+      note: Do not exclude non-advertisers from YAD prospecting.
+
+  - id: google_ad_only_minimum
+    description: Confirmed Google advertiser with no other meaningful qualification signals yet.
+    inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: false
+      operationally_important_lead_volume_signal: false
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: false
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: false
+      prominent_forms_booking_quote_consultation_cta: false
+    expected:
+      total_points: 4
+      tier: C
+      note: Ad presence alone is not automatically Tier A.
+
+  - id: google_meta_only
+    description: Confirmed on two paid channels but no other fit evidence yet.
+    inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: true
+      high_value_economics_signal: false
+      operationally_important_lead_volume_signal: false
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: false
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: false
+      prominent_forms_booking_quote_consultation_cta: false
+    expected:
+      multiple_paid_channels_confirmed: true
+      total_points: 8
+      tier: B
+
+research_semantics_fixtures:
+  - id: meta_pixel_not_active_ads
+    observation:
+      website_contains_meta_pixel: true
+      meta_ad_library_checked: false
+    expected:
+      meta_active_ad_status: unknown
+      score_meta_points: 0
+      may_state_as_fact:
+        - Meta/Facebook tracking technology is visible on the site.
+      may_not_state_as_fact:
+        - You are currently running Facebook ads.
+
+  - id: google_tag_not_active_ads
+    observation:
+      google_ads_conversion_tag_detected: true
+      sponsored_serp_observations: 0
+      transparency_checked: false
+    expected:
+      google_paid_ad_status: unknown
+      score_google_points: 0
+      may_not_state_as_fact:
+        - You are actively advertising on Google.
+
+  - id: one_search_no_ad_is_unknown
+    observation:
+      queries_run: 1
+      sponsored_result_for_company: false
+    expected:
+      google_paid_ad_status: unknown
+      negative_claim_allowed: false
+      reason: Search ads vary by query, geography, time, auction and campaign configuration.
+
+  - id: repeated_ad_observations_one_company
+    observation:
+      paid_serp_observations:
+        - "AC repair Jacksonville"
+        - "emergency AC Jacksonville"
+        - "HVAC Jacksonville"
+        - "AC replacement Jacksonville"
+        - "AC repair 32256"
+        - "HVAC financing Jacksonville"
+      normalized_domain: examplehvac.com
+      normalized_phone: "+19045551212"
+    expected:
+      unique_accounts_created: 1
+      ad_observation_count: 6
+      google_score_points: 4
+      note: Repetition strengthens evidence/coverage but does not multiply Module 4C ad points.
+
+  - id: servicetitan_widget_not_workflow
+    observation:
+      frontend_terms:
+        - servicetitan
+      booking_widget_detected: true
+    expected:
+      system_signal:
+        provider: ServiceTitan
+        confidence: likely
+        can_state_backend_workflow_as_fact: false
+      allowed_hook: Ask what happens automatically after a lead enters the current system.
+      forbidden_claim: Your ServiceTitan follow-up is not configured.
+
+  - id: callrail_not_closed_loop_attribution
+    observation:
+      callrail_script_detected: true
+    expected:
+      call_tracking_signal: confirmed
+      closed_loop_revenue_attribution: unknown
+      allowed_question: Can those call sources be tied through to booked jobs and actual revenue?
+
+  - id: no_crm_script_not_no_crm
+    observation:
+      known_crm_frontend_signatures_detected: []
+    expected:
+      crm_status: unknown
+      forbidden_claim: You do not have a CRM.
+
+  - id: public_24_7_is_fact
+    observation:
+      first_party_website_text: "24/7 Emergency AC Repair"
+      page_freshness_days: 2
+    expected:
+      emergency_after_hours: yes
+      confidence: confirmed
+      can_state_as_fact: true
+      expiry_policy: website_hours_or_offer_ttl
+
+  - id: stale_ad_cannot_support_current_opener
+    observation:
+      paid_ad_seen_days_ago: 21
+      no_recent_refresh: true
+    expected:
+      historical_ad_evidence_preserved: true
+      current_ad_status: stale
+      may_use_current_tense_ad_opener: false
+      action: refresh_before_call
+
+  - id: prospect_corrects_public_research
+    observation:
+      public_frontend_system_signal: ServiceTitan
+      prospect_statement: "We switched from ServiceTitan to Housecall Pro last month."
+    expected:
+      historical_evidence_preserved: true
+      current_workflow_system: Housecall Pro
+      public_signal_marked_stale_or_contradicted: true
+      call_behavior: acknowledge_correction_and_continue_without_arguing
+
+  - id: same_brand_multiple_locations
+    observation:
+      same_domain: true
+      different_addresses: true
+      shared_brand: true
+      multiple_phone_numbers: true
+    expected:
+      account_count: 1
+      location_count: 2
+      unless_franchise_ownership_evidence_requires_separate_accounts: true
+
+  - id: franchise_ambiguous
+    observation:
+      brand_name_same: true
+      domain_same: true
+      franchisee_ownership_unknown: true
+      locations_multiple: true
+    expected:
+      auto_merge_legal_entities: false
+      account_relationship: review_required
+      preserve_location_records: true
+
+  - id: lead_generator_domain
+    observation:
+      ad_landing_domain: generic-home-services-leads.example
+      advertiser_business_identity_unclear: true
+      phone_routes_unknown: true
+    expected:
+      auto_assign_ad_to_contractor: false
+      status: identity_review_required
+      do_not_call_based_only_on_observation: true
+
+  - id: no_website_after_single_lookup
+    observation:
+      source_result_website_missing: true
+      independent_domain_search_attempted: false
+    expected:
+      website_status: unknown
+      forbidden_claim: You do not have a website.
+
+  - id: verified_no_website
+    observation:
+      source_result_website_missing: true
+      independent_domain_search_attempted: true
+      direct_business_profiles_checked: true
+      canonical_domain_found: false
+      recent_evidence: true
+    expected:
+      website_status: no_verified_website_found
+      call_language: We were not able to find a current website for the business; confirm before prescribing.
+      note: Even this should be framed carefully rather than as an accusation.
+
+queue_gating_fixtures:
+  - id: tier_a_stale_research
+    inputs:
+      tier: A
+      research_completeness: stale
+      research_specific_hook_requires_ad: true
+    expected:
+      human_queue: refresh_first
+      autonomous_queue: false
+
+  - id: tier_b_complete_human_assist
+    inputs:
+      tier: B
+      research_completeness: complete
+      operating_mode: human_assist
+    expected:
+      human_queue: true
+      autonomous_queue: false
+
+  - id: tier_a_complete_no_compliance_decision
+    inputs:
+      tier: A
+      research_completeness: complete
+      operating_mode: autonomous_outbound
+      compliance_decision_present: false
+    expected:
+      autonomous_queue: false
+      reason: Fit score never bypasses compliance.
+
+property_assertions:
+  - Unknown evidence awards zero points rather than negative points.
+  - Research completeness never changes the canonical Module 4C point total.
+  - Multiple observations of the same qualifying signal do not multiply that score rule.
+  - Multi-channel bonus requires at least two independently confirmed paid channels.
+  - Tracking technology alone never awards active-ad points.
+  - CRM/system signals do not award hidden score points outside the approved canonical model.
+  - Compliance/contactability never changes YAD fit score; it gates queue eligibility separately.
+  - Historical evidence is preserved when contradicted or stale.
+  - Prospect-confirmed workflow facts can supersede public hypotheses for current strategy.
