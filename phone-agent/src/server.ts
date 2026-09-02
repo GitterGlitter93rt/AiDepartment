@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import twilio from 'twilio';
 import { loadConfig } from './config.js';
@@ -17,7 +18,9 @@ import type { CallContext, Lead } from './types.js';
 const config = loadConfig();
 const store = new InMemoryCallContextStore();
 const research = new ResearchOrchestrator([new WebsiteResearchAdapter()]);
-const manual = new FileManualRetriever(resolve(process.cwd(), '../docs/07-sales/training-manual'));
+const here = dirname(fileURLToPath(import.meta.url));
+const manualRoot = resolve(here, '../../docs/07-sales/training-manual');
+const manual = new FileManualRetriever(manualRoot);
 const model = new ClaudeConversationModel(config.anthropicApiKey, config.anthropicModel);
 
 const server = createServer(async (req, res) => {
@@ -29,6 +32,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/prepare') {
+      if (!isAdmin(req)) return json(res, 401, { error: 'Unauthorized' });
       const lead = await readJson<Lead>(req);
       const context = await prepareContext(lead);
       await store.putContext(context);
@@ -36,6 +40,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/dial') {
+      if (!isAdmin(req)) return json(res, 401, { error: 'Unauthorized' });
       if (!config.dialEnabled) return json(res, 403, { error: 'Dialing is disabled by PHONE_AGENT_DIAL_ENABLED.' });
       const body = await readJson<{ leadId: string }>(req);
       const context = await store.getContext(body.leadId);
@@ -110,13 +115,15 @@ async function prepareContext(lead: Lead): Promise<CallContext> {
   return { lead, dossier, strategy, compliance };
 }
 
+function isAdmin(req: IncomingMessage): boolean {
+  const auth = String(req.headers.authorization ?? '');
+  return auth === `Bearer ${config.adminToken}`;
+}
+
 function validateTwilio(req: IncomingMessage, params: Record<string, string>): boolean {
   if (!config.twilioAuthToken) return false;
   const signature = String(req.headers['x-twilio-signature'] ?? '');
-  const host = req.headers.host;
-  if (!host) return false;
-  const protocol = config.publicVoiceBaseUrl.startsWith('https://') ? 'https' : 'http';
-  const absolute = `${protocol}://${host}${req.url}`;
+  const absolute = new URL(req.url ?? '/', config.publicVoiceBaseUrl).toString();
   return twilio.validateRequest(config.twilioAuthToken, signature, absolute, params);
 }
 
