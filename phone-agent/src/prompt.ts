@@ -1,4 +1,4 @@
-import type { CallContext } from './types';
+import type { CallContext } from './types.js';
 
 export function buildRealtimeSystemPrompt(context: CallContext): string {
   const d = context.dossier;
