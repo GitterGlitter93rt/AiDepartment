@@ -131,6 +131,20 @@ export const RULES: Rule[] = [
               /\b(breaker|panel|outlet|electrical|fuse box)\b[^.]{0,45}\bwater\b/i],
     support: [/\b(running|dripping|pouring|leak\w*|down the wall)\b/i],
     veto: [/\b(burning|smok\w+|spark\w+|melt\w+)\b/i] },
+  { industry: 'plumbing', specialty: 'emergency', intent: 'active_water_leak', urgency: 'high',
+    // Water through a ceiling WITH a fixture above it. The router asks
+    // exactly this discriminator when a ceiling leak is ambiguous, so
+    // the answer has to route somewhere.
+    // [^] rather than [^.] on purpose: the router sees the caller's
+    // turns joined together, so the ceiling is mentioned in one
+    // sentence and the fixture above it in the next. Confining these to
+    // a single sentence is what made the discriminator question
+    // useless — the caller answered it and nothing matched.
+    anchors: [/\b(ceiling|downstairs)\b[^]{0,80}\b(bathroom|shower|tub|toilet|sink|washing machine|water heater|pipe|supply line|dishwasher)\b[^]{0,50}\b(above|upstairs|up there|second floor)\b/i,
+              /\b(bathroom|shower|tub|toilet|sink|washing machine|water heater|pipe|dishwasher)\b[^]{0,60}\b(above|upstairs)\b[^]{0,60}\b(leak\w*|through|ceiling|drip\w*|water)\b/i,
+              /\b(ceiling|downstairs)\b[^]{0,80}\bwhen\b[^]{0,50}\b(shower|toilet|bath|sink|washing machine|dishwasher)\b/i,
+              /\b(upstairs|above)\b[^]{0,40}\b(bathroom|shower|toilet|sink)\b[^]{0,60}\b(leak\w*|through|ceiling|drip\w*)\b/i],
+    support: [/\bceiling\b/i, /\bupstairs\b/i, /\bwater\b/i] },
   { industry: 'plumbing', specialty: 'drains', intent: 'sewer_backup', urgency: 'emergency',
     anchors: [/\bsewer\w* (back\w*|line)\b/i, /\bsewage\b/i, /\bbacking up into\b/i],
     support: [/\bsmell\b/i, /\bshower\b/i, /\btoilet\b/i],
@@ -160,6 +174,10 @@ export const RULES: Rule[] = [
   { industry: 'roofing', specialty: 'storm', intent: 'storm_damage', urgency: 'high',
     anchors: [/\broof\w*\b[^.]{0,60}\b(storm|hail|wind|hurricane|tornado)\b/i,
               /\b(storm|hail|wind|hurricane|tornado)\b[^.]{0,60}\broof\w*/i,
+              // The answer to the ceiling-leak discriminator, which
+              // arrives in a later sentence than the ceiling mention.
+              /\bceiling\b[^]{0,90}\b(during|after|in) (the )?(rain|storm|downpour)\b/i,
+              /\b(started|began|happens)\b[^]{0,40}\b(during|when it|after it)\b[^]{0,25}\b(rain\w*|storm\w*|pour\w*)\b/i,
               /\b(storm|wind) (ripped|tore|blew)\b[^.]{0,30}\bshingle/i],
     support: [/\bdamage\w*/i, /\bshingle\w*/i, /\bleak\w*/i, /\binsurance\b/i, /\bmissing\b/i],
     // A car has a roof too. Hail on a hood is body work.

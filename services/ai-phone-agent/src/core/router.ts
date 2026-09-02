@@ -24,6 +24,62 @@ import { RULES, EMERGENCY_MARKERS } from './router-rules.ts';
 import { ROUTER_SYSTEM_PROMPT } from '../prompts/router.ts';
 
 
+/**
+ * Situations where the words genuinely do not settle the trade, and a
+ * confident answer is a guess wearing a suit.
+ *
+ * The first real production call opened with water coming through a
+ * ceiling. The router said roofing at high confidence, the caller
+ * explained further, and it had to reroute to plumbing mid-call. It
+ * was never a roofing call — the router simply had no way to know, and
+ * said so with more certainty than the evidence supported.
+ *
+ * Water travels. A ceiling stain comes from a roof, a supply line, a
+ * bathroom above, or an air handler's condensate, and the only thing
+ * that separates them is a question. Each entry here caps confidence
+ * and supplies the one question that actually discriminates.
+ */
+interface Ambiguity {
+  id: string;
+  /** The situation, with no discriminating context. */
+  pattern: RegExp;
+  /** Any of these settle it, so the ambiguity does not apply. */
+  resolvedBy: RegExp[];
+  question: string;
+}
+
+/** Ceiling for anything matching a known ambiguity. Below every threshold. */
+export const AMBIGUOUS_CONFIDENCE_CAP = 0.5;
+
+export const AMBIGUITIES: Ambiguity[] = [
+  {
+    id: 'ceiling_water',
+    // Both word orders. "My ceiling is leaking" and "water is coming
+    // through my ceiling" are the same call.
+    pattern: /\b(ceiling|upstairs floor)\b[^.]{0,45}\b(leak\w*|water|drip\w*|wet|stain|spot|coming through|pouring)\b|\b(leak\w*|water|drip\w*|pouring|coming (through|down))\b[^.]{0,35}\b(ceiling|upstairs floor)\b/i,
+    resolvedBy: [
+      // Roof side.
+      /\b(roof|shingle|storm|rain|raining|rained|hail|wind|attic|gutter|flashing|skylight|tarp|hurricane)\b/i,
+      // Plumbing side.
+      /\b(pipe|plumb\w*|bathroom|shower|tub|toilet|sink|washing machine|water heater|supply line|upstairs bath|dishwasher)\b/i,
+      // HVAC side.
+      /\b(a\/?c|air ?condition\w*|air handler|condensate|hvac|furnace)\b/i,
+    ],
+    question:
+      "Let's work out where it's coming from — did this start during rain, or is there a bathroom or air conditioner above that spot?",
+  },
+];
+
+/** The ambiguity this utterance falls into, if any. */
+export function detectAmbiguity(utterance: string): Ambiguity | null {
+  for (const a of AMBIGUITIES) {
+    if (!a.pattern.test(utterance)) continue;
+    if (a.resolvedBy.some((re) => re.test(utterance))) continue;
+    return a;
+  }
+  return null;
+}
+
 export interface HeuristicResult extends RouteDecision {
   /** Score of the runner-up industry, for margin diagnostics. */
   runnerUp: number;
@@ -92,6 +148,12 @@ export function classifyHeuristic(utterance: string): HeuristicResult {
   if (best.score >= 20) confidence = Math.max(confidence, 0.93);
   if (best.score >= 20 && margin >= 10) confidence = Math.max(confidence, 0.95);
   confidence = Math.min(confidence, 0.97);
+
+  // A known ambiguity caps confidence however well the keywords scored.
+  // Applied here rather than only in route() so that anything reading
+  // the heuristic — including the safety-contract tests — sees the same
+  // honest number the caller's routing acts on.
+  if (detectAmbiguity(utterance)) confidence = Math.min(confidence, AMBIGUOUS_CONFIDENCE_CAP);
 
   let urgency: Urgency = best.rule.urgency ?? 'normal';
   if (EMERGENCY_MARKERS.some((re) => re.test(text)) && urgency !== 'emergency') {
@@ -165,6 +227,9 @@ export function detectScenarioChange(
  * routing or classification — it reads as a receptionist asking what
  * the call is about. */
 export function clarifyingQuestionFor(utterance: string): string {
+  const ambiguity = detectAmbiguity(utterance);
+  if (ambiguity) return ambiguity.question;
+
   if (/\bhouse\b|\bhome\b|\bproperty\b/i.test(utterance)) {
     return "Happy to help — is this about a repair, a legal matter, buying or selling, or something else?";
   }
@@ -183,6 +248,19 @@ export interface RouteOptions {
 export async function route(utterance: string, opts: RouteOptions = {}): Promise<RouteDecision> {
   const threshold = opts.threshold ?? 0.6;
   const heuristic = classifyHeuristic(utterance);
+
+  // A known ambiguity caps confidence no matter how well the keywords
+  // scored. Routing "water is coming through my ceiling" to roofing at
+  // 0.86 is not a near miss — it is stating something the words do not
+  // support, and it cost a reroute on the first production call.
+  const ambiguity = detectAmbiguity(utterance);
+  if (ambiguity) {
+    return {
+      ...stripInternals(heuristic),
+      confidence: Math.min(heuristic.confidence, 0.5),
+      clarifyingQuestion: ambiguity.question,
+    };
+  }
 
   if (heuristic.confidence >= 0.8) {
     return stripInternals(heuristic);

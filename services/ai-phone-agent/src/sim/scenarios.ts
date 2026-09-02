@@ -251,7 +251,12 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'ROOF_ACTIVE_LEAK',
     industry: 'roofing', intent: 'active_leak',
-    opening: 'There is water dripping through my ceiling into a bucket right now.',
+    // The bare version of this line is deliberately AMBIGUOUS now. The
+    // first production call routed "water through my ceiling" straight
+    // to roofing and had to reroute mid-conversation. A real caller
+    // says when it started, and that is what settles it.
+    context: 'There is water dripping through my ceiling into a bucket right now.',
+    opening: 'It started during the storm last night.',
     expectMentions: [/urgent|today|soon|right away|as soon/i],
     prohibited: [/climb|get on the roof|tarp it yourself/i, /within (an hour|30)/i],
     note: 'Never send a homeowner onto a wet roof.',

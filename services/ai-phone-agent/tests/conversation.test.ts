@@ -191,10 +191,12 @@ describe('Conversation quality guarantees', () => {
 
     await orch.handleCallerUtterance('CA_state', 'What else do you need?');
     const system = claude.lastSystem();
-    assert.match(system, /Already known:/);
+    assert.match(system, /Contact details on file:/);
     assert.match(system, /firstName: Tony/);
     assert.match(system, /minorChildren: true/);
-    assert.match(system, /Do not ask again/i);
+    assert.match(system, /Never ask again/i);
+    // The caller must be able to ask what we hold and get a true answer.
+    assert.match(system, /do you have my ZIP/i);
   });
 
   test('core voice rules are applied to every specialist', async () => {

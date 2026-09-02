@@ -252,8 +252,8 @@ describe('A caller who volunteers details and never books is not lost', () => {
     await orch.handleCallerUtterance('CA_brief', 'You can reach me at 904-555-0142.');
 
     const system = claude.lastSystem();
-    assert.match(system, /Already known:/);
+    assert.match(system, /Contact details on file:/);
     assert.match(system, /phone/);
-    assert.match(system, /Do not ask again/i);
+    assert.match(system, /Never ask again/i);
   });
 });

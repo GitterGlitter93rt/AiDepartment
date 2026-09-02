@@ -28,6 +28,9 @@ import { knowledgeFor } from '../knowledge/index.ts';
 import { matchKnowledge, renderKnowledge } from '../knowledge/types.ts';
 import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../business/profile.ts';
 import { extractFromUtterance, mergeContact } from './extract.ts';
+import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
+import { DEFAULT_SERVICE_AREA, serviceLocalTime, partOfDay, type ServiceArea } from '../business/service-area.ts';
+import { renderPricing, PLUMBING_DEMO_PRICING, PLUMBING_DEMO_ETA, type ServicePricing, type EtaPolicy } from '../business/pricing.ts';
 
 /** Turns of history sent verbatim. A phone call's working memory. */
 export const HISTORY_WINDOW = 20;
@@ -49,6 +52,23 @@ Write at most six short lines covering ONLY things that would change how the res
 
 Do NOT include: contact details, pleasantries, the agent's own questions, or anything already obvious from the last few turns. Do not speculate. Do not add advice. Plain sentences, no bullets, no headings.`;
 
+/**
+ * What the transport should do with a reply.
+ *
+ * An explicit contract rather than string-matching the response: an
+ * agent that says "goodbye for now, but first let me confirm the
+ * address" must not hang up, and any keyword rule eventually does.
+ */
+export type TurnAction = 'SPEAK_AND_CONTINUE' | 'SPEAK_AND_END';
+
+export interface TurnResult {
+  /** The only thing the caller hears. */
+  text: string;
+  action: TurnAction;
+  /** Why the call is ending, when it is. Logged, never spoken. */
+  endReason?: string;
+}
+
 export const GREETING =
   "Thanks for calling. Tell me a bit about what's going on and I'll get you to the right place.";
 
@@ -64,6 +84,11 @@ export interface OrchestratorDeps {
   tools?: Toolbox;
   /** Per-role model settings. Defaults come from the environment. */
   models?: ModelConfig;
+  /** Where the business works, and what time it is there. Never the server clock. */
+  serviceArea?: ServiceArea;
+  /** Published rates. Absent means the agent must not quote a fee. */
+  pricing?: ServicePricing | null;
+  etaPolicy?: EtaPolicy;
   /** Ceiling on tool round-trips inside one turn. A phone call cannot
    * absorb more than a couple before the silence is noticeable. */
   maxToolRounds?: number;
@@ -101,10 +126,32 @@ export class Orchestrator {
     this.models = deps.models ?? resolveModels();
   }
 
+  /**
+   * Backwards-compatible entry point.
+   *
+   * Everything that only needs the words still calls this; the
+   * transport calls handleTurn() because it also needs to know whether
+   * to close the line.
+   */
   async handleCallerUtterance(callSid: string, utterance: string): Promise<string> {
+    return (await this.handleTurn(callSid, utterance)).text;
+  }
+
+  async handleTurn(callSid: string, utterance: string): Promise<TurnResult> {
     const { sessions, claude, log } = this.deps;
     const session = sessions.ensure(callSid);
     sessions.addTurn(callSid, 'caller', utterance);
+
+    // The number they are calling from is the obvious callback number,
+    // and making someone read their own phone number back is the kind
+    // of thing that makes an automated system feel automated. It is
+    // recorded as provisional so the agent still confirms it once, and
+    // any number they actually give replaces it.
+    if (!session.contact.phone && /^\+?[1-9]\d{7,14}$/.test(session.from)) {
+      session.contact.phone = session.from;
+      session.qualification.phoneFromCallerId = true;
+      log.log('field.captured', { callSid, fields: ['phone'], source: 'caller-id' });
+    }
 
     // Catch the details a caller volunteers in passing, before anything
     // else. They rarely answer one question at a time, and a number
@@ -133,7 +180,7 @@ export class Orchestrator {
       if (session.probeCount > PROBE_LIMIT) {
         log.log('guard.blocked', { callSid, count: session.probeCount });
         sessions.addTurn(callSid, 'agent', PERSISTENT_PROBE_REPLY);
-        return PERSISTENT_PROBE_REPLY;
+        return { text: PERSISTENT_PROBE_REPLY, action: 'SPEAK_AND_CONTINUE' };
       }
     }
 
@@ -171,7 +218,7 @@ export class Orchestrator {
           const opening = spec ? spec.openingLine(session) : null;
           if (opening) {
             sessions.addTurn(callSid, 'agent', opening);
-            return opening;
+            return { text: opening, action: 'SPEAK_AND_CONTINUE' };
           }
         }
       }
@@ -181,7 +228,7 @@ export class Orchestrator {
       const reply = await this.routeTurn(session, utterance);
       if (reply) {
         sessions.addTurn(callSid, 'agent', reply);
-        return reply;
+        return { text: reply, action: 'SPEAK_AND_CONTINUE' };
       }
     }
 
@@ -193,7 +240,14 @@ export class Orchestrator {
     // context slightly and must never break the call.
     void this.maybeSummarise(session);
 
-    return reply;
+    // The agent asked to finish during this turn. The farewell it just
+    // produced is spoken first; the transport closes the line after.
+    if (session.pendingEnd) {
+      log.log('call.ending', { callSid, reason: session.pendingEnd.reason });
+      return { text: reply, action: 'SPEAK_AND_END', endReason: session.pendingEnd.reason };
+    }
+
+    return { text: reply, action: 'SPEAK_AND_CONTINUE' };
   }
 
   /** Stage 1. Returns a clarifying question, or null once routed. */
@@ -305,8 +359,16 @@ export class Orchestrator {
       .map((t) => ({ role: (t.role === 'caller' ? 'user' : 'assistant') as 'user' | 'assistant', content: t.text }));
 
     try {
-      log.log('llm.request', { callSid: session.callSid, turns: messages.length });
+      const claudeRequestStartedAt = Date.now();
+      log.log('llm.request', { callSid: session.callSid, turns: messages.length, systemChars: system.length });
       const reply = await this.runTurn(session, system, messages);
+      // Timing only. Transcript content is governed separately by
+      // LOG_TRANSCRIPTS and never appears here.
+      log.log('llm.usage', {
+        callSid: session.callSid,
+        claudeDurationMs: Date.now() - claudeRequestStartedAt,
+        stage: 'specialist',
+      });
       if (!reply) return "Sorry — could you say that once more?";
 
       // Last check before this reaches text-to-speech.
@@ -455,6 +517,18 @@ export class Orchestrator {
   }
 
   /**
+   * Published rates for this industry, or null when none are configured.
+   *
+   * Null is meaningful: it is what keeps every other industry refusing
+   * to quote. Only a business that has actually given us its rates gets
+   * to state one.
+   */
+  private pricingFor(industry: string | null): ServicePricing | null {
+    if (this.deps.pricing !== undefined) return this.deps.pricing;
+    return industry === 'plumbing' ? PLUMBING_DEMO_PRICING : null;
+  }
+
+  /**
    * The business profile for this call.
    *
    * DEMO returns a generic profile per industry — which is why the demo
@@ -472,17 +546,34 @@ export class Orchestrator {
     return this.profileFor(null).mode === 'client';
   }
 
-  /** Tells the model what is already known, so it never re-asks. */
+  /**
+   * What is already known, what is still needed, and what to do about it.
+   *
+   * This is the record, not the transcript. A caller who asks "do you
+   * have my ZIP code?" is asking about THIS list, and the answer has to
+   * come from here — on the first production call the agent had no
+   * reliable record and the caller had to ask whether it had been
+   * captured at all.
+   */
   private stateBrief(session: Session, goals: string[]): string {
-    const known = Object.entries({ ...session.contact, ...session.qualification })
+    const contact = Object.entries(session.contact)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => `- ${k}: ${String(v)}`);
+    const answers = Object.entries(session.qualification)
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `- ${k}: ${String(v)}`);
 
     return [
-      'CALL STATE (internal — never read aloud):',
-      known.length ? `Already known:\n${known.join('\n')}` : 'Already known: nothing yet.',
-      goals.length ? `Still to find out, in roughly this order:\n${goals.map((g) => `- ${g}`).join('\n')}` : '',
-      'Do not ask again for anything listed as already known.',
+      'CALL STATE (internal — never read this out as a list):',
+      contact.length ? `Contact details on file:\n${contact.join('\n')}` : 'Contact details on file: none yet.',
+      answers.length ? `Answers already given:\n${answers.join('\n')}` : '',
+      goals.length ? `Still needed, in roughly this order:\n${goals.map((g) => `- ${g}`).join('\n')}` : '',
+      '',
+      'RULES FOR THIS LIST',
+      '- Never ask again for anything listed above. The caller already told you.',
+      '- If they ask what you have — "do you have my ZIP?", "what address do you have?" — answer from this list, accurately. If it is not there, say so plainly and ask for it.',
+      '- When they give you something new, or correct something, call capture_details straight away so it is recorded. Do not wait until the end of the call; callers hang up.',
+      '- A correction replaces the old value silently. Do not make them repeat it twice.',
     ].filter(Boolean).join('\n');
   }
 }

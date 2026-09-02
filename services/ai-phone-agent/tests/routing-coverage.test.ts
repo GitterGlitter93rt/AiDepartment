@@ -263,6 +263,11 @@ const GENUINELY_AMBIGUOUS: [string, string][] = [
   // and the veto rules already peel off the insurance-claim and
   // tree-removal variants of the same sentence.
   ['Can you come out and take a look?', 'no subject at all'],
+  // From the first real production call: routed confidently to roofing,
+  // then had to reroute to plumbing once the caller explained. Water
+  // travels — a ceiling stain is a roof, a supply line, a bathroom
+  // above, or an air handler, and only a question separates them.
+  ['There is water dripping through my ceiling.', 'roof vs. plumbing vs. AC condensate'],
   ['I got your number from a friend.', 'no subject at all'],
 ];
 

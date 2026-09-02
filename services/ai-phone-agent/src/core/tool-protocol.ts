@@ -151,6 +151,18 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
     },
   },
   {
+    name: 'end_call',
+    description:
+      "Finish the call. Use this ONLY after you have said goodbye and the caller has confirmed there is nothing else — they said no, that's it, thanks that's all, or goodbye. Your farewell is spoken first and in full; this ends the line afterwards. Do NOT use it because the caller thanked you mid-conversation, and never use it while anything is still outstanding.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: 'Why the call is complete, in a few words. Recorded, not spoken.' },
+      },
+      required: ['reason'],
+    },
+  },
+  {
     name: 'transfer_to_human',
     description:
       'Hand the call to a person. Use when the caller asks for one, is in distress, or the situation is outside what you can handle.',
@@ -392,6 +404,17 @@ export function validateToolRequest(
       };
     }
 
+    case 'end_call': {
+      const reason = str(input, 'reason');
+      if (!reason) return { ok: false, reason: 'reason is required.' };
+      // A call with no exchange at all is not a call that can be
+      // finished; ending on turn one is a model mistake, not a wrap-up.
+      if (session.turns.length < 3) {
+        return { ok: false, reason: 'The call has barely started. Help the caller before ending it.' };
+      }
+      return { ok: true, value: { reason } };
+    }
+
     case 'transfer_to_human': {
       const reason = str(input, 'reason');
       if (!reason) return { ok: false, reason: 'reason is required.' };
@@ -580,6 +603,16 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         note:
           `The ${action} request is logged for a person to action. Tell the caller someone will confirm it shortly. ` +
           `Do NOT say the appointment has been ${action === 'cancel' ? 'cancelled' : 'moved'} — nothing has changed yet.`,
+      });
+    }
+
+    case 'end_call': {
+      // Recorded on the session; the transport reads it after the
+      // farewell has been sent, so the goodbye is never clipped.
+      session.pendingEnd = { reason: String(args.reason), at: now.toISOString() };
+      return JSON.stringify({
+        ending: true,
+        note: 'Say your farewell now, in one short sentence. The line closes after you speak.',
       });
     }
 

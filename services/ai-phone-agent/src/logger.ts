@@ -28,6 +28,8 @@ export type LogEvent =
   | 'guard.output_blocked'
   | 'knowledge.matched'
   | 'call.summary'
+  | 'call.ending'
+  | 'turn.latency'
   | 'llm.usage'
   | 'error';
 

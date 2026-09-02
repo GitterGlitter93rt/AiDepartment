@@ -9,20 +9,25 @@
 
 import { PATHS } from './http/paths.ts';
 
-function str(name: string, fallback = ''): string {
-  const v = process.env[name];
-  return typeof v === 'string' && v.trim().length > 0 ? v.trim() : fallback;
-}
-
-function bool(name: string, fallback: boolean): boolean {
-  const v = process.env[name];
-  if (typeof v !== 'string' || v.trim() === '') return fallback;
-  return /^(1|true|yes|on)$/i.test(v.trim());
-}
-
-function num(name: string, fallback: number): number {
-  const v = Number(process.env[name]);
-  return Number.isFinite(v) ? v : fallback;
+// The reader is bound to the env passed into loadConfig. Previously
+// these read process.env directly while loadConfig accepted an env
+// argument, so the parameter was a lie and configuration could not be
+// tested without mutating the real environment.
+function readers(env: NodeJS.ProcessEnv) {
+  const str = (name: string, fallback = ''): string => {
+    const v = env[name];
+    return typeof v === 'string' && v.trim().length > 0 ? v.trim() : fallback;
+  };
+  const bool = (name: string, fallback: boolean): boolean => {
+    const v = env[name];
+    if (typeof v !== 'string' || v.trim() === '') return fallback;
+    return /^(1|true|yes|on)$/i.test(v.trim());
+  };
+  const num = (name: string, fallback: number): number => {
+    const v = Number(env[name]);
+    return env[name] !== undefined && Number.isFinite(v) ? v : fallback;
+  };
+  return { str, bool, num };
 }
 
 export interface Config {
@@ -38,6 +43,12 @@ export interface Config {
 
   anthropicApiKey: string;
   claudeModel: string;
+  /** ConversationRelay TTS voice. Defaults to the voice production runs today. */
+  ttsVoice: string;
+  ttsLanguage: string;
+  /** Where the business works. Never the server's clock. */
+  serviceAreaState: string;
+  serviceAreaTimezone: string;
   /** Log a full end-of-call summary. Off in environments where the
    * summary would duplicate a CRM record. */
   callSummaryEnabled: boolean;
@@ -62,6 +73,7 @@ export interface Config {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const { str, bool, num } = readers(env);
   const publicBaseUrl = str('PUBLIC_BASE_URL');
   // Default the relay URL off the public base URL so a single hostname
   // is the only thing that has to be set.
@@ -95,6 +107,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
     anthropicApiKey: str('ANTHROPIC_API_KEY'),
     claudeModel: str('CLAUDE_MODEL', 'claude-sonnet-5'),
+    // These defaults are the values the first successful production
+    // call used. Changing them changes what callers hear, so they are
+    // overridden deliberately or not at all.
+    ttsVoice: str('TWILIO_TTS_VOICE', 'en-US-Journey-O'),
+    ttsLanguage: str('TWILIO_TTS_LANGUAGE', 'en-US'),
+    serviceAreaState: str('SERVICE_AREA_STATE', 'FL'),
+    serviceAreaTimezone: str('SERVICE_AREA_TIMEZONE', 'America/New_York'),
     callSummaryEnabled: bool('CALL_SUMMARY_ENABLED', true),
     routerConfidenceThreshold: num('ROUTER_CONFIDENCE_THRESHOLD', 0.6),
 

@@ -21,7 +21,7 @@ import { parseRelayMessage, textResponse, endResponse, chunkForSpeech } from './
 import { validateTwilioSignature, formToRecord } from './twilio/signature.ts';
 import { RateLimiter, readBodyLimited, clientIp, MAX_BODY_BYTES } from './http/guards.ts';
 import { PATHS } from './http/paths.ts';
-import { buildCallSummary, buildDemoAnalytics } from './core/call-summary.ts';
+import { finaliseCall } from './core/finalise.ts';
 import { selectSpecialist } from './industries/index.ts';
 
 const cfg = loadConfig();
@@ -32,6 +32,7 @@ const tools = createToolbox(cfg, log);
 const orchestrator = new Orchestrator({
   sessions, claude, log, tools,
   confidenceThreshold: cfg.routerConfidenceThreshold,
+  serviceArea: { state: cfg.serviceAreaState, timezone: cfg.serviceAreaTimezone },
 });
 
 const limiter = new RateLimiter(120, 60_000);
@@ -102,6 +103,8 @@ const server = createServer(async (req, res) => {
       return send(res, 200, conversationRelayTwiml({
         relayUrl: cfg.relayUrl,
         welcomeGreeting: GREETING,
+        voice: cfg.ttsVoice,
+        language: cfg.ttsLanguage,
         actionUrl: publicUrlFor(PATHS.relayAction, req),
       }), 'text/xml');
     }
@@ -167,31 +170,11 @@ const server = createServer(async (req, res) => {
 });
 
 async function endCall(callSid: string, reason: string) {
-  const session = sessions.get(callSid);
-  if (!session) return;
-
-  // The CRM push must not be able to take down the summary. A failed
-  // integration is a thing to fix later; losing the record of what
-  // happened on the call is a thing you can never recover.
-  try {
-    await tools.crm.pushLead(session);
-  } catch (err) {
-    log.log('tool.failed', { callSid, tool: 'crm', error: String(err).slice(0, 200) });
-  }
-
-  const ended = sessions.end(callSid) ?? session;
-  const spec = selectSpecialist(ended);
-  const summary = buildCallSummary(ended, spec?.qualificationSchema.map((f) => f.key) ?? []);
-
-  log.log('call.ended', { callSid, reason, headline: summary.headline });
-
-  // Two records on purpose. The summary is for a human reading one
-  // call; the analytics event is for counting many, and carries no
-  // personal data at all.
-  if (cfg.callSummaryEnabled) {
-    log.log('call.summary', summary as unknown as Record<string, unknown>);
-  }
-  log.log('call.summary', buildDemoAnalytics(ended) as unknown as Record<string, unknown>);
+  await finaliseCall(callSid, reason, {
+    sessions, crm: tools.crm, log,
+    expectedFields: (session) => selectSpecialist(session)?.qualificationSchema.map((f) => f.key) ?? [],
+    callSummaryEnabled: cfg.callSummaryEnabled,
+  });
 }
 
 /** Phone numbers are personal data; logs keep only enough to correlate. */
@@ -236,7 +219,9 @@ async function startWebSocket() {
           if (!utterance) return;
           if (cfg.logTranscripts) log.log('transcript.caller', { callSid, text: utterance });
 
-          const reply = await orchestrator.handleCallerUtterance(callSid, utterance);
+          const promptReceivedAt = Date.now();
+          const turn = await orchestrator.handleTurn(callSid, utterance);
+          const reply = turn.text;
           if (cfg.logTranscripts) log.log('transcript.agent', { callSid, text: reply });
 
           // Stream in clauses so speech begins before the full reply
@@ -246,10 +231,22 @@ async function startWebSocket() {
             socket.send(textResponse(chunk, i === chunks.length - 1));
           });
 
-          // A transfer requested during this turn is carried out only
-          // now, after the agent's closing sentence has been sent.
-          // Ending the relay any earlier clips the last thing the
-          // caller was told.
+          // Timing only — never transcript content. This is what tells
+          // us whether the caller is waiting on the model or on us.
+          const firstTtsTokenSentAt = Date.now();
+          log.log('turn.latency', {
+            callSid,
+            turnIndex: sessions.get(callSid)?.turns.length ?? 0,
+            totalTurnToFirstSpeechMs: firstTtsTokenSentAt - promptReceivedAt,
+            replyChars: reply.length,
+            chunks: chunks.length,
+          });
+
+          // A transfer or a hang-up requested during this turn happens
+          // only now, after the closing sentence has been sent. Ending
+          // the relay any earlier clips the last thing the caller was
+          // told, which is the whole reason this is not done inside the
+          // tool.
           const session = sessions.get(callSid);
           if (session?.pendingTransfer) {
             socket.send(endResponse({
@@ -257,6 +254,11 @@ async function startWebSocket() {
               target: session.pendingTransfer.target,
               summary: session.pendingTransfer.summary,
             }));
+            return;
+          }
+          if (turn.action === 'SPEAK_AND_END') {
+            socket.send(endResponse({ reason: 'completed', detail: turn.endReason ?? 'call complete' }));
+            await endCall(callSid, 'agent-ended');
           }
           return;
         }

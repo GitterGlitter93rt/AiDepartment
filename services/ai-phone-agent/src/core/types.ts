@@ -84,4 +84,15 @@ export interface Session {
    * so it costs the caller no silence.
    */
   summary?: { text: string; throughTurn: number };
+  /**
+   * Set when the agent has decided the call is finished.
+   *
+   * The transport reads this AFTER sending the farewell text, so the
+   * goodbye is spoken in full before the line closes. Deciding this
+   * by searching replies for the word "goodbye" would end calls in the
+   * middle of "goodbye for now, but first...".
+   */
+  pendingEnd?: { reason: string; at: string };
+  /** Guards against a second finalisation. See server.ts endCall(). */
+  finalised?: boolean;
 }
