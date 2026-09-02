@@ -36,8 +36,22 @@ export type TimelineMark =
    * real handset.
    */
   | 'FIRST_AGENT_AUDIO_PROXY'
+  /** The branded positioning that follows the short greeting. */
+  | 'INTRO_POSITIONING_SENT'
   /** First interim transcript — the caller has started talking. */
   | 'FIRST_CALLER_SPEECH'
+  /**
+   * An interim transcript whose TEXT differs from the previous one.
+   *
+   * The distinction matters. Interim frames keep arriving while
+   * someone talks, so the span from the first of them to the final
+   * transcript is mostly the caller SPEAKING, not Twilio deciding they
+   * had finished. Reporting that span as "endpoint delay" is how a
+   * nine-second sentence becomes a nine-second latency bug that does
+   * not exist. Finalisation lag is measured from the last frame whose
+   * text actually changed.
+   */
+  | 'LAST_PARTIAL_TEXT_CHANGE'
   /** Final transcript. Twilio has decided the caller stopped. */
   | 'CALLER_END_OF_TURN'
   | 'TURN_HANDLER_START'
@@ -76,7 +90,10 @@ export interface Timeline {
 }
 
 /** Marks that mean "the first time this happened" and must not repeat
- * within a turn — emitting them twice would make the table lie. */
+ * within a turn — emitting them twice would make the table lie.
+ *
+ * LAST_PARTIAL_TEXT_CHANGE is deliberately absent: it is a "most
+ * recent", not a "first", and every repeat moves it forward. */
 const ONCE_PER_TURN: ReadonlySet<TimelineMark> = new Set<TimelineMark>([
   'FIRST_CALLER_SPEECH',
   'CALLER_END_OF_TURN',
@@ -98,6 +115,7 @@ const ONCE_PER_CALL: ReadonlySet<TimelineMark> = new Set<TimelineMark>([
   'WEBSOCKET_CONNECTED',
   'RELAY_SETUP_RECEIVED',
   'FIRST_AGENT_AUDIO_PROXY',
+  'INTRO_POSITIONING_SENT',
 ]);
 
 export interface TimelineSink {

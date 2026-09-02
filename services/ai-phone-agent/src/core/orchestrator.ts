@@ -30,7 +30,7 @@ import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../bus
 import { extractFromUtterance, mergeContact } from './extract.ts';
 import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
 import { isUsableNumber, renderPhoneGuidance } from './contact-routing.ts';
-import { renderGoal, renderOfferMemory } from './goals.ts';
+import { renderGoal, renderOfferMemory, renderToolBlocks } from './goals.ts';
 import type { TimelineMark } from './telemetry.ts';
 import { renderActionPolicies } from '../business/render-policies.ts';
 import { detectSalesIntent, isDecliningOffer, renderDemoHost } from './demo-host.ts';
@@ -40,6 +40,29 @@ import { renderPricing, PLUMBING_DEMO_PRICING, PLUMBING_DEMO_ETA, type ServicePr
 
 /** Turns of history sent verbatim. A phone call's working memory. */
 export const HISTORY_WINDOW = 20;
+
+/**
+ * The most a single spoken turn may run to.
+ *
+ * About 55 words — a generous receptionist answer. Most good turns are
+ * a third of this; the limit exists to catch the paragraph, not to
+ * shape the sentence. Enforced at a clause boundary so a capped turn
+ * still ends on a finished thought.
+ */
+export const MAX_SPEECH_CHARS = 340;
+
+/**
+ * How many outstanding fields the model is shown at once.
+ *
+ * A short list reads as "what would help next"; the full schema reads
+ * as a form to complete, and the agent completes it. Everything else
+ * is still tracked — it is simply not put in front of the model until
+ * the conversation is anywhere near it.
+ */
+export const MAX_GOALS_SHOWN = 6;
+
+/** One labelled section of the system prompt: [name, text]. */
+export type PromptBlock = [name: string, text: string];
 
 /**
  * Turn count past which a rolling summary is maintained.
@@ -388,22 +411,20 @@ export class Orchestrator {
     return spec ? spec.openingLine(session) : null;
   }
 
-  /** Stage 2. The specialist owns the conversation from here. */
-  private async specialistTurn(
+
+  /**
+   * Assembles the system prompt, keeping each block labelled.
+   *
+   * The labels exist so tools/token-budget.mts can report exactly what
+   * production sends rather than a reconstruction of it — a budget
+   * measured from a copy is a budget that quietly drifts.
+   */
+  buildSystemPrompt(
     session: Session,
+    spec: ReturnType<typeof selectSpecialist>,
     reinforcement: string | null = null,
-    delivery: TurnDelivery = {},
-  ): Promise<string> {
-    const { claude, log } = this.deps;
-    const spec = selectSpecialist(session);
-
-    if (!claude) {
-      // No API key: keep the call alive and honest rather than crashing.
-      return spec
-        ? "Thanks — I've got that. Let me take a few details so someone can follow up with you."
-        : "Thanks for that. Let me take a few details so the right person can call you back.";
-    }
-
+  ): { system: string; cachedSystemPrefix: string; blocks: PromptBlock[] } {
+    const { log } = this.deps;
     // The business the agent is answering for. Everything it may state
     // as fact about prices, hours, coverage and credentials comes from
     // here — and the absent fields are stated just as explicitly as the
@@ -465,6 +486,8 @@ export class Orchestrator {
     // down a list of fields.
     const goalBlock = renderGoal(session, session.route.industry);
     const offerBlock = renderOfferMemory(session);
+    // A refused tool, restated as the question that unblocks it.
+    const blockedBlock = renderToolBlocks(session);
 
     // Confirm the number we already have rather than asking for one.
     const phoneBlock = renderPhoneGuidance(session, session.route.industry);
@@ -472,32 +495,74 @@ export class Orchestrator {
     // How to pronounce what has already been captured.
     const speechBlock = renderSpeechGuidance(session.contact);
 
-    const system = [
-      CORE_AGENT_RULES,
-      spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
-      renderBusinessProfile(profile),
-      // The goal is what everything else serves, so it sits near the
-      // top rather than buried under policy.
-      ...(goalBlock ? [goalBlock] : []),
-      ...(demoBlock ? [demoBlock] : []),
-      ...(pricingBlock ? [pricingBlock] : []),
-      ...(actionBlock ? [actionBlock] : []),
-      ...(speechBlock ? [speechBlock] : []),
-      ...(phoneBlock ? [phoneBlock] : []),
-      ...(offerBlock ? [offerBlock] : []),
+    // ---- Static half. Identical on every turn of this call, so it is
+    // the part worth caching: roughly 85% of the payload, none of it
+    // turn-dependent. Anything whose text moves with the conversation
+    // belongs below the breakpoint, or the cache misses every turn and
+    // the whole exercise is pointless.
+    const staticBlocks: PromptBlock[] = [
+      ['core agent rules', CORE_AGENT_RULES],
+      ['industry specialist', spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.'],
+      ['business profile', renderBusinessProfile(profile)],
+      ...(pricingBlock ? [['pricing', pricingBlock] as PromptBlock] : []),
+      ...(actionBlock ? [['action policies', actionBlock] as PromptBlock] : []),
+    ];
+
+    // ---- Turn-dependent half.
+    const dynamicBlocks: PromptBlock[] = [
+      // The goal leads the dynamic half: it is what everything below
+      // serves, and it carries what has already been established.
+      ...(goalBlock ? [['industry goal', goalBlock] as PromptBlock] : []),
+      ...(demoBlock ? [['demo host', demoBlock] as PromptBlock] : []),
+      ...(speechBlock ? [['speech guidance', speechBlock] as PromptBlock] : []),
+      ...(phoneBlock ? [['phone guidance', phoneBlock] as PromptBlock] : []),
+      ...(offerBlock ? [['offer memory', offerBlock] as PromptBlock] : []),
+      ...(blockedBlock ? [['blocked actions', blockedBlock] as PromptBlock] : []),
       // Earlier narrative, once the call has outgrown the history
       // window. Structured state below covers the fields; this covers
       // what was said that never became one.
       ...(session.summary
-        ? [`EARLIER IN THIS CALL (internal — never read aloud):\n${session.summary.text}`]
+        ? [['summary', `EARLIER IN THIS CALL (internal — never read aloud):\n${session.summary.text}`] as PromptBlock]
         : []),
-      this.stateBrief(session, spec?.qualificationSchema.map((f) => f.goal) ?? []),
+      ['structured state', this.stateBrief(session, spec?.qualificationSchema.map((f) => f.goal) ?? [])],
       // The caller's actual question comes after the state brief so it
       // is not buried behind a list of fields still to collect.
-      ...(knowledgeBlock ? [knowledgeBlock] : []),
+      ...(knowledgeBlock ? [['knowledge', knowledgeBlock] as PromptBlock] : []),
       // Appended last so it is the most recent thing the model read.
-      ...(reinforcement ? [reinforcement] : []),
-    ].join('\n\n---\n\n');
+      ...(reinforcement ? [['reinforcement', reinforcement] as PromptBlock] : []),
+    ];
+
+    const SEP = '\n\n---\n\n';
+    const staticText = staticBlocks.map(([, text]) => text).join(SEP);
+    const dynamicText = dynamicBlocks.map(([, text]) => text).join(SEP);
+    // The separator belongs to the prefix so the cached span ends on a
+    // clean boundary and the suffix starts with real content.
+    const cachedSystemPrefix = staticText + SEP;
+
+    return {
+      system: cachedSystemPrefix + dynamicText,
+      cachedSystemPrefix,
+      blocks: [...staticBlocks, ...dynamicBlocks],
+    };
+  }
+
+  /** Stage 2. The specialist owns the conversation from here. */
+  private async specialistTurn(
+    session: Session,
+    reinforcement: string | null = null,
+    delivery: TurnDelivery = {},
+  ): Promise<string> {
+    const { claude, log } = this.deps;
+    const spec = selectSpecialist(session);
+
+    if (!claude) {
+      // No API key: keep the call alive and honest rather than crashing.
+      return spec
+        ? "Thanks — I've got that. Let me take a few details so someone can follow up with you."
+        : "Thanks for that. Let me take a few details so the right person can call you back.";
+    }
+
+    const { system, cachedSystemPrefix } = this.buildSystemPrompt(session, spec, reinforcement);
 
     const messages = session.turns
       .slice(-HISTORY_WINDOW) // keeps latency and cost bounded on long calls
@@ -506,7 +571,7 @@ export class Orchestrator {
     try {
       const claudeRequestStartedAt = Date.now();
       log.log('llm.request', { callSid: session.callSid, turns: messages.length, systemChars: system.length });
-      const reply = await this.runTurn(session, system, messages, delivery);
+      const reply = await this.runTurn(session, system, messages, delivery, cachedSystemPrefix);
       // Timing only. Transcript content is governed separately by
       // LOG_TRANSCRIPTS and never appears here.
       log.log('llm.usage', {
@@ -545,6 +610,7 @@ export class Orchestrator {
     system: string,
     messages: ClaudeMessage[],
     delivery: TurnDelivery = {},
+    cachedSystemPrefix?: string,
   ): Promise<string> {
     const { claude, log, tools, maxToolRounds = 2 } = this.deps;
     if (!claude) return '';
@@ -554,7 +620,7 @@ export class Orchestrator {
     // demo path use.
     if (!claude.send || !tools) {
       return claude.complete({
-        system, messages,
+        system, messages, cachedSystemPrefix,
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
@@ -571,7 +637,7 @@ export class Orchestrator {
     // come from.
     if (delivery.onClause && claude.stream) {
       const res = await claude.stream({
-        system, messages,
+        system, messages, cachedSystemPrefix,
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
@@ -580,6 +646,7 @@ export class Orchestrator {
         signal: delivery.signal,
         onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
         onFirstStreamEvent: () => delivery.mark?.('CLAUDE_FIRST_STREAM_EVENT'),
+        maxSpeechChars: MAX_SPEECH_CHARS,
       });
       this.recordUsage(session, res);
 
@@ -603,7 +670,7 @@ export class Orchestrator {
       }
 
       const follow = await claude.stream({
-        system, messages: convo,
+        system, messages: convo, cachedSystemPrefix,
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
@@ -611,6 +678,7 @@ export class Orchestrator {
         signal: delivery.signal,
         onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
         onFirstStreamEvent: () => delivery.mark?.('CLAUDE_FIRST_STREAM_EVENT'),
+        maxSpeechChars: MAX_SPEECH_CHARS,
       });
       this.recordUsage(session, follow);
       return follow.text || res.text;
@@ -623,6 +691,7 @@ export class Orchestrator {
       const res: CompleteResult = await claude.send({
         system,
         messages: convo,
+        cachedSystemPrefix,
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
@@ -768,13 +837,27 @@ export class Orchestrator {
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `- ${k}: ${String(v)}`);
 
+    // Only the next few. Handing over the entire schema — fifty-odd
+    // lines under "still needed, in roughly this order" — is what
+    // turned the agent into a form: given a numbered list, it works
+    // down the list. The caller's actual goal decides what matters
+    // next, and the rest of the schema will still be there when it
+    // does.
+    const nextUp = goals.slice(0, MAX_GOALS_SHOWN);
+    const remaining = goals.length - nextUp.length;
+
     return [
       'CALL STATE (internal — never read this out as a list):',
       contact.length ? `Contact details on file:\n${contact.join('\n')}` : 'Contact details on file: none yet.',
       answers.length ? `Answers already given:\n${answers.join('\n')}` : '',
-      goals.length ? `Still needed, in roughly this order:\n${goals.map((g) => `- ${g}`).join('\n')}` : '',
+      nextUp.length
+        ? `Useful to know next, if the conversation goes there naturally:\n${nextUp.map((g) => `- ${g}`).join('\n')}${
+            remaining > 0 ? `\n(${remaining} more, not urgent — do not go looking for them.)` : ''
+          }`
+        : '',
       '',
       'RULES FOR THIS LIST',
+      '- This is not a questionnaire and not an order of play. Answer what the caller actually asked, then take the one thing that moves their problem forward.',
       '- Never ask again for anything listed above. The caller already told you.',
       '- If they ask what you have — "do you have my ZIP?", "what address do you have?" — answer from this list, accurately. If it is not there, say so plainly and ask for it.',
       '- When they give you something new, or correct something, call capture_details straight away so it is recorded. Do not wait until the end of the call; callers hang up.',

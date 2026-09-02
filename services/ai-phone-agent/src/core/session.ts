@@ -62,6 +62,38 @@ export class SessionStore {
     s.turns.push({ role, text, at: new Date().toISOString() });
   }
 
+  /**
+   * Cuts the last agent turn down to what the caller actually heard.
+   *
+   * ConversationRelay reports `utteranceUntilInterrupt` — the words it
+   * had played before the caller talked over it. Without this the
+   * transcript claims the agent said a whole paragraph the caller
+   * never heard, and the next turn is built on a shared understanding
+   * that does not exist: it stops re-offering a link it "already
+   * mentioned", or answers a question nobody heard it ask.
+   *
+   * Returns what was dropped, for logging.
+   */
+  truncateLastAgentTurn(callSid: string, heard: string): string | null {
+    const s = this.sessions.get(callSid);
+    if (!s) return null;
+    const spoken = heard.trim();
+    if (!spoken) return null;
+    for (let i = s.turns.length - 1; i >= 0; i -= 1) {
+      const turn = s.turns[i];
+      if (turn.role !== 'agent') continue;
+      // Only ever shortens. A longer or unrelated value means the
+      // interrupt refers to something else — leave the record alone
+      // rather than corrupting it on a guess.
+      if (!turn.text.startsWith(spoken) || spoken.length >= turn.text.length) return null;
+      const dropped = turn.text.slice(spoken.length).trim();
+      turn.text = spoken;
+      turn.interrupted = true;
+      return dropped;
+    }
+    return null;
+  }
+
   setRoute(callSid: string, route: RouteDecision): void {
     const s = this.sessions.get(callSid);
     if (!s) return;

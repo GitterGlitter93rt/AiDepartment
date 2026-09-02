@@ -24,6 +24,16 @@ export interface RelayTwimlOptions {
    */
   partialPrompts?: boolean;
   /**
+   * What may cut the opening greeting short.
+   *
+   * `any` is the relay default; it is set explicitly because the split
+   * intro depends on it. A caller who starts talking during the
+   * positioning must be able to stop it — an intro that has to finish
+   * before it will listen is exactly the demo nobody wants to sit
+   * through.
+   */
+  welcomeGreetingInterruptible?: 'none' | 'dtmf' | 'speech' | 'any';
+  /**
    * Where Twilio POSTs when the relay session ends. This is what makes
    * a warm transfer possible: the relay hands back control, and the
    * TwiML returned at this URL decides whether the call is dialled on
@@ -36,7 +46,7 @@ export function conversationRelayTwiml(opts: RelayTwimlOptions): string {
   const {
     relayUrl, welcomeGreeting,
     voice = 'en-US-Journey-O', language = 'en-US', interruptible = true,
-    actionUrl, partialPrompts = false,
+    actionUrl, partialPrompts = false, welcomeGreetingInterruptible = 'any',
   } = opts;
 
   return (
@@ -50,6 +60,7 @@ export function conversationRelayTwiml(opts: RelayTwimlOptions): string {
     `language="${escapeXml(language)}" ` +
     `transcriptionProvider="google" ` +
     `interruptible="${interruptible ? 'true' : 'false'}" ` +
+    `welcomeGreetingInterruptible="${escapeXml(welcomeGreetingInterruptible)}" ` +
     (partialPrompts ? `partialPrompts="true" ` : '') +
     `/>` +
     `</Connect>` +

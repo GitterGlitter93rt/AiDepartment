@@ -14,6 +14,20 @@ export interface ClaudeMessage {
 
 export interface CompleteOptions {
   system: string;
+  /**
+   * The leading part of `system` that is identical on every turn of a
+   * call, marked for Anthropic's prompt cache.
+   *
+   * Worth doing because the static half is the big half: the core
+   * rules, the specialist persona, the business profile and the action
+   * policies are about 85% of the payload and none of them change
+   * between turns. Cached, they are billed at a fraction and skip
+   * re-processing, which shows up as time to first token.
+   *
+   * Must be a genuine prefix of `system` and byte-identical each turn,
+   * or the cache simply misses and nothing is gained.
+   */
+  cachedSystemPrefix?: string;
   messages: ClaudeMessage[];
   maxTokens?: number;
   temperature?: number;
@@ -48,6 +62,21 @@ export interface CompleteResult {
   raw: unknown[];
 }
 
+/**
+ * Clause release thresholds, in characters.
+ *
+ * These trade first-audio latency against how the speech sounds. A low
+ * comma threshold gets "Absolutely," out fast but risks a one-word
+ * fragment followed by a seam; a high one is smoother and slower. They
+ * are named and exported so the tuning is one edit and one test, not a
+ * hunt through a regex.
+ */
+export const FIRST_CLAUSE_MIN = 12;
+export const LATER_CLAUSE_MIN = 30;
+/** Lowest bar for the opening comma break. Raise if the live call
+ * sounds fragmented — see QA-LIVE-CALLS.md. */
+export const FIRST_COMMA_MIN = 10;
+
 /** A clause ready to speak, emitted before the reply is finished. */
 export type StreamSink = (text: string) => void;
 
@@ -73,6 +102,20 @@ export interface StreamOptions extends CompleteOptions {
    */
   onRequestStart?: () => void;
   onFirstStreamEvent?: () => void;
+  /**
+   * Stop speaking once this many characters have been emitted.
+   *
+   * A realtime receptionist that produces a 700-character paragraph
+   * has already lost the caller, and max_tokens is a poor lever: it
+   * cuts wherever the budget runs out, mid-word. This stops at the end
+   * of a completed clause — so the turn is short AND finishes a
+   * thought — and abandons the rest of the generation, which stops
+   * paying for words nobody will hear.
+   *
+   * Never applied while a tool call is being assembled: a truncated
+   * tool_use block is an invalid request, not a shorter answer.
+   */
+  maxSpeechChars?: number;
 }
 
 export interface ClaudeClient {
@@ -93,12 +136,23 @@ export interface ClaudeClient {
  * full stop.
  */
 export function takeSpeakable(buffer: string, isFirst: boolean): { clause: string; rest: string } | null {
-  // A sentence is always a good place to stop. Later clauses need to be
-  // longer, or the speech comes out choppy.
-  const sentenceMin = isFirst ? 12 : 30;
-  const sentence = buffer.match(/^[\s\S]*?[.!?](?=\s|$)/);
-  if (sentence && sentence[0].trim().length >= sentenceMin) {
-    return { clause: sentence[0].trim(), rest: buffer.slice(sentence[0].length) };
+  // Later clauses need to be longer, or the speech comes out choppy.
+  const sentenceMin = isFirst ? FIRST_CLAUSE_MIN : LATER_CLAUSE_MIN;
+
+  // Walk the sentence boundaries and take the FIRST one long enough to
+  // be worth speaking, merging short sentences into their neighbour.
+  //
+  // Matching only up to the first full stop looks equivalent and is
+  // not: a reply made of short sentences then has a too-short clause
+  // stuck at the head of the buffer forever, nothing is ever emitted,
+  // and the entire turn arrives in one lump at the end — streaming
+  // silently switching itself off exactly when the reply is chatty.
+  const boundary = /[.!?](?=\s|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = boundary.exec(buffer)) !== null) {
+    const end = match.index + 1;
+    const clause = buffer.slice(0, end).trim();
+    if (clause.length >= sentenceMin) return { clause, rest: buffer.slice(end) };
   }
 
   // For the FIRST clause only, a comma will do — that is where the
@@ -108,7 +162,7 @@ export function takeSpeakable(buffer: string, isFirst: boolean): { clause: strin
   // back rather than shipped as a turn of their own.
   if (isFirst) {
     const comma = buffer.match(/^[\s\S]*?,(?=\s)/);
-    if (comma && comma[0].trim().length >= 10) {
+    if (comma && comma[0].trim().length >= FIRST_COMMA_MIN) {
       return { clause: comma[0].trim(), rest: buffer.slice(comma[0].length) };
     }
   }
@@ -128,6 +182,45 @@ interface ApiResponse {
   usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number };
 }
 
+/**
+ * The `system` field: a plain string, or two blocks with a cache
+ * breakpoint between them.
+ *
+ * Anthropic caches the prefix up to and including the block carrying
+ * cache_control, so the split point is the boundary between what is
+ * fixed for the call and what changes with the turn.
+ */
+/**
+ * Marks the tool schemas as cacheable.
+ *
+ * The breakpoint goes on the LAST tool because Anthropic caches
+ * everything up to and including the marked block — one marker
+ * therefore covers the whole array. Tool definitions sit ahead of the
+ * system prompt in the cached prefix, so this has to hold for the
+ * system cache to be worth anything either.
+ *
+ * The set is stable for a call: toolsFor() keys off industry and demo
+ * phase, neither of which changes turn to turn on a normal call.
+ */
+export function withToolCache(tools: unknown[]): unknown[] {
+  if (tools.length === 0) return tools;
+  return tools.map((tool, i) =>
+    i === tools.length - 1
+      ? { ...(tool as Record<string, unknown>), cache_control: { type: 'ephemeral' } }
+      : tool,
+  );
+}
+
+export function buildSystemField(system: string, cachedPrefix?: string): unknown {
+  if (!cachedPrefix || !system.startsWith(cachedPrefix) || cachedPrefix.length === system.length) {
+    return system;
+  }
+  return [
+    { type: 'text', text: cachedPrefix, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: system.slice(cachedPrefix.length) },
+  ];
+}
+
 export function createClaudeClient(apiKey: string, model: string, fetchImpl: typeof fetch = fetch): ClaudeClient {
   async function send(opts: CompleteOptions): Promise<CompleteResult> {
     const { system, messages, maxTokens = 300, temperature = 0.6, tools } = opts;
@@ -135,10 +228,10 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
       model: opts.model ?? model,
       max_tokens: maxTokens,
       temperature,
-      system,
+      system: buildSystemField(system, opts.cachedSystemPrefix),
       messages,
     };
-    if (tools && tools.length > 0) body.tools = tools;
+    if (tools && tools.length > 0) body.tools = withToolCache(tools);
 
     const res = await fetchImpl(ANTHROPIC_URL, {
       method: 'POST',
@@ -188,11 +281,11 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
       model: opts.model ?? model,
       max_tokens: maxTokens,
       temperature,
-      system,
+      system: buildSystemField(system, opts.cachedSystemPrefix),
       messages,
       stream: true,
     };
-    if (tools && tools.length > 0) body.tools = tools;
+    if (tools && tools.length > 0) body.tools = withToolCache(tools);
 
     const res = await fetchImpl(ANTHROPIC_URL, {
       method: 'POST',
@@ -216,12 +309,34 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
     let pending = '';
     let spoken = false;
     let sawFirstEvent = false;
+    let spokenChars = 0;
+    let overBudget = false;
     let stopReason: string | null = null;
     const usage: Usage = { inputTokens: 0, outputTokens: 0 };
     const toolUses: ToolUseBlock[] = [];
     const partialTools = new Map<number, { id: string; name: string; json: string }>();
+    /**
+     * The assistant's content blocks, rebuilt in the order the API sent
+     * them.
+     *
+     * This is not bookkeeping. A tool_result must be answered by a
+     * message whose tool_use block carries the same id; if the
+     * assistant turn does not contain that block, the API rejects the
+     * whole request with "unexpected tool_use_id found in tool_result
+     * blocks" and the caller hears nothing. The non-streaming path gets
+     * these blocks handed to it whole — streaming has to reassemble
+     * them from the deltas.
+     */
+    const textByIndex = new Map<number, string>();
 
     for (;;) {
+      if (overBudget) {
+        // Enough has been said. Drop the rest rather than synthesising
+        // and billing for words the caller does not need.
+        pending = '';
+        await reader.cancel().catch(() => { /* already closed */ });
+        break;
+      }
       const { done, value } = await reader.read();
       if (done) break;
       raw += decoder.decode(value, { stream: true });
@@ -229,6 +344,11 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
       // Server-sent events are separated by a blank line.
       let split: number;
       while ((split = raw.indexOf('\n\n')) !== -1) {
+        // A single read can carry the entire response, so the budget
+        // has to be honoured here and not merely between reads —
+        // otherwise the whole reply is parsed and accumulated before
+        // anything notices it went over.
+        if (overBudget) break;
         const frame = raw.slice(0, split);
         raw = raw.slice(split + 2);
         const dataLine = frame.split('\n').find((l) => l.startsWith('data:'));
@@ -260,15 +380,25 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
           case 'content_block_delta': {
             const delta = event.delta as { type?: string; text?: string; partial_json?: string };
             if (delta?.type === 'text_delta' && delta.text) {
+              const idx = Number(event.index);
+              textByIndex.set(idx, (textByIndex.get(idx) ?? '') + delta.text);
               text += delta.text;
               pending += delta.text;
               // Emit as soon as there is something worth saying.
               for (;;) {
+                if (overBudget) break;
                 const taken = takeSpeakable(pending, !spoken);
                 if (!taken) break;
                 pending = taken.rest;
                 spoken = true;
+                spokenChars += taken.clause.length;
                 onClause(taken.clause);
+                // Budget is checked AFTER emitting, so a turn always
+                // finishes the clause it is in the middle of.
+                if (opts.maxSpeechChars && spokenChars >= opts.maxSpeechChars && partialTools.size === 0) {
+                  overBudget = true;
+                  break;
+                }
               }
             } else if (delta?.type === 'input_json_delta' && delta.partial_json) {
               const t = partialTools.get(Number(event.index));
@@ -297,13 +427,28 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
     // Whatever is left is the tail of the reply.
     if (pending.trim()) onClause(pending.trim());
 
-    for (const t of partialTools.values()) {
-      let parsed: Record<string, unknown> = {};
-      try { parsed = t.json ? (JSON.parse(t.json) as Record<string, unknown>) : {}; } catch { parsed = {}; }
-      toolUses.push({ id: t.id, name: t.name, input: parsed });
+    // Rebuild the assistant turn exactly as the API produced it:
+    // every block, at its own index, in order. Indices are the API's,
+    // so sorting by them restores the original sequence even when text
+    // and tool_use blocks interleave.
+    const contentBlocks: unknown[] = [];
+    const indices = [...new Set([...textByIndex.keys(), ...partialTools.keys()])].sort((a, b) => a - b);
+    for (const idx of indices) {
+      const t = partialTools.get(idx);
+      if (t) {
+        let parsed: Record<string, unknown> = {};
+        try { parsed = t.json ? (JSON.parse(t.json) as Record<string, unknown>) : {}; } catch { parsed = {}; }
+        toolUses.push({ id: t.id, name: t.name, input: parsed });
+        contentBlocks.push({ type: 'tool_use', id: t.id, name: t.name, input: parsed });
+        continue;
+      }
+      const chunk = textByIndex.get(idx);
+      // An empty text block is not merely useless — the API rejects a
+      // content block with an empty string, so it must not be emitted.
+      if (chunk && chunk.trim()) contentBlocks.push({ type: 'text', text: chunk });
     }
 
-    return { text: text.trim(), toolUses, stopReason, model: opts.model ?? model, usage, raw: [] };
+    return { text: text.trim(), toolUses, stopReason, model: opts.model ?? model, usage, raw: contentBlocks };
   }
 
   return {

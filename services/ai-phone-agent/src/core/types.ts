@@ -61,6 +61,8 @@ export interface Turn {
   role: 'caller' | 'agent';
   text: string;
   at: string;
+  /** The caller talked over this one; `text` is only what they heard. */
+  interrupted?: boolean;
 }
 
 export interface Session {
@@ -79,6 +81,13 @@ export interface Session {
   routed: boolean;
   clarifyAttempts: number;
   toolCalls: { name: string; ok: boolean; at: string }[];
+  /**
+   * Tools that were refused, and what they are still waiting on.
+   *
+   * Kept so the prompt can turn a rejection into the next question
+   * instead of the model re-attempting the same blocked call.
+   */
+  toolBlocks?: { tool: string; missing: string[]; attempts: number }[];
   /** Turns on which the caller probed the system rather than
    * describing a need. Past a threshold the model is not called at
    * all — see core/guardrails.ts. */

@@ -137,3 +137,40 @@ export function renderOfferMemory(session: Session): string | null {
     'Offering something a second time is the fastest way to sound like a machine. Move forward.',
   ].join('\n');
 }
+
+/** Field names the model will not recognise, spelled as questions. */
+const MISSING_FIELD_PROMPTS: Record<string, string> = {
+  caller_name: 'their name',
+  callback_phone: 'a callback number',
+  callback_phone_confirmed: 'confirmation that the number you have is the right one to call',
+  incident_location: 'where it happened',
+  pickup_location: 'where the vehicle is',
+};
+
+/**
+ * Tools that were refused, rendered as the next thing to ask.
+ *
+ * A tool result saying "get their name first" is read once and then
+ * competes with everything else in the context. Restating the block as
+ * standing state is what stops the model reaching for the same closed
+ * tool on the next turn — which is exactly what the tow flow did, four
+ * times in one call.
+ */
+export function renderToolBlocks(session: Session): string | null {
+  const blocks = session.toolBlocks?.filter((b) => b.missing.length > 0) ?? [];
+  if (blocks.length === 0) return null;
+
+  const lines = blocks.map((b) => {
+    const needs = b.missing.map((m) => MISSING_FIELD_PROMPTS[m] ?? m.replace(/_/g, ' ')).join(' and ');
+    const closed = b.attempts >= 2
+      ? ` You have tried it ${b.attempts} times. Do NOT call it again until you have this.`
+      : '';
+    return `- ${b.tool} is BLOCKED. It needs ${needs}. Ask for that in your own words, then try again once.${closed}`;
+  });
+
+  return [
+    'BLOCKED ACTIONS (internal — never read aloud):',
+    ...lines,
+    'Asking for what is missing IS the next step. Do not apologise for it and do not explain the system.',
+  ].join('\n');
+}

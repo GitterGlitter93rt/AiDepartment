@@ -3,6 +3,33 @@ import assert from 'node:assert/strict';
 import { createTimeline, nullTimeline, TimelineStore, type TimelineMark } from '../src/core/telemetry.ts';
 import { conversationRelayTwiml } from '../src/twilio/twiml.ts';
 import { BUILD } from '../src/build-info.ts';
+import { speakPhone, formatPhone } from '../src/core/speech.ts';
+import { MAX_SPEECH_CHARS } from '../src/core/orchestrator.ts';
+import { createClaudeClient } from '../src/claude/client.ts';
+
+/** A fetch that replays `text` as a real Anthropic SSE stream. */
+function sseStub(text: string): typeof fetch {
+  return (async () => {
+    const frames = [
+      { type: 'message_start', message: { usage: { input_tokens: 10 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'text' } },
+      ...(text.match(/\S+\s*/g) ?? []).map((t) => ({
+        type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: t },
+      })),
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 5 } },
+    ];
+    return {
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          const enc = new TextEncoder();
+          for (const f of frames) controller.enqueue(enc.encode(`data: ${JSON.stringify(f)}\n\n`));
+          controller.close();
+        },
+      }),
+    } as unknown as Response;
+  }) as unknown as typeof fetch;
+}
 
 function harness(start = 1_000) {
   let clock = start;
@@ -182,5 +209,82 @@ describe('partial prompts', () => {
     const off = conversationRelayTwiml(base);
     const on = conversationRelayTwiml({ ...base, partialPrompts: true });
     assert.equal(on.replace(' partialPrompts="true"', ''), off);
+  });
+
+  test('the caller can talk over the intro', () => {
+    // The split intro is only acceptable if it can be cut short.
+    assert.match(conversationRelayTwiml(base), /welcomeGreetingInterruptible="any"/);
+  });
+});
+
+describe('spoken phone numbers', () => {
+  // Every form the number reaches us in must speak identically. The
+  // failure this guards against is a real one: TTS handed digits
+  // regroups them however it likes, and "9046829345" came out in
+  // four-digit chunks on a recorded call.
+  const SPOKEN = 'nine oh four, six eight two, nine three four five';
+
+  for (const input of ['9046829345', '+19046829345', '(904) 682-9345', '904.682.9345', '904-682-9345', '1-904-682-9345', ' 904 682 9345 ']) {
+    test(`${JSON.stringify(input)} speaks as 3-3-4 words`, () => {
+      assert.equal(speakPhone(input), SPOKEN);
+    });
+  }
+
+  test('no digit survives into the spoken string', () => {
+    // The whole point: leave a digit in and the TTS engine gets to
+    // decide how to group it, which is what went wrong.
+    assert.ok(!/\d/.test(speakPhone('+19046829345')));
+  });
+
+  test('zero is "oh", not "zero"', () => {
+    assert.match(speakPhone('9046829345'), /nine oh four/);
+    assert.ok(!speakPhone('9046829345').includes('zero'));
+  });
+
+  test('grouping is 3-3-4, not four-digit chunks', () => {
+    const groups = speakPhone('9046829345').split(',').map((g) => g.trim().split(/\s+/).length);
+    assert.deepEqual(groups, [3, 3, 4]);
+  });
+
+  test('printed form stays conventional', () => {
+    assert.equal(formatPhone('+19046829345'), '(904) 682-9345');
+  });
+
+  test('a number that is not NANP is left alone rather than mangled', () => {
+    assert.equal(speakPhone('+442071234567'), '+442071234567');
+  });
+});
+
+describe('speech length guard', () => {
+  test('the cap is a spoken-turn length, not a token budget', () => {
+    // ~55 words. Long enough for a real answer, short enough that the
+    // 704-character paragraph production produced cannot recur.
+    assert.ok(MAX_SPEECH_CHARS >= 200 && MAX_SPEECH_CHARS <= 400);
+  });
+
+  test('a capped turn still ends on a finished clause', async () => {
+    const long = 'This is the first sentence. This is the second sentence. This is the third sentence. This is the fourth sentence. This is the fifth sentence. This is the sixth sentence. This is the seventh sentence.';
+    const clauses: string[] = [];
+    const client = createClaudeClient('k', 'm', sseStub(long));
+    const res = await client.stream!({
+      system: 's', messages: [{ role: 'user', content: 'hi' }],
+      onClause: (c) => clauses.push(c),
+      maxSpeechChars: 120,
+    });
+    const spoken = clauses.join(' ');
+    assert.ok(spoken.length < long.length, 'must actually cut something');
+    assert.match(spoken.trim(), /\.$/, 'must not stop mid-sentence');
+    assert.ok(!res.text.includes('seventh'), 'the tail is abandoned, not spoken');
+  });
+
+  test('an unbudgeted stream is untouched', async () => {
+    const text = 'Short reply. Another sentence here.';
+    const clauses: string[] = [];
+    const client = createClaudeClient('k', 'm', sseStub(text));
+    await client.stream!({
+      system: 's', messages: [{ role: 'user', content: 'hi' }],
+      onClause: (c) => clauses.push(c),
+    });
+    assert.equal(clauses.join(' ').replace(/\s+/g, ' ').trim(), text);
   });
 });

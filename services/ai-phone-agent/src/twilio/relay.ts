@@ -46,10 +46,29 @@ export function parseRelayMessage(raw: string): RelayInbound | null {
   }
 }
 
+export interface TextOptions {
+  /**
+   * Lets a LATER text or play message stop this one's playback.
+   *
+   * Only safe on a message sent complete in one go. Streamed clauses
+   * must not set it: each clause is a subsequent text message, so a
+   * preemptible stream would cancel itself clause by clause.
+   */
+  preemptible?: boolean;
+  /** Whether caller speech stops this playback. Relay default is on. */
+  interruptible?: boolean;
+}
+
 /** Text for Twilio to speak. `last: true` closes the turn so the relay
  * starts listening again. */
-export function textResponse(token: string, last = true): string {
-  return JSON.stringify({ type: 'text', token, last });
+export function textResponse(token: string, last = true, opts: TextOptions = {}): string {
+  return JSON.stringify({
+    type: 'text',
+    token,
+    last,
+    ...(opts.preemptible !== undefined ? { preemptible: opts.preemptible } : {}),
+    ...(opts.interruptible !== undefined ? { interruptible: opts.interruptible } : {}),
+  });
 }
 
 /** Ends the call politely from our side. */

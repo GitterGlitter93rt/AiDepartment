@@ -14,7 +14,7 @@ import { loadConfig, describeConfig } from './config.ts';
 import { createLogger } from './logger.ts';
 import { SessionStore } from './core/session.ts';
 import { Orchestrator } from './core/orchestrator.ts';
-import { greetingFor } from './business/greeting.ts';
+import { greetingFor, DEMO_INTRO } from './business/greeting.ts';
 import { demoProfile } from './business/profile.ts';
 import { createClaudeClient } from './claude/client.ts';
 import { createToolbox } from './tools/index.ts';
@@ -249,6 +249,10 @@ async function startWebSocket() {
      * turns and the endpointing figure comes out negative.
      */
     let utteranceOpen = false;
+    /** The most recent interim transcript, to spot when it stops
+     * changing — which is the only evidence we have that the caller
+     * has actually stopped talking. */
+    let lastPartialText = '';
     /**
      * The turn currently being generated, if any.
      *
@@ -278,8 +282,22 @@ async function startWebSocket() {
           // before Twilio has the greeting. Real audio latency needs a
           // stopwatch on a handset.
           timeline.mark('FIRST_AGENT_AUDIO_PROXY', { observable: false, proxy: 'relay socket open' });
-          // The welcomeGreeting in the TwiML is already being spoken,
-          // so nothing is sent here.
+
+          // The welcomeGreeting is already being spoken. The rest of
+          // the positioning follows here, over the socket, so it is
+          // not part of the synthesis the caller waits through.
+          //
+          // Sent whole and preemptible: whole because a preemptible
+          // stream would cancel itself clause by clause, preemptible
+          // so that the moment the caller says something, the reply
+          // stops the remainder of the pitch instead of queueing
+          // behind it.
+          //
+          // Demo line only — a client's caller must never hear it.
+          if (cfg.deploymentMode === 'demo' && DEMO_INTRO.positioning) {
+            socket.send(textResponse(DEMO_INTRO.positioning, true, { preemptible: true }));
+            timeline.mark('INTRO_POSITIONING_SENT', { chars: DEMO_INTRO.positioning.length });
+          }
           return;
         }
 
@@ -297,8 +315,17 @@ async function startWebSocket() {
             if (!utteranceOpen) {
               timeline.beginTurn();
               utteranceOpen = true;
+              lastPartialText = '';
             }
             timeline.mark('FIRST_CALLER_SPEECH');
+            // Only a frame that CHANGES the text tells us anything.
+            // Twilio repeats interim frames while someone talks, and
+            // counting those as activity is what turns a long sentence
+            // into a fictitious nine-second endpointing delay.
+            if (utterance !== lastPartialText) {
+              lastPartialText = utterance;
+              timeline.mark('LAST_PARTIAL_TEXT_CHANGE', { chars: utterance.length });
+            }
             return;
           }
 
@@ -312,10 +339,16 @@ async function startWebSocket() {
           utteranceOpen = false;
           timeline.mark('CALLER_END_OF_TURN', {
             words: utterance.split(/\s+/).length,
-            // How long Twilio waited after the caller stopped before
-            // deciding the turn was over. Ours to report, not to fix.
-            endpointingMs: timeline.since('FIRST_CALLER_SPEECH'),
+            // How long the caller was audibly talking. NOT latency —
+            // reporting it as such is what made a long sentence look
+            // like a nine-second delay.
+            speechActiveDurationMs: timeline.since('FIRST_CALLER_SPEECH'),
+            // The actual wait: from the last time the transcript
+            // changed to Twilio declaring the turn over. This is the
+            // endpointing figure, and it is Twilio's to tune, not ours.
+            finalizationLagMs: timeline.since('LAST_PARTIAL_TEXT_CHANGE'),
           });
+          lastPartialText = '';
 
           // A new utterance supersedes anything still in flight. This
           // is what makes barge-in real: the previous turn's generation
@@ -327,12 +360,25 @@ async function startWebSocket() {
 
           let firstClauseAt = 0;
           let clauses = 0;
+          // Gaps between clauses. If the live call sounds fragmented
+          // after an early comma break, this is the evidence: a long
+          // gap after a very short opening clause is the seam.
+          let lastClauseAt = 0;
+          const clauseGaps: number[] = [];
+          let firstClauseChars = 0;
           const turn = await orchestrator.handleTurn(callSid, utterance, {
             signal: controller.signal,
             mark: (m) => timeline.mark(m),
             onClause: (clause) => {
               if (controller.signal.aborted) return;
-              if (!firstClauseAt) firstClauseAt = Date.now();
+              const at = Date.now();
+              if (!firstClauseAt) {
+                firstClauseAt = at;
+                firstClauseChars = clause.length;
+              } else {
+                clauseGaps.push(at - lastClauseAt);
+              }
+              lastClauseAt = at;
               clauses += 1;
               timeline.mark('FIRST_SPEAKABLE_CLAUSE', { chars: clause.length });
               // last:false — the turn is not over, more is coming.
@@ -379,6 +425,12 @@ async function startWebSocket() {
           timeline.mark('TURN_COMPLETE', {
             replyChars: reply.length,
             clauses,
+            // Cadence. A short opening clause followed by a long gap is
+            // what "Absolutely, [pause] we can help" looks like in the
+            // log — measurable rather than argued about.
+            firstClauseChars,
+            maxClauseGapMs: clauseGaps.length ? Math.max(...clauseGaps) : undefined,
+            clauseGapsMs: clauseGaps.length ? clauseGaps : undefined,
             // What the caller actually experienced: silence from the
             // moment Twilio handed us their words to the moment we
             // handed back something to say.
@@ -412,7 +464,28 @@ async function startWebSocket() {
           // keep going and send more text — which is exactly the
           // "kept talking over me" behaviour. Abort it.
           const timeline = timelines.ensure(callSid);
-          timeline.mark('INTERRUPT_RECEIVED', { hadInFlight: Boolean(inFlight) });
+          const heard = String((msg as { utteranceUntilInterrupt?: string }).utteranceUntilInterrupt ?? '');
+          const playedMs = (msg as { durationUntilInterruptMs?: number }).durationUntilInterruptMs;
+
+          // What the caller actually heard before cutting in. The
+          // transcript is trimmed to it, because the rest was never
+          // delivered — and a next turn built on words nobody heard is
+          // the agent confidently referring back to nothing.
+          const dropped = sessions.truncateLastAgentTurn(callSid, heard);
+
+          timeline.mark('INTERRUPT_RECEIVED', {
+            // false is NOT a failure. Twilio interrupts its own
+            // PLAYBACK, which routinely outlives generation: by the
+            // time the caller talks over a long reply we finished
+            // producing it seconds ago. Nothing on our side is left to
+            // abort, and Twilio has already stopped the audio.
+            hadInFlight: Boolean(inFlight),
+            playedMs,
+            droppedChars: dropped?.length ?? 0,
+          });
+          if (dropped) {
+            log.log('turn.interrupted', { callSid, stage: 'playback', droppedChars: dropped.length, playedMs });
+          }
           if (inFlight) {
             inFlight.abort();
             inFlight = null;

@@ -311,6 +311,8 @@ export interface ToolOutcome {
   content: string;
   /** Set when validation rejected the request before execution. */
   rejected?: string;
+  /** Field names the request still needs. See ValidationResult. */
+  missing?: string[];
 }
 
 // ---------------------------------------------------------------------
@@ -343,6 +345,15 @@ export interface ValidationResult {
   reason?: string;
   /** Normalised arguments, safe to execute with. */
   value?: Record<string, unknown>;
+  /**
+   * What is actually missing, as field names.
+   *
+   * A prose reason tells the model it failed; it does not reliably
+   * tell it what to DO, which is how the tow flow ended up asking for
+   * a truck four times in a row. Naming the gap turns a rejection into
+   * the next question.
+   */
+  missing?: string[];
 }
 
 export function validateToolRequest(
@@ -544,15 +555,19 @@ export function validateToolRequest(
       if (!policy?.available) {
         return { ok: false, reason: 'This business does not arrange towing. Take their details instead.' };
       }
-      if (!callerName) return { ok: false, reason: 'Get their name before dispatching a truck.' };
+      if (!callerName) return { ok: false, reason: 'Get their name before dispatching a truck.', missing: ['caller_name'] };
       if (!phone || !E164.test(phone.replace(/[\s()-]/g, ''))) {
-        return { ok: false, reason: 'A valid callback number is required — the driver needs to reach them.' };
+        return { ok: false, reason: 'A valid callback number is required — the driver needs to reach them.', missing: ['callback_phone'] };
       }
       // Confirmed, not merely present. A driver ringing a number the
       // caller never agreed to is a driver who cannot find them.
       const callback = resolveCallbackRecipient(session);
       if (!callback.confirmed) {
-        return { ok: false, reason: callback.reason ?? "Confirm the callback number before dispatching — don't make them recite it, just check the one you have." };
+        return {
+          ok: false,
+          reason: callback.reason ?? "Confirm the callback number before dispatching — don't make them recite it, just check the one you have.",
+          missing: ['callback_phone_confirmed'],
+        };
       }
       // Somebody has to actually want a tow. The word appearing in a
       // sentence is not a request — "do you do towing?" is a question.
@@ -880,6 +895,27 @@ function digits(s: string): string {
 // Execution
 // ---------------------------------------------------------------------
 
+/** How many rejected attempts before a tool is declared closed. */
+export const MAX_TOOL_RETRIES = 2;
+
+/** Remembers that a tool was refused, and what for. */
+function recordToolBlock(session: Session, tool: string, missing: string[]): void {
+  session.toolBlocks ??= [];
+  const existing = session.toolBlocks.find((b) => b.tool === tool);
+  if (existing) {
+    existing.attempts += 1;
+    existing.missing = missing;
+    return;
+  }
+  session.toolBlocks.push({ tool, missing, attempts: 1 });
+}
+
+/** A tool that succeeded is no longer blocked. */
+function clearToolBlock(session: Session, tool: string): void {
+  if (!session.toolBlocks) return;
+  session.toolBlocks = session.toolBlocks.filter((b) => b.tool !== tool);
+}
+
 export interface ExecuteDeps {
   tools: Toolbox;
   log: Logger;
@@ -901,8 +937,17 @@ export async function executeToolRequest(req: ToolRequest, deps: ExecuteDeps): P
 
   const check = validateToolRequest(req, session, now);
   if (!check.ok) {
-    log.log('tool.failed', { callSid: session.callSid, tool: req.name, rejected: check.reason });
-    return { id: req.id, name: req.name, ok: false, content: check.reason ?? 'Invalid request.', rejected: check.reason };
+    log.log('tool.failed', { callSid: session.callSid, tool: req.name, rejected: check.reason, missing: check.missing });
+    recordToolBlock(session, req.name, check.missing ?? []);
+    const block = session.toolBlocks?.find((b) => b.tool === req.name);
+    // After enough goes, stop restating the prerequisite and say
+    // plainly that the tool is closed. Repeating the same rejection is
+    // what produced four tow attempts in one call.
+    const exhausted = (block?.attempts ?? 0) >= MAX_TOOL_RETRIES;
+    const content = exhausted
+      ? `${check.reason ?? 'Invalid request.'} You have tried ${req.name} ${block?.attempts} times without this. Do NOT call it again — ask the caller for what is missing, or carry on without it.`
+      : check.reason ?? 'Invalid request.';
+    return { id: req.id, name: req.name, ok: false, content, rejected: check.reason, missing: check.missing };
   }
 
   const args = check.value ?? {};
@@ -912,6 +957,7 @@ export async function executeToolRequest(req: ToolRequest, deps: ExecuteDeps): P
     const content = await run(req.name, args, deps);
     session.toolCalls.push({ name: req.name, ok: true, at: now.toISOString() });
     log.log('tool.completed', { callSid: session.callSid, tool: req.name });
+    clearToolBlock(session, req.name);
     return { id: req.id, name: req.name, ok: true, content };
   } catch (err) {
     session.toolCalls.push({ name: req.name, ok: false, at: now.toISOString() });

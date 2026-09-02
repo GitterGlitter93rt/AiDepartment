@@ -97,3 +97,38 @@ export const YAD_BRANDING_MARKERS: RegExp[] = [
   /\bvoice options\b/i,
   /\bfor your business\b/i,
 ];
+
+/**
+ * The demo line's opening, split in two.
+ *
+ * ConversationRelay synthesises the whole `welcomeGreeting` before it
+ * plays any of it, so every word in that attribute is dead air at the
+ * front of the call — which is what made the original 63-word intro
+ * take about 25 seconds to get started. The fix is not a shorter
+ * pitch: it is putting only the first line in the attribute and
+ * speaking the rest over the open socket, where synthesis has already
+ * begun by the time the caller has heard "Welcome to".
+ *
+ * `positioning` is sent as ONE preemptible text message the moment the
+ * relay connects. Preemptible matters: if the caller starts talking,
+ * the reply we generate is a subsequent text message, and Twilio drops
+ * whatever is left of the pitch rather than finishing it first. Caller
+ * speech also stops playback outright (`welcomeGreetingInterruptible`
+ * and `interruptible` both default to `any`), so barge-in during the
+ * intro needs nothing extra.
+ *
+ * `positioning` is deliberately null: the mechanism is in place, the
+ * wording is not chosen yet. Setting it here is the only change needed
+ * to turn the split intro on.
+ */
+export interface DemoIntro {
+  /** Goes in the TwiML attribute. Every word delays first audio. */
+  greeting: string;
+  /** Spoken over the socket once connected, or null for greeting only. */
+  positioning: string | null;
+}
+
+export const DEMO_INTRO: DemoIntro = {
+  greeting: DEMO_GREETING,
+  positioning: null,
+};

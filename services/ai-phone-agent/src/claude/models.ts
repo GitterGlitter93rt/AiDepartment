@@ -36,8 +36,14 @@ export interface ModelConfig {
  * interrupt anyway.
  */
 export const DEFAULT_MODELS: ModelConfig = {
-  router: { model: 'claude-haiku-4-5-20251001', maxTokens: 200, temperature: 0 },
-  specialist: { model: 'claude-sonnet-5', maxTokens: 220, temperature: 0.7 },
+  // The router emits a short JSON classification, nothing more. 120 is
+  // generous for that, and it keeps routing cheaper than speaking now
+  // that a spoken turn is deliberately capped short.
+  router: { model: 'claude-haiku-4-5-20251001', maxTokens: 120, temperature: 0 },
+  // 160 tokens is roughly 120 spoken words — a backstop only. The real
+  // limit is MAX_SPEECH_CHARS, which cuts at a clause boundary rather
+  // than wherever the token budget happens to run out.
+  specialist: { model: 'claude-sonnet-5', maxTokens: 160, temperature: 0.7 },
   summary: { model: 'claude-haiku-4-5-20251001', maxTokens: 400, temperature: 0.2 },
 };
 

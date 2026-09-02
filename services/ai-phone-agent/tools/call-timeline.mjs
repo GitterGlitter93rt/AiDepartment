@@ -126,7 +126,16 @@ for (const [callSid, call] of calls) {
     row('END OF TURN -> FIRST TEXT SENT', eot !== undefined && sent !== undefined ? sent - eot : undefined, 'PERCEIVED SILENCE (best proxy)');
     row('end of turn -> turn complete', eot !== undefined && done !== undefined ? done - eot : undefined, 'full generation');
     const tc = rec('TURN_COMPLETE', turn);
-    if (tc) console.log(`  ${pad('reply', 36)}${pad(`${tc.replyChars ?? '?'} chars`, 10)}  ${tc.clauses ?? '?'} clause(s)`);
+    if (tc) {
+      console.log(`  ${pad('reply', 36)}${pad(`${tc.replyChars ?? '?'} chars`, 10)}  ${tc.clauses ?? '?'} clause(s)`);
+      if (tc.maxClauseGapMs !== undefined) {
+        // The fragmentation check. A tiny opening clause followed by a
+        // long gap is the audible seam, and it is the only reason to
+        // raise the first-clause threshold.
+        const risky = tc.firstClauseChars < 15 && tc.maxClauseGapMs > 400;
+        console.log(`  ${pad('cadence', 36)}${pad(`${tc.firstClauseChars}ch 1st`, 10)}  max gap ${ms(tc.maxClauseGapMs)}${risky ? '   <-- LIKELY AUDIBLE SEAM' : ''}`);
+      }
+    }
 
     if (interrupt !== undefined) {
       console.log(`  ${pad('INTERRUPT_RECEIVED', 36)}${pad(ms(interrupt), 10)}  from call start`);
