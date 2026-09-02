@@ -1,4 +1,4 @@
-import type { CallContext } from './types';
+import type { CallContext } from './types.js';
 
 export interface TwilioDialConfig {
   accountSid: string;
@@ -12,10 +12,6 @@ export interface DialResult {
   status?: string;
 }
 
-/**
- * Uses Twilio's REST API without coupling this package to a specific SDK version.
- * Production should add request signing/webhook validation and persistence.
- */
 export async function placeOutboundCall(
   context: CallContext,
   config: TwilioDialConfig,
@@ -32,9 +28,14 @@ export async function placeOutboundCall(
     To: context.lead.phone,
     From: config.fromNumber,
     Url: voiceUrl.toString(),
+    Method: 'POST',
     MachineDetection: 'Enable',
     AsyncAmd: 'true',
     AsyncAmdStatusCallback: new URL('/voice/amd', config.publicVoiceBaseUrl).toString(),
+    AsyncAmdStatusCallbackMethod: 'POST',
+    StatusCallback: new URL('/voice/status', config.publicVoiceBaseUrl).toString(),
+    StatusCallbackMethod: 'POST',
+    StatusCallbackEvent: 'initiated ringing answered completed',
   });
 
   const authorization = Buffer.from(`${config.accountSid}:${config.authToken}`).toString('base64');
@@ -57,14 +58,16 @@ export async function placeOutboundCall(
 
 export function buildConversationRelayTwiML(params: {
   websocketUrl: string;
+  leadId: string;
   welcomeGreeting?: string;
   voice?: string;
 }): string {
-  const greeting = escapeXml(params.welcomeGreeting ?? 'Hi — this is Your AI Department.');
+  const greeting = escapeXml(params.welcomeGreeting ?? 'Hi, this is Your AI Department.');
   const voice = escapeXml(params.voice ?? 'default');
   const url = escapeXml(params.websocketUrl);
+  const leadId = escapeXml(params.leadId);
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Connect>\n    <ConversationRelay url="${url}" welcomeGreeting="${greeting}" voice="${voice}" />\n  </Connect>\n</Response>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Connect>\n    <ConversationRelay url="${url}" welcomeGreeting="${greeting}" voice="${voice}">\n      <Parameter name="leadId" value="${leadId}" />\n    </ConversationRelay>\n  </Connect>\n</Response>`;
 }
 
 function escapeXml(input: string): string {
