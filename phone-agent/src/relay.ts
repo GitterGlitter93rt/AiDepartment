@@ -15,6 +15,7 @@ interface RelayMessage {
 
 interface SessionState {
   leadId?: string;
+  phone?: string;
   systemPrompt?: string;
   history: ChatTurn[];
   generation: number;
@@ -52,11 +53,20 @@ export class ConversationRelaySession {
     const context = await this.store.getContext(leadId);
     if (!context) throw new Error(`No prepared call context for lead ${leadId}`);
     this.state.leadId = leadId;
+    this.state.phone = context.lead.phone;
     this.state.systemPrompt = buildRealtimeSystemPrompt(context);
   }
 
   private async onPrompt(userText: string): Promise<void> {
     if (!this.state.systemPrompt) throw new Error('ConversationRelay prompt arrived before setup');
+
+    if (isDoNotCall(userText)) {
+      this.state.generation += 1;
+      if (this.state.phone) await this.store.suppress(this.state.phone, 'prospect_requested_do_not_call');
+      this.sendText('Absolutely. I’ll mark this number as do not call. Take care.', true);
+      return;
+    }
+
     const generation = ++this.state.generation;
     let assistantText = '';
 
@@ -74,7 +84,11 @@ export class ConversationRelaySession {
   }
 
   private sendText(token: string, last: boolean): void {
-    if (this.socket.readyState !== this.socket.OPEN) return;
+    if (this.socket.readyState !== 1) return;
     this.socket.send(JSON.stringify({ type: 'text', token, last }));
   }
+}
+
+function isDoNotCall(text: string): boolean {
+  return /\b(do not call|don't call|dont call|stop calling|remove me|take me off|no more calls)\b/i.test(text);
 }
