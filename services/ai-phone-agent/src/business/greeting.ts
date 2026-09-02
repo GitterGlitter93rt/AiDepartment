@@ -26,10 +26,22 @@
  * would be a claim we would have to keep true.
  */
 export const DEMO_GREETING =
-  "Welcome to the Your AI Department demo line — you're talking to a live AI receptionist. " +
-  "We build these for any industry, in your branding, with hundreds of voices. " +
-  "So tell me what you need, like you'd call a real business, and I'll show you how it handles it. " +
-  "If you like it, I can book you a discovery call before we finish.";
+  "Your AI Department demo line — tell me what you need, like you would any business.";
+
+/**
+ * The rest of the pitch, said on the FIRST agent turn rather than in
+ * the greeting.
+ *
+ * Twilio synthesises `welcomeGreeting` before it plays any of it, so
+ * every word there is silence the caller sits through before hearing
+ * anything. The old 63-word introduction was roughly 25 seconds of
+ * speech and several seconds of synthesis — measured as a 3-5 second
+ * dead opening on real calls. The greeting now gets them talking
+ * immediately, and the positioning arrives once the conversation is
+ * already moving.
+ */
+export const DEMO_INTRO_CONTEXT =
+  'This is the Your AI Department demo line. If it comes up naturally — but NOT as an opening speech — you can mention that agents like this are built for any industry, in the client\'s own branding, with hundreds of voices, and that you can book a discovery call before the end. Weave it in; do not recite it.';
 
 /** Roughly how long a piece of speech takes, for the length guard. */
 export function spokenSeconds(text: string, wordsPerMinute = 150): number {

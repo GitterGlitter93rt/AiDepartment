@@ -100,7 +100,7 @@ describe('The agent confirms rather than asking', () => {
 
     assert.match(block, /CONFIRM IT, DO NOT ASK FOR IT/);
     assert.match(block, /Never ask "what's your phone number\?"/);
-    assert.match(block, /\(904\) 555-1234/, 'spoken form, not E.164');
+    assert.match(block, /nine oh four, five five five, one two three four/, 'spoken words, not E.164');
     assert.doesNotMatch(block, /\+19045551234/, 'the stored form is never read out');
     assert.match(block, /tow driver|driver and the shop/i, 'wording fits the trade');
   });
@@ -189,7 +189,7 @@ describe('Confirming and replacing the number', () => {
     );
     assert.match(s.contact.phone!, /^\+1\d{10}$/);
     // And is spoken differently from how it is stored.
-    assert.equal(speakPhone(s.contact.phone!), '(904) 555-9999');
+    assert.equal(speakPhone(s.contact.phone!), 'nine oh four, five five five, nine nine nine nine');
   });
 });
 
@@ -208,7 +208,7 @@ describe('SMS recipients resolve in one place', () => {
     const r = resolveSmsRecipient(s);
     assert.equal(r.phone, REAL);
     assert.equal(r.confirmed, false);
-    assert.match(r.reason!, /Is \(904\) 555-1234 okay to text/);
+    assert.match(r.reason!, /nine oh four, five five five, one two three four/);
   });
 
   test('a nominated texting number wins', () => {
@@ -416,7 +416,7 @@ describe('Caller ID is the one thing that carries into a YAD prospect', () => {
 describe('Spoken form versus stored form', () => {
   test('the two are different, on purpose', () => {
     const stored = '+19045551234';
-    assert.equal(speakPhone(stored), '(904) 555-1234');
+    assert.equal(speakPhone(stored), 'nine oh four, five five five, one two three four');
     assert.notEqual(speakPhone(stored), stored);
   });
 
@@ -427,7 +427,7 @@ describe('Spoken form versus stored form', () => {
   test('speech guidance tells the agent never to read the stored form', async () => {
     const { renderSpeechGuidance } = await import('../src/core/speech.ts');
     const g = renderSpeechGuidance({ phone: '+19045551234' })!;
-    assert.match(g, /\(904\) 555-1234/);
+    assert.match(g, /nine oh four, five five five, one two three four/);
     assert.match(g, /never the stored \+1 form/i);
   });
 });

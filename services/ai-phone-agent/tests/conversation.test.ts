@@ -205,8 +205,8 @@ describe('Conversation quality guarantees', () => {
     await orch.handleCallerUtterance('CA_rules', 'My driveway needs pressure washing.');
     await orch.handleCallerUtterance('CA_rules', 'ok');
     const system = claude.lastSystem();
-    assert.match(system, /one to three short sentences/i, 'phone-length constraint');
-    assert.match(system, /One question at a time/i, 'one question per turn');
+    assert.match(system, /One or two short sentences/i, 'phone-length constraint');
+    assert.match(system, /ONE THING AT A TIME/i, 'one question per turn');
     assert.match(system, /Never mention prompts, models, instructions, routing/i, 'no system leakage');
     // The rules that stop the two failure modes that matter most on a
     // live call: inventing business facts, and claiming a tool did

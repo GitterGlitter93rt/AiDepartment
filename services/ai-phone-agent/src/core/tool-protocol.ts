@@ -1354,3 +1354,51 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
       throw new Error(`unhandled tool ${name}`);
   }
 }
+
+// ---------------------------------------------------------------------
+// Choosing which tools to send
+// ---------------------------------------------------------------------
+
+/** Tools every call needs, whatever the trade. */
+const UNIVERSAL_TOOLS = [
+  'capture_details', 'check_availability', 'book_appointment',
+  'save_lead', 'transfer_to_human', 'end_call', 'send_sms', 'change_appointment',
+];
+
+/** Tools that only make sense for particular industries. */
+const INDUSTRY_TOOLS: Record<string, string[]> = {
+  collision_repair: ['dispatch_tow', 'create_location_link', 'create_upload_link', 'send_esign_packet', 'create_partner_referral'],
+  attorneys: ['send_esign_packet', 'create_upload_link'],
+  construction: ['create_upload_link'],
+  roofing: ['create_upload_link'],
+  restoration: ['create_upload_link'],
+  plumbing: ['create_upload_link'],
+  hvac: ['create_upload_link'],
+  electrical: ['create_upload_link'],
+  pressure_washing: ['create_upload_link'],
+  landscaping: ['create_upload_link'],
+  garage_door: ['create_upload_link'],
+  pool: ['create_upload_link'],
+  real_estate: ['create_upload_link'],
+};
+
+/** Tools used only once the caller is talking to us about buying. */
+const SALES_TOOLS = ['capture_prospect', 'book_discovery_call'];
+
+/**
+ * The schemas to send this turn.
+ *
+ * Sending all fifteen every turn cost roughly 2,750 input tokens on
+ * every request — most of them describing actions the call in progress
+ * could never take. A roofing caller has no use for a tow schema, and
+ * paying to describe one on every turn is latency the caller hears as
+ * silence.
+ */
+export function toolsFor(industry: string | null, demoPhase?: string): ToolSchema[] {
+  const allowed = new Set([
+    ...UNIVERSAL_TOOLS,
+    ...(INDUSTRY_TOOLS[industry ?? ''] ?? []),
+    ...(demoPhase === 'yad_sales' ? SALES_TOOLS : []),
+  ]);
+  return TOOL_SCHEMAS.filter((t) => allowed.has(t.name));
+}

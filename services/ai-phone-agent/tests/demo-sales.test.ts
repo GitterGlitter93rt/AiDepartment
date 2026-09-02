@@ -40,20 +40,26 @@ function clientLine(callSid = 'CA_client') {
 }
 
 describe('The demo greeting', () => {
-  test('fits inside the spoken budget', () => {
+  test('is short enough that the caller is not sitting in silence', () => {
+    // Twilio synthesises welcomeGreeting before playing any of it, so
+    // every word is dead air at the start of the call. A 63-word
+    // introduction measured as a 3-5 second opening pause on real
+    // calls; the pitch moved to the first agent turn instead.
     const seconds = spokenSeconds(DEMO_GREETING);
-    assert.ok(seconds <= 26, `${seconds.toFixed(1)}s is too long for an opening`);
-    assert.ok(seconds >= 15, `${seconds.toFixed(1)}s is too short to set up the role-play`);
+    assert.ok(seconds <= 7, `${seconds.toFixed(1)}s of greeting is silence before anything useful happens`);
   });
 
-  test('says what it needs to say', () => {
+  test('identifies the line and invites the role-play, and nothing more', () => {
     assert.match(DEMO_GREETING, /Your AI Department/);
-    assert.match(DEMO_GREETING, /demo line/i);
-    assert.match(DEMO_GREETING, /AI receptionist/i);
-    assert.match(DEMO_GREETING, /any industry/i);
-    assert.match(DEMO_GREETING, /hundreds of voices/i);
-    assert.match(DEMO_GREETING, /like you'?d call a real business/i, 'must invite the role-play');
-    assert.match(DEMO_GREETING, /discovery call/i);
+    assert.match(DEMO_GREETING, /like you would any business/i, 'must invite the role-play');
+  });
+
+  test('the positioning survives, said on the first turn instead', async () => {
+    const { DEMO_INTRO_CONTEXT } = await import('../src/business/greeting.ts');
+    assert.match(DEMO_INTRO_CONTEXT, /any industry/i);
+    assert.match(DEMO_INTRO_CONTEXT, /hundreds of voices/i);
+    assert.match(DEMO_INTRO_CONTEXT, /discovery call/i);
+    assert.match(DEMO_INTRO_CONTEXT, /NOT as an opening speech/i);
   });
 
   test('is not an IVR', () => {

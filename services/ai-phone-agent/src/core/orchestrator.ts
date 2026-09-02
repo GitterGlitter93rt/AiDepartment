@@ -20,7 +20,7 @@ import {
   inspectCallerUtterance, inspectAgentReply,
   PERSISTENT_PROBE_REPLY, PROBE_LIMIT,
 } from './guardrails.ts';
-import { TOOL_SCHEMAS, executeToolRequest } from './tool-protocol.ts';
+import { TOOL_SCHEMAS, toolsFor, executeToolRequest } from './tool-protocol.ts';
 import { resolveModels, type ModelConfig } from '../claude/models.ts';
 import type { Toolbox } from '../tools/index.ts';
 import type { CompleteResult, ClaudeMessage } from '../claude/client.ts';
@@ -30,6 +30,7 @@ import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../bus
 import { extractFromUtterance, mergeContact } from './extract.ts';
 import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
 import { isUsableNumber, renderPhoneGuidance } from './contact-routing.ts';
+import { renderGoal, renderOfferMemory } from './goals.ts';
 import { renderActionPolicies } from '../business/render-policies.ts';
 import { detectSalesIntent, isDecliningOffer, renderDemoHost } from './demo-host.ts';
 import { DEMO_GREETING } from '../business/greeting.ts';
@@ -71,6 +72,21 @@ export interface TurnResult {
   action: TurnAction;
   /** Why the call is ending, when it is. Logged, never spoken. */
   endReason?: string;
+  /** True when the caller talked over us and this turn was abandoned. */
+  interrupted?: boolean;
+}
+
+/**
+ * How a turn reaches the caller.
+ *
+ * `onClause` is called with each speakable fragment as the model
+ * produces it, so speech begins roughly a time-to-first-token after
+ * the caller stops rather than after the whole reply exists. `signal`
+ * aborts everything the moment they interrupt.
+ */
+export interface TurnDelivery {
+  onClause?: (text: string) => void;
+  signal?: AbortSignal;
 }
 
 /**
@@ -147,7 +163,7 @@ export class Orchestrator {
     return (await this.handleTurn(callSid, utterance)).text;
   }
 
-  async handleTurn(callSid: string, utterance: string): Promise<TurnResult> {
+  async handleTurn(callSid: string, utterance: string, delivery: TurnDelivery = {}): Promise<TurnResult> {
     const { sessions, claude, log } = this.deps;
     const session = sessions.ensure(callSid);
     sessions.addTurn(callSid, 'caller', utterance);
@@ -280,7 +296,17 @@ export class Orchestrator {
       }
     }
 
-    const reply = await this.specialistTurn(session, guard.reinforcement);
+    const reply = await this.specialistTurn(session, guard.reinforcement, delivery);
+
+    // The caller talked over us. Whatever was generated is abandoned:
+    // it does not go into the transcript, because they never heard it
+    // and treating it as said would make the next turn reply to a
+    // sentence that was cut off mid-word.
+    if (delivery.signal?.aborted) {
+      log.log('turn.interrupted', { callSid });
+      return { text: '', action: 'SPEAK_AND_CONTINUE', interrupted: true };
+    }
+
     sessions.addTurn(callSid, 'agent', reply);
 
     // Fire-and-forget: the caller is already hearing the reply, so this
@@ -352,7 +378,11 @@ export class Orchestrator {
   }
 
   /** Stage 2. The specialist owns the conversation from here. */
-  private async specialistTurn(session: Session, reinforcement: string | null = null): Promise<string> {
+  private async specialistTurn(
+    session: Session,
+    reinforcement: string | null = null,
+    delivery: TurnDelivery = {},
+  ): Promise<string> {
     const { claude, log } = this.deps;
     const spec = selectSpecialist(session);
 
@@ -419,6 +449,12 @@ export class Orchestrator {
         })
       : null;
 
+    // What this call is actually for, with what is already known struck
+    // off — so the model reasons toward an outcome instead of working
+    // down a list of fields.
+    const goalBlock = renderGoal(session, session.route.industry);
+    const offerBlock = renderOfferMemory(session);
+
     // Confirm the number we already have rather than asking for one.
     const phoneBlock = renderPhoneGuidance(session, session.route.industry);
 
@@ -429,11 +465,15 @@ export class Orchestrator {
       CORE_AGENT_RULES,
       spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
       renderBusinessProfile(profile),
+      // The goal is what everything else serves, so it sits near the
+      // top rather than buried under policy.
+      ...(goalBlock ? [goalBlock] : []),
       ...(demoBlock ? [demoBlock] : []),
       ...(pricingBlock ? [pricingBlock] : []),
       ...(actionBlock ? [actionBlock] : []),
       ...(speechBlock ? [speechBlock] : []),
       ...(phoneBlock ? [phoneBlock] : []),
+      ...(offerBlock ? [offerBlock] : []),
       // Earlier narrative, once the call has outgrown the history
       // window. Structured state below covers the fields; this covers
       // what was said that never became one.
@@ -455,7 +495,7 @@ export class Orchestrator {
     try {
       const claudeRequestStartedAt = Date.now();
       log.log('llm.request', { callSid: session.callSid, turns: messages.length, systemChars: system.length });
-      const reply = await this.runTurn(session, system, messages);
+      const reply = await this.runTurn(session, system, messages, delivery);
       // Timing only. Transcript content is governed separately by
       // LOG_TRANSCRIPTS and never appears here.
       log.log('llm.usage', {
@@ -489,7 +529,12 @@ export class Orchestrator {
    * silence on a live call. When the budget runs out we take whatever
    * text we have rather than looping.
    */
-  private async runTurn(session: Session, system: string, messages: ClaudeMessage[]): Promise<string> {
+  private async runTurn(
+    session: Session,
+    system: string,
+    messages: ClaudeMessage[],
+    delivery: TurnDelivery = {},
+  ): Promise<string> {
     const { claude, log, tools, maxToolRounds = 2 } = this.deps;
     if (!claude) return '';
 
@@ -505,6 +550,54 @@ export class Orchestrator {
       });
     }
 
+    // Streaming path. Speech starts on the first clause rather than
+    // after the whole reply, which is the difference between a
+    // conversational pause and a robotic one.
+    //
+    // Only used when there is somewhere to stream TO and the model is
+    // not expected to reach for a tool first — a tool round trip has
+    // nothing speakable in it, so the second pass is where the words
+    // come from.
+    if (delivery.onClause && claude.stream) {
+      const res = await claude.stream({
+        system, messages,
+        model: this.models.specialist.model,
+        maxTokens: this.models.specialist.maxTokens,
+        temperature: this.models.specialist.temperature,
+        tools: toolsFor(session.route.industry, session.demoPhase),
+        onClause: delivery.onClause,
+        signal: delivery.signal,
+      });
+      this.recordUsage(session, res);
+
+      if (res.toolUses.length === 0) return res.text;
+
+      // A tool was requested. Run it, then stream the follow-up — the
+      // caller has heard nothing yet, so this is where their answer
+      // comes from.
+      const convo: ClaudeMessage[] = [...messages];
+      convo.push({ role: 'assistant', content: res.raw });
+      const results = [];
+      for (const use of res.toolUses) {
+        const outcome = await executeToolRequest({ id: use.id, name: use.name, input: use.input }, { tools, log, session });
+        results.push({ type: 'tool_result', tool_use_id: outcome.id, content: outcome.content, is_error: !outcome.ok });
+      }
+      convo.push({ role: 'user', content: results });
+
+      if (delivery.signal?.aborted) return res.text;
+
+      const follow = await claude.stream({
+        system, messages: convo,
+        model: this.models.specialist.model,
+        maxTokens: this.models.specialist.maxTokens,
+        temperature: this.models.specialist.temperature,
+        onClause: delivery.onClause,
+        signal: delivery.signal,
+      });
+      this.recordUsage(session, follow);
+      return follow.text || res.text;
+    }
+
     const convo: ClaudeMessage[] = [...messages];
     let spoken = '';
 
@@ -515,7 +608,7 @@ export class Orchestrator {
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
-        tools: round < maxToolRounds ? TOOL_SCHEMAS : undefined,
+        tools: round < maxToolRounds ? toolsFor(session.route.industry, session.demoPhase) : undefined,
       });
       this.recordUsage(session, res);
       spoken = res.text || spoken;

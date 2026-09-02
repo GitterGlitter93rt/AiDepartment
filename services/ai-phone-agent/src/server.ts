@@ -207,6 +207,15 @@ async function startWebSocket() {
     // One socket per call. All state hangs off callSid, so concurrent
     // calls never see each other.
     let callSid = '';
+    /**
+     * The turn currently being generated, if any.
+     *
+     * Held per socket so an interrupt — or a new utterance arriving
+     * before the last one finished — can abandon it. Without this the
+     * abandoned generation still arrives and gets spoken, which is the
+     * agent talking over the caller.
+     */
+    let inFlight: AbortController | null = null;
 
     socket.on('message', async (raw: Buffer | string) => {
       const msg = parseRelayMessage(raw.toString());
@@ -229,26 +238,61 @@ async function startWebSocket() {
           if (cfg.logTranscripts) log.log('transcript.caller', { callSid, text: utterance });
 
           const promptReceivedAt = Date.now();
-          const turn = await orchestrator.handleTurn(callSid, utterance);
+
+          // A new utterance supersedes anything still in flight. This
+          // is what makes barge-in real: the previous turn's generation
+          // is abandoned rather than arriving late and talking over
+          // whatever the caller has moved on to.
+          inFlight?.abort();
+          const controller = new AbortController();
+          inFlight = controller;
+
+          let firstClauseAt = 0;
+          let clauses = 0;
+          const turn = await orchestrator.handleTurn(callSid, utterance, {
+            signal: controller.signal,
+            onClause: (clause) => {
+              if (controller.signal.aborted) return;
+              if (!firstClauseAt) firstClauseAt = Date.now();
+              clauses += 1;
+              // last:false — the turn is not over, more is coming.
+              socket.send(textResponse(clause, false));
+            },
+          });
+          if (inFlight === controller) inFlight = null;
+
+          if (turn.interrupted) {
+            log.log('turn.interrupted', { callSid, stage: 'superseded' });
+            return;
+          }
           const reply = turn.text;
           if (cfg.logTranscripts) log.log('transcript.agent', { callSid, text: reply });
 
-          // Stream in clauses so speech begins before the full reply
-          // has been generated.
-          const chunks = chunkForSpeech(reply);
-          chunks.forEach((chunk, i) => {
-            socket.send(textResponse(chunk, i === chunks.length - 1));
-          });
+          if (clauses > 0) {
+            // Streamed. Close the turn so the relay starts listening.
+            socket.send(textResponse('', true));
+          } else {
+            // Non-streaming fallback — no key, or a client without
+            // stream support. Chunk so speech still starts early.
+            const chunks = chunkForSpeech(reply);
+            chunks.forEach((chunk, i) => {
+              socket.send(textResponse(chunk, i === chunks.length - 1));
+            });
+            firstClauseAt = Date.now();
+            clauses = chunks.length;
+          }
 
-          // Timing only — never transcript content. This is what tells
-          // us whether the caller is waiting on the model or on us.
-          const firstTtsTokenSentAt = Date.now();
+          // Timing only — never transcript content. The first number is
+          // the one that matters: how long the caller sat in silence
+          // after they stopped talking.
           log.log('turn.latency', {
             callSid,
             turnIndex: sessions.get(callSid)?.turns.length ?? 0,
-            totalTurnToFirstSpeechMs: firstTtsTokenSentAt - promptReceivedAt,
+            timeToFirstSpeechMs: firstClauseAt - promptReceivedAt,
+            totalTurnMs: Date.now() - promptReceivedAt,
             replyChars: reply.length,
-            chunks: chunks.length,
+            clauses,
+            streamed: turn.text.length > 0 && clauses > 0,
           });
 
           // A transfer or a hang-up requested during this turn happens
@@ -273,8 +317,15 @@ async function startWebSocket() {
         }
 
         if (msg.type === 'interrupt') {
-          // The caller spoke over us. ConversationRelay already stopped
-          // playback; nothing to undo, and the next prompt carries on.
+          // The caller talked over us. ConversationRelay stops its own
+          // playback, but the generation on our side would otherwise
+          // keep going and send more text — which is exactly the
+          // "kept talking over me" behaviour. Abort it.
+          if (inFlight) {
+            inFlight.abort();
+            inFlight = null;
+            log.log('turn.interrupted', { callSid, stage: 'barge_in' });
+          }
           return;
         }
 
@@ -290,6 +341,8 @@ async function startWebSocket() {
     });
 
     socket.on('close', () => {
+      inFlight?.abort();
+      inFlight = null;
       if (callSid) void endCall(callSid, 'socket-closed');
     });
   });

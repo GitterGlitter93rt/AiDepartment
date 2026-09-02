@@ -200,9 +200,12 @@ describe('Speech normalisation — stored value and spoken value are different',
     // The stored value is correct for a record and wrong for a person:
     // handing "+19045550142" to TTS produces "plus one nine zero
     // four...", which is how nobody says a phone number.
-    assert.equal(speakPhone('+19045550142'), '(904) 555-0142');
-    assert.equal(speakPhone('904-555-0142'), '(904) 555-0142');
-    assert.equal(speakPhone('19045550142'), '(904) 555-0142');
+    // Word forms with 3-3-4 grouping. Handing "(904) 555-0142" to TTS
+    // gets it read as digits run together or in arbitrary blocks; the
+    // words and commas are what produce "nine oh four, five five five".
+    assert.equal(speakPhone('+19045550142'), 'nine oh four, five five five, oh one four two');
+    assert.equal(speakPhone('904-555-0142'), 'nine oh four, five five five, oh one four two');
+    assert.equal(speakPhone('19045550142'), 'nine oh four, five five five, oh one four two');
   });
 
   test('a non-US number is left alone rather than forced into a US shape', () => {

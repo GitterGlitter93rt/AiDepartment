@@ -30,6 +30,7 @@ export type LogEvent =
   | 'call.summary'
   | 'call.ending'
   | 'turn.latency'
+  | 'turn.interrupted'
   | 'demo.sales_intent'
   | 'demo.cta_declined'
   | 'llm.usage'

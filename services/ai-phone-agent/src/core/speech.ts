@@ -68,10 +68,44 @@ export function speakZip(zip: string): string {
  * a shape they do not have.
  */
 export function speakPhone(phone: string): string {
+  const parts = splitNanp(phone);
+  if (!parts) return phone.trim();
+  // Commas are what produce the pause. Word forms are what stop the
+  // engine reading "904" as "nine hundred and four" or running the
+  // whole string together.
+  return [
+    parts.area.map(digitWord).join(' '),
+    parts.exchange.map(digitWord).join(' '),
+    parts.subscriber.map(digitWord).join(' '),
+  ].join(', ');
+}
+
+/** Area code, exchange, last four — or null if it is not a NANP number. */
+export function splitNanp(phone: string): { area: string[]; exchange: string[]; subscriber: string[] } | null {
   let d = phone.replace(/\D/g, '');
   if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
-  if (d.length !== 10) return phone.trim();
-  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  if (d.length !== 10) return null;
+  return {
+    area: d.slice(0, 3).split(''),
+    exchange: d.slice(3, 6).split(''),
+    subscriber: d.slice(6).split(''),
+  };
+}
+
+/** How a person says a single digit. Zero is "oh" inside a number. */
+function digitWord(d: string): string {
+  const WORDS: Record<string, string> = {
+    '0': 'oh', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+    '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+  };
+  return WORDS[d] ?? d;
+}
+
+/** The printed form, for anywhere it is written rather than spoken. */
+export function formatPhone(phone: string): string {
+  const p = splitNanp(phone);
+  if (!p) return phone.trim();
+  return `(${p.area.join('')}) ${p.exchange.join('')}-${p.subscriber.join('')}`;
 }
 
 /**

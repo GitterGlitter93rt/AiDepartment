@@ -8,10 +8,25 @@ export const realEstate = defineSpecialist({
   matches: () => true,
   openingLine: (s) => {
     const i = s.route.intent;
-    if (i === 'seller_inquiry' || i === 'home_valuation') return "Absolutely. Are you looking to sell soon, or still working out timing?";
-    if (i === 'showing_request' || i === 'listing_inquiry') return "Happy to set that up. Which property were you interested in?";
-    if (i === 'rental_investor') return "Happy to help. Are you looking for income property, or something to live in?";
-    return "Absolutely. Are you looking to buy, sell, or both?";
+    // Somebody who has named a property has told you what they want.
+    // Asking "buy, sell or rent?" after that is the single most
+    // irritating thing this agent can do, and it was doing it.
+    if (i === 'showing_request') {
+      // "See your listing on King Street" names it; "see one of your
+      // listings" does not, and asking when they want to view an
+      // unspecified house is as bad as asking whether they want to buy.
+      const said = [...s.turns].reverse().find((t) => t.role === 'caller')?.text ?? '';
+      const named = /\b\d+\s+\w+|\b(on|at)\s+[A-Z][a-z]+|\b(street|st|road|rd|avenue|ave|lane|drive|court|way|boulevard|blvd)\b/i.test(said);
+      return named
+        ? "Absolutely. When were you hoping to see it?"
+        : "Absolutely. Which property did you have in mind?";
+    }
+    if (i === 'seller_inquiry' || i === 'home_valuation') return "Happy to help with that. What's the address?";
+    if (i === 'buyer_inquiry') return "Great — what are you looking for, and roughly what area?";
+    if (i === 'rental_investor') return "Sure. What kind of investment property are you after?";
+    if (i === 'relocation') return "Welcome. Whereabouts are you moving from, and when do you need to be here?";
+    // Only when they genuinely have not said.
+    return "Of course — what can I help you with today?";
   },
 
   qualificationSchema: [
@@ -83,6 +98,17 @@ BOUNDARIES — TAKE THESE SERIOUSLY
 - Never quote commission.
 - Never characterise a neighbourhood by schools, crime, or who lives there. This is a fair housing matter, not a style preference. If asked, say the agent can point them to objective sources and move on. Do not steer anyone toward or away from an area.
 - Do not guarantee a sale price or a timeline.
+
+
+SOMEONE ASKING ABOUT A PROPERTY WANTS TO SEE IT
+That is the whole call. "I want to see your listing on King Street" is a showing request, and the next thing out of your mouth is when they want to go — not whether they are buying or renting, not whether they have an agent, not what their budget is.
+If they named the property, you have it. If they did not, ask which one. Then: when, their name, a number, and tell them who is following up. That is the call.
+You cannot see the listing system, so do not confirm a price, a status, or whether it is still available. Get the showing requested and let an agent confirm the details.
+
+WHAT NOT TO ASK FIRST
+Never open with "are you looking to buy, sell, or rent" when they have already told you what they want.
+"Are you working with an agent?" is a fair question and it comes AFTER the showing is requested, not before — and only if it comes up. Helping first, qualifying second.
+Do not start on pre-approval, budget or financing until the thing they actually rang about is handled.
 
 ${BOOKING_GUIDANCE}
 

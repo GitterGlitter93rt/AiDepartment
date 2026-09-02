@@ -48,10 +48,61 @@ export interface CompleteResult {
   raw: unknown[];
 }
 
+/** A clause ready to speak, emitted before the reply is finished. */
+export type StreamSink = (text: string) => void;
+
+export interface StreamOptions extends CompleteOptions {
+  /**
+   * Called with each speakable clause as it arrives.
+   *
+   * The whole point of streaming here: the caller hears the first
+   * sentence while the rest is still being generated. Waiting for a
+   * complete reply and then chunking it — which is what this used to do
+   * — spends the entire generation time as silence.
+   */
+  onClause: StreamSink;
+  /** Aborts generation when the caller interrupts. */
+  signal?: AbortSignal;
+}
+
 export interface ClaudeClient {
   complete(opts: CompleteOptions): Promise<string>;
   /** Full-fidelity call: tool requests, stop reason and token usage. */
   send?(opts: CompleteOptions): Promise<CompleteResult>;
+  /** Streams text, emitting clauses as they become speakable. */
+  stream?(opts: StreamOptions): Promise<CompleteResult>;
+}
+
+/**
+ * Splits a growing buffer at the first point it is safe to speak.
+ *
+ * Sentence ends are the natural boundary. A comma is accepted once the
+ * clause is long enough to be worth saying on its own, because the
+ * first clause is the one that removes the silence and a caller would
+ * rather hear "Absolutely, we can help with that" than wait for the
+ * full stop.
+ */
+export function takeSpeakable(buffer: string, isFirst: boolean): { clause: string; rest: string } | null {
+  // A sentence is always a good place to stop. Later clauses need to be
+  // longer, or the speech comes out choppy.
+  const sentenceMin = isFirst ? 12 : 30;
+  const sentence = buffer.match(/^[\s\S]*?[.!?](?=\s|$)/);
+  if (sentence && sentence[0].trim().length >= sentenceMin) {
+    return { clause: sentence[0].trim(), rest: buffer.slice(sentence[0].length) };
+  }
+
+  // For the FIRST clause only, a comma will do — that is where the
+  // latency is won. The bar is lower than for a sentence because
+  // "Absolutely," is worth saying on its own while the rest is still
+  // being generated, but high enough that "Yes," and "Sure," are held
+  // back rather than shipped as a turn of their own.
+  if (isFirst) {
+    const comma = buffer.match(/^[\s\S]*?,(?=\s)/);
+    if (comma && comma[0].trim().length >= 10) {
+      return { clause: comma[0].trim(), rest: buffer.slice(comma[0].length) };
+    }
+  }
+  return null;
 }
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -107,8 +158,133 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
     };
   }
 
+  /**
+   * Streaming completion.
+   *
+   * Text is emitted clause by clause as the model produces it, so the
+   * caller starts hearing the answer roughly a TTFT after they stop
+   * talking rather than after the whole reply exists. Tool use is not
+   * streamed — a tool call has nothing speakable in it, and the round
+   * trip is handled by the caller.
+   */
+  async function stream(opts: StreamOptions): Promise<CompleteResult> {
+    const { system, messages, maxTokens = 300, temperature = 0.6, tools, onClause, signal } = opts;
+    const body: Record<string, unknown> = {
+      model: opts.model ?? model,
+      max_tokens: maxTokens,
+      temperature,
+      system,
+      messages,
+      stream: true,
+    };
+    if (tools && tools.length > 0) body.tools = tools;
+
+    const res = await fetchImpl(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let raw = '';
+    let text = '';
+    let pending = '';
+    let spoken = false;
+    let stopReason: string | null = null;
+    const usage: Usage = { inputTokens: 0, outputTokens: 0 };
+    const toolUses: ToolUseBlock[] = [];
+    const partialTools = new Map<number, { id: string; name: string; json: string }>();
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      raw += decoder.decode(value, { stream: true });
+
+      // Server-sent events are separated by a blank line.
+      let split: number;
+      while ((split = raw.indexOf('\n\n')) !== -1) {
+        const frame = raw.slice(0, split);
+        raw = raw.slice(split + 2);
+        const dataLine = frame.split('\n').find((l) => l.startsWith('data:'));
+        if (!dataLine) continue;
+
+        let event: Record<string, unknown>;
+        try {
+          event = JSON.parse(dataLine.slice(5).trim()) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
+
+        switch (event.type) {
+          case 'content_block_start': {
+            const block = event.content_block as { type?: string; id?: string; name?: string } | undefined;
+            if (block?.type === 'tool_use') {
+              partialTools.set(Number(event.index), { id: block.id ?? '', name: block.name ?? '', json: '' });
+            }
+            break;
+          }
+          case 'content_block_delta': {
+            const delta = event.delta as { type?: string; text?: string; partial_json?: string };
+            if (delta?.type === 'text_delta' && delta.text) {
+              text += delta.text;
+              pending += delta.text;
+              // Emit as soon as there is something worth saying.
+              for (;;) {
+                const taken = takeSpeakable(pending, !spoken);
+                if (!taken) break;
+                pending = taken.rest;
+                spoken = true;
+                onClause(taken.clause);
+              }
+            } else if (delta?.type === 'input_json_delta' && delta.partial_json) {
+              const t = partialTools.get(Number(event.index));
+              if (t) t.json += delta.partial_json;
+            }
+            break;
+          }
+          case 'message_delta': {
+            const d = event.delta as { stop_reason?: string } | undefined;
+            if (d?.stop_reason) stopReason = d.stop_reason;
+            const u = event.usage as { output_tokens?: number } | undefined;
+            if (u?.output_tokens) usage.outputTokens = u.output_tokens;
+            break;
+          }
+          case 'message_start': {
+            const m = event.message as { usage?: { input_tokens?: number } } | undefined;
+            usage.inputTokens = m?.usage?.input_tokens ?? 0;
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+
+    // Whatever is left is the tail of the reply.
+    if (pending.trim()) onClause(pending.trim());
+
+    for (const t of partialTools.values()) {
+      let parsed: Record<string, unknown> = {};
+      try { parsed = t.json ? (JSON.parse(t.json) as Record<string, unknown>) : {}; } catch { parsed = {}; }
+      toolUses.push({ id: t.id, name: t.name, input: parsed });
+    }
+
+    return { text: text.trim(), toolUses, stopReason, model: opts.model ?? model, usage, raw: [] };
+  }
+
   return {
     send,
+    stream,
     async complete(opts) {
       return (await send(opts)).text;
     },

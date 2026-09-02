@@ -437,17 +437,30 @@ export const RULES: Rule[] = [
 
   // ================= COLLISION REPAIR =================
   { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair', urgency: 'emergency',
-    // A crash that JUST happened. The caller is usually still at the
-    // scene and needs a tow, not a lawyer — "I just got into an
-    // accident" is the shop's call, while the injury firm's version of
-    // the same event arrives days later and leads with the injury.
+    // A crash that JUST happened AND is still being dealt with. The
+    // caller is at the scene and needs a truck.
+    //
+    // "I wrecked my car and need it fixed" is a different call: past
+    // tense, repair intent, nobody on a shoulder. Opening that one with
+    // "is everyone okay?" answers a question they did not ask.
     anchors: [/\b(just|literally just)\b[^.]{0,30}\b(got in(to)?|had|been in|was in)\b[^.]{0,25}\b(a )?(car |auto |vehicle )?(accident|crash|wreck|collision)\b/i,
               /\bi(?:'ve| have)? just (crashed|wrecked|been hit)\b/i,
               /\b(accident|crash|wreck)\b[^.]{0,35}\b(right now|just now|a few minutes ago|happening now)\b/i],
     support: [/\b(bridge|highway|interstate|i-\d+|shoulder|exit|road|street)\b/i,
               /\b(tow|towed|drivable|won'?t (drive|start)|blocking)\b/i],
     // An injury or a lawyer in the same breath makes it a PI call.
-    veto: [/\b(lawyer|attorney|law firm|sue|lawsuit|my (neck|back) (is )?(hurt|killing)|injur\w+ (claim|attorney)|settlement)\b/i] },
+    veto: [/\b(lawyer|attorney|law firm|sue|lawsuit|my (neck|back) (is )?(hurt|killing)|injur\w+ (claim|attorney)|settlement)\b/i,
+           // Repair intent means they are past the scene.
+           /\b(need|want|get) (it|the car|my car|this) (fixed|repaired|looked at)\b/i,
+           /\b(fix|repair)\w*\b[^.]{0,20}\b(my |the )?(car|truck|vehicle|bumper)\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'estimate_request',
+    // Past the scene, wanting it fixed. Distinct from the roadside
+    // rule above so it does not inherit emergency urgency and open on
+    // "is everyone okay?" — they told you what they want.
+    anchors: [/\b(wreck|smash|crash|total|bang|dent|damage)\w*\b[^.]{0,25}\b(my|the|our)\b[^.]{0,25}\b(car|truck|suv|van|vehicle|bmw|honda|toyota|ford|chevy|jeep|audi|benz|mercedes|nissan|kia|hyundai|subaru|lexus)\b/i,
+              /\b(need|want|looking) (to )?(get )?(it|this|my car|the car|my truck|my vehicle)\b[^.]{0,20}\b(fixed|repaired|looked at)\b/i,
+              /\b(get|have)\b[^.]{0,25}\b(fixed|repaired)\b[^.]{0,25}\b(car|truck|vehicle)\b/i],
+    support: [/\b(estimate|quote|insurance|claim|body ?shop|repair)\b/i, /\bwrecked\b/i] },
   { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair',
     anchors: [/\b(body|collision) (shop|work|repair)\b/i,
               /\b(car|truck|vehicle|bumper|fender|door|quarter panel)\b[^.]{0,30}\b(dent\w*|damage\w*|smashed|wrecked|banged up|crumpled|scraped)\b/i,
@@ -512,6 +525,11 @@ export const RULES: Rule[] = [
               /\b(house|home|listing|place|one)\b[^.]{0,30}\bstill available\b/i,
               /\bstill available\b[^.]{0,25}\b(house|home|listing|place)\b/i,
               /\bsign (out front|in the yard)\b/i,
+              // "I want to see one of your listings" — the goal is
+              // plain, and it was routing nowhere.
+              /\b(see|view|tour|look at)\b[^.]{0,30}\b(one of your|your) (listings?|properties|homes|houses)\b/i,
+              /\byour listing\b/i,
+              /\b(showing|viewing)\b[^.]{0,25}\b(request|set up|schedule|book)\b/i,
               /\bdrove (by|past)\b[^.]{0,35}\b(house|home|place|property|listing|one)\b/i,
               /\b(house|home|place|property) on \w+ (street|st|road|rd|avenue|ave|lane|drive|dr|way|court|ct|boulevard|blvd)\b/i] },
   { industry: 'real_estate', specialty: 'rental', intent: 'rental_investor',
