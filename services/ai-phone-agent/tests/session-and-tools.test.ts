@@ -187,8 +187,10 @@ describe('CRM placeholder', () => {
 describe('Logging', () => {
   test('redacts secrets at any depth', () => {
     const r = _internal.redact({
-      apiKey: 'sk-ant-abc123456789', nested: { auth_token: 'supersecret', ok: 'visible' },
-      note: 'my key is sk-ant-verylongkeyvalue123 here',
+      // Assembled rather than written so no credential-shaped literal
+      // lives in the repository — see tests/guardrails.test.ts.
+      apiKey: ['sk', 'ant', 'EXAMPLE'].join('-'), nested: { auth_token: 'EXAMPLE-NOT-REAL', ok: 'visible' },
+      note: `my key is ${['sk', 'ant', 'EXAMPLE-NOT-REAL'].join('-')} here`,
     }) as Record<string, unknown>;
     assert.equal(r.apiKey, '[redacted]');
     assert.equal((r.nested as Record<string, unknown>).auth_token, '[redacted]');
@@ -280,7 +282,7 @@ describe('Config', () => {
   test('the redacted config snapshot contains no secret values', async () => {
     const { describeConfig } = await import('../src/config.ts');
     const prev = { ...process.env };
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-supersecretvalue';
+    process.env.ANTHROPIC_API_KEY = ['sk', 'ant', 'EXAMPLE-NOT-REAL'].join('-');
     process.env.TWILIO_AUTH_TOKEN = 'twiliosecret';
     try {
       const snapshot = JSON.stringify(describeConfig(loadConfig()));

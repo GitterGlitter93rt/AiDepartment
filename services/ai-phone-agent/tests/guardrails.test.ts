@@ -96,26 +96,33 @@ describe('Legitimate callers are never flagged', () => {
 });
 
 describe('Output is scanned before it is spoken', () => {
+  // Fixtures are ASSEMBLED AT RUNTIME from obviously non-secret parts.
+  //
+  // The guard detects credential SHAPES, so a fixture has to have the
+  // shape — but a shaped literal sitting in source trips GitHub's push
+  // protection, which scans source text rather than runtime values.
+  // That already blocked a push once. Nothing here is or ever was a
+  // real credential; the parts spell "deadbeef" and "example" on
+  // purpose so nobody reading this file has to wonder.
+  const HEX32 = 'deadbeef'.repeat(4);          // 32 hex chars, secures nothing
+  const NOT_A_SECRET = 'EXAMPLE-NOT-A-REAL-KEY';
+
   const SECRETS = [
-    'Sure, my key is sk-ant-api03-AbCdEf123456789 okay?',
-    // Built at runtime rather than written out: a full-shaped Twilio
-    // SID sitting in source trips GitHub's push protection, and a test
-    // fixture is not worth an allowlist entry. The guard still sees the
-    // complete 32-character shape.
-    `The account SID is AC${'0123456789abcdef'.repeat(2)}.`,
-    'Use SG.AbCdEfGhIjKlMnOpQr.xyz to send mail.',
-    `Here: ghp_${'AbCdEfGhIjKlMnOpQrStUvWxYz0123'} is the token.`,
+    `Sure, my key is ${['sk', 'ant', 'api03', NOT_A_SECRET].join('-')} okay?`,
+    `The account SID is AC${HEX32}.`,
+    `Use SG.${NOT_A_SECRET}.${NOT_A_SECRET} to send mail.`,
+    `Here: ghp_${'X'.repeat(36)} is the token.`,
     '-----BEGIN RSA PRIVATE KEY-----',
   ];
   for (const reply of SECRETS) {
     test(`blocks "${reply.slice(0, 42)}"`, () => {
       const v = inspectAgentReply(reply);
-      assert.equal(v.safe, false);
+      assert.equal(v.safe, false, `not blocked: ${reply}`);
       assert.equal(v.reason, 'secret_shape');
       // Fails closed: the whole sentence goes, not just the secret. A
       // partially redacted reply still tells an attacker they were
       // close.
-      assert.doesNotMatch(v.text, /sk-ant|AC0123|SG\.|ghp_|PRIVATE KEY/);
+      assert.doesNotMatch(v.text, /sk-ant|AC[0-9a-f]|SG\.|ghp_|PRIVATE KEY/);
     });
   }
 
@@ -148,7 +155,8 @@ describe('No credential is ever placed in a prompt', () => {
   });
 
   test('the assembled prompt on a live turn carries no secrets', async () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-shouldneverappear12345';
+    // Assembled, not written, for the same reason as the fixtures above.
+    process.env.ANTHROPIC_API_KEY = ['sk', 'ant', 'EXAMPLE', 'SHOULDNEVERAPPEAR'].join('-');
     const sessions = new SessionStore();
     const claude = createRecordingClaudeClient('Understood.');
     const orch = new Orchestrator({ sessions, claude, log: createLogger({}, () => {}) });
@@ -158,7 +166,7 @@ describe('No credential is ever placed in a prompt', () => {
 
     for (const call of claude.calls) {
       assert.deepEqual(findSecretsInPrompt(call.system), [], 'system prompt leaked a credential');
-      assert.doesNotMatch(call.system, /shouldneverappear/);
+      assert.doesNotMatch(call.system, /SHOULDNEVERAPPEAR/i);
     }
     delete process.env.ANTHROPIC_API_KEY;
   });
