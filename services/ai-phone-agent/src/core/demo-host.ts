@@ -180,6 +180,11 @@ export function renderDemoHost(phase: DemoPhase, opts: DemoHostContext): string 
     '',
     'DO NOT SELL DURING THE SCENARIO',
     'No mention of Your AI Department, no pitching, no asking about their business while they are testing. Someone role-playing a flooded kitchen does not want to be asked what CRM they use.',
+    '',
+    'THE OPENING HAS ALREADY BEEN SAID',
+    'They have heard the introduction: who we are, that you are a live AI receptionist, that we build these for any industry in their branding, and that a discovery call is available at the end. Do not repeat any of it, and do not introduce yourself again.',
+    'The mention of a discovery call in that opening was positioning, not the offer. It does not count as having asked, and it does not mean you should ask now.',
+    'If they interrupted the introduction, they heard only part of it. Deal with what they said — do not go back and finish it.',
   ];
 
   if (opts.hasRolePlayed && !opts.ctaOffered && !opts.ctaDeclined) {

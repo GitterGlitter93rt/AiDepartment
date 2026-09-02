@@ -15,18 +15,18 @@
 // value that cannot accidentally inherit from it.
 
 /**
- * The demo line's introduction.
+ * The first thing a demo caller hears.
  *
- * Written for speech, not for a page: short clauses, contractions, and
- * one idea per sentence. Around twenty seconds spoken, which is long
- * enough to set up the role-play and short enough that nobody taps
- * zero.
+ * Five words, and that is the whole point: this string goes in the
+ * TwiML `welcomeGreeting`, which ConversationRelay synthesises in full
+ * before it plays a syllable. Every word here is silence at the front
+ * of the call. The positioning that used to live in this attribute —
+ * and cost three to five seconds of dead air — is in
+ * DEMO_INTRO.positioning, spoken over the socket instead.
  *
- * "Hundreds of voice options" is deliberately vague — a specific count
- * would be a claim we would have to keep true.
+ * Do not lengthen this. Lengthen the positioning.
  */
-export const DEMO_GREETING =
-  "Your AI Department demo line — tell me what you need, like you would any business.";
+export const DEMO_GREETING = 'Welcome to Your AI Department.';
 
 /**
  * The rest of the pitch, said on the FIRST agent turn rather than in
@@ -130,5 +130,9 @@ export interface DemoIntro {
 
 export const DEMO_INTRO: DemoIntro = {
   greeting: DEMO_GREETING,
-  positioning: null,
+  positioning:
+    "You're talking to one of our live AI receptionists. We build agents like this for "
+    + 'virtually any industry, customized to your business, with hundreds of available voices. '
+    + 'Just talk to me like you would the actual company. '
+    + 'If you like it, I can book you a discovery call before we finish.',
 };

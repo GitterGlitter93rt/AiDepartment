@@ -4,7 +4,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEMO_GREETING, DEFAULT_CLIENT_GREETING, greetingFor, spokenSeconds, YAD_BRANDING_MARKERS,
+  DEMO_GREETING, DEMO_INTRO, DEFAULT_CLIENT_GREETING, greetingFor, spokenSeconds, YAD_BRANDING_MARKERS,
 } from '../src/business/greeting.ts';
 import { detectSalesIntent, isDecliningOffer, renderDemoHost } from '../src/core/demo-host.ts';
 import { YAD_DISCOVERY_CALL } from '../src/business/policies.ts';
@@ -49,9 +49,30 @@ describe('The demo greeting', () => {
     assert.ok(seconds <= 7, `${seconds.toFixed(1)}s of greeting is silence before anything useful happens`);
   });
 
-  test('identifies the line and invites the role-play, and nothing more', () => {
-    assert.match(DEMO_GREETING, /Your AI Department/);
-    assert.match(DEMO_GREETING, /like you would any business/i, 'must invite the role-play');
+  test('identifies the line immediately, and invites the role-play in the positioning', () => {
+    // Split deliberately. The greeting attribute is synthesised in
+    // full before playback starts, so it carries the brand and nothing
+    // else; the invitation follows over the socket, where it costs no
+    // startup latency.
+    assert.match(DEMO_INTRO.greeting, /Your AI Department/);
+    assert.ok(DEMO_INTRO.positioning, 'the positioning must exist');
+    assert.match(DEMO_INTRO.positioning!, /talk to me like you would the actual company/i, 'must invite the role-play');
+  });
+
+  test('the streamed positioning carries the whole product claim', () => {
+    const p = DEMO_INTRO.positioning!;
+    assert.match(p, /live AI receptionists?/i);
+    assert.match(p, /any industry/i);
+    assert.match(p, /customized to your business/i);
+    assert.match(p, /hundreds of available voices/i);
+    assert.match(p, /discovery call/i);
+  });
+
+  test('the positioning stays a short introduction, not a monologue', () => {
+    // The failure this guards against is the original 63-word intro
+    // coming back by increments.
+    const words = DEMO_INTRO.positioning!.trim().split(/\s+/).length;
+    assert.ok(words <= 60, `${words} words of positioning is a speech, not an introduction`);
   });
 
   test('the positioning survives, said on the first turn instead', async () => {
@@ -450,5 +471,48 @@ describe('The demo host holds its own boundaries', () => {
 
     const prospect = TOOL_SCHEMAS.find((t) => t.name === 'capture_prospect')!;
     assert.match(prospect.description, /Never copy a name, company or address out of the role-play/i);
+  });
+});
+
+describe('the split intro', () => {
+  test('the greeting attribute stays short enough to start fast', () => {
+    // Every word in welcomeGreeting is synthesised before the caller
+    // hears anything. This is the attribute that caused the original
+    // 3-5 second opening pause.
+    const words = DEMO_INTRO.greeting.trim().split(/\s+/).length;
+    assert.ok(words <= 8, `${words} words in welcomeGreeting is startup silence`);
+    assert.ok(spokenSeconds(DEMO_INTRO.greeting) <= 3);
+  });
+
+  test('the greeting is exactly what greetingFor returns in demo mode', () => {
+    // One source of truth: the TwiML and the intro must not drift.
+    assert.equal(greetingFor({ mode: 'demo' }), DEMO_INTRO.greeting);
+  });
+
+  test('no part of the intro can reach a client deployment', () => {
+    // The positioning names Your AI Department and a discovery call —
+    // both fatal on a client's line. It is demo-only at the call site,
+    // and the greeting itself must be clean too.
+    const client = greetingFor({ mode: 'client', businessName: 'Ace Collision' });
+    for (const marker of YAD_BRANDING_MARKERS) {
+      assert.doesNotMatch(client, marker, `client greeting leaked ${marker}`);
+    }
+    // And the demo positioning is genuinely branded, or it is not doing
+    // its job — which is precisely why it must never be sent to one.
+    assert.match(DEMO_INTRO.positioning!, /Your AI Department|discovery call/i);
+  });
+
+  test('the agent is told the introduction has already been given', () => {
+    // Otherwise it re-introduces itself, or treats the intro's mention
+    // of a discovery call as the single offer having been made.
+    const block = renderDemoHost('role_play', {
+      hasRolePlayed: true, scenarioTested: 'collision_repair',
+      ctaOffered: false, ctaDeclined: false, calendarMode: 'mock',
+    });
+    assert.match(block, /already been said/i);
+    assert.match(block, /positioning, not the offer/i);
+    assert.match(block, /do not go back and finish it/i);
+    // The real offer is still available at the end.
+    assert.match(block, /ONE OFFER, ONCE/);
   });
 });

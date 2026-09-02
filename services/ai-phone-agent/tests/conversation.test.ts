@@ -11,6 +11,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { Orchestrator, GREETING } from '../src/core/orchestrator.ts';
+import { DEMO_INTRO } from '../src/business/greeting.ts';
 import { SessionStore } from '../src/core/session.ts';
 import { createStubClaudeClient, createRecordingClaudeClient } from '../src/claude/client.ts';
 import { createLogger, type LogEvent } from '../src/logger.ts';
@@ -177,10 +178,15 @@ describe('Ambiguity handling', () => {
 });
 
 describe('Conversation quality guarantees', () => {
-  test('the greeting invites a free-form answer instead of offering a menu', () => {
-    assert.match(GREETING, /tell me/i);
+  test('the opening invites a free-form answer instead of offering a menu', () => {
+    // The invitation lives in the streamed positioning now: the
+    // greeting attribute is kept to five words because every word in
+    // it is synthesised before the caller hears anything. What matters
+    // is what they actually hear, which is both parts.
+    const heard = `${DEMO_INTRO.greeting} ${DEMO_INTRO.positioning ?? ''}`;
+    assert.match(heard, /talk to me like you would/i);
     for (const menu of ['press ', 'option ', 'say one', 'for sales', 'main menu']) {
-      assert.equal(GREETING.toLowerCase().includes(menu), false);
+      assert.equal(heard.toLowerCase().includes(menu), false);
     }
   });
 
