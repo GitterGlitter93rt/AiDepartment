@@ -1,4 +1,4 @@
-import type { ComplianceResult, Lead } from './types';
+import type { ComplianceResult, Lead } from './types.js';
 
 export interface CompliancePolicy {
   internalSuppressionNumbers: Set<string>;
