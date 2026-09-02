@@ -199,10 +199,13 @@ describe('shop-business calls do not run the accident intake', () => {
 });
 
 describe('REGRESSION — accident and tow work is untouched', () => {
-  test('a fresh crash still opens on people', () => {
+  test('a fresh crash opens on the vehicle — no safety triage', () => {
     const { decision, opening } = callShop('I just got into a car accident on the Buckman Bridge');
     assert.equal(decision?.urgency, 'emergency');
-    assert.match(opening!, /is everyone okay/i);
+    // Urgency changes the pace and the order. It does not turn an
+    // intake line into a triage line.
+    assert.doesNotMatch(opening!, /everyone okay|anyone hurt|somewhere safe|out of traffic|medical/i);
+    assert.match(opening!, /where/i);
   });
 
   test('a repair call still opens on the car', () => {
@@ -216,10 +219,18 @@ describe('REGRESSION — accident and tow work is untouched', () => {
     assert.equal(classifyHeuristic("my car wont drive I need a tow")?.intent, 'towing_needed');
   });
 
-  test('an accident call keeps the full scene schema', () => {
+  test('an accident call is never shown a safety question as the next thing to ask', () => {
+    // The scene fields sat at the top of the schema, so "whether
+    // anyone is hurt" was presented as the first outstanding item on
+    // every crash call — and the agent duly asked it. Still captured
+    // if volunteered; never led on.
     const { session, spec } = callShop('I just got into a car accident on the Buckman Bridge');
     const goals = spec!.qualificationGoalsFor!(session);
-    assert.match(goals[0], /hurt/i, 'the crash intake still leads on people');
+    for (const g of goals) {
+      assert.doesNotMatch(g, /hurt|safely off the travel lanes|blocking a lane|still at the scene/i,
+        `safety goal still shown: ${g}`);
+    }
+    assert.match(goals[0], /where the vehicle is|year|make|model/i);
   });
 
   test('shop rules do not steal other industries', () => {

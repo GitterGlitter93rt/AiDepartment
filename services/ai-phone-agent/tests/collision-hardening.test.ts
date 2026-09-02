@@ -41,6 +41,9 @@ const TOW_INPUT = {
   callerName: 'Michael', callbackPhone: '+19045550142',
   pickupLocation: 'Buckman Bridge, on the shoulder', directionOfTravel: 'northbound',
   vehicleMake: 'BMW', vehicleModel: 'X5',
+  // A truck does not go out without a way of paying for it.
+  paymentPath: 'insurance', insuranceCarrier: 'GEICO', policyNumber: 'POL-77',
+  towCostDisclosed: true,
 };
 
 describe('Secure location link', () => {
@@ -164,11 +167,27 @@ describe('Tow dispatch prerequisites', () => {
     assert.equal(validateToolRequest({ id: '1', name: 'dispatch_tow', input: { ...TOW_INPUT, directionOfTravel: undefined, pickupLocation: 'the bridge' } }, s).ok, false);
   });
 
-  test('no claim number or carrier is needed to send a truck', () => {
-    // Somebody on a bridge has not opened a claim. Making them would be
-    // absurd.
+  test('a policy number is enough — no open claim required', () => {
+    // Somebody on a bridge has not opened a claim yet, and refusing to
+    // move until their insurer has done paperwork would strand them.
+    // Either identifier satisfies the gate.
     const v = validateToolRequest({ id: '1', name: 'dispatch_tow', input: TOW_INPUT }, crash(TOWABLE));
-    assert.equal(v.ok, true);
+    assert.equal(v.ok, true, v.reason ?? "refused");
+
+    const withClaim = { ...TOW_INPUT, policyNumber: undefined, claimNumber: 'CLM-1' };
+    assert.equal(validateToolRequest({ id: '1', name: 'dispatch_tow', input: withClaim }, crash(TOWABLE)).ok, true);
+  });
+
+  test('but SOME payment path is always required', () => {
+    // This test previously asserted the opposite, and the live failure
+    // was exactly that: a caller asked whether we really needed
+    // insurance, was told their safety mattered more, and the tool
+    // would have sent the truck.
+    const noPath = { ...TOW_INPUT, paymentPath: undefined };
+    const v = validateToolRequest({ id: '1', name: 'dispatch_tow', input: noPath }, crash(TOWABLE));
+    assert.equal(v.ok, false);
+    assert.ok(v.missing?.includes('payment_path'));
+    assert.match(v.reason!, /without a way of paying/i);
   });
 
   test('the destination is still config-only', () => {

@@ -68,6 +68,8 @@ const deps = (tools: Toolbox, session: Session) => ({ tools, log: silent, sessio
 const TOW = {
   callerName: 'Michael', callbackPhone: '+19045550142',
   vehicleMake: 'BMW', vehicleModel: 'X5',
+  // A payment path is a hard prerequisite for any dispatch.
+  paymentPath: 'insurance', insuranceCarrier: 'GEICO', policyNumber: 'POL-77', towCostDisclosed: true,
 };
 /** Session state proving the vehicle genuinely cannot be driven. */
 const UNDRIVABLE = { towNeeded: true };
@@ -561,7 +563,7 @@ describe('END TO END — the Buckman Bridge video demo', () => {
   // The call we intend to record. Driven through the real orchestrator
   // with a scripted model so the routing, state and tool wiring are
   // exercised without an API key.
-  test('a fresh crash routes to collision and opens on people, not the car', async () => {
+  test('a fresh crash opens on the vehicle, not on a safety questionnaire', async () => {
     const { Orchestrator } = await import('../src/core/orchestrator.ts');
     const sessions = new SessionStore();
     const orch = new Orchestrator({ sessions, claude: null, log: silent, tools: createMockToolbox() });
@@ -570,8 +572,12 @@ describe('END TO END — the Buckman Bridge video demo', () => {
     const session = sessions.get('CA_bb')!;
 
     assert.equal(session.route.industry, 'collision_repair');
-    assert.match(first, /okay|alright|hurt|injur/i, `opened with: "${first}"`);
-    assert.doesNotMatch(first, /\bestimate\b|\bbumper\b|\bclaim number\b/i, 'the car must not come first');
+    // A collision centre is not an emergency dispatcher. Someone who
+    // rang a body shop and is talking calmly does not need to be asked
+    // whether they are safe — they need the car dealt with.
+    assert.doesNotMatch(first, /everyone okay|anyone hurt|somewhere safe|out of traffic|medical attention/i,
+      `opened with a safety question: "${first}"`);
+    assert.match(first, /where|car|vehicle/i, `opened with: "${first}"`);
   });
 
   test('the scene sequence keeps state and never claims to locate them', async () => {

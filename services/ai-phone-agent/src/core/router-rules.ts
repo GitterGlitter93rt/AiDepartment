@@ -545,7 +545,11 @@ export const RULES: Rule[] = [
     anchors: [/\b(wreck|smash|crash|total|bang|dent|damage)\w*\b[^.]{0,25}\b(my|the|our)\b[^.]{0,25}\b(car|truck|suv|van|vehicle|bmw|honda|toyota|ford|chevy|jeep|audi|benz|mercedes|nissan|kia|hyundai|subaru|lexus)\b/i,
               /\b(need|want|looking) (to )?(get )?(it|this|my car|the car|my truck|my vehicle)\b[^.]{0,20}\b(fixed|repaired|looked at)\b/i,
               /\b(get|have)\b[^.]{0,25}\b(fixed|repaired)\b[^.]{0,25}\b(car|truck|vehicle)\b/i],
-    support: [/\b(estimate|quote|insurance|claim|body ?shop|repair)\b/i, /\bwrecked\b/i] },
+    support: [/\b(estimate|quote|insurance|claim|body ?shop|repair)\b/i, /\bwrecked\b/i],
+    // "I wrecked my BMW and need a tow" is a tow call. Answering it
+    // with "is the car still drivable?" asks them to repeat what they
+    // just said.
+    veto: [/\bneed(s)? (a )?tow\w*/i, /\btow (my|the) car\b/i, /\bstranded\b/i] },
   { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair',
     anchors: [/\b(body|collision) (shop|work|repair)\b/i,
               /\b(car|truck|vehicle|bumper|fender|door|quarter panel)\b[^.]{0,30}\b(dent\w*|damage\w*|smashed|wrecked|banged up|crumpled|scraped)\b/i,
@@ -558,7 +562,14 @@ export const RULES: Rule[] = [
               /\b(hood|trunk|quarter panel|fender|bumper)\b[^.]{0,35}\bhail\b/i,
               /\bhail damage\b[^.]{0,25}\b(car|vehicle)\b/i] },
   { industry: 'collision_repair', specialty: 'general', intent: 'towing_needed',
-    anchors: [/\bcar (is )?not drivable\b/i, /\bneed(s)? (a )?tow\w*/i, /\btow (my|the) car\b/i] },
+    anchors: [/\bcar (is )?not drivable\b/i, /\bneed(s)? (a )?tow\w*/i, /\btow (my|the) car\b/i,
+              // Stranded is a tow signal, not a distress signal. It
+              // used to route nowhere at all, so the call that most
+              // wants a truck got no specialist.
+              /\b(i'?m|i am|we'?re|we are) stranded\b/i,
+              /\bstranded\b[^.]{0,30}\b(road|roadside|highway|shoulder|here|somewhere)\b/i,
+              /\bstuck (on|at|in)\b[^.]{0,25}\b(road|highway|shoulder|median|interstate)\b/i],
+    support: [/\b(car|truck|vehicle|suv)\b/i, /\b(accident|wreck|crash|broke ?down)\b/i] },
   { industry: 'collision_repair', specialty: 'general', intent: 'repair_status',
     anchors: [/\bhow('s| is)\b[^.]{0,25}\b(my (car|truck|vehicle))\b[^.]{0,25}\b(coming|doing|looking)\b/i,
               /\bmy (car|truck|vehicle)\b[^.]{0,40}\b(in|at) your shop\b/i,

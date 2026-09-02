@@ -301,7 +301,7 @@ describe('Every SMS action uses the confirmed number', () => {
 });
 
 describe('The tow callback is a confirmed number', () => {
-  const TOW = { callerName: 'Michael', callbackPhone: REAL, vehicleMake: 'BMW', vehicleModel: 'X5', pickupLocation: 'Buckman Bridge shoulder', directionOfTravel: 'northbound' };
+  const TOW = { callerName: 'Michael', callbackPhone: REAL, vehicleMake: 'BMW', vehicleModel: 'X5', pickupLocation: 'Buckman Bridge shoulder', directionOfTravel: 'northbound', paymentPath: 'insurance', insuranceCarrier: 'GEICO', policyNumber: 'POL-77', towCostDisclosed: true };
 
   test('dispatch waits for confirmation rather than making them recite it', () => {
     const s = session();

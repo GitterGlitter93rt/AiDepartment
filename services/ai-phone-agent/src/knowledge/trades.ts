@@ -800,3 +800,42 @@ SCREEN_KNOWLEDGE.push({
     'Do not tell anyone whether a damaged enclosure is safe or whether it will hold — that is a structural judgement you cannot make from a phone call, and a pool cage coming down on someone is a serious injury. ' +
     'Say to keep people and pets out from under it until it has been looked at, and get someone out. Do not suggest they prop it up or pull it straight.',
 });
+
+/**
+ * The payment path, and the paperwork.
+ *
+ * Added after a live call in which a caller asked "you don't need
+ * insurance? no claim number? no forms, no nothing?" and was told
+ * their safety mattered more and the rest could come later. Both
+ * halves of that answer were wrong, and the caller knew it.
+ */
+COLLISION_KNOWLEDGE.push(
+  {
+    id: 'collision.tow_payment_path',
+    question: 'whether we really need insurance or a claim number before towing',
+    triggers: [
+      /\b(don'?t|do not) (you )?need\b[^.]{0,40}\b(insurance|claim|policy)\b/i,
+      /\bno (forms?|paperwork|claim|insurance)\b/i,
+      /\bwho'?s paying\b/i,
+      /\bwhat if i (don'?t have|have no) insurance\b/i,
+      /\b(self[- ]?pay|out of pocket|pay myself|cash)\b/i,
+    ],
+    source: 'business_config',
+    guidance:
+      'Answer it straight, because they have asked a fair question and a vague answer sounds like a trap. YES, a payment path is needed before a truck is sent — that is the shop\'s rule, not paperwork for its own sake. ' +
+      'Say roughly: "We do need a payment path before I send the truck. If we\'re billing insurance I\'ll need the insurance company and either the claim number or the policy number. Otherwise I can set it up as self-pay." ' +
+      'Either the claim number or the policy number is enough — not both, and a claim may not be open yet. ' +
+      'On self-pay, say plainly that the towing charge is theirs, and get their agreement before dispatching. ' +
+      'NEVER say the insurance, the claim number or the paperwork can be sorted out later, and never waive any of it because they are stranded or in a hurry. A truck sent without a way of paying for it is the shop\'s loss.',
+  },
+  {
+    id: 'collision.repair_authorization',
+    question: 'what forms have to be signed',
+    triggers: [/\b(forms?|paperwork|sign|signature|docusign|authoriz|authoris)\w*\b/i, /\bno forms,? no nothing\b/i],
+    source: 'business_config',
+    guidance:
+      'There IS paperwork and the agent should know it. The authorization is sent by DocuSign so the shop can inspect and tear the vehicle down, write the estimate, carry out the repair once it is approved, and be paid by the insurer where that applies. ' +
+      'Get the email naturally and for a reason: "What email should I use for the DocuSign forms and the repair updates?" ' +
+      'Do not describe what the forms say, and do not characterise the terms — the business wrote them.',
+  },
+);

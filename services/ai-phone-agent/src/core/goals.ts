@@ -25,21 +25,27 @@ export interface IndustryGoal {
 
 const GOALS: Record<string, IndustryGoal> = {
   collision_repair: {
-    outcome: 'the vehicle is on its way to the shop, or booked in — with enough detail that nobody has to ring them back for basics',
+    outcome: 'the vehicle is on its way to the shop, or booked in — with a payment path settled and enough detail that nobody has to ring them back for basics',
     path: [
-      'is everyone okay, and is the car somewhere safe',
-      'can it be driven, or does it need a truck',
-      'what the vehicle is',
-      'where it is, precisely enough for a driver',
-      'insurance and claim, as far as they know it',
+      'where the vehicle is, precisely enough for a driver to find it',
+      'what it is: year, make, model',
+      'how it has to be moved — does it roll, does it steer, anything jammed or bent',
+      'who is paying: insurance, or self-pay',
+      'if insurance: the carrier, and either a claim number or a policy number',
+      'name, callback number, and an email for the paperwork',
       'get it moving: tow, or a time to bring it in',
-      'confirm what happens next',
+      'what happens next — the forms, the teardown, the estimate',
     ],
     avoid: [
+      'asking whether they are safe, whether anyone is hurt, or whether they are out of traffic — they rang a body shop, not a hospital',
+      'treating "I am stranded" as a distress signal. It means they want a truck: get on with arranging one',
+      // The live failure, in one line: a caller asked whether we
+      // really needed insurance and was told their safety mattered
+      // more and the rest could come later. A truck went out unfunded.
+      'saying the insurance, the claim number or the paperwork can be sorted out later — a truck does not go out without a way of paying for it',
       'sending them to a website or telling them to call back — they rang because they want it dealt with now',
       'offering the same link twice',
       'raising medical care unless they actually mention being hurt',
-      'asking for a claim number before the car is safe',
     ],
   },
   attorneys: {
@@ -236,6 +242,12 @@ const MISSING_FIELD_PROMPTS: Record<string, string> = {
   project_description: 'what they actually want done, in their own words',
   project_type: 'what kind of project it is',
   vehicle_year_make_model: 'the year, make and model — ask for it as one question, not three',
+  payment_path: 'whether we are billing insurance or setting the tow up as self-pay',
+  insurance_carrier: 'which insurance company',
+  claim_or_policy_number: 'the claim number, or the policy number if no claim is open yet — either is fine',
+  payment_responsibility_acknowledged: 'their agreement that on self-pay the towing charge is theirs',
+  tow_cost_disclosed: 'a plain word on how the towing charge is handled, before the truck goes',
+  key_handoff_plan: 'where they will leave the key at the vehicle',
   callback_phone: 'a callback number',
   callback_phone_confirmed: 'confirmation that the number you have is the right one to call',
   incident_location: 'where it happened',

@@ -73,6 +73,10 @@ export interface TowRequest {
 
   /** Policy number, when there is no claim yet. */
   policyNumber?: string;
+  /** insurance, self_pay, third_party_insurance. No tow without one. */
+  paymentPath?: string;
+  paymentResponsibilityAcknowledged?: boolean;
+  towCostDisclosed?: boolean;
 }
 
 export interface TowResult extends ActionResult {

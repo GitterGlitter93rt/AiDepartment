@@ -209,12 +209,15 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         keyHandoffMethod: { type: 'string', enum: ['hand_to_driver', 'hidden_at_vehicle', 'inside_vehicle', 'third_party_handoff', 'other'] },
         keyInstructions: { type: 'string', description: "Where the key will be, in the caller's own words." },
         vehicleUnlockedForTow: { type: 'boolean' },
+        paymentPath: { type: 'string', enum: ['insurance', 'self_pay', 'third_party_insurance'], description: 'How the tow gets paid for. Required — no truck goes out without one.' },
         insuranceCarrier: { type: 'string' },
         claimNumber: { type: 'string' },
-        policyNumber: { type: 'string' },
+        policyNumber: { type: 'string', description: 'When no claim has been opened yet. Either this or a claim number is enough.' },
+        paymentResponsibilityAcknowledged: { type: 'boolean', description: 'Self-pay only. True once they have said they understand they are responsible for the towing charge.' },
+        towCostDisclosed: { type: 'boolean', description: 'True once you have told them how the towing charge is handled. Say it before the truck is sent, not after.' },
         notes: { type: 'string' },
       },
-      required: ['callerName', 'callbackPhone', 'pickupLocation'],
+      required: ['callerName', 'callbackPhone', 'pickupLocation', 'paymentPath'],
     },
   },
   {
@@ -667,6 +670,65 @@ export function validateToolRequest(
         }
       }
 
+      // ---- The payment gate. ----------------------------------------
+      //
+      // We do not send an unfunded tow. Deliberately deterministic and
+      // deliberately not overridable: urgency, being stranded, and any
+      // amount of model reasoning all leave this exactly where it is.
+      // The live failure was an agent telling a caller their safety
+      // mattered more and the insurance could come later — and the
+      // tool, which had no payment requirement at all, would have sent
+      // the truck.
+      const paymentPath = str(input, 'paymentPath') ?? (q0.paymentPath as string | undefined);
+      if (!paymentPath) {
+        return {
+          ok: false,
+          reason: 'No truck goes out without a way of paying for it. Ask whether we are billing insurance or setting it up as self-pay.',
+          missing: ['payment_path'],
+        };
+      }
+
+      if (paymentPath === 'insurance' || paymentPath === 'third_party_insurance') {
+        const carrier = str(input, 'insuranceCarrier') ?? (q0.insuranceCarrier as string | undefined);
+        const claim = str(input, 'claimNumber') ?? (q0.claimNumber as string | undefined);
+        const policy = str(input, 'policyNumber') ?? (q0.policyNumber as string | undefined);
+        const missingPay: string[] = [];
+        if (!carrier) missingPay.push('insurance_carrier');
+        // Either is enough. A claim may not be open yet, and refusing
+        // to move until one exists strands somebody over paperwork
+        // their insurer has not done.
+        if (!claim && !policy) missingPay.push('claim_or_policy_number');
+        if (missingPay.length > 0) {
+          return {
+            ok: false,
+            reason: 'For an insurance tow I need the insurance company, and either the claim number or the policy number — either one is fine.',
+            missing: missingPay,
+          };
+        }
+      }
+
+      if (paymentPath === 'self_pay') {
+        const acknowledged = boolOf(input, 'paymentResponsibilityAcknowledged')
+          ?? (q0.paymentResponsibilityAcknowledged as boolean | undefined);
+        if (acknowledged !== true) {
+          return {
+            ok: false,
+            reason: 'Tell them plainly that on self-pay they are responsible for the towing charge, and get their agreement before the truck goes.',
+            missing: ['payment_responsibility_acknowledged'],
+          };
+        }
+      }
+
+      // Said before the truck is sent, not discovered on the invoice.
+      const disclosed = boolOf(input, 'towCostDisclosed') ?? (q0.towCostDisclosed as boolean | undefined);
+      if (disclosed !== true) {
+        return {
+          ok: false,
+          reason: 'Explain how the towing charge is handled first: submitted with the claim where the policy covers it, and their responsibility where it does not. Never promise the carrier will pay.',
+          missing: ['tow_cost_disclosed'],
+        };
+      }
+
       // The destination is the business's, never the model's.
       const destination = policy.destinations.find((d) => d.id === policy.defaultDestinationId) ?? policy.destinations[0];
       if (!destination) return { ok: false, reason: 'No tow destination is configured. Take their details instead.' };
@@ -690,6 +752,9 @@ export function validateToolRequest(
           keyInstructions: str(input, 'keyInstructions') ?? (q0.towDriverKeyInstructions as string | undefined),
           vehicleUnlockedForTow: boolOf(input, 'vehicleUnlockedForTow') ?? (q0.vehicleUnlockedForTow as boolean | undefined),
           policyNumber: str(input, 'policyNumber') ?? undefined,
+          paymentPath,
+          paymentResponsibilityAcknowledged: boolOf(input, 'paymentResponsibilityAcknowledged'),
+          towCostDisclosed: true,
           vehicleYear: str(input, 'vehicleYear') ?? undefined,
           vehicleMake: str(input, 'vehicleMake') ?? undefined,
           vehicleModel: str(input, 'vehicleModel') ?? undefined,
@@ -1354,6 +1419,10 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         // Both outcomes are fine; which one is true depends only on
         // whether we are open when it lands.
         shopKeyDeliveryMethod: 'secure_key_drop',
+        paymentPath: args.paymentPath,
+        ...(args.paymentResponsibilityAcknowledged !== undefined
+          ? { paymentResponsibilityAcknowledged: args.paymentResponsibilityAcknowledged } : {}),
+        towCostDisclosed: true,
       });
 
       const policy = policiesFor(session.route.industry).tow;

@@ -36,6 +36,8 @@ const TOW_ARGS = {
   pickupLocation: 'Buckman Bridge northbound near the south exit',
   directionOfTravel: 'northbound',
   vehicleYear: '2019', vehicleMake: 'BMW', vehicleModel: '330i', vehicleColor: 'black',
+  paymentPath: 'insurance', insuranceCarrier: 'GEICO', claimNumber: 'CLM-9',
+  towCostDisclosed: true,
 };
 
 describe('A. an explicit tow request does not ask if it is drivable', () => {
