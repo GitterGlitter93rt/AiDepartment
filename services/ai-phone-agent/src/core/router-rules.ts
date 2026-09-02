@@ -436,6 +436,79 @@ export const RULES: Rule[] = [
     anchors: [/\b(pressure|power|soft) ?wash\w*/i] },
 
   // ================= COLLISION REPAIR =================
+  // ---- Ordinary shop business. ----------------------------------
+  //
+  // Not every call to a body shop is a crash. These sit ABOVE the
+  // accident rules deliberately: "what do you charge an hour" contains
+  // none of the crash vocabulary, but "how much to fix my bumper"
+  // contains enough to be swept into an accident intake, and being
+  // asked whether anyone is hurt when you asked about a price is the
+  // exact failure these exist to prevent.
+  { industry: 'collision_repair', specialty: 'general', intent: 'labor_rate_question',
+    anchors: [/\b(labou?r|hourly|shop) rates?\b/i,
+              /\bwhat(?:'s| is| are)?\b[^.]{0,20}\byour\b[^.]{0,15}\brates?\b/i,
+              /\bhow much\b[^.]{0,20}\b(per hour|an hour|hourly)\b/i,
+              /\brates?\b[^.]{0,15}\b(per hour|an hour)\b/i,
+              /\b(charge|cost)\b[^.]{0,20}\b(per hour|an hour|hourly)\b/i],
+    support: [/\b(body|paint|mechanical)\b/i, /\bcharge\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'general_estimate',
+    // A price question about a specific job. Never answerable on the
+    // phone, but it is still a body-shop call and must not fall to the
+    // accident intake — or to nothing at all, which is where "how much
+    // to repaint my car" used to land.
+    anchors: [/\bhow much\b[^.]{0,40}\b(repaint|paint|fix|repair|buff|blend)\b[^.]{0,30}\b(car|truck|suv|van|vehicle|bumper|fender|door|panel|hood|quarter|dent|scratch|scrape)\b/i,
+              /\bhow much\b[^.]{0,30}\b(a |the )?(dent|scratch|scrape|bumper|fender|door|panel|paint job)\b/i,
+              /\b(what would|what will|whats|what's) it cost\b[^.]{0,35}\b(car|truck|vehicle|bumper|paint|dent|panel)\b/i,
+              /\b(quote|estimate|ballpark|price)\b[^.]{0,30}\b(paint\w*|body ?work|dent|bumper|panel|respray)\b/i],
+    support: [/\b(body ?shop|collision|estimate|quote)\b/i,
+              /\b(re)?paint\w*\b/i,
+              /\b(car|truck|suv|van|vehicle|bumper|fender|door|panel|hood|dent|scratch)\b/i],
+    veto: [/\b(labou?r|hourly|per hour|an hour) rates?\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'custom_work',
+    anchors: [/\bcustom\b[^.]{0,20}\b(work|paint|job|colou?r|build)\b/i,
+              /\bdo (you|y'?all|yous)\b[^.]{0,15}\bcustom\b/i,
+              /\b(body kit|widebody|wide body|fender flares?|fabricat\w+)\b/i],
+    support: [/\b(paint|body|panel|finish|modif\w+)\b/i],
+    // A restoration is its own conversation even when called custom.
+    veto: [/\brestor\w+\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'restoration',
+    anchors: [/\brestor\w+\b/i,
+              /\b(classic|vintage|antique|project) car\b/i,
+              /\brestomod\b/i,
+              /\bframe[- ]off\b/i],
+    support: [/\b(19[0-9]{2}|20[01][0-9])\b/,
+              /\b(mustang|camaro|corvette|bronco|chevelle|beetle|porsche|jaguar|charger|nova|impala)\b/i,
+              // A bare "do you do full restorations" has no car in it
+              // yet. It is still an unambiguous yes and belongs on the
+              // deterministic path.
+              /\b(full|complete|ground[- ]?up|car|truck|vehicle)\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'paint_color_match',
+    anchors: [/\b(match|matching)\b[^.]{0,20}\b(colou?r|paint|finish)\b/i,
+              /\b(colou?r|paint)\b[^.]{0,15}\bmatch\w*\b/i,
+              /\bhow do you\b[^.]{0,15}\bmatch\b/i],
+    support: [/\b(blend|panel|clear ?coat|metallic|pearl|paint code|faded?)\b/i,
+              /\b(paint|colou?r)\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'insurance_repair',
+    anchors: [/\bdo(es)? (you|your shop|y'?all)\b[^.]{0,25}\b(work with|take|accept|deal with)\b[^.]{0,20}\binsurance\b/i,
+              /\b(work with|accept|take)\b[^.]{0,15}\binsurance (compan\w+|carriers?)\b/i,
+              /\bare you\b[^.]{0,20}\b(approved|preferred|in[- ]network)\b/i],
+    // A support hit is what carries this over the threshold that keeps
+    // it on the deterministic path — "do you work with insurance" is a
+    // published yes, and consulting a model to find that out is 600ms
+    // of silence for nothing.
+    support: [/\b(claim|carrier|adjuster|geico|state farm|allstate|progressive|usaa)\b/i,
+              /\binsurance\b/i] },
+  { industry: 'collision_repair', specialty: 'general', intent: 'service_question',
+    // The auto vocabulary has to be in the ANCHOR, not the support.
+    // A bare "do you do X" belongs to whichever industry X names, and
+    // an anchor that matches the question form alone quietly steals
+    // "do you do anodising in house" from manufacturing.
+    anchors: [/\bdo(es)? (you|your shop|y'?all)\b[^.]{0,30}\b(body ?work|body repair|paint\w*|panel\w*|bumpers?|dents?|scratch\w*|collision (work|repair)|respray|bodywork)\b/i,
+              /\b(work on|fix|repair)\b[^.]{0,20}\b(bumpers?|fenders?|quarter panels?|dents?|scratches)\b/i],
+    support: [/\b(car|truck|suv|vehicle|body ?shop|collision)\b/i],
+    // Anything with its own rule above owns the call.
+    veto: [/\brestor\w+\b/i, /\bcustom\b/i, /\binsurance\b/i, /\brates?\b/i, /\btow\b/i] },
+
   { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair', urgency: 'emergency',
     // A crash that JUST happened AND is still being dealt with. The
     // caller is at the scene and needs a truck.

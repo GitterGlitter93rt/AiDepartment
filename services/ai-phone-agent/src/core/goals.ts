@@ -88,9 +88,19 @@ const GOALS: Record<string, IndustryGoal> = {
  * through from the top.
  */
 export function renderGoal(session: Session, industry: string | null): string | null {
+  // A body shop's shop-business calls get a different goal from its
+  // crash calls. Same industry, different conversation.
+  if (industry === 'collision_repair' && SHOP_BUSINESS_INTENTS.has(session.route.intent ?? '')) {
+    return renderGoalBlock(session, COLLISION_SHOP_BUSINESS_GOAL);
+  }
+
   const goal = GOALS[industry ?? ''];
   if (!goal) return null;
+  return renderGoalBlock(session, goal);
+}
 
+/** One goal, with everything already known struck off. */
+function renderGoalBlock(session: Session, goal: IndustryGoal): string {
   const known = { ...session.contact, ...session.qualification } as Record<string, unknown>;
   const facts = Object.entries(known)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -119,6 +129,38 @@ export function renderGoal(session: Session, industry: string | null): string | 
  * that it already had. One sentence of memory removes an entire class
  * of irritation.
  */
+/**
+ * What an ordinary shop-business call is for.
+ *
+ * Not every body-shop call is a crash. A caller asking about custom
+ * paint or a restoration wants an answer and then a way forward, and
+ * the accident goal — tow, scene, claim — is the wrong shape for them
+ * entirely.
+ */
+const COLLISION_SHOP_BUSINESS_GOAL: IndustryGoal = {
+  outcome: 'their question is answered, and if it needs a human look, an advisor has photos and a reason to call them back',
+  path: [
+    'answer what they actually asked, first, before anything else',
+    'find out what they want done, in their own words',
+    'the vehicle: year, make, model',
+    'photos, if it cannot be judged without seeing it',
+    'their name and a good number, and an email if the advisor needs to send anything',
+    'tell them what happens next and who is calling',
+  ],
+  avoid: [
+    'quoting a price for a repair, a repaint, a custom job or a restoration — none of those have a phone number price',
+    'running the accident intake: nobody crashed, so do not ask about injuries, a scene, a claim or a tow',
+    'making them answer questions before you answer theirs',
+    'offering the photo link more than once',
+  ],
+};
+
+/** Collision intents that are ordinary shop business, not a crash. */
+const SHOP_BUSINESS_INTENTS = new Set([
+  'labor_rate_question', 'custom_work', 'restoration', 'paint_color_match',
+  'general_estimate', 'service_question', 'insurance_repair', 'mechanical_repair',
+]);
+
 export function renderOfferMemory(session: Session): string | null {
   const q = session.qualification as Record<string, unknown>;
   const done: string[] = [];

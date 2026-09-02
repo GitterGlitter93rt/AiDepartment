@@ -1,19 +1,110 @@
+import { speakLaborRates } from '../../business/collision-shop.ts';
+import type { Session } from '../../core/types.ts';
 import { defineSpecialist, BOOKING_GUIDANCE, DEMO_INTEGRITY } from '../define.ts';
+
+/**
+ * What the shop says first.
+ *
+ * A body shop takes two different calls. One is a crash, and it opens
+ * on people. The other is ordinary shop business — rates, custom work,
+ * a restoration — and it opens by ANSWERING, because the caller asked
+ * a question and "is the car still drivable?" is not an answer to it.
+ *
+ * The published facts are answered here rather than by the model: they
+ * do not vary, so the caller gets them in about a tenth of a second
+ * with no model call at all. Anything needing judgement gets a
+ * confident yes and the right next question, then the model takes over.
+ */
+function openingFor(s: Session): string {
+  switch (s.route.intent) {
+    case 'status_check':
+      return "Happy to check. Can I get your name and the vehicle it's under?";
+
+    // Published, so simply said. No intake first.
+    case 'labor_rate_question':
+      return `${speakLaborRates()} Is there something specific you're looking to have done?`;
+
+    case 'insurance_repair':
+      return 'Yes, we work with insurance companies, and we can work directly with them on the estimate and the repair. What happened to the vehicle?';
+
+    case 'custom_work':
+      return 'Yes, we do custom work. What are you looking to have done?';
+
+    case 'restoration':
+      return 'Yes, we do full restoration work. Tell me about the car — what is it?';
+
+    case 'paint_color_match':
+      return "Yes — we're one of the strongest paint and color-matching shops in the area, and in most cases we can match the existing finish extremely closely. What's the vehicle?";
+
+    // A price question. Never answerable on the phone, so it goes
+    // straight to what CAN answer it rather than stalling.
+    case 'general_estimate':
+      return "That depends on where the damage is and how far it goes, so I wouldn't want to guess at a number. What's the vehicle, and what are we looking at?";
+
+    case 'service_question':
+      return 'Happy to help — what are you looking to get done?';
+
+    default:
+      // A fresh crash opens on people. Everything else opens on the
+      // thing they actually rang about, which is the car.
+      return s.route.urgency === 'emergency'
+        ? "Sorry you're dealing with that. First — is everyone okay?"
+        : 'Absolutely, we can help you get that sorted. Is the car still drivable?';
+  }
+}
+
+/**
+ * Fields worth pursuing, given why they rang.
+ *
+ * The schema is written for a crash — people, scene, location, tow —
+ * and it is the right list for exactly one kind of call. Handing it to
+ * a caller asking about a repaint is how an agent ends up asking a man
+ * with a 1955 Mustang whether anyone is hurt.
+ *
+ * Named field goals rather than keys so this stays readable against
+ * the schema above; anything not listed is still tracked, just not put
+ * in front of the model.
+ */
+const SHOP_BUSINESS_GOALS = [
+  'the year',
+  'the make',
+  'the model',
+  'what they want done, in their own words',
+  'their name',
+  'a good number to reach them on',
+  'an email for the advisor to send to',
+];
+
+/** The intents that are ordinary shop business, not a crash. */
+const SHOP_BUSINESS_INTENTS = new Set([
+  'labor_rate_question', 'custom_work', 'restoration', 'paint_color_match',
+  'general_estimate', 'service_question', 'insurance_repair', 'mechanical_repair',
+]);
+
+function goalsForIntent(s: Session): string[] {
+  const all = collisionRepair.qualificationSchema.map((f) => f.goal);
+  if (!SHOP_BUSINESS_INTENTS.has(s.route.intent ?? '')) return all;
+  // Shop business first, then the rest — still available if the call
+  // turns out to involve damage after all.
+  const rest = all.filter((g) => !SHOP_BUSINESS_GOALS.includes(g));
+  return [...SHOP_BUSINESS_GOALS, ...rest];
+}
 
 export const collisionRepair = defineSpecialist({
   industry: 'collision_repair',
   specialty: 'general',
   displayName: 'Collision Repair Intake',
-  supportedIntents: ['accident_repair', 'estimate_request', 'insurance_claim_auto', 'towing_needed', 'hail_damage_auto', 'status_check', 'rental_question', 'general_inquiry'],
+  supportedIntents: [
+    // Accident work.
+    'accident_repair', 'estimate_request', 'insurance_claim_auto', 'towing_needed', 'hail_damage_auto', 'status_check',
+    // Ordinary shop business. A body shop is not only a crash line.
+    'labor_rate_question', 'insurance_repair', 'custom_work', 'restoration',
+    'paint_color_match', 'general_estimate', 'mechanical_repair', 'service_question',
+    'rental_question', 'general_inquiry',
+  ],
   matches: () => true,
-  openingLine: (s) =>
-    s.route.intent === 'status_check'
-      ? "Happy to check. Can I get your name and the vehicle it's under?"
-      // A fresh crash opens on people. Everything else opens on the
-      // thing they actually rang about, which is the car.
-      : s.route.urgency === 'emergency'
-        ? "Sorry you're dealing with that. First — is everyone okay?"
-        : "Absolutely, we can help you get that sorted. Is the car still drivable?",
+  openingLine: (s) => openingFor(s),
+  qualificationGoalsFor: (s: Session) => goalsForIntent(s),
 
   // Ordered the way a scene call actually goes: people, then where they
   // are, then the vehicle, then paperwork. A caller on a bridge should

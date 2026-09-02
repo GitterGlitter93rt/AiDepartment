@@ -539,7 +539,12 @@ export class Orchestrator {
       ...(session.summary
         ? [['summary', `EARLIER IN THIS CALL (internal — never read aloud):\n${session.summary.text}`] as PromptBlock]
         : []),
-      ['structured state', this.stateBrief(session, spec?.qualificationSchema.map((f) => f.goal) ?? [])],
+      ['structured state', this.stateBrief(
+        session,
+        // A specialist may narrow the list to what this kind of call
+        // actually needs. Most do not, and get the whole schema.
+        spec?.qualificationGoalsFor?.(session) ?? spec?.qualificationSchema.map((f) => f.goal) ?? [],
+      )],
       // The caller's actual question comes after the state brief so it
       // is not buried behind a list of fields still to collect.
       ...(knowledgeBlock ? [['knowledge', knowledgeBlock] as PromptBlock] : []),

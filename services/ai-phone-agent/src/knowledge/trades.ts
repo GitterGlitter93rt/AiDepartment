@@ -5,6 +5,7 @@
 // would be harder to keep consistent, not easier.
 
 import type { KnowledgeEntry } from './types.ts';
+import { speakLaborRates } from '../business/collision-shop.ts';
 
 /** Shared by every trade that sends a van to a property. */
 const FIELD_SERVICE_COMMON: KnowledgeEntry[] = [
@@ -541,14 +542,93 @@ export const CONSTRUCTION_KNOWLEDGE: KnowledgeEntry[] = [
 
 export const COLLISION_KNOWLEDGE: KnowledgeEntry[] = [
   {
+    // The rates are a fact the shop publishes, so the agent states
+    // them. Sending a caller into an accident intake to find out what
+    // an hour costs is the behaviour this entry exists to stop.
+    id: 'collision.labor_rates',
+    question: 'what the shop charges per hour for labor',
+    triggers: [
+      /\b(labou?r|hourly|per hour|an hour|shop) rates?\b/i,
+      /\bwhat (do|does) (you|it) charge\b/i,
+      /\bhow much (do you charge|is your|per hour|an hour)\b/i,
+      /\brate\b.{0,20}\b(body|paint|mechanical)\b/i,
+      /\b(body|paint|mechanical)\b.{0,20}\brate\b/i,
+    ],
+    source: 'business_config',
+    guidance:
+      `Answer immediately, in these words or very close to them: "${speakLaborRates()}" ` +
+      'Say the numbers as words, not digits — the figures above are already written the way they should be spoken. ' +
+      'Do not ask about an accident, a vehicle or a claim before answering. Do not offer to have someone call them back with the rates. ' +
+      'A labor rate is not a repair quote: if they then ask what a job will cost, that needs photos or an in-person look.',
+  },
+  {
+    id: 'collision.custom_work',
+    question: 'whether the shop does custom work',
+    triggers: [
+      /\bcustom\b/i,
+      /\b(modif\w+|fabricat\w+|one[- ]off|body kit|widebody|flares?)\b/i,
+      /\bcustom (paint|work|job|colou?r)\b/i,
+    ],
+    source: 'business_config',
+    guidance:
+      'YES — the shop does custom work: custom paint, bodywork and panel modification, cosmetic work and specialty finishes. Say yes first, then ask what they are looking to have done. ' +
+      'Never quote a custom job. There is no price for "custom" until somebody has seen it. ' +
+      'The route is: understand the project, get the vehicle year, make and model, get their name and contact, send ONE photo-upload link, and set a repair advisor callback. ' +
+      'Wording that works: "That sounds like something we\'d want one of our repair advisors to look at. I can take your details and send you a link to upload some photos so they can review it and call you back."',
+  },
+  {
+    id: 'collision.restoration',
+    question: 'whether the shop does restorations',
+    triggers: [
+      /\brestor\w+\b/i,
+      /\b(classic|vintage|antique|old(er)? car|project car|restomod|frame[- ]off)\b/i,
+      /\b(19[0-9]{2})\b/,
+    ],
+    source: 'business_config',
+    guidance:
+      'YES — the shop does full restoration work, including classic and older vehicles. Say yes, and be interested in the car; someone ringing about a restoration is proud of it. ' +
+      'Every restoration is priced individually and none of it can be quoted on the phone. Do not estimate a range, a timeline or a "cars like that usually run". ' +
+      'Get enough to brief an advisor: year, make, model, roughly what condition it is in and whether it runs, and what they actually want — a cosmetic tidy-up, body and paint, a full restoration, or a restomod. Use plain words for those, not the labels. ' +
+      'Then their name and contact, ONE photo-upload link, and a repair advisor callback.',
+  },
+  {
+    id: 'collision.quote_on_the_phone',
+    question: 'how much a repair will cost',
+    triggers: [
+      /\bhow much\b.{0,40}\b(fix|repair|repaint|paint|cost|charge)\b/i,
+      /\b(quote|estimate|ballpark|rough (idea|price|cost)|price range)\b/i,
+      /\bwhat would it cost\b/i,
+    ],
+    source: 'needs_more_info',
+    guidance:
+      'Do not invent a price, a range or a "usually around". A repair price depends on where the damage is and how far it goes, and neither is knowable over the phone. ' +
+      'Say that plainly and give them the way forward in the same breath: photos uploaded for a repair advisor, or bringing it in to be looked at. ' +
+      'If what they actually asked for was the LABOR RATE, that is a published number — answer it.',
+  },
+  {
+    id: 'collision.mechanical_work',
+    question: 'whether the shop does mechanical work',
+    triggers: [
+      /\bmechanical\b/i,
+      /\b(suspension|alignment|subframe|steering|axle|drivetrain)\b/i,
+      /\b(engine|transmission|gearbox|clutch|brakes?|oil change|tune ?up)\b/i,
+    ],
+    source: 'business_config',
+    guidance:
+      'Mechanical work that comes out of the collision — suspension, steering, alignment, anything bent in the impact — yes, the shop handles that as part of the repair. ' +
+      'General mechanical work unrelated to a collision, such as an engine or transmission job, is NOT something to promise. Say the shop is a collision centre and that a repair advisor can tell them what can be taken on. ' +
+      'The mechanical labor rate is a published figure and can be given if asked.',
+  },
+  {
     id: 'collision.insurance_or_out_of_pocket',
     question: 'about going through insurance versus paying themselves',
     triggers: [/\b(insurance|claim|deductible|out of pocket|my own|their insurance|at fault)\b/i, /\bwill (my|it) (rates?|premium) go up\b/i, /\bshould i (claim|file)\b/i],
-    source: 'needs_more_info',
+    source: 'business_config',
     guidance:
-      'Do not advise whether to file a claim and do not predict what it does to their premium — that is their insurer\'s territory and a wrong answer costs them money. ' +
-      'Do capture what matters: whether a claim exists, the carrier, the claim number, and whether the other party was at fault. ' +
-      'It is fair to say most shops work with all carriers, but do not name specific insurers as approved without configuration.',
+      'YES — the shop works with insurance companies, and can work directly with the carrier on the estimate and the repair. Say that plainly. ' +
+      'Do NOT say "it depends on the carrier", and do not suggest they have to use an insurer-preferred shop. ' +
+      'What stays off limits is coverage and money: do not advise whether to file a claim, do not predict what it does to their premium, and do not promise what will be paid. That is the insurer\'s territory and a wrong answer costs them money. ' +
+      'Capture what matters: whether a claim exists, the carrier, the claim number, and whether the other party was at fault.',
   },
   {
     id: 'collision.rental_car',
@@ -591,10 +671,12 @@ export const COLLISION_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'collision.paint_match',
     question: 'about paint matching or the quality of the finish',
     triggers: [/\b(paint|colou?r|match\w*|blend\w*|clear ?coat|finish)\b/i, /\bwill (it|you) (match|notice)\b/i],
-    source: 'industry_general',
+    source: 'business_config',
     guidance:
-      'General: modern paint is matched by code and blended into adjacent panels, and on faded older paint blending is what makes it invisible. ' +
-      'Do not guarantee an invisible repair on their vehicle. Capture year, make, model and colour.',
+      'Answer with confidence: this is one of the strongest paint and color-matching shops in the area, and in most cases the existing finish can be matched extremely closely, including blending into adjacent panels where needed. ' +
+      'Never promise perfection — no "guaranteed perfect match every time". "Extremely well in most cases" is the honest and still-confident answer. ' +
+      'If they ask HOW, keep it short: start from the manufacturer\'s paint code, tint and test against the vehicle, and blend into the adjacent panel so the repair looks seamless. Do not recite the whole process unless they want it. ' +
+      'An unusual, custom or badly faded finish is the case for photos or an in-person look rather than a promise. Capture year, make, model and colour.',
   },
   {
     id: 'collision.total_loss',

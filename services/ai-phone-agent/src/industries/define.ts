@@ -10,6 +10,8 @@ export interface SpecialistInput {
   openingLine: (session: Session) => string;
   systemPrompt: string;
   qualificationSchema: QualificationField[];
+  /** Narrow the outstanding-field list to what this call needs. */
+  qualificationGoalsFor?: (session: Session) => string[];
   urgencyRules?: UrgencyRule[];
   escalationRules?: EscalationRule[];
   bookingRules: BookingRules;
@@ -40,6 +42,7 @@ export function defineSpecialist(input: SpecialistInput): IndustrySpecialist {
     openingLine: input.openingLine,
     systemPrompt: input.systemPrompt,
     qualificationSchema: input.qualificationSchema,
+    qualificationGoalsFor: input.qualificationGoalsFor,
     urgencyRules: input.urgencyRules ?? [],
     escalationRules: [...(input.escalationRules ?? []), ...COMMON_ESCALATIONS],
     bookingRules: input.bookingRules,

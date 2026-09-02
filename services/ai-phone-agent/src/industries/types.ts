@@ -57,6 +57,16 @@ export interface IndustrySpecialist {
    * Only the SELECTED specialist's prompt is ever sent to Claude. */
   systemPrompt: string;
   qualificationSchema: QualificationField[];
+  /**
+   * The fields worth pursuing on THIS call, most relevant first.
+   *
+   * Defaults to the whole schema. A specialist overrides it when its
+   * calls are not all the same shape: a body shop's accident intake
+   * and its restoration intake share a schema and almost no fields,
+   * and showing a restoration caller "whether anyone is hurt" is how
+   * an agent ends up asking it.
+   */
+  qualificationGoalsFor?: (session: Session) => string[];
   urgencyRules: UrgencyRule[];
   escalationRules: EscalationRule[];
   bookingRules: BookingRules;
