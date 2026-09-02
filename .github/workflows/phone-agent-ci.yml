@@ -1,16 +1,9 @@
 name: Phone Agent CI
 
+# Manual-only while the outbound phone agent is under active development.
+# This avoids triggering a CI run (and GitHub notification email) on every commit.
 on:
-  push:
-    branches:
-      - feature/outbound-sales-brain
-    paths:
-      - 'phone-agent/**'
-      - '.github/workflows/phone-agent-ci.yml'
-  pull_request:
-    paths:
-      - 'phone-agent/**'
-      - '.github/workflows/phone-agent-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
