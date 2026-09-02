@@ -317,6 +317,31 @@ Token usage is logged per request and accumulated on the orchestrator.
 
 ---
 
+## Evaluation
+
+Three layers, and the separation is the point.
+
+**Deterministic tests** (`npm test`) prove structure: routing, state,
+guardrails, tool validation, and the evaluation rubric itself. No key,
+no network, no cost — which is why they get run.
+
+**Scenario simulation** (`npm run voice:simulate`) drives 94 scripted
+callers through the real orchestrator. Without a key it still exercises
+routing, knowledge matching and state.
+
+**Live evaluation** (`npm run voice:eval`) is the only layer that
+answers "is the brain any good", because it is the only one where a
+real model speaks. Nineteen scoring dimensions, mostly deterministic —
+a model-as-judge is right for "does this sound like a person" and wrong
+for "did it claim a booking that never happened", which has a correct
+answer checkable against session state.
+
+The tool-truthfulness scorer matters most. It cross-references every
+claim (booked, sent, transferred, cancelled) against tool calls that
+actually SUCCEEDED, and distinguishes claims from offers. A caller told
+their appointment is booked stops chasing it, and finds out by nobody
+arriving.
+
 ## Dependencies
 
 One runtime dependency: `ws`. Anthropic is called over `fetch`, not the

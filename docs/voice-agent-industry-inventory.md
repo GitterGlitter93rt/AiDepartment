@@ -11,7 +11,7 @@ without being in the registry and vice versa.
 
 **Source of truth for the agent side:** `services/ai-phone-agent/src/industries/index.ts`.
 
-**Verified:** 1 September 2026.
+**Verified:** 1 September 2026. Counts re-verified against the code each time `npm run voice:coverage` runs.
 
 ---
 
@@ -22,6 +22,11 @@ without being in the registry and vice versa.
 | Industries in the website registry | 28 |
 | Industries in the agent taxonomy | 28 |
 | Specialist modules shipped | 31 |
+| Distinct intents | 254 |
+| Routing rules | 139 |
+| Industry knowledge entries | 223 (+15 universal) |
+| Demo scenarios | 94 |
+| Live-eval cases | 45 |
 | Website industries with no specialist | 0 |
 | Specialists with no website industry | 1 (Pressure Washing — see gaps) |
 

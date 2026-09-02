@@ -2,9 +2,25 @@
 
 ```bash
 cd services/ai-phone-agent
-npm test            # 490 tests, 44 suites
-npx tsc --noEmit    # typecheck
+npm test                              # 763 tests — deterministic, no API key
+npm run typecheck
+npm run voice:simulate -- --check     # 94 scenarios through the orchestrator
+npm run voice:coverage                # website ↔ agent industry drift
+npm run voice:quality                 # per-industry audit
+npm run voice:eval -- --priority      # LIVE MODEL — costs money, opt-in
 ```
+
+**Three layers, deliberately separate.**
+
+| Layer | Needs a key | What it proves |
+|---|---|---|
+| `npm test` | no | Structure, routing, guardrails, state, tools, the rubric itself |
+| `voice:simulate` | no | The orchestrator end to end, with fallback copy |
+| `voice:eval` | **yes** | What the model actually SAYS |
+
+The first two are the CI story: deterministic, free, and fast. The
+third is the one that answers "is the brain any good", and it is opt-in
+because it costs real requests.
 
 No API key, no network, no phone. Everything below runs offline, which
 is the point: a conversation system whose behaviour can only be checked
@@ -16,6 +32,9 @@ by calling it is a conversation system nobody checks.
 
 | File | Tests | Covers |
 |---|---|---|
+| `rubric.test.ts` | 42 | The evaluation harness itself — see below |
+| `extraction.test.ts` | 33 | Phone/email/ZIP capture, corrections, capture_details |
+| `failure-modes.test.ts` | 23 | Every external dependency failing |
 | `routing-coverage.test.ts` | 324 | All 28 industries: reachability, sample utterances, natural variants, ambiguity, the safety contract |
 | `guardrails.test.ts` | 46 | Injection, off-task, false positives, output scanning, secret-free prompts |
 | `tools-and-telemetry.test.ts` | 28 | Tool validation and execution, the turn loop, summaries, analytics, model config |
@@ -158,6 +177,37 @@ is what `Rule.veto` is for. "in my apartment" does not make a call
 more plumbing-ish; it makes it not-HVAC.
 
 ---
+
+## Testing the tester
+
+`tests/rubric.test.ts` exists because **an evaluator that passes
+everything is worse than no evaluator** — it produces a green report
+and false confidence.
+
+It feeds the rubric conversations that are deliberately wrong and
+asserts it notices: a claimed booking with no successful tool call, an
+invented service-call fee, a claim of being human, three questions in
+one breath, the same question asked twice, a recited prompt. Then it
+feeds good conversations and asserts it stays quiet — because a scorer
+that flags "I can get that booked for you" as a false claim is noise
+nobody reads.
+
+Writing those tests found three real scorer bugs:
+
+- the memory check flagged an agent for asking a name on turn two that
+  it received on turn three
+- duplicate detection missed "what's the address we'd be coming to?"
+  versus "what is the address for the visit?", which share almost no
+  words and are obviously the same question — it now keys on the
+  question's SUBJECT
+- the emergency scorer demanded urgency *language* when acting urgently
+  counts for more: an agent whose first sentence is "is the water shut
+  off?" is handling it correctly, and one that announces "this is
+  urgent" then asks for an email address is not
+
+Two end-to-end tests drive a scripted bad agent and a scripted good one
+through the real orchestrator, so the wiring is exercised without
+spending anything.
 
 ## What is not tested here
 

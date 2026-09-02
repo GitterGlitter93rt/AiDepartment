@@ -7,17 +7,19 @@ session can pick the work up cold.
 | | |
 |---|---|
 | Branch | `feature/twilio-ai-phone-agent` |
-| Latest commit | see `git log -1` |
-| Pushed | **NO** — 12+ commits ahead. See [External blockers](#external-blockers) |
-| Service tests | **706 passing, 0 failing** |
+| Latest commit | `c0c493a` — *feat(voice): Q&A depth pass driven by what callers actually ask* |
+| Pushed | **NO** — 16 commits ahead. See [External blockers](#external-blockers) |
+| Service tests | **763 passing, 0 failing** |
 | Service typecheck | clean (`npm run typecheck`) |
 | Demo scenarios | **94/94 clean** (`npm run voice:simulate -- --check`) |
 | Industry coverage | complete (`npm run voice:coverage`) |
 | Industry quality | 7 STRONG / 21 GOOD / **0 NEEDS_REFINEMENT** |
+| Live-model eval | framework complete, **never run against a real model** |
 | Website build | clean (125 pages) |
 | Website tests | 411 passing |
 | `astro check` | 0 errors, 0 warnings |
-| Source | 77 files, ~11,600 lines under `services/ai-phone-agent/src/` |
+| Source | 83 files, ~13,500 lines under `services/ai-phone-agent/src/` |
+| Backup ref | `backup/twilio-agent-pre-rewrite` |
 
 ### By the numbers
 
@@ -28,8 +30,10 @@ session can pick the work up cold.
 | Specialists | 31 |
 | Distinct intents | 254 |
 | Routing rules | 139 |
-| Knowledge entries | 192 industry-specific + 15 universal |
+| Knowledge entries | 223 industry-specific + 15 universal |
 | Demo scenarios | 94 |
+| Live-eval cases | 45 (35 priority) |
+| Industry quality | 9 STRONG / 19 GOOD / 0 NEEDS_REFINEMENT |
 
 **Never merge to `main`. Never deploy. Never change DNS, Cloudflare, or
 Twilio production config without being asked.**
@@ -149,6 +153,12 @@ services/ai-phone-agent/
 │   ├── prompts/
 │   │   ├── core-agent.ts         phone style, tool truthfulness, AI honesty
 │   │   └── router.ts             classification prompt
+│   ├── eval/                     LIVE-MODEL EVALUATION (optional)
+│   │   ├── rubric.ts             19 dimensions, mostly deterministic
+│   │   ├── cases.ts              45 multi-turn cases
+│   │   ├── judge.ts              optional model-as-judge
+│   │   └── run.ts                npm run voice:eval
+│   ├── knowledge/depth.ts        scope + real-caller questions
 │   ├── sim/
 │   │   ├── scenarios.ts          94 scenarios + NEVER_SAY
 │   │   ├── run.ts                npm run voice:simulate
@@ -157,7 +167,8 @@ services/ai-phone-agent/
 │   ├── tools/                    calendar, sms, transfer, crm, index
 │   ├── twilio/                   twiml, relay, signature
 │   └── http/                     guards (rate limit, body cap), paths
-├── tests/                        9 files, 653 tests
+├── tests/                        11 files, 763 tests
+├── eval-results/                 GITIGNORED — live eval transcripts
 ├── deploy/                       systemd, nginx, pm2, logrotate
 ├── DEPLOYMENT.md README.md ARCHITECTURE.md .env.example
 └── package.json tsconfig.json
@@ -444,14 +455,54 @@ website registry against the specialist registry in both directions.
 
 ---
 
+## Live-model evaluation
+
+**Built, tested, and never run against a real model** — there has been
+no API key in this environment.
+
+```bash
+export ANTHROPIC_API_KEY=…
+npm run voice:eval -- --priority        # 35 cases, ~130 requests
+npm run voice:eval -- --all             # 45 cases, ~171 requests
+npm run voice:eval -- --case HALLUC_PRICE
+npm run voice:eval -- --industry plumbing
+npm run voice:eval -- --all --estimate  # cost only, sends nothing
+npm run voice:eval -- --priority --judge
+```
+
+Nothing in `npm test` touches it. It exits with usage when given no
+selection flag, refuses to start without a key, and requires `--yes`
+above 250 requests.
+
+**What it scores.** Nineteen dimensions, mostly deterministic. The
+judge is optional and only covers naturalness and relevance —
+"did the agent claim it booked something it did not book" has a correct
+answer checkable against session state and must not depend on a second
+model agreeing.
+
+The tool-truthfulness scorer is the most important: it cross-references
+claims (booked, sent, transferred, cancelled) against tool calls that
+actually SUCCEEDED, and distinguishes claims from offers.
+
+**The harness is itself tested** — 42 tests feed it conversations that
+are deliberately wrong and assert it notices, then good ones and assert
+it stays quiet. Two end-to-end tests drive scripted good and bad agents
+through the real orchestrator. Writing those found three real scorer
+bugs.
+
+Results land in `eval-results/` (gitignored) as JSON plus a readable
+markdown transcript. **Read the markdown** — conversations are how you
+find what is wrong.
+
 ## Test / build status
 
 ```bash
 cd services/ai-phone-agent
-npm test              # 585 pass, 0 fail
+npm test              # 763 pass, 0 fail
 npm run typecheck     # clean
-npm run voice:simulate -- --check     # 60/60 scenarios clean
+npm run voice:simulate -- --check     # 94/94 scenarios clean
 npm run voice:coverage                # industry coverage report
+npm run voice:quality                 # per-industry audit
 
 cd ../..              # website
 npm run build         # 125 pages
@@ -491,18 +542,39 @@ There is **no ESLint config** in this repo. `tsc --noEmit` (service) and
 
 ## External blockers
 
-1. **The feature branch cannot be pushed.** GitHub push protection
-   rejects commit `2d4b52b` over a *fake* Twilio Account SID in a test
-   fixture (`tests/guardrails.test.ts`). The fixture was fixed in
-   `a4a01ce` to build the string at runtime, but the literal remains in
-   `2d4b52b`'s history. Removing it needs an interactive rebase, which
-   this environment denied.
-   **Resolution — the user must choose one:**
-   - Click the unblock link GitHub printed (it is not a real credential), or
-   - Authorise rewriting the unpushed commits.
+1. **The feature branch cannot be pushed.** Fully diagnosed:
+
+   | | |
+   |---|---|
+   | Rule | GH013, "Twilio Account String Identifier" |
+   | Commits | `2d4b52b` and `27b4f6a` — **only these two** |
+   | File | `services/ai-phone-agent/tests/guardrails.test.ts:101` |
+   | String | `AC` followed by the hex alphabet repeated twice |
+   | Real? | **No.** A test fixture for the output guard. Verified fake — a real SID is random hex, this is `0123456789abcdef` twice. |
+   | Unblock URL | `https://github.com/GitterGlitter93rt/AiDepartment/security/secret-scanning/unblock-secret/3IkN1mgotdrkIQrMpIAVI4HII7E` |
+
+   Every commit on the branch was scanned for Anthropic, Twilio,
+   SendGrid, GitHub, AWS, Slack and PEM shapes. **No real credential
+   exists anywhere in branch history.** The working tree now contains
+   no credential-shaped literal at all — every fixture is assembled at
+   runtime.
+
+   **Two resolutions, either is safe:**
+
+   - **Unblock (simplest).** Open the URL above and allow it. It is a
+     confirmed false positive on a test fixture. No history changes,
+     nothing is lost, push immediately after.
+   - **Rewrite (cleanest).** `bash scripts/fix-push-blocker.sh --dry-run`
+     shows exactly what changes; `--apply` does it. It rewrites **only**
+     `refs/heads/feature/twilio-ai-phone-agent`, leaves `main` and the
+     backup ref untouched, and refuses to run without the backup. The
+     branch has never been pushed, so nobody has these commits and no
+     clone breaks — which is what makes it safe here and would not on
+     `main`.
 2. **No Twilio credentials** → cannot place a real call.
-3. **No Anthropic API key in this environment** → cannot evaluate
-   conversational quality with the live model.
+3. **No Anthropic API key in this environment** → the live-model
+   evaluation framework is complete and tested but has never been run
+   against a real model. This is the single largest unknown.
 4. **No Google credentials** → calendar stays mocked.
 
 None of these block further development.
@@ -523,8 +595,7 @@ Roughly in value order:
 
 ## NEXT SESSION START HERE
 
-**Exact next task: run the simulator against the live model and read
-the transcripts.**
+**Exact next task: run the live evaluation and act on what it finds.**
 
 Why first: everything structural is now in place and tested, and
 nothing has yet verified that the agent *says* the right thing. The
@@ -536,30 +607,39 @@ fixed fallback copy they would pass trivially and mean nothing.
 ```bash
 cd services/ai-phone-agent
 export ANTHROPIC_API_KEY=…
-npm run voice:simulate -- --check                # all 94, terse
-npm run voice:simulate -- --scenario DIVORCE_01  # one, with transcript
-npm run voice:simulate -- --industry plumbing    # one trade
+npm run voice:eval -- --all --estimate   # confirm the cost first
+npm run voice:eval -- --priority         # start here: 35 cases
 ```
 
-**What to look for, in priority order:**
+Then read `eval-results/eval-*.md`, newest first.
 
-1. **Fabrication.** Any dollar figure, any "we've been in business N
-   years", any promised arrival time. `NEVER_SAY` catches the obvious
-   shapes; read for the ones it does not.
-2. **Refusals that come out preachy.** Declining to predict a custody
-   outcome is correct; delivering a paragraph about it is not. These
-   should be one sentence and then back to work.
-3. **Reply length.** The harness flags anything over 90 words. On a
-   phone that is already too long.
-4. **Ignored questions.** If a caller asks something and the agent
-   carries on with its own question, the knowledge match did not fire —
-   check `knowledge.matched` in the logs.
-5. **Re-asking.** Anything already in the state brief must never be
-   asked again.
+**The failure-driven loop — this is the actual work, not the running:**
 
-Fix by editing the specialist prompt or the knowledge entry's
-`guidance`, then re-run. Prompt changes need no test updates unless an
-assertion in `tests/conversation.test.ts` names the wording.
+For each CRITICAL finding, classify the cause before changing anything.
+The harness names the dimension; the dimension points at the layer:
+
+| Dimension | Almost always caused by |
+|---|---|
+| `hallucination` | the knowledge entry's `guidance`, or a missing `business_config` entry |
+| `tool_truthfulness` | `CORE_AGENT_RULES`, or a tool result that does not say plainly enough that nothing happened |
+| `routing` / `intent` | `src/core/router-rules.ts` |
+| `relevance` | the knowledge entry never matched — check `knowledge.matched` in the logs before touching a prompt |
+| `memory` / `duplicate_questions` | the state brief in `orchestrator.ts`, or extraction failing to capture |
+| `length` / `naturalness` | `CORE_AGENT_RULES`, or a specialist prompt that rambles |
+| `regulated_safety` | the specialist prompt's hard limits |
+| `emergency` | the specialist's `urgencyRules` |
+| `ai_transparency` | `CORE_AGENT_RULES` |
+
+Then: fix the cause, re-run that one case (`--case ID`), re-run
+`npm test` and `npm run voice:simulate -- --check` to confirm no other
+industry regressed, and only then move on. A prompt change that fixes
+plumbing and breaks roofing is a net loss, and the deterministic suites
+are what catch it.
+
+**Two traps.** A `relevance` finding is usually a *knowledge match*
+failure, not a prompt failure — check the logs before rewriting a
+prompt. And a `minor` finding is an observation, not a failure; chasing
+them all will make replies worse, not better.
 
 **Then, in order:** multi-tenant profile lookup keyed by the called
 number, a real CRM adapter, and a first live Twilio call.
@@ -590,4 +670,5 @@ then update this file, commit, and attempt the push.
 | `voice-agent-testing.md` | what the tests guarantee |
 | `voice-agent-demo-script.md` | **for the sales team** |
 | `voice-agent-client-onboarding.md` | turning the demo into a client's receptionist |
+| `scripts/fix-push-blocker.sh` | prepared, dry-run, **not executed** |
 | `adding-an-industry.md` | the website side and the agent side |
