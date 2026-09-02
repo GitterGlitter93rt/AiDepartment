@@ -24,8 +24,8 @@ count.
 
 | Status | Meaning | Count |
 |---|---|---|
-| STRONG | Clears every threshold, including the deeper bar for demo targets | 7 |
-| GOOD | One or two gaps, none critical | 21 |
+| STRONG | Clears every threshold, including the deeper bar for demo targets | 9 |
+| GOOD | One or two gaps, none critical | 19 |
 | NEEDS_REFINEMENT | Three or more gaps | 0 |
 
 ## Priority industries
@@ -35,18 +35,18 @@ at least 9 industry knowledge entries and 4 scenarios.
 
 | Industry | Specialists | Intents | Rules | Knowledge | Intake | Urgency | Scenarios | Existing cust. | Safety | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Plumbing | 1 | 13 | 10 | 11 | 10 | 5 | 9 | yes | yes | **STRONG** |
-| Roofing | 1 | 12 | 6 | 9 | 12 | 4 | 7 | yes | yes | **STRONG** |
-| Pressure Washing | 1 | 12 | 6 | 9 | 11 | 3 | 5 | yes | no | **STRONG** |
-| Real Estate | 1 | 9 | 7 | 10 | 14 | 4 | 6 | yes | no | **GOOD** |
-| Law Firms | 4 | 36 | 11 | 28 | 46 | 11 | 13 | no | yes | **GOOD** |
+| Plumbing | 1 | 13 | 10 | 16 | 10 | 5 | 9 | yes | yes | **STRONG** |
+| Roofing | 1 | 12 | 6 | 14 | 12 | 4 | 7 | yes | yes | **STRONG** |
+| Pressure Washing | 1 | 12 | 6 | 13 | 11 | 3 | 5 | yes | no | **STRONG** |
+| Real Estate | 1 | 9 | 7 | 16 | 14 | 4 | 6 | yes | no | **STRONG** |
+| Law Firms | 4 | 36 | 11 | 32 | 46 | 11 | 13 | no | yes | **GOOD** |
 
 ## All other industries
 
 | Industry | Specialists | Intents | Rules | Knowledge | Intake | Urgency | Scenarios | Existing cust. | Safety | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| HVAC | 1 | 10 | 5 | 5 | 11 | 4 | 2 | yes | yes | **GOOD** |
-| Electrical Contractors | 1 | 11 | 6 | 7 | 9 | 4 | 2 | no | yes | **GOOD** |
+| HVAC | 1 | 10 | 5 | 9 | 11 | 4 | 2 | yes | yes | **STRONG** |
+| Electrical Contractors | 1 | 11 | 6 | 10 | 9 | 4 | 2 | no | yes | **GOOD** |
 | Pest Control | 1 | 12 | 6 | 4 | 11 | 5 | 2 | no | yes | **GOOD** |
 | Garage Door | 1 | 11 | 4 | 7 | 9 | 4 | 2 | no | yes | **GOOD** |
 | Pool Companies | 1 | 10 | 3 | 6 | 9 | 4 | 3 | yes | no | **STRONG** |
@@ -75,14 +75,12 @@ No industry currently scores NEEDS_REFINEMENT.
 
 ## Everything with any gap at all
 
-- **HVAC** (GOOD): only 5 industry knowledge entries; only 0 industry-specific hard limit(s)
-- **Electrical Contractors** (GOOD): no scenario exercises an existing customer or complaint; only 1 industry-specific hard limit(s)
+- **Electrical Contractors** (GOOD): no scenario exercises an existing customer or complaint
 - **Pest Control** (GOOD): only 4 industry knowledge entries; no scenario exercises an existing customer or complaint
 - **Garage Door** (GOOD): no scenario exercises an existing customer or complaint
 - **Landscaping & Outdoor Living** (GOOD): no scenario exercises an existing customer or complaint
 - **Restoration & Emergency Services** (GOOD): no scenario exercises an existing customer or complaint; only 1 industry-specific hard limit(s)
 - **Automotive Dealer Groups** (GOOD): no scenario exercises an existing customer or complaint
-- **Real Estate** (GOOD): only 1 industry-specific hard limit(s)
 - **Property Management** (GOOD): only 4 industry knowledge entries; no scenario exercises an existing customer or complaint
 - **Law Firms** (GOOD): no scenario exercises an existing customer or complaint
 - **Healthcare** (GOOD): only 4 industry knowledge entries; no scenario exercises an existing customer or complaint

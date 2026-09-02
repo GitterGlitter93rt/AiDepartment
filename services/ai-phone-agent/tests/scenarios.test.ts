@@ -283,3 +283,93 @@ describe('Demo mode and client mode behave differently', () => {
     assert.match(rendered, /Do NOT estimate, guess, give a typical figure/);
   });
 });
+
+describe('Knowledge answers the questions callers actually ask', () => {
+  // These probes came from asking, per trade, what a real caller would
+  // say. The first run matched 55 of 60 against nothing
+  // industry-specific — every one of those was a real gap, and this
+  // test stops them reopening.
+  const PROBES: [string, string | null, string[]][] = [
+    ['plumbing', null, [
+      'Can you fix tankless water heaters?', 'My water pressure is low everywhere',
+      'Can you install a water softener?', 'Do you do septic?', 'My garbage disposal is jammed',
+      'I need a whole house repipe', 'Is my water safe to drink?', 'Do you do gas lines?',
+      'My shower has no pressure but the sink is fine', 'Can you camera the line?',
+    ]],
+    ['roofing', null, [
+      'Do you do gutters?', 'Can you just patch it?', 'Do I need to be home?',
+      'Will you deal with my insurance company?', 'Do you do skylights?',
+      'Will you haul away the old shingles?', 'My neighbour used you',
+      'How many squares is my roof?',
+    ]],
+    ['real_estate', null, [
+      'How long will it take to sell?', 'Should I do repairs first?', 'What about staging?',
+      'What is earnest money?', 'Can I sell without a realtor?', 'What about a cash offer?',
+      'Do you handle rentals?', 'How many showings should I expect?',
+    ]],
+    ['pressure_washing', null, [
+      'What about the pool cage?', 'Do you seal driveways?', 'Will it kill my grass?',
+      'How long does it take?', 'Do I need to move my car?', 'Can you clean my windows?',
+    ]],
+    ['attorneys', 'attorneys.family_law', [
+      'Do you handle adoptions?', 'What about a prenup?', 'Can you do a name change?',
+      'How many cases like mine have you had?', 'Where is your office?',
+      'Do you go to court in this county?', 'What do I need to bring?',
+    ]],
+    ['hvac', null, [
+      'Do you do duct cleaning?', 'Can you install a mini split?', 'What size unit do I need?',
+      'Should I get a maintenance plan?', 'My upstairs is always hot',
+    ]],
+    ['electrical', null, [
+      'Can you install a ceiling fan?', 'Do you do generators?', 'Can you add outlets?',
+      'My bathroom fan is not working', 'What about a hot tub hookup?',
+    ]],
+  ];
+
+  for (const [industry, specialistId, questions] of PROBES) {
+    test(`${industry}: all ${questions.length} common questions reach industry knowledge`, () => {
+      const bank = knowledgeFor(specialistId, industry);
+      const profile = demoProfile(industry as never);
+      const unmatched = questions.filter((q) => {
+        const m = matchKnowledge(q, bank, profile);
+        // Universal entries do not count: the point is trade-specific
+        // knowledge, and "do you do septic" reaching a generic pricing
+        // entry is not an answer.
+        return m.every((x) => x.entry.id.startsWith('universal.'));
+      });
+      assert.deepEqual(unmatched, [], `no industry knowledge for:\n  ${unmatched.join('\n  ')}`);
+    });
+  }
+
+  test('scope questions are business_config, never answered from general knowledge', () => {
+    // "Do you do gutters?" differs between two roofers a mile apart. An
+    // agent that answers it from trade knowledge sends a van to a job
+    // the company does not do.
+    for (const [industry, q] of [
+      ['plumbing', 'Do you do septic?'],
+      ['roofing', 'Do you do gutters?'],
+      ['hvac', 'Do you do duct cleaning?'],
+      ['electrical', 'Do you do generators?'],
+    ] as const) {
+      const m = matchKnowledge(q, knowledgeFor(null, industry), demoProfile(industry as never));
+      const scope = m.find((x) => x.entry.id.endsWith('.scope'));
+      assert.ok(scope, `${industry}: "${q}" did not reach a scope entry`);
+      assert.equal(scope!.entry.source, 'business_config');
+      assert.equal(scope!.answerable, false, 'an unconfigured business must not be able to answer it');
+    }
+  });
+
+  test('system sizing is refused outright, not merely deflected', () => {
+    // A rule of thumb repeated over the phone becomes an oversized
+    // system that short-cycles and fails early.
+    const m = matchKnowledge('What size unit do I need?', knowledgeFor(null, 'hvac'), demoProfile('hvac'));
+    assert.ok(m.some((x) => x.entry.source === 'refuse'));
+  });
+
+  test('a firm success rate is a business_config question, not a boast', () => {
+    const m = matchKnowledge('How many cases like mine have you won?', knowledgeFor('attorneys.family_law', 'attorneys'), demoProfile('attorneys'));
+    const e = m.find((x) => x.entry.id === 'legal.firm_experience');
+    assert.ok(e, 'not matched');
+    assert.equal(e!.answerable, false);
+  });
+});

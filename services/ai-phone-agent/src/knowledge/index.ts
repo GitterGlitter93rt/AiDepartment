@@ -20,6 +20,10 @@ import {
   CONSTRUCTION_KNOWLEDGE, COLLISION_KNOWLEDGE, AUTO_DEALER_KNOWLEDGE,
 } from './trades.ts';
 import {
+  PLUMBING_DEPTH, ROOFING_DEPTH, REAL_ESTATE_DEPTH, PRESSURE_WASHING_DEPTH,
+  LEGAL_DEPTH, HVAC_DEPTH, ELECTRICAL_DEPTH,
+} from './depth.ts';
+import {
   PROPERTY_MGMT_KNOWLEDGE, HEALTHCARE_KNOWLEDGE, INSURANCE_KNOWLEDGE,
   FINANCIAL_KNOWLEDGE, PROFESSIONAL_SERVICES_KNOWLEDGE, MANUFACTURING_KNOWLEDGE,
   LOGISTICS_KNOWLEDGE, ENERGY_KNOWLEDGE, DEFENSE_KNOWLEDGE, SOLAR_KNOWLEDGE,
@@ -31,19 +35,19 @@ import {
  * legal specialty gets its own refusals rather than a generic set.
  */
 const BY_SPECIALIST: Record<string, KnowledgeEntry[]> = {
-  'attorneys.family_law': FAMILY_LAW_KNOWLEDGE,
-  'attorneys.personal_injury': PERSONAL_INJURY_KNOWLEDGE,
-  'attorneys.criminal_defense': CRIMINAL_DEFENSE_KNOWLEDGE,
-  'attorneys.probate_estate': PROBATE_KNOWLEDGE,
+  'attorneys.family_law': [...FAMILY_LAW_KNOWLEDGE, ...LEGAL_DEPTH],
+  'attorneys.personal_injury': [...PERSONAL_INJURY_KNOWLEDGE, ...LEGAL_DEPTH],
+  'attorneys.criminal_defense': [...CRIMINAL_DEFENSE_KNOWLEDGE, ...LEGAL_DEPTH],
+  'attorneys.probate_estate': [...PROBATE_KNOWLEDGE, ...LEGAL_DEPTH],
 };
 
 const BY_INDUSTRY: Record<string, KnowledgeEntry[]> = {
-  plumbing: PLUMBING_KNOWLEDGE,
-  roofing: ROOFING_KNOWLEDGE,
-  real_estate: REAL_ESTATE_KNOWLEDGE,
-  pressure_washing: PRESSURE_WASHING_KNOWLEDGE,
-  hvac: HVAC_KNOWLEDGE,
-  electrical: ELECTRICAL_KNOWLEDGE,
+  plumbing: [...PLUMBING_KNOWLEDGE, ...PLUMBING_DEPTH],
+  roofing: [...ROOFING_KNOWLEDGE, ...ROOFING_DEPTH],
+  real_estate: [...REAL_ESTATE_KNOWLEDGE, ...REAL_ESTATE_DEPTH],
+  pressure_washing: [...PRESSURE_WASHING_KNOWLEDGE, ...PRESSURE_WASHING_DEPTH],
+  hvac: [...HVAC_KNOWLEDGE, ...HVAC_DEPTH],
+  electrical: [...ELECTRICAL_KNOWLEDGE, ...ELECTRICAL_DEPTH],
   pest_control: PEST_KNOWLEDGE,
   garage_door: GARAGE_DOOR_KNOWLEDGE,
   pool: POOL_KNOWLEDGE,
