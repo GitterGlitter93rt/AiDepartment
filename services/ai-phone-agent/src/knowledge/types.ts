@@ -90,19 +90,39 @@ export function matchKnowledge(
   return hits;
 }
 
+/**
+ * Fields that describe a POLICY about answering rather than an answer.
+ *
+ * `pricing.neverQuoteByPhone` is the clearest case and it caused a real
+ * bug: a generic demo profile sets it, and a naive "does the pricing
+ * object have anything in it" check then reported that pricing WAS
+ * configured — so the agent was cleared to answer a pricing question it
+ * had no price for. A policy saying "do not quote" is the opposite of
+ * having a quote.
+ */
+const NON_ANSWER_KEYS: Record<string, string[]> = {
+  pricing: ['neverQuoteByPhone'],
+};
+
+function hasAnswer(field: string, value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') {
+    const ignore = NON_ANSWER_KEYS[field] ?? [];
+    return Object.entries(value as Record<string, unknown>).some(
+      ([k, v]) => !ignore.includes(k) && v !== undefined && v !== null && v !== '',
+    );
+  }
+  return true;
+}
+
 function isAnswerable(entry: KnowledgeEntry, profile: BusinessProfile): boolean {
   if (entry.source !== 'business_config') return true;
   const fields = entry.requires ?? [];
   if (fields.length === 0) return false;
   const record = profile as unknown as Record<string, unknown>;
-  return fields.every((f) => {
-    const v = record[f];
-    if (v === undefined || v === null) return false;
-    if (typeof v === 'string') return v.trim() !== '';
-    if (Array.isArray(v)) return v.length > 0;
-    if (typeof v === 'object') return Object.values(v as object).some((x) => x !== undefined && x !== null && x !== '');
-    return true;
-  });
+  return fields.every((f) => hasAnswer(f, record[f]));
 }
 
 /** Renders matched knowledge as the "this turn" section of the prompt. */

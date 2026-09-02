@@ -139,6 +139,24 @@ export const UNIVERSAL_KNOWLEDGE: KnowledgeEntry[] = [
 
   // ---------- availability ----------
   {
+    id: 'universal.charge_to_come_out',
+    question: 'whether it costs anything just to come out and look',
+    triggers: [
+      /\bdo you charge\b/i,
+      /\b(is|are)\b[^.]{0,20}\b(the )?(estimate|quote|inspection|visit|consultation)s?\b[^.]{0,20}\bfree\b/i,
+      /\bfree\b[^.]{0,25}\b(estimate|quote|inspection|consultation|visit)\b/i,
+      /\b(cost|charge|fee)\b[^.]{0,30}\b(come out|look at it|take a look|stop by)\b/i,
+      /\bwhat(?:'s| is) it (going to )?cost\b/i,
+      /\bhow much (do you|would it|does it)\b/i,
+    ],
+    source: 'business_config',
+    requires: ['pricing'],
+    guidance:
+      'They are asking this to decide whether to book, so answer it and then book. ' +
+      'If pricing is configured, say it plainly. If not, do not guess and do not say it is "usually free" — ' +
+      'say you do not have the fee in front of you and it will be confirmed when the appointment is set.',
+  },
+  {
     id: 'universal.hours',
     question: 'what hours the business keeps',
     triggers: [

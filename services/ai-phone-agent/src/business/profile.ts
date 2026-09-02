@@ -221,7 +221,10 @@ export function renderBusinessProfile(profile: BusinessProfile): string {
   if (p?.estimatesFree === true) known.push('Estimates are free.');
   if (p?.estimatesFree === false) known.push('Estimates are not free.');
   if (p?.description) known.push(`Pricing: ${p.description}`);
+  // neverQuoteByPhone is a policy, not an answer — a profile carrying
+  // only that still does not know what anything costs.
   if (!p?.serviceCallFee && p?.estimatesFree === undefined && !p?.description) unknown.push(FIELD_LABELS.pricing);
+  if (p?.neverQuoteByPhone) known.push('This business does not quote prices over the phone.');
 
   if (has(profile.financing)) known.push(`Financing: ${profile.financing}`);
   else unknown.push(FIELD_LABELS.financing);
