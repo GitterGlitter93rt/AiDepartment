@@ -7,14 +7,29 @@ session can pick the work up cold.
 | | |
 |---|---|
 | Branch | `feature/twilio-ai-phone-agent` |
-| Latest commit | `ac3407f` — *feat(voice): simulation harness, 60-scenario demo library, router fixes* |
-| Pushed | **NO** — see [External blockers](#external-blockers) |
-| Service tests | **585 passing, 0 failing** |
+| Latest commit | see `git log -1` |
+| Pushed | **NO** — 12+ commits ahead. See [External blockers](#external-blockers) |
+| Service tests | **653 passing, 0 failing** (58 suites) |
 | Service typecheck | clean (`npm run typecheck`) |
+| Demo scenarios | **94/94 clean** (`npm run voice:simulate -- --check`) |
+| Industry coverage | complete (`npm run voice:coverage`) |
+| Industry quality | 7 STRONG / 21 GOOD / **0 NEEDS_REFINEMENT** |
 | Website build | clean (125 pages) |
 | Website tests | 411 passing |
 | `astro check` | 0 errors, 0 warnings |
-| Source | 75 files, ~10,200 lines under `services/ai-phone-agent/src/` |
+| Source | 77 files, ~11,600 lines under `services/ai-phone-agent/src/` |
+
+### By the numbers
+
+| | |
+|---|---|
+| Website industries | 28 |
+| Demo industries | 29 (28 + Pressure Washing) |
+| Specialists | 31 |
+| Distinct intents | 254 |
+| Routing rules | 139 |
+| Knowledge entries | 192 industry-specific + 15 universal |
+| Demo scenarios | 94 |
 
 **Never merge to `main`. Never deploy. Never change DNS, Cloudflare, or
 Twilio production config without being asked.**
@@ -134,12 +149,14 @@ services/ai-phone-agent/
 │   │   ├── core-agent.ts         phone style, tool truthfulness, AI honesty
 │   │   └── router.ts             classification prompt
 │   ├── sim/
-│   │   ├── scenarios.ts          60 scenarios + NEVER_SAY
-│   │   └── run.ts                npm run voice:simulate
+│   │   ├── scenarios.ts          94 scenarios + NEVER_SAY
+│   │   ├── run.ts                npm run voice:simulate
+│   │   ├── coverage.ts           npm run voice:coverage
+│   │   └── quality.ts            npm run voice:quality
 │   ├── tools/                    calendar, sms, transfer, crm, index
 │   ├── twilio/                   twiml, relay, signature
 │   └── http/                     guards (rate limit, body cap), paths
-├── tests/                        7 files, 585 tests
+├── tests/                        9 files, 653 tests
 ├── deploy/                       systemd, nginx, pm2, logrotate
 ├── DEPLOYMENT.md README.md ARCHITECTURE.md .env.example
 └── package.json tsconfig.json
@@ -188,6 +205,12 @@ Per turn, `Orchestrator.specialistTurn` assembles:
 4. `stateBrief` — what has been captured, what is still needed.
 5. Matched knowledge for what the caller just said (≤3 entries).
 6. A security reinforcement, only on a flagged turn.
+
+Long calls also carry a **rolling summary** (`session.summary`),
+generated AFTER a reply is sent so it costs the caller no silence,
+using the cheap summary model, refreshed every ~8 turns. `contact` and
+`qualification` already survive history trimming; the summary covers
+narrative that never became a field.
 
 Then `runTurn` loops: `claude.send({tools})` → if `tool_use`, validate +
 execute + return `tool_result` → repeat, bounded by `maxToolRounds`
@@ -297,6 +320,7 @@ path throws into the turn loop** — an exception mid-call is dead air.
 | `send_sms` | only the caller's number or one they gave — otherwise the demo line is a free SMS relay |
 | `save_lead` | merges into the session, not a second record |
 | `transfer_to_human` | records intent; the socket ends the relay after the closing sentence |
+| `change_appointment` | RECORDS a reschedule/cancel for a person; explicitly does **not** change anything, and tells the agent not to claim it did |
 
 ---
 
@@ -447,17 +471,18 @@ There is **no ESLint config** in this repo. `tsc --noEmit` (service) and
 2. **Sessions are in-memory.** One process only. Multiple processes
    would need shared state, since ConversationRelay pins a call to a
    socket.
-3. **No rolling summarisation yet.** History is trimmed to the last 20
-   turns. A 20-minute call loses early context that is not already in
-   `qualification` or `contact`. See Remaining work.
-4. **Field extraction relies on the model.** There is no separate
-   extraction pass writing `session.contact`/`qualification`; the state
-   brief tells the model what is known, but the tools are what persist
-   it. Works, but a caller who gives a name and never books leaves less
-   structured data than they should.
-5. **Google Calendar OAuth is untested against Google.** The HTTP shape
+3. **Field extraction relies on the model.** There is no separate
+   extraction pass writing `session.contact`/`qualification`; the tools
+   are what persist it. **This is the biggest remaining gap** — see
+   NEXT SESSION START HERE.
+4. **Google Calendar OAuth is untested against Google.** The HTTP shape
    is tested with a stub `fetch`.
-6. **Pressure Washing has no website page.**
+5. **Pressure Washing has no website page** (deliberate — see the
+   inventory).
+6. **No multi-tenant routing.** One process, one profile. The seam
+   exists (`OrchestratorDeps.resolveProfile`); the plumbing does not.
+7. **CRM is a placeholder.** `CrmTool.pushLead` is the one method to
+   implement.
 
 ---
 
@@ -485,58 +510,91 @@ None of these block further development.
 
 Roughly in value order:
 
-1. **Rolling conversation summary** for long calls (Part 39). Design:
-   keep the last N turns verbatim, plus a compact running summary
-   regenerated every ~10 turns, plus the structured session state which
-   already survives. Test that facts stated early survive.
-2. **Structured extraction** without a second LLM call per turn —
-   fold it into the existing tool call rather than adding a round trip.
-3. **Industry quality matrix** — `docs/voice-agent-industry-quality.md`,
-   audited honestly (not all STRONG), then improve the weakest.
-4. **Reschedule / cancel tools** — currently `universal.reschedule`
-   escalates. Needs real tool support plus "never claim it changed
-   unless the tool confirmed".
-5. **Failure-injection tests** — Anthropic timeout, rate limit,
-   malformed relay frame, calendar timeout, SMS failure, transfer
-   no-answer, missing session, unknown tool.
-6. **Client-mode onboarding doc** — `docs/voice-agent-client-onboarding.md`.
-7. **Sales demo script** — `docs/voice-agent-demo-script.md`.
+1. **Structured extraction** — see NEXT SESSION START HERE.
+2. **Live-model evaluation.** Run `npm run voice:simulate` with a real
+   `ANTHROPIC_API_KEY` and read the transcripts. The content assertions
+   (`prohibited`, `NEVER_SAY`, `expectMentions`) only run with a live
+   model, so nothing has yet verified that the agent *says* the right
+   thing — only that the structure is there.
+3. **Multi-tenant profile lookup**, keyed by the called number.
+4. **A real CRM adapter.**
+5. **STT-confusion tests** — the router is tested against slang, typos
+   and run-ons, but not against actual speech-recognition errors
+   ("roofing" → "roof in", "realtor" → "real tour").
 
 ---
 
 ## NEXT SESSION START HERE
 
-**Exact next task: rolling conversation summarisation for long calls.**
+**Exact next task: structured field extraction during the turn.**
 
-Why first: it is the only remaining item that changes runtime behaviour
-on a real call, and it is a prerequisite for a believable 10-minute demo
-— which is the stated sales goal.
+Why first: it is the largest remaining gap in runtime behaviour. Today
+`session.contact` and `session.qualification` are populated only when a
+tool runs. A caller who says *"I'm Tony, 123 Main Street, and you can
+reach me on 904-555-0142"* and then hangs up before booking leaves
+almost nothing structured behind — so the end-of-call summary reports
+"no contact details captured" even though they were said out loud.
+
+**The constraint that shapes the design:** it must NOT add a model
+round trip per turn. The caller listens to silence during every model
+call. Two viable approaches:
+
+- **(preferred)** Add a `capture_details` tool to `TOOL_SCHEMAS` that
+  the agent calls when the caller volunteers information. It costs
+  nothing extra — the tool round trip already exists — and reuses the
+  validation in `tool-protocol.ts`. Downside: it depends on the model
+  choosing to call it.
+- **(fallback)** A deterministic extractor for the high-confidence
+  shapes — phone numbers, emails, ZIP codes — run over each caller turn
+  with no model at all. Cheap and reliable, but narrow.
+
+Doing both is reasonable: deterministic for the shapes a regex nails,
+the tool for everything else.
 
 **Files to touch**
 
 | File | Change |
 |---|---|
-| `src/core/types.ts` | add `summary?: { text: string; throughTurn: number }` to `Session` |
-| `src/core/session.ts` | initialise it in `ensure()` |
-| `src/claude/models.ts` | `DEFAULT_MODELS.summary` already exists — use it |
-| `src/core/orchestrator.ts` | in `specialistTurn`, when `session.turns.length` exceeds a threshold, include `session.summary.text` in the prompt and regenerate it every ~10 turns |
-| `src/core/call-summary.ts` | reuse nothing — that file is the END-of-call record and is deliberately model-free |
-| `tests/conversation.test.ts` | assert an early fact (a name given in turn 2) is still available at turn 25 |
+| `src/core/tool-protocol.ts` | add `capture_details` to `TOOL_SCHEMAS`; validate and merge into `session.contact` / `session.qualification` |
+| `src/core/extract.ts` (new) | deterministic phone / email / ZIP extraction from a caller turn |
+| `src/core/orchestrator.ts` | run the deterministic extractor on each caller turn before assembling the prompt |
+| `tests/` | a caller who gives details and never books must still produce a summary with `contactCaptured: true` |
 
-**Design constraints already decided**
+**Rules that must hold:**
 
-- Summarisation must NOT add a round trip to the critical path. Generate
-  it *after* replying to the caller, not before.
-- `contact` and `qualification` already survive trimming — the summary
-  covers narrative facts that never became fields.
-- Use `models.summary` (fast, cheap, temperature 0.2).
-- The end-of-call summary stays deterministic and model-free, so it is
-  produced even when the API is down.
+- **The latest explicit correction wins.** *"Actually use my other
+  number, 904-555-5678"* replaces the first, silently.
+- Never re-ask for something already captured — the state brief exists
+  for exactly this.
+- Digits in an address must not be captured as a phone number.
 
-**Then, in order:** the industry quality matrix (audited critically),
-reschedule/cancel tools, failure-injection tests, and the two remaining
-docs.
+**Then, in order:** live-model evaluation with a real API key,
+multi-tenant profile lookup, a real CRM adapter, STT-confusion tests.
 
-**Before stopping, always:** `npm test` → `npm run typecheck` →
-`npm run voice:simulate -- --check` → website `npm run build` →
-update this file → commit → attempt push.
+**Before stopping, always:**
+
+```bash
+cd services/ai-phone-agent
+npm test && npm run typecheck
+npm run voice:simulate -- --check
+npm run voice:coverage
+npm run voice:quality -- --write     # regenerates the quality matrix
+cd ../.. && npm run build && npm test && npx astro check
+```
+
+then update this file, commit, and attempt the push.
+
+## Documentation index
+
+| Document | What it is for |
+|---|---|
+| `voice-agent-handoff.md` | **this file** — resume from cold |
+| `voice-agent-architecture.md` | how and why it is built this way |
+| `voice-agent-industry-inventory.md` | website ↔ agent industry mapping |
+| `voice-agent-industry-quality.md` | **generated** — per-industry audit |
+| `voice-agent-deployment.md` | running it in production |
+| `voice-agent-twilio-setup.md` | Twilio console, field by field |
+| `voice-agent-testing.md` | what the tests guarantee |
+| `voice-agent-demo-script.md` | **for the sales team** |
+| `voice-agent-client-onboarding.md` | turning the demo into a client's receptionist |
+| `adding-an-industry.md` | the website side and the agent side |

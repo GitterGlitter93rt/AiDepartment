@@ -14,7 +14,10 @@ import { classifyHeuristic, route } from '../src/core/router.ts';
 import { INDUSTRY_IDS } from '../src/core/taxonomy.ts';
 import { knowledgeFor } from '../src/knowledge/index.ts';
 import { matchKnowledge } from '../src/knowledge/types.ts';
-import { demoProfile } from '../src/business/profile.ts';
+import { demoProfile, renderBusinessProfile } from '../src/business/profile.ts';
+import { Orchestrator } from '../src/core/orchestrator.ts';
+import { SessionStore } from '../src/core/session.ts';
+import { createLogger } from '../src/logger.ts';
 import { allSpecialists, REGISTRY } from '../src/industries/index.ts';
 
 describe('Scenario library integrity', () => {
@@ -208,5 +211,75 @@ describe('Website and agent industry lists cannot drift apart', () => {
     const pw = r.intentionalExtras.find((e) => e.id === 'pressure_washing');
     assert.ok(pw, 'pressure_washing must remain a declared intentional extra');
     assert.match(pw!.reason, /website content gap/i);
+  });
+});
+
+describe('Demo mode and client mode behave differently', () => {
+  // The same engine has to serve a demo line that switches industries
+  // on request, and a real client whose receptionist must never do
+  // that. The difference is configuration, not a fork of the code.
+  const silent = createLogger({}, () => {});
+
+  test('a demo caller can switch industries mid-call and gets a clean slate', async () => {
+    const sessions = new SessionStore();
+    const orch = new Orchestrator({ sessions, claude: null, log: silent });
+
+    await orch.handleCallerUtterance('CA_demo', "I'm going through a nasty divorce and my wife wants the house.");
+    sessions.mergeQualification('CA_demo', { minorChildren: true });
+    assert.equal(sessions.get('CA_demo')!.route.industry, 'attorneys');
+
+    await orch.handleCallerUtterance('CA_demo', 'What about plumbing? Water is pouring out from under my sink.');
+    const s = sessions.get('CA_demo')!;
+    assert.equal(s.route.industry, 'plumbing');
+    assert.equal(s.scenarioSwitches, 1);
+    assert.deepEqual(s.qualification, {}, "the divorce answers must not follow the caller into a plumbing call");
+  });
+
+  test('a client line never switches industry, however the caller wanders', async () => {
+    // A plumbing company's receptionist does not become a divorce
+    // intake because a caller mentioned their ex-wife. On a real
+    // business line that would be an alarming bug.
+    const sessions = new SessionStore();
+    const orch = new Orchestrator({
+      sessions, claude: null, log: silent,
+      resolveProfile: () => demoProfile('plumbing', { mode: 'client', businessName: 'Acme Plumbing' }),
+    });
+
+    await orch.handleCallerUtterance('CA_client', "Water is pouring out from under my sink.");
+    assert.equal(sessions.get('CA_client')!.route.industry, 'plumbing');
+
+    await orch.handleCallerUtterance('CA_client', "Actually, I'm also going through a nasty divorce and my wife wants the house.");
+    assert.equal(sessions.get('CA_client')!.route.industry, 'plumbing',
+      'a client line must stay on the business it answers for');
+    assert.equal(sessions.get('CA_client')!.scenarioSwitches, 0);
+  });
+
+  test('a configured client profile puts its real facts in the prompt', async () => {
+    const rendered = renderBusinessProfile(demoProfile('plumbing', {
+      mode: 'client',
+      businessName: 'Acme Plumbing',
+      hours: { description: 'Monday to Friday, 7 to 5', emergencyAfterHours: true },
+      serviceArea: { description: 'St Johns and Duval counties' },
+      pricing: { serviceCallFee: '$89, credited against the repair' },
+      licensing: 'Florida CFC1428900, licensed and insured',
+    }));
+
+    assert.match(rendered, /Acme Plumbing/);
+    assert.match(rendered, /\$89/);
+    assert.match(rendered, /St Johns and Duval/);
+    assert.match(rendered, /CFC1428900/);
+    // What it knows is now genuinely known, so it must not be listed
+    // as unknown.
+    assert.doesNotMatch(rendered.split('WHAT YOU DO NOT KNOW')[1] ?? '', /pricing|opening hours|service area|licence details/);
+  });
+
+  test('an unconfigured demo profile states its ignorance explicitly', async () => {
+    const rendered = renderBusinessProfile(demoProfile('plumbing'));
+
+    assert.match(rendered, /WHAT YOU DO NOT KNOW — THIS IS BINDING/);
+    for (const field of ['business name', 'service area', 'opening hours', 'pricing', 'warranty terms', 'licence details']) {
+      assert.ok(rendered.includes(field), `the unknown list must name "${field}"`);
+    }
+    assert.match(rendered, /Do NOT estimate, guess, give a typical figure/);
   });
 });

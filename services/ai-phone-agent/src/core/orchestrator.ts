@@ -130,7 +130,13 @@ export class Orchestrator {
     // a prospect wants to hear the plumbing agent after the divorce
     // one. The check is conservative so a passing mention of "the
     // house" during a divorce call does not derail the persona.
-    if (session.routed) {
+    //
+    // In CLIENT mode it does not happen at all. A plumbing company's
+    // real receptionist does not become a divorce intake because a
+    // caller mentioned their ex-wife; it would be an alarming bug on a
+    // real business line, and the industry is fixed by configuration
+    // rather than inferred.
+    if (session.routed && this.profileFor(session.route.industry).mode === 'demo') {
       const change = detectScenarioChange(utterance, session.route.industry);
       if (change.changed) {
         log.log('router.decision', {
@@ -436,10 +442,22 @@ export class Orchestrator {
     }
   }
 
-  /** The business profile for this call. */
+  /**
+   * The business profile for this call.
+   *
+   * DEMO returns a generic profile per industry — which is why the demo
+   * agent knows the trade but not the prices. CLIENT returns that one
+   * client's real profile, and the industry never changes for the life
+   * of the call. See docs/voice-agent-client-onboarding.md.
+   */
   private profileFor(industry: string | null): BusinessProfile {
     if (this.deps.resolveProfile) return this.deps.resolveProfile(industry);
     return demoProfile((industry ?? 'professional_services') as Parameters<typeof demoProfile>[0]);
+  }
+
+  /** True when this deployment answers for one specific business. */
+  get clientMode(): boolean {
+    return this.profileFor(null).mode === 'client';
   }
 
   /** Tells the model what is already known, so it never re-asks. */
