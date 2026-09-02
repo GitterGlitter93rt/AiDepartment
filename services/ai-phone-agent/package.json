@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "voice:simulate": "node --experimental-strip-types src/sim/run.ts",
     "voice:coverage": "node --experimental-strip-types src/sim/coverage.ts",
-    "voice:quality": "node --experimental-strip-types src/sim/quality.ts"
+    "voice:quality": "node --experimental-strip-types src/sim/quality.ts",
+    "voice:eval": "node --experimental-strip-types src/eval/run.ts"
   },
   "dependencies": {
     "ws": "^8.18.0"

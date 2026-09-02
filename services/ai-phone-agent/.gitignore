@@ -1,0 +1,4 @@
+# Live-model evaluation artefacts. Transcripts of fixture callers only —
+# never real caller data — but they are large, regenerated on every run,
+# and have no business in git history.
+eval-results/
