@@ -7,6 +7,7 @@ import { loadConfig } from './config.js';
 import { InMemoryCallContextStore } from './store.js';
 import { ResearchOrchestrator } from './research.js';
 import { WebsiteResearchAdapter } from './website-research.js';
+import { ClaudeWebResearchAdapter } from './web-research.js';
 import { FileManualRetriever } from './manual-retriever.js';
 import { buildSalesStrategy } from './strategy.js';
 import { evaluateCompliance } from './compliance.js';
@@ -17,7 +18,10 @@ import type { CallContext, Lead } from './types.js';
 
 const config = loadConfig();
 const store = new InMemoryCallContextStore();
-const research = new ResearchOrchestrator([new WebsiteResearchAdapter()]);
+const research = new ResearchOrchestrator([
+  new WebsiteResearchAdapter(),
+  new ClaudeWebResearchAdapter(config.anthropicApiKey, config.anthropicModel),
+]);
 const here = dirname(fileURLToPath(import.meta.url));
 const manualRoot = resolve(here, '../../docs/07-sales/training-manual');
 const manual = new FileManualRetriever(manualRoot);
