@@ -8,6 +8,16 @@ import { renderToolBlocks, renderOfferMemory, renderGoal } from '../src/core/goa
 import { createMockToolbox } from '../src/tools/index.ts';
 import { createLogger } from '../src/logger.ts';
 import { policiesFor } from '../src/business/policies.ts';
+import { renderActionPolicies } from '../src/business/render-policies.ts';
+import { CORE_AGENT_RULES } from '../src/prompts/core-agent.ts';
+
+const MODES = { tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' };
+
+/** Mirrors the orchestrator's rule: asked for, or the car is on a truck. */
+function wantsTimeline(session: { qualification: Record<string, unknown> }): boolean {
+  const q = session.qualification;
+  return Boolean(q.towStatus) || Boolean(q.dropOffScheduled);
+}
 
 const log = createLogger({}, () => {});
 
@@ -308,4 +318,66 @@ describe('REGRESSION — the accident path is untouched', () => {
     );
     assert.equal(res.ok, true, res.reason ?? "rejected");
   });
+});
+
+describe('FINAL QA — tow path and dead air', () => {
+  test('an explicit tow request is not answered with "is it drivable?"', () => {
+    // They already said they need a truck. Asking costs a turn and the
+    // answer changes nothing.
+    const { session } = shopCall('I got into an accident and need a tow.');
+    assert.equal(session.route.intent, 'towing_needed');
+    const opening = selectSpecialist(session)!.openingLine(session);
+    assert.doesNotMatch(opening, /still drivable|need a tow/i);
+    assert.match(opening, /where/i, 'the useful next question is where the vehicle is');
+  });
+
+  test('the agent is told to speak before a slow action', () => {
+    // Measured: with an acknowledgement first the caller hears audio at
+    // ~440ms; without it, a 4-second tow dispatch is 4.7 seconds of
+    // silence. Nothing used to say to speak first.
+    assert.match(CORE_AGENT_RULES, /SAY SOMETHING BEFORE YOU DO SOMETHING/);
+    assert.match(CORE_AGENT_RULES, /Speak FIRST, then act/);
+    assert.match(CORE_AGENT_RULES, /Never announce a result before the tool has come back/i);
+  });
+
+  test('the repair process is available once the vehicle is on a truck', () => {
+    // A caller whose car has just been collected is about to ask what
+    // happens next; waiting for the words means it is missing exactly
+    // when it is certain to be needed.
+    const { session } = shopCall('I just got into an accident.');
+    const before = renderActionPolicies('collision_repair', MODES, { repairTimeline: wantsTimeline(session) })!;
+    assert.doesNotMatch(before, /teardown/i);
+
+    (session.qualification as Record<string, unknown>).towStatus = 'mocked';
+    const after = renderActionPolicies('collision_repair', MODES, { repairTimeline: wantsTimeline(session) })!;
+    assert.match(after, /teardown/i);
+    assert.match(after, /insurer review/i);
+  });
+
+  test('a crash still carries the tow tool from the first turn', () => {
+    for (const said of ['I just got into an accident.', 'I got into an accident and need a tow.']) {
+      const { session } = shopCall(said);
+      assert.ok(toolsFor('collision_repair', undefined, session).map((t) => t.name).includes('dispatch_tow'), said);
+    }
+  });
+});
+
+describe('FINAL QA — a body shop call is not a lawsuit', () => {
+  const cases: [string, string][] = [
+    ['I got rear-ended yesterday and need the car fixed', 'collision_repair'],
+    ['someone rear-ended me, can you fix my bumper', 'collision_repair'],
+    ['I was rear-ended this morning and my neck hurts', 'attorneys'],
+    ['I was rear-ended and I am injured but I also need my car fixed', 'attorneys'],
+    ['I was T-boned and my back is killing me', 'attorneys'],
+    ['I got rear-ended and I want to speak to a lawyer', 'attorneys'],
+  ];
+
+  for (const [said, expected] of cases) {
+    test(`${JSON.stringify(said)} -> ${expected}`, () => {
+      // The crash vocabulary is identical on both sides; only the
+      // stated intent separates them. An injury mentioned anywhere
+      // outranks a repair request and keeps the call with the firm.
+      assert.equal(classifyHeuristic(said)?.industry, expected);
+    });
+  }
 });

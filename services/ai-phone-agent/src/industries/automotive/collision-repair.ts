@@ -20,6 +20,12 @@ function openingFor(s: Session): string {
     case 'status_check':
       return "Happy to check. Can I get your name and the vehicle it's under?";
 
+    // They already told you it needs a truck. Asking "is it drivable?"
+    // is asking them to repeat themselves, and the answer changes
+    // nothing — the next useful thing is where the vehicle is.
+    case 'towing_needed':
+      return 'Of course — we can get a truck out to you. Whereabouts is the vehicle?';
+
     // Published, so simply said. No intake first.
     case 'labor_rate_question':
       return `${speakLaborRates()} Is there something specific you're looking to have done?`;

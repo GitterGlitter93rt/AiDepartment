@@ -80,7 +80,19 @@ export const RULES: Rule[] = [
     anchors: [/\b(car|auto|motorcycle|truck|motor vehicle) (accident|crash|wreck)\b/i, /\brear[- ]?ended\b/i, /\bt[- ]?boned\b/i,
               /\bhit by a (car|truck|driver|drunk)\b/i, /\bsideswiped\b/i, /\brun off the road\b/i,
               /\b(killed|died)\b[^.]{0,30}\b(crash|accident|wreck)\b/i],
-    support: [/\binjur\w+/i, /\bhurt\b/i, /\bhospital\b/i, /\bwhiplash\b/i, /\badjuster\b/i, /\bmy (neck|back)\b/i] },
+    support: [/\binjur\w+/i, /\bhurt\b/i, /\bhospital\b/i, /\bwhiplash\b/i, /\badjuster\b/i, /\bmy (neck|back)\b/i],
+    // "I got rear-ended and need the car fixed" is a body shop call.
+    // The crash vocabulary is identical to a real injury call, so only
+    // the stated intent separates them: someone asking to have a
+    // vehicle repaired is not asking for a lawyer, and answering them
+    // as a law firm loses the call. An injury mentioned anywhere
+    // outranks this and keeps it here.
+    // Each veto yields to injury language anywhere in the sentence.
+    // "I'm injured but I also need my car fixed" is still a personal
+    // injury call; the repair is incidental, and the leading lookahead
+    // is what keeps the veto from swallowing it.
+    veto: [/^(?![\s\S]*\b(hurt|hurts|injur\w*|pain|sore|neck|back|whiplash|hospital|ambulance|doctor|er\b|lawyer|attorney)\b)[\s\S]*\b(need|want|get|have)\b[^.]{0,25}\b(car|truck|vehicle|bumper|it)\b[^.]{0,15}\b(fixed|repaired)\b/i,
+           /^(?![\s\S]*\b(hurt|hurts|injur\w*|pain|sore|neck|back|whiplash|hospital|ambulance|doctor|lawyer|attorney)\b)[\s\S]*\b(fix|repair)\w*\b[^.]{0,20}\bmy (car|truck|vehicle|bumper|fender|door|panel|hood|quarter)\b/i] },
   { industry: 'attorneys', specialty: 'personal_injury', intent: 'slip_and_fall',
     anchors: [/\bslip(ped)? and fell\b/i, /\bslip and fall\b/i, /\bfell (at|in|on) (the|a) \w+/i, /\btripped (over|on)\b/i,
               /\bslipped on\b[^.]{0,30}\b(floor|ice|water|spill)\b/i],

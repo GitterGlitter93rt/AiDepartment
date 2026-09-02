@@ -70,6 +70,14 @@ export const MAX_GOALS_SHOWN = 6;
  */
 function wantsRepairTimeline(session: Session): boolean {
   if (session.askedRepairTimeline) return true;
+  // A vehicle now on a truck is a caller about to ask what happens
+  // next. Waiting for them to say the words means the explanation is
+  // missing at the one moment it is certain to be needed.
+  const q = session.qualification as Record<string, unknown>;
+  if (q.towStatus || q.dropOffScheduled) {
+    session.askedRepairTimeline = true;
+    return true;
+  }
   const said = session.turns.filter((t) => t.role === 'caller').map((t) => t.text).join(' ');
   const asked = /\bhow long\b|\bhow many (days|weeks)\b|\bwhen will it be (done|ready)\b|\btimeline\b|\bhow soon\b|\bturnaround\b|\bget it back\b/i.test(said);
   if (asked) session.askedRepairTimeline = true;
