@@ -31,6 +31,7 @@ import { extractFromUtterance, mergeContact } from './extract.ts';
 import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
 import { isUsableNumber, renderPhoneGuidance } from './contact-routing.ts';
 import { renderGoal, renderOfferMemory } from './goals.ts';
+import type { TimelineMark } from './telemetry.ts';
 import { renderActionPolicies } from '../business/render-policies.ts';
 import { detectSalesIntent, isDecliningOffer, renderDemoHost } from './demo-host.ts';
 import { DEMO_GREETING } from '../business/greeting.ts';
@@ -87,6 +88,14 @@ export interface TurnResult {
 export interface TurnDelivery {
   onClause?: (text: string) => void;
   signal?: AbortSignal;
+  /**
+   * Records a timing mark.
+   *
+   * Passed down rather than logged here because the two marks that
+   * matter most — the request going out and the first token coming
+   * back — are only visible inside the streaming client.
+   */
+  mark?: (mark: TimelineMark) => void;
 }
 
 /**
@@ -165,6 +174,7 @@ export class Orchestrator {
 
   async handleTurn(callSid: string, utterance: string, delivery: TurnDelivery = {}): Promise<TurnResult> {
     const { sessions, claude, log } = this.deps;
+    delivery.mark?.('TURN_HANDLER_START');
     const session = sessions.ensure(callSid);
     sessions.addTurn(callSid, 'caller', utterance);
 
@@ -303,6 +313,7 @@ export class Orchestrator {
     // and treating it as said would make the next turn reply to a
     // sentence that was cut off mid-word.
     if (delivery.signal?.aborted) {
+      delivery.mark?.('CLAUDE_ABORTED');
       log.log('turn.interrupted', { callSid });
       return { text: '', action: 'SPEAK_AND_CONTINUE', interrupted: true };
     }
@@ -567,6 +578,8 @@ export class Orchestrator {
         tools: toolsFor(session.route.industry, session.demoPhase),
         onClause: delivery.onClause,
         signal: delivery.signal,
+        onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
+        onFirstStreamEvent: () => delivery.mark?.('CLAUDE_FIRST_STREAM_EVENT'),
       });
       this.recordUsage(session, res);
 
@@ -584,7 +597,10 @@ export class Orchestrator {
       }
       convo.push({ role: 'user', content: results });
 
-      if (delivery.signal?.aborted) return res.text;
+      if (delivery.signal?.aborted) {
+        delivery.mark?.('CLAUDE_ABORTED');
+        return res.text;
+      }
 
       const follow = await claude.stream({
         system, messages: convo,
@@ -593,6 +609,8 @@ export class Orchestrator {
         temperature: this.models.specialist.temperature,
         onClause: delivery.onClause,
         signal: delivery.signal,
+        onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
+        onFirstStreamEvent: () => delivery.mark?.('CLAUDE_FIRST_STREAM_EVENT'),
       });
       this.recordUsage(session, follow);
       return follow.text || res.text;

@@ -46,6 +46,16 @@ export interface Config {
   /** ConversationRelay TTS voice. Defaults to the voice production runs today. */
   ttsVoice: string;
   ttsLanguage: string;
+  /**
+   * Ask ConversationRelay for interim transcripts.
+   *
+   * Purely diagnostic: an interim frame is the only evidence this
+   * process has that the caller started speaking, and the gap from
+   * there to the final transcript is Twilio's endpointing delay — the
+   * number that decides whether a slow turn is our code or theirs.
+   * Interim frames are timestamped and discarded, never answered.
+   */
+  partialPrompts: boolean;
   /** Where the business works. Never the server's clock. */
   serviceAreaState: string;
   serviceAreaTimezone: string;
@@ -124,6 +134,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // overridden deliberately or not at all.
     ttsVoice: str('TWILIO_TTS_VOICE', 'en-US-Journey-O'),
     ttsLanguage: str('TWILIO_TTS_LANGUAGE', 'en-US'),
+    partialPrompts: bool('RELAY_PARTIAL_PROMPTS', true),
     serviceAreaState: str('SERVICE_AREA_STATE', 'FL'),
     serviceAreaTimezone: str('SERVICE_AREA_TIMEZONE', 'America/New_York'),
     // Deliberately an .invalid host by default: a demo link that goes
@@ -182,5 +193,6 @@ export function describeConfig(cfg: Config): Record<string, unknown> {
     sms: cfg.mockSmsMode ? 'MOCK' : 'twilio-live',
     humanTransfer: cfg.humanTransferNumber ? 'configured' : 'absent',
     logTranscripts: cfg.logTranscripts,
+    partialPrompts: cfg.partialPrompts,
   };
 }

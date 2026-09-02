@@ -31,6 +31,8 @@ export type LogEvent =
   | 'call.ending'
   | 'turn.latency'
   | 'turn.interrupted'
+  /** One call-timeline mark. See core/telemetry.ts. */
+  | 'timeline'
   | 'demo.sales_intent'
   | 'demo.cta_declined'
   | 'llm.usage'

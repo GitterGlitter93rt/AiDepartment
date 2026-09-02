@@ -15,6 +15,15 @@ export interface RelayTwimlOptions {
   /** Lets the caller cut in mid-sentence, as on a real call. */
   interruptible?: boolean;
   /**
+   * Stream interim transcripts as the caller talks.
+   *
+   * Diagnostic only. The handler timestamps them and returns; a turn
+   * is still driven exclusively by the final transcript, because
+   * answering a half-finished sentence is worse than any latency it
+   * would save.
+   */
+  partialPrompts?: boolean;
+  /**
    * Where Twilio POSTs when the relay session ends. This is what makes
    * a warm transfer possible: the relay hands back control, and the
    * TwiML returned at this URL decides whether the call is dialled on
@@ -27,7 +36,7 @@ export function conversationRelayTwiml(opts: RelayTwimlOptions): string {
   const {
     relayUrl, welcomeGreeting,
     voice = 'en-US-Journey-O', language = 'en-US', interruptible = true,
-    actionUrl,
+    actionUrl, partialPrompts = false,
   } = opts;
 
   return (
@@ -41,6 +50,7 @@ export function conversationRelayTwiml(opts: RelayTwimlOptions): string {
     `language="${escapeXml(language)}" ` +
     `transcriptionProvider="google" ` +
     `interruptible="${interruptible ? 'true' : 'false'}" ` +
+    (partialPrompts ? `partialPrompts="true" ` : '') +
     `/>` +
     `</Connect>` +
     `</Response>`

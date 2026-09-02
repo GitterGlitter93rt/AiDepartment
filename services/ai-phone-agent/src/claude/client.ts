@@ -63,6 +63,16 @@ export interface StreamOptions extends CompleteOptions {
   onClause: StreamSink;
   /** Aborts generation when the caller interrupts. */
   signal?: AbortSignal;
+  /**
+   * Timing hooks.
+   *
+   * The request and the first token are only observable from inside
+   * this function, and they are the two numbers that separate "our
+   * code is slow" from "the model is slow". Optional so tests and the
+   * non-telemetry paths are unaffected.
+   */
+  onRequestStart?: () => void;
+  onFirstStreamEvent?: () => void;
 }
 
 export interface ClaudeClient {
@@ -105,7 +115,11 @@ export function takeSpeakable(buffer: string, isFirst: boolean): { clause: strin
   return null;
 }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+// Overridable for local end-to-end testing against a stub that speaks
+// the same SSE protocol. Never set in production.
+const ANTHROPIC_URL = process.env.ANTHROPIC_BASE_URL
+  ? `${process.env.ANTHROPIC_BASE_URL.replace(/\/$/, '')}/v1/messages`
+  : 'https://api.anthropic.com/v1/messages';
 
 interface ApiResponse {
   content?: { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }[];
@@ -169,6 +183,7 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
    */
   async function stream(opts: StreamOptions): Promise<CompleteResult> {
     const { system, messages, maxTokens = 300, temperature = 0.6, tools, onClause, signal } = opts;
+    opts.onRequestStart?.();
     const body: Record<string, unknown> = {
       model: opts.model ?? model,
       max_tokens: maxTokens,
@@ -200,6 +215,7 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
     let text = '';
     let pending = '';
     let spoken = false;
+    let sawFirstEvent = false;
     let stopReason: string | null = null;
     const usage: Usage = { inputTokens: 0, outputTokens: 0 };
     const toolUses: ToolUseBlock[] = [];
@@ -223,6 +239,14 @@ export function createClaudeClient(apiKey: string, model: string, fetchImpl: typ
           event = JSON.parse(dataLine.slice(5).trim()) as Record<string, unknown>;
         } catch {
           continue;
+        }
+
+        // Time to first token. Fired on the first frame carrying model
+        // output rather than on message_start, which arrives before the
+        // model has produced anything.
+        if (!sawFirstEvent && (event.type === 'content_block_delta' || event.type === 'content_block_start')) {
+          sawFirstEvent = true;
+          opts.onFirstStreamEvent?.();
         }
 
         switch (event.type) {

@@ -183,6 +183,15 @@ sudo systemctl reload nginx
 curl -s https://voice.youraidepartment.ai/health
 ```
 
+`/health` reports the commit the process actually started from:
+
+```json
+"build": { "shortCommit": "d7ba561", "branch": "feature/twilio-ai-phone-agent", "dirty": false }
+```
+
+`dirty: true` means the VPS working tree has edits that are not in git.
+
+
 ## 9. Twilio console
 
 Console → Phone Numbers → Manage → Active numbers → *your number* → **Voice Configuration**:
@@ -216,6 +225,9 @@ Expected in the logs:
 You should hear the family-law opening within about a second. Hang up, call again, say **"water is pouring out from under my kitchen sink"** — same number, plumbing dispatcher.
 
 ## 11. Update procedure
+
+See also **QA-LIVE-CALLS.md** for verifying which commit is running and
+measuring real call latency.
 
 ```bash
 cd /opt/yad-voice-agent
