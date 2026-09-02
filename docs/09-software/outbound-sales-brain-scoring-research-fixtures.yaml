@@ -1,5 +1,5 @@
 fixture_set: yad_outbound_scoring_research_v1
-version: 1.0.0
+version: 1.0.1
 canonical_scoring_source: docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
 
 score_rules:
@@ -55,7 +55,7 @@ scoring_fixtures:
       prominent_forms_booking_quote_consultation_cta: true
     expected:
       multiple_paid_channels_confirmed: true
-      total_points: 16
+      total_points: 15
       tier: A
 
   - id: hvac_meta_only
@@ -144,7 +144,7 @@ scoring_fixtures:
       strong_phone_dependence: true
       prominent_forms_booking_quote_consultation_cta: true
     expected:
-      total_points: 10
+      total_points: 9
       tier: A
       note: Do not exclude non-advertisers from YAD prospecting.
 
