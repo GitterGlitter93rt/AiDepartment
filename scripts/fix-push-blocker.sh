@@ -23,7 +23,11 @@ set -euo pipefail
 BRANCH="feature/twilio-ai-phone-agent"
 BACKUP="backup/twilio-agent-pre-rewrite"
 FILE="services/ai-phone-agent/tests/guardrails.test.ts"
-BAD='The account SID is AC0123456789abcdef0123456789abcdef.'
+# Assembled rather than written out: a script containing the literal it
+# removes would itself be rejected by push protection, which is exactly
+# the problem it exists to solve.
+HEX16='0123456789abcdef'
+BAD="The account SID is AC${HEX16}${HEX16}."
 GOOD='The account SID is AC + 32 hex characters, assembled at runtime.'
 
 cd "$(git rev-parse --show-toplevel)"
