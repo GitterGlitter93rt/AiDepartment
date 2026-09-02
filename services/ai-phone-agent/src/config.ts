@@ -51,6 +51,14 @@ export interface Config {
   serviceAreaTimezone: string;
   /** Base for generated upload links. The backend builds every URL. */
   uploadLinkBaseUrl: string;
+  /**
+   * DEMO is the Your AI Department sales line. CLIENT is a business's
+   * own receptionist and must never mention us.
+   */
+  deploymentMode: 'demo' | 'client';
+  /** A client's own greeting. Ignored in demo mode. */
+  clientGreeting: string;
+  businessName: string;
   /** Log a full end-of-call summary. Off in environments where the
    * summary would duplicate a CRM record. */
   callSummaryEnabled: boolean;
@@ -119,6 +127,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Deliberately an .invalid host by default: a demo link that goes
     // nowhere is safer than one that resolves to something unexpected.
     uploadLinkBaseUrl: str('UPLOAD_LINK_BASE_URL', 'https://upload.example-demo.invalid'),
+    // Demo by default: this number IS the demo line. A client
+    // deployment sets DEPLOYMENT_MODE=client, which switches the
+    // greeting and removes the whole sales layer.
+    deploymentMode: str('DEPLOYMENT_MODE', 'demo') === 'client' ? 'client' : 'demo',
+    clientGreeting: str('CLIENT_GREETING'),
+    businessName: str('BUSINESS_NAME'),
     callSummaryEnabled: bool('CALL_SUMMARY_ENABLED', true),
     routerConfidenceThreshold: num('ROUTER_CONFIDENCE_THRESHOLD', 0.6),
 

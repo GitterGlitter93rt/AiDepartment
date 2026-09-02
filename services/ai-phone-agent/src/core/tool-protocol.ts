@@ -28,6 +28,7 @@ import {
 } from '../business/policies.ts';
 import { speechFor } from '../tools/actions.ts';
 import { speakZip } from './speech.ts';
+import { YAD_DISCOVERY_CALL } from '../business/policies.ts';
 
 export interface ToolSchema {
   name: string;
@@ -216,6 +217,40 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         consentConfirmed: { type: 'boolean', description: 'True only if the caller explicitly agreed on this call.' },
       },
       required: ['partnerId', 'consentConfirmed'],
+    },
+  },
+  {
+    name: 'capture_prospect',
+    description:
+      "Record the REAL business owner's details on the Your AI Department demo line. Completely separate from capture_details, which holds whatever character they played during the simulation. Never copy a name, company or address out of the role-play into here — ask them fresh.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string' }, lastName: { type: 'string' },
+        companyName: { type: 'string' }, email: { type: 'string' },
+        phone: { type: 'string', description: 'Only if different from the number they are calling from.' },
+        website: { type: 'string' }, industry: { type: 'string' },
+        companySize: { type: 'string' },
+        problemToSolve: { type: 'string', description: 'What they actually want AI to fix.' },
+        featuresLiked: { type: 'string', description: 'Which part of the demo landed.' },
+        currentCrm: { type: 'string' },
+        missesCalls: { type: 'boolean' }, runsPaidAds: { type: 'boolean' },
+        preferredTime: { type: 'string' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'book_discovery_call',
+    description:
+      'Book the Your AI Department discovery call. Only after check_availability returned that exact slot and the prospect chose it, and only once you have their real name, company, email and a number. This is OUR appointment, not the appointment type of whatever industry they were testing.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        start: { type: 'string', description: 'ISO 8601 start, one returned by check_availability.' },
+        notes: { type: 'string', description: 'What they tested and what they want solved. Internal — never read aloud.' },
+      },
+      required: ['start'],
     },
   },
   {
@@ -618,6 +653,60 @@ export function validateToolRequest(
       return { ok: true, value: { partnerId, partnerLabel: partner.label, payloadFields: partner.payloadFields } };
     }
 
+    case 'capture_prospect': {
+      const value: Record<string, unknown> = {};
+      for (const k of ['firstName', 'lastName', 'companyName', 'email', 'phone', 'website', 'industry', 'companySize', 'problemToSolve', 'featuresLiked', 'currentCrm', 'preferredTime'] as const) {
+        const v = str(input, k);
+        if (v) value[k] = v;
+      }
+      for (const k of ['missesCalls', 'runsPaidAds'] as const) {
+        if (typeof input[k] === 'boolean') value[k] = input[k];
+      }
+      const email = value.email as string | undefined;
+      if (email && !EMAIL.test(email)) {
+        return { ok: false, reason: 'That email does not look right. Read it back and confirm it — the calendar invite goes there.' };
+      }
+      const phone = value.phone as string | undefined;
+      if (phone && !E164.test(phone.replace(/[\s()-]/g, ''))) {
+        return { ok: false, reason: 'That phone number does not look right. Confirm it.' };
+      }
+      if (Object.keys(value).length === 0) {
+        return { ok: false, reason: 'Nothing to record — send at least one detail they actually gave you.' };
+      }
+      return { ok: true, value };
+    }
+
+    case 'book_discovery_call': {
+      const start = iso(input, 'start');
+      if (!start) return { ok: false, reason: 'start must be a valid ISO 8601 timestamp from check_availability.' };
+      if (start < now) return { ok: false, reason: 'That time has passed. Check availability again and offer a real slot.' };
+      if (start > new Date(now.getTime() + YAD_DISCOVERY_CALL.maximumLeadDays * 86_400_000)) {
+        return { ok: false, reason: `Discovery calls are booked within ${YAD_DISCOVERY_CALL.maximumLeadDays} days.` };
+      }
+
+      // Checked against the PROSPECT record, never against the
+      // role-play contact. A demo caller has a name on file — it is
+      // just not their name.
+      const prospect = (session.prospect ?? {}) as Record<string, unknown>;
+      const missing = YAD_DISCOVERY_CALL.requires.filter((f) => {
+        const v = f === 'phone' ? (prospect.phone ?? session.from) : prospect[f];
+        return v === undefined || v === null || v === '';
+      });
+      if (missing.length > 0) {
+        return { ok: false, reason: `Not yet — still need their real ${missing.join(', ')}. Ask for those before booking.` };
+      }
+
+      return {
+        ok: true,
+        value: {
+          start: start.toISOString(),
+          end: new Date(start.getTime() + YAD_DISCOVERY_CALL.durationMinutes * 60_000).toISOString(),
+          title: YAD_DISCOVERY_CALL.title,
+          notes: str(input, 'notes') ?? undefined,
+        },
+      };
+    }
+
     case 'end_call': {
       const reason = str(input, 'reason');
       if (!reason) return { ok: false, reason: 'reason is required.' };
@@ -638,6 +727,34 @@ export function validateToolRequest(
     default:
       return { ok: false, reason: `Unknown tool "${req.name}".` };
   }
+}
+
+/**
+ * Internal notes for whoever takes the discovery call.
+ *
+ * Written so the salesperson does not start cold: what the prospect
+ * tested, what they reacted to, what they want fixed. Internal only —
+ * it goes on the calendar event, never into the conversation.
+ */
+function buildSalesNotes(session: Session, extra?: string): string {
+  const p = session.prospect ?? {};
+  const lines = [
+    p.companyName ? `Company: ${p.companyName}` : null,
+    p.industry ? `Industry: ${p.industry}` : null,
+    p.firstName ? `Caller: ${[p.firstName, p.lastName].filter(Boolean).join(' ')}` : null,
+    p.phone ? `Phone: ${p.phone}` : null,
+    p.email ? `Email: ${p.email}` : null,
+    p.website ? `Website: ${p.website}` : null,
+    p.companySize ? `Size: ${p.companySize}` : null,
+    session.scenarioTested ? `Scenario tested: ${session.scenarioTested.replace(/_/g, ' ')}` : null,
+    p.featuresLiked ? `Reacted to: ${p.featuresLiked}` : null,
+    p.problemToSolve ? `Wants solved: ${p.problemToSolve}` : null,
+    p.currentCrm ? `CRM: ${p.currentCrm}` : null,
+    p.missesCalls !== undefined ? `Misses calls: ${p.missesCalls ? 'yes' : 'no'}` : null,
+    p.runsPaidAds !== undefined ? `Paid ads: ${p.runsPaidAds ? 'yes' : 'no'}` : null,
+    extra ? `Notes: ${extra}` : null,
+  ].filter(Boolean);
+  return lines.join('\n');
 }
 
 /** One-line description of the call, for whoever picks up a transfer. */
@@ -978,6 +1095,57 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
           `this demo can pass their details across for a free case review — describe it as what the system does, not as done.`,
         ),
         limits: 'Do not say they have a case, that the partner will take it, that they will recover anything, or that the partner is "ours".',
+      });
+    }
+
+    case 'capture_prospect': {
+      // Written to the prospect record, which is a different object
+      // from session.contact on purpose — that one holds the character
+      // they played.
+      session.prospect ??= {};
+      const captured: string[] = [];
+      for (const [k, v] of Object.entries(args)) {
+        if (v === undefined || v === null || v === '') continue;
+        (session.prospect as Record<string, unknown>)[k] = v;
+        captured.push(k);
+      }
+      // The number they are calling from is genuinely theirs, unlike
+      // everything else they may have said during the demo.
+      session.prospect.phone ??= session.from;
+
+      deps.log.log('field.captured', { callSid: session.callSid, scope: 'prospect', fields: captured });
+      return JSON.stringify({
+        recorded: captured.length,
+        note: 'Got it. Do not ask again for any of these, and do not read them back unless confirming an email or a number.',
+      });
+    }
+
+    case 'book_discovery_call': {
+      const booked = await tools.calendar.bookAppointment({
+        title: String(args.title),
+        start: String(args.start),
+        end: String(args.end),
+        attendeeName: [session.prospect?.firstName, session.prospect?.lastName].filter(Boolean).join(' ') || undefined,
+        attendeeEmail: session.prospect?.email,
+        attendeePhone: session.prospect?.phone ?? session.from,
+        notes: buildSalesNotes(session, args.notes as string | undefined),
+        timezone: 'America/New_York',
+      });
+
+      const mode = booked.mocked ? 'mocked' : 'sent';
+      session.prospect ??= {};
+      session.prospect.discoveryCallBooked = !booked.mocked;
+      session.prospect.discoveryCallAt = booked.start;
+      session.prospect.discoveryCallMode = mode;
+
+      return JSON.stringify({
+        mode,
+        start: booked.start,
+        // A mocked booking is not a booking. Saying "you're all set"
+        // when no event exists sends someone to a meeting nobody has.
+        speech: booked.mocked
+          ? 'NOT ACTUALLY BOOKED — the calendar is not connected. Say the system books this automatically and that the team will confirm. Do NOT say they are booked or name the time as confirmed.'
+          : 'DONE — you may confirm the day and time, and say the invite is on its way to their email.',
       });
     }
 

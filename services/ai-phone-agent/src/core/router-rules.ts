@@ -114,7 +114,11 @@ export const RULES: Rule[] = [
   { industry: 'plumbing', specialty: 'emergency', intent: 'active_water_leak', urgency: 'emergency',
     anchors: [/\bwater (is )?(pouring|gushing|spraying|flooding|everywhere|shooting)\b/i,
               /\b(burst|broken|busted) pipe\b/i, /\bpipe\b[^.]{0,30}\b(burst|busted|broke|split)\b/i,
-              /\bwater (all )?over the floor\b/i, /\bwater\b[^.]{0,20}\bunder my sink\b/i],
+              /\bwater (all )?over the floor\b/i, /\bwater\b[^.]{0,20}\bunder my sink\b/i,
+              // A fixture doing the flooding, rather than "water is
+              // flooding". Both are how people say it.
+              /\b(sink|toilet|tub|shower|basin|faucet|dishwasher|washing machine)\b[^.]{0,30}\b(flooding|overflow\w*|gushing|pouring)\b/i,
+              /\b(flooding|overflow\w*|gushing)\b[^.]{0,25}\b(sink|toilet|tub|shower|faucet)\b/i],
     support: [/\b(sink|toilet|faucet|tub|shower|pipe|drain|basement|kitchen|bathroom|ceiling|wall)\b/i, /\bshut ?off\b/i, /\bvalve\b/i, /\bleak\w*/i] },
   { industry: 'plumbing', specialty: 'emergency', intent: 'toilet_overflow', urgency: 'emergency',
     anchors: [/\btoilets?( is| are|'?s)? ?overflow\w*/i, /\btoilets?( is| are)? ?running over\b/i, /\boverflowing toilet\b/i],

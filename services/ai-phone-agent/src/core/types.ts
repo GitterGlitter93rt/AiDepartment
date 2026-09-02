@@ -95,4 +95,56 @@ export interface Session {
   pendingEnd?: { reason: string; at: string };
   /** Guards against a second finalisation. See server.ts endCall(). */
   finalised?: boolean;
+
+  /**
+   * Which conversation is happening on the demo line.
+   *
+   * 'role_play' is the caller pretending to be a customer.
+   * 'yad_sales' is the caller talking to us about their own business.
+   * Never set in client mode.
+   */
+  demoPhase?: 'role_play' | 'yad_sales';
+  /** The industry they exercised, for the sales team's notes. */
+  scenarioTested?: string | null;
+  /** The single soft CTA has been made. Never make it twice. */
+  ctaOffered?: boolean;
+  ctaDeclined?: boolean;
+
+  /**
+   * The REAL business owner on the line.
+   *
+   * Kept completely apart from `contact` and `qualification`, which
+   * during a demo hold whatever the caller invented — a fake name, a
+   * fake address, a fake insurance carrier. Booking a discovery call
+   * for "John Smith of ABC Collision" because John Smith was the
+   * character they played would put fiction in our CRM.
+   *
+   * Only the number they are calling from carries over, because that
+   * one is genuinely theirs.
+   */
+  prospect?: ProspectRecord;
+}
+
+/** A real Your AI Department sales lead, never role-play data. */
+export interface ProspectRecord {
+  firstName?: string;
+  lastName?: string;
+  companyName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  /** What they actually want AI to fix. */
+  problemToSolve?: string;
+  /** Which part of the demo landed. */
+  featuresLiked?: string;
+  currentCrm?: string;
+  missesCalls?: boolean;
+  runsPaidAds?: boolean;
+  preferredTime?: string;
+  /** Set only when a booking tool actually succeeded. */
+  discoveryCallBooked?: boolean;
+  discoveryCallAt?: string;
+  discoveryCallMode?: string;
 }

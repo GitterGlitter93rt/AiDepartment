@@ -30,6 +30,8 @@ import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../bus
 import { extractFromUtterance, mergeContact } from './extract.ts';
 import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
 import { renderActionPolicies } from '../business/render-policies.ts';
+import { detectSalesIntent, isDecliningOffer, renderDemoHost } from './demo-host.ts';
+import { DEMO_GREETING } from '../business/greeting.ts';
 import { DEFAULT_SERVICE_AREA, serviceLocalTime, partOfDay, type ServiceArea } from '../business/service-area.ts';
 import { renderPricing, PLUMBING_DEMO_PRICING, PLUMBING_DEMO_ETA, type ServicePricing, type EtaPolicy } from '../business/pricing.ts';
 
@@ -70,8 +72,14 @@ export interface TurnResult {
   endReason?: string;
 }
 
-export const GREETING =
-  "Thanks for calling. Tell me a bit about what's going on and I'll get you to the right place.";
+/**
+ * The demo line's opening.
+ *
+ * Re-exported from business/greeting.ts so existing imports keep
+ * working, but the two greetings live there together where the
+ * demo/client separation is enforced.
+ */
+export const GREETING = DEMO_GREETING;
 
 export interface OrchestratorDeps {
   sessions: SessionStore;
@@ -143,6 +151,33 @@ export class Orchestrator {
     const session = sessions.ensure(callSid);
     sessions.addTurn(callSid, 'caller', utterance);
 
+    // On the demo line, work out whether they are still pretending to
+    // be a customer or have started asking about the product. Routing
+    // "I own a plumbing company and I want this" into a plumbing
+    // simulation would be the worst failure this line could have.
+    if (this.profileFor(session.route.industry).mode === 'demo') {
+      const hasRolePlayed = session.routed || session.turns.length > 2;
+
+      if (session.demoPhase !== 'yad_sales') {
+        const intent = detectSalesIntent(utterance, hasRolePlayed);
+        if (intent.detected) {
+          // Captured BEFORE the phase flips, because the industry is
+          // read off the route the simulation established. "I own a
+          // plumbing company and I want this" also matches plumbing
+          // keywords, so waiting would record the sentence that ended
+          // the demo rather than the scenario they actually tested.
+          session.scenarioTested ??= session.route.industry;
+          session.demoPhase = 'yad_sales';
+          log.log('demo.sales_intent', { callSid, signals: intent.signals, immediate: intent.immediate });
+        }
+      }
+
+      if (isDecliningOffer(utterance)) {
+        session.ctaDeclined = true;
+        log.log('demo.cta_declined', { callSid });
+      }
+    }
+
     // The number they are calling from is the obvious callback number,
     // and making someone read their own phone number back is the kind
     // of thing that makes an automated system feel automated. It is
@@ -196,7 +231,10 @@ export class Orchestrator {
     // caller mentioned their ex-wife; it would be an alarming bug on a
     // real business line, and the industry is fixed by configuration
     // rather than inferred.
-    if (session.routed && this.profileFor(session.route.industry).mode === 'demo') {
+    // Once they are talking to us rather than testing, a scenario
+    // switch is meaningless — there is no scenario any more.
+    if (session.routed && session.demoPhase !== 'yad_sales'
+        && this.profileFor(session.route.industry).mode === 'demo') {
       const change = detectScenarioChange(utterance, session.route.industry);
       if (change.changed) {
         log.log('router.decision', {
@@ -225,7 +263,11 @@ export class Orchestrator {
       }
     }
 
-    if (!session.routed) {
+    // Once they are asking about the product, there is no scenario to
+    // route. Sending "I own a plumbing company and I want this" through
+    // the classifier would start a plumbing simulation, which is the
+    // single worst thing this line could do to a prospect.
+    if (!session.routed && session.demoPhase !== 'yad_sales') {
       const reply = await this.routeTurn(session, utterance);
       if (reply) {
         sessions.addTurn(callSid, 'agent', reply);
@@ -359,6 +401,19 @@ export class Orchestrator {
         })
       : null;
 
+    // The demo-host layer. Demo mode only — a client's caller must
+    // never hear any of this.
+    const isDemo = profile.mode === 'demo';
+    const demoBlock = isDemo
+      ? renderDemoHost(session.demoPhase ?? 'role_play', {
+          hasRolePlayed: session.routed || session.turns.length > 4,
+          scenarioTested: session.scenarioTested ?? session.route.industry,
+          ctaOffered: session.ctaOffered === true,
+          ctaDeclined: session.ctaDeclined === true,
+          calendarMode: this.deps.tools?.modes.calendar ?? 'mock',
+        })
+      : null;
+
     // How to pronounce what has already been captured.
     const speechBlock = renderSpeechGuidance(session.contact);
 
@@ -366,6 +421,7 @@ export class Orchestrator {
       CORE_AGENT_RULES,
       spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
       renderBusinessProfile(profile),
+      ...(demoBlock ? [demoBlock] : []),
       ...(pricingBlock ? [pricingBlock] : []),
       ...(actionBlock ? [actionBlock] : []),
       ...(speechBlock ? [speechBlock] : []),

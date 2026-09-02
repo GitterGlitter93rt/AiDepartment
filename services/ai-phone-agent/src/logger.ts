@@ -30,6 +30,8 @@ export type LogEvent =
   | 'call.summary'
   | 'call.ending'
   | 'turn.latency'
+  | 'demo.sales_intent'
+  | 'demo.cta_declined'
   | 'llm.usage'
   | 'error';
 

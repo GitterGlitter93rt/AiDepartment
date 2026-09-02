@@ -299,3 +299,35 @@ export function policiesFor(industry: Industry | null): ActionPolicies {
 export const packetById = (id: string): EsignPacket | undefined => ESIGN_PACKETS.find((p) => p.id === id);
 export const purposeById = (id: string): UploadPurpose | undefined => UPLOAD_PURPOSES.find((p) => p.id === id);
 export const partnerById = (id: string): ReferralPartner | undefined => REFERRAL_PARTNERS.find((p) => p.id === id);
+
+// ---------------------------------------------------------------------
+// Your AI Department's own appointment
+// ---------------------------------------------------------------------
+
+/**
+ * The discovery call.
+ *
+ * Deliberately its own configuration rather than borrowing whichever
+ * industry the caller happened to be testing. A plumbing estimate and a
+ * sales call with us are different things, and reusing the plumbing
+ * appointment would put "service visit" on our own calendar.
+ */
+export interface DiscoveryCallConfig {
+  title: string;
+  durationMinutes: number;
+  booksDirectly: boolean;
+  /** Minimum notice before the first offerable slot. */
+  minimumLeadHours: number;
+  maximumLeadDays: number;
+  /** Must exist on the PROSPECT record before booking. */
+  requires: string[];
+}
+
+export const YAD_DISCOVERY_CALL: DiscoveryCallConfig = {
+  title: 'Your AI Department Discovery Call',
+  durationMinutes: 30,
+  booksDirectly: true,
+  minimumLeadHours: 2,
+  maximumLeadDays: 30,
+  requires: ['firstName', 'companyName', 'email', 'phone'],
+};

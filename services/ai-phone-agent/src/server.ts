@@ -13,7 +13,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { loadConfig, describeConfig } from './config.ts';
 import { createLogger } from './logger.ts';
 import { SessionStore } from './core/session.ts';
-import { Orchestrator, GREETING } from './core/orchestrator.ts';
+import { Orchestrator } from './core/orchestrator.ts';
+import { greetingFor } from './business/greeting.ts';
+import { demoProfile } from './business/profile.ts';
 import { createClaudeClient } from './claude/client.ts';
 import { createToolbox } from './tools/index.ts';
 import { conversationRelayTwiml, fallbackTwiml, transferTwiml, hangupTwiml } from './twilio/twiml.ts';
@@ -33,6 +35,13 @@ const orchestrator = new Orchestrator({
   sessions, claude, log, tools,
   confidenceThreshold: cfg.routerConfidenceThreshold,
   serviceArea: { state: cfg.serviceAreaState, timezone: cfg.serviceAreaTimezone },
+  // One switch decides both the greeting and whether the Your AI
+  // Department sales layer exists at all. A client deployment gets
+  // neither, and cannot get either by partial misconfiguration.
+  resolveProfile: (industry) => demoProfile(
+    (industry ?? 'professional_services') as Parameters<typeof demoProfile>[0],
+    { mode: cfg.deploymentMode, businessName: cfg.businessName || undefined },
+  ),
 });
 
 const limiter = new RateLimiter(120, 60_000);
@@ -102,7 +111,7 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, conversationRelayTwiml({
         relayUrl: cfg.relayUrl,
-        welcomeGreeting: GREETING,
+        welcomeGreeting: greetingFor({ mode: cfg.deploymentMode, clientGreeting: cfg.clientGreeting, businessName: cfg.businessName }),
         voice: cfg.ttsVoice,
         language: cfg.ttsLanguage,
         actionUrl: publicUrlFor(PATHS.relayAction, req),
