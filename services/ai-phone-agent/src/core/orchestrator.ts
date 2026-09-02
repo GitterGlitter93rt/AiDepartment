@@ -20,7 +20,7 @@ import {
   inspectCallerUtterance, inspectAgentReply,
   PERSISTENT_PROBE_REPLY, PROBE_LIMIT,
 } from './guardrails.ts';
-import { TOOL_SCHEMAS, toolsFor, executeToolRequest } from './tool-protocol.ts';
+import { TOOL_SCHEMAS, toolsFor, executeToolRequest, preToolAcknowledgement, immediateResultSpeech } from './tool-protocol.ts';
 import { resolveModels, type ModelConfig } from '../claude/models.ts';
 import type { Toolbox } from '../tools/index.ts';
 import type { CompleteResult, ClaudeMessage } from '../claude/client.ts';
@@ -664,13 +664,22 @@ export class Orchestrator {
     // nothing speakable in it, so the second pass is where the words
     // come from.
     if (delivery.onClause && claude.stream) {
+      // Whether the caller has heard anything yet this turn. The
+      // pre-tool acknowledgement below depends on knowing, and the
+      // model is not a reliable reporter of its own output.
+      let spokenThisTurn = false;
+      const speak = (text: string) => {
+        spokenThisTurn = true;
+        delivery.onClause?.(text);
+      };
+
       const res = await claude.stream({
         system, messages, cachedSystemPrefix,
         model: this.models.specialist.model,
         maxTokens: this.models.specialist.maxTokens,
         temperature: this.models.specialist.temperature,
         tools: toolsFor(session.route.industry, session.demoPhase, session),
-        onClause: delivery.onClause,
+        onClause: speak,
         signal: delivery.signal,
         onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
         onFirstStreamEvent: () => delivery.mark?.('CLAUDE_FIRST_STREAM_EVENT'),
@@ -686,11 +695,42 @@ export class Orchestrator {
       const convo: ClaudeMessage[] = [...messages];
       convo.push({ role: 'assistant', content: res.raw });
       const results = [];
+      let immediate: string | null = null;
+
       for (const use of res.toolUses) {
+        // Say something before a slow action, if the model has not.
+        //
+        // Measured: a four-second dispatch with no acknowledgement is
+        // four seconds of a caller listening to silence. A prompt rule
+        // asking the model to speak first works until it does not, and
+        // this is the caller's experience either way — so the
+        // transport guarantees it rather than hoping.
+        //
+        // Present continuous, always: "I'm setting that up" is true the
+        // moment it is said. The tool may still fail.
+        if (!spokenThisTurn && !delivery.signal?.aborted) {
+          const ack = preToolAcknowledgement(use.name);
+          if (ack) {
+            delivery.mark?.('PRE_TOOL_ACK_SENT');
+            speak(ack);
+          }
+        }
+
         const outcome = await executeToolRequest({ id: use.id, name: use.name, input: use.input }, { tools, log, session });
         results.push({ type: 'tool_result', tool_use_id: outcome.id, content: outcome.content, is_error: !outcome.ok });
+        immediate ??= immediateResultSpeech(use.name, outcome);
       }
       convo.push({ role: 'user', content: results });
+
+      // A confirmed dispatch already knows its own ETA. Going back to
+      // the model to have it read that number aloud adds a full
+      // generation of silence at the moment the caller most wants an
+      // answer, so it is spoken directly and the turn ends there.
+      if (immediate && !delivery.signal?.aborted) {
+        delivery.mark?.('IMMEDIATE_RESULT_SENT');
+        speak(immediate);
+        return [res.text, immediate].filter(Boolean).join(' ').trim();
+      }
 
       if (delivery.signal?.aborted) {
         delivery.mark?.('CLAUDE_ABORTED');
@@ -712,7 +752,7 @@ export class Orchestrator {
         temperature: this.models.specialist.temperature,
         tools: toolsFor(session.route.industry, session.demoPhase, session),
         toolChoice: 'none',
-        onClause: delivery.onClause,
+        onClause: speak,
         signal: delivery.signal,
         onRequestStart: () => delivery.mark?.('CLAUDE_REQUEST_START'),
         onFirstStreamEvent: () => delivery.mark?.('CLAUDE_FIRST_STREAM_EVENT'),

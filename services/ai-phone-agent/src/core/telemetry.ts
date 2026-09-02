@@ -59,6 +59,11 @@ export type TimelineMark =
   /** First SSE byte carrying content — time to first token. */
   | 'CLAUDE_FIRST_STREAM_EVENT'
   /** A clause cleared the speakable threshold. */
+  /** A safe acknowledgement emitted before a slow tool, because the
+   * model did not speak first. */
+  | 'PRE_TOOL_ACK_SENT'
+  /** A tool result spoken directly, skipping a second model call. */
+  | 'IMMEDIATE_RESULT_SENT'
   | 'FIRST_SPEAKABLE_CLAUSE'
   | 'FIRST_TEXT_SENT_TO_CONVERSATION_RELAY'
   | 'TURN_COMPLETE'

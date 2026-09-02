@@ -19,6 +19,7 @@
 // the agent gets to act on: "that time has already passed, offer
 // another one".
 
+import { recommendTowType, type TowFacts } from '../business/tow-equipment.ts';
 import type { Session } from './types.ts';
 import type { Toolbox } from '../tools/index.ts';
 import type { Logger } from '../logger.ts';
@@ -196,8 +197,21 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         vehicleModel: { type: 'string' },
         vehicleColor: { type: 'string' },
         vehicleCondition: { type: 'string', description: 'Drivable, undrivable, airbags deployed, blocking a lane.' },
+        rolls: { type: 'boolean', description: 'Do the wheels turn freely — can it be pushed?' },
+        steers: { type: 'boolean', description: 'Will the front wheels turn?' },
+        wheelLocked: { type: 'boolean', description: 'Is any wheel jammed or seized?' },
+        suspensionDamage: { type: 'boolean', description: 'Wheel sitting at an angle, or anything folded underneath.' },
+        drivetrain: { type: 'string', enum: ['FWD', 'RWD', 'AWD', '4WD'], description: 'Only if the caller actually says. Never infer it — an all-wheel-drive car towed on its wheels needs a new drivetrain.' },
+        accessType: { type: 'string', enum: ['road', 'parking_garage', 'ditch', 'median', 'tight_access', 'other'] },
+        accessNotes: { type: 'string', description: 'Anything a driver needs to know to reach it.' },
+        recoveryRequired: { type: 'boolean', description: 'Off the road — needs winching before it can be loaded.' },
+        unattended: { type: 'boolean', description: 'True if the caller will not be there when the truck arrives.' },
+        keyHandoffMethod: { type: 'string', enum: ['hand_to_driver', 'hidden_at_vehicle', 'inside_vehicle', 'third_party_handoff', 'other'] },
+        keyInstructions: { type: 'string', description: "Where the key will be, in the caller's own words." },
+        vehicleUnlockedForTow: { type: 'boolean' },
         insuranceCarrier: { type: 'string' },
         claimNumber: { type: 'string' },
+        policyNumber: { type: 'string' },
         notes: { type: 'string' },
       },
       required: ['callerName', 'callbackPhone', 'pickupLocation'],
@@ -589,6 +603,36 @@ export function validateToolRequest(
           missing: ['callback_phone_confirmed'],
         };
       }
+      // Which truck. Worked out here, from facts, so the answer does
+      // not depend on the model reasoning about axles mid-call.
+      const q0 = session.qualification as Record<string, unknown>;
+      const facts: TowFacts = {
+        rolls: boolOf(input, 'rolls') ?? (q0.towRolls as boolean | undefined),
+        steers: boolOf(input, 'steers') ?? (q0.towSteers as boolean | undefined),
+        wheelLocked: boolOf(input, 'wheelLocked') ?? (q0.towWheelLocked as boolean | undefined),
+        suspensionDamage: boolOf(input, 'suspensionDamage') ?? (q0.towSuspensionDamage as boolean | undefined),
+        drivetrain: (str(input, 'drivetrain') ?? q0.drivetrain) as TowFacts['drivetrain'],
+        accessType: (str(input, 'accessType') ?? q0.towAccessType) as TowFacts['accessType'],
+        recoveryRequired: boolOf(input, 'recoveryRequired') ?? (q0.towRecoveryRequired as boolean | undefined),
+      };
+      const equipment = recommendTowType(facts);
+
+      // A caller who is leaving must have said where the keys will be.
+      // A driver arriving to a locked car and nobody there is a wasted
+      // truck and a second tow.
+      const leaving = boolOf(input, 'unattended') ?? (q0.callerLeaving as boolean | undefined);
+      if (leaving === true) {
+        const method = str(input, 'keyHandoffMethod') ?? (q0.keyHandoffMethod as string | undefined);
+        const instructions = str(input, 'keyInstructions') ?? (q0.towDriverKeyInstructions as string | undefined);
+        if (!method || (!instructions && method !== 'hand_to_driver')) {
+          return {
+            ok: false,
+            reason: 'They are leaving the vehicle. Ask where they will put the key — on a tyre, in the wheel well, inside if they are leaving it unlocked. Their choice, at the vehicle.',
+            missing: ['key_handoff_plan'],
+          };
+        }
+      }
+
       // Somebody has to actually want a tow. The word appearing in a
       // sentence is not a request — "do you do towing?" is a question.
       const q = session.qualification as Record<string, unknown>;
@@ -632,6 +676,20 @@ export function validateToolRequest(
         value: {
           callerName, callbackPhone: phone, pickupLocation: pickup,
           directionOfTravel: direction ?? undefined,
+          // Equipment, and the reason for it, so a dispatcher can see
+          // the decision rather than re-derive it.
+          towType: equipment.towType,
+          towTypeReason: equipment.reason,
+          rolls: facts.rolls, steers: facts.steers,
+          wheelLocked: facts.wheelLocked, suspensionDamage: facts.suspensionDamage,
+          drivetrain: facts.drivetrain, accessType: facts.accessType,
+          accessNotes: str(input, 'accessNotes') ?? undefined,
+          recoveryRequired: facts.recoveryRequired,
+          unattended: leaving,
+          keyHandoffMethod: str(input, 'keyHandoffMethod') ?? (q0.keyHandoffMethod as string | undefined),
+          keyInstructions: str(input, 'keyInstructions') ?? (q0.towDriverKeyInstructions as string | undefined),
+          vehicleUnlockedForTow: boolOf(input, 'vehicleUnlockedForTow') ?? (q0.vehicleUnlockedForTow as boolean | undefined),
+          policyNumber: str(input, 'policyNumber') ?? undefined,
           vehicleYear: str(input, 'vehicleYear') ?? undefined,
           vehicleMake: str(input, 'vehicleMake') ?? undefined,
           vehicleModel: str(input, 'vehicleModel') ?? undefined,
@@ -956,6 +1014,11 @@ function summarise(session: Session): string {
   return `${who} (${session.from}) — ${what}, urgency ${session.route.urgency}. ${session.turns.length} turns so far.`;
 }
 
+/** A boolean argument, or undefined when the model omitted it. */
+function boolOf(input: Record<string, unknown>, key: string): boolean | undefined {
+  return typeof input[key] === 'boolean' ? input[key] as boolean : undefined;
+}
+
 function digits(s: string): string {
   return s.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
 }
@@ -966,6 +1029,61 @@ function digits(s: string): string {
 
 /** How many rejected attempts before a tool is declared closed. */
 export const MAX_TOOL_RETRIES = 2;
+
+/**
+ * Actions the caller will wait through, and what to say first.
+ *
+ * A prompt rule asking the model to speak before acting works right up
+ * until it does not, and the cost of it not working is measured: a
+ * four-second dispatch with no acknowledgement is four seconds of a
+ * caller listening to nothing, wondering if the line dropped. This
+ * makes the acknowledgement the transport's job instead of a
+ * behaviour we hope for.
+ *
+ * Every line is deliberately in the present continuous. "I'm setting
+ * that up now" is true the instant it is said; "the tow is confirmed"
+ * would be a claim about something that has not happened yet, and the
+ * tool may still fail.
+ */
+const SLOW_TOOL_ACKS: Record<string, string> = {
+  dispatch_tow: "Perfect, I'm setting that up now and getting the details over to the driver.",
+  create_location_link: "One moment, I'm getting that link ready for you.",
+  send_esign_packet: "Right, I'm getting that paperwork ready to send.",
+  create_upload_link: "Sure, I'm getting that link ready.",
+  book_appointment: "Let me get that booked for you.",
+  request_advisor_callback: "Let me get that over to one of our repair advisors.",
+};
+
+/** What to say before this tool runs, if nothing has been said yet. */
+export function preToolAcknowledgement(toolName: string): string | null {
+  return SLOW_TOOL_ACKS[toolName] ?? null;
+}
+
+/**
+ * The result of a tool, said immediately, without a second model call.
+ *
+ * A dispatch that has come back knows the ETA. Going round the model
+ * again to have it read that number back adds a whole generation of
+ * silence to the moment the caller most wants an answer.
+ *
+ * Returns null whenever the outcome needs judgement rather than
+ * reporting — a failure, or anything the caller might reasonably ask a
+ * follow-up about — and the normal model turn handles it.
+ */
+export function immediateResultSpeech(toolName: string, outcome: ToolOutcome): string | null {
+  if (!outcome.ok || toolName !== 'dispatch_tow') return null;
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(outcome.content) as Record<string, unknown>; } catch { return null; }
+
+  // Only for a real dispatch. A mocked one has its own careful
+  // wording about not claiming something was actually done.
+  if (parsed.mode !== 'dispatched' && parsed.mode !== 'live') return null;
+
+  const eta = typeof parsed.etaSpeech === 'string' ? parsed.etaSpeech : null;
+  const confirmed = "That's confirmed — the tow is arranged.";
+  return eta ? `${confirmed} ${eta}` : `${confirmed} I'll have an arrival time for you as soon as a driver is assigned.`;
+}
+
 
 /** Remembers that a tool was refused, and what for. */
 function recordToolBlock(session: Session, tool: string, missing: string[]): void {
@@ -1188,8 +1306,27 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         vehicleModel: args.vehicleModel as string | undefined,
         vehicleColor: args.vehicleColor as string | undefined,
         vehicleCondition: args.vehicleCondition as string | undefined,
+        // Equipment, decided here rather than by the model. A driver
+        // arriving with the wrong truck is the caller's whole
+        // afternoon.
+        towType: args.towType as string | undefined,
+        towTypeReason: args.towTypeReason as string | undefined,
+        drivetrain: args.drivetrain as string | undefined,
+        rolls: args.rolls as boolean | undefined,
+        steers: args.steers as boolean | undefined,
+        wheelLocked: args.wheelLocked as boolean | undefined,
+        suspensionDamage: args.suspensionDamage as boolean | undefined,
+        accessType: args.accessType as string | undefined,
+        accessNotes: args.accessNotes as string | undefined,
+        recoveryRequired: args.recoveryRequired as boolean | undefined,
+        // So the driver does not arrive to a locked car and no keys.
+        unattended: args.unattended as boolean | undefined,
+        keyHandoffMethod: args.keyHandoffMethod as string | undefined,
+        keyInstructions: args.keyInstructions as string | undefined,
+        vehicleUnlockedForTow: args.vehicleUnlockedForTow as boolean | undefined,
         insuranceCarrier: args.insuranceCarrier as string | undefined,
         claimNumber: args.claimNumber as string | undefined,
+        policyNumber: args.policyNumber as string | undefined,
         notes: args.notes as string | undefined,
         destinationId: String(args.destinationId),
         destinationName: String(args.destinationName),
@@ -1201,6 +1338,22 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         towStatus: res.mode,
         towDestination: res.destinationName,
         pickupLocation: args.pickupLocation,
+        towType: args.towType,
+        towTypeReason: args.towTypeReason,
+        ...(args.drivetrain ? { drivetrain: args.drivetrain } : {}),
+        ...(args.rolls !== undefined ? { towRolls: args.rolls } : {}),
+        ...(args.steers !== undefined ? { towSteers: args.steers } : {}),
+        ...(args.wheelLocked !== undefined ? { towWheelLocked: args.wheelLocked } : {}),
+        ...(args.suspensionDamage !== undefined ? { towSuspensionDamage: args.suspensionDamage } : {}),
+        ...(args.accessType ? { towAccessType: args.accessType } : {}),
+        ...(args.recoveryRequired !== undefined ? { towRecoveryRequired: args.recoveryRequired } : {}),
+        ...(args.unattended !== undefined ? { unattendedVehicle: args.unattended, callerLeaving: args.unattended } : {}),
+        ...(args.keyHandoffMethod ? { keyHandoffMethod: args.keyHandoffMethod } : {}),
+        ...(args.keyInstructions ? { towDriverKeyInstructions: args.keyInstructions, keyInstructionsConfirmed: true } : {}),
+        ...(args.vehicleUnlockedForTow !== undefined ? { vehicleUnlockedForTow: args.vehicleUnlockedForTow } : {}),
+        // Both outcomes are fine; which one is true depends only on
+        // whether we are open when it lands.
+        shopKeyDeliveryMethod: 'secure_key_drop',
       });
 
       const policy = policiesFor(session.route.industry).tow;
@@ -1212,9 +1365,24 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
           ? `Typical right now is roughly ${policy.etaMinMinutes} to ${policy.etaMaxMinutes} minutes — say it as an approximation, never a promise.`
           : 'You do not have an ETA. Do not invent one.';
 
+      // The same figure, ready to speak, so a confirmed dispatch can
+      // be reported without a second trip to the model. Only ever a
+      // number a provider actually returned — a range from the range,
+      // nothing invented, and nothing at all until a driver is on it.
+      const etaSpeech = res.driverEtaMinutes
+        ? `They're estimating about ${res.driverEtaMinutes} minutes.`
+        : res.driverEtaRangeMinutes
+          ? `They're estimating about ${res.driverEtaRangeMinutes[0]} to ${res.driverEtaRangeMinutes[1]} minutes.`
+          : null;
+
       return JSON.stringify({
         mode: res.mode,
         destination: res.destinationName,
+        towType: args.towType,
+        dispatchStatus: res.dispatchStatus,
+        driverAssigned: res.driverAssigned,
+        etaSpeech,
+        keyInstructions: args.keyInstructions,
         speech: speechFor(
           res.mode,
           `the tow is arranged and the vehicle is going to ${res.destinationName}.`,

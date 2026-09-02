@@ -47,12 +47,48 @@ export interface TowRequest {
   claimNumber?: string;
   notes?: string;
   callSid: string;
+  // ---- Equipment. What kind of truck, and why. ----------------------
+  /** flatbed, wheel_lift, recovery, dispatcher_review… */
+  towType?: string;
+  /** Why that truck was chosen. For the dispatcher, never the caller. */
+  towTypeReason?: string;
+  drivetrain?: string;
+  rolls?: boolean;
+  steers?: boolean;
+  wheelLocked?: boolean;
+  suspensionDamage?: boolean;
+  /** road, parking_garage, ditch, median, tight_access… */
+  accessType?: string;
+  accessNotes?: string;
+  recoveryRequired?: boolean;
+
+  // ---- Unattended vehicle. ------------------------------------------
+  /** The caller will not be there when the driver arrives. */
+  unattended?: boolean;
+  /** hand_to_driver, hidden_at_vehicle, inside_vehicle… */
+  keyHandoffMethod?: string;
+  /** Verbatim for the driver: "Key on top of driver's rear tire." */
+  keyInstructions?: string;
+  vehicleUnlockedForTow?: boolean;
+
+  /** Policy number, when there is no claim yet. */
+  policyNumber?: string;
 }
 
 export interface TowResult extends ActionResult {
   /** Minutes, only when a live provider actually returned one. */
   driverEtaMinutes?: number;
+  /** A range, when the provider gives one instead of a point estimate. */
+  driverEtaRangeMinutes?: [number, number];
   destinationName: string;
+  /** queued, assigned, en_route — whatever the provider reports. */
+  dispatchStatus?: string;
+  provider?: string;
+  /** True once a specific driver is on it. An ETA before this is a
+   * guess about a truck nobody has picked yet. */
+  driverAssigned?: boolean;
+  /** The equipment actually being sent, if the provider confirms it. */
+  towType?: string;
 }
 
 export interface TowTool {

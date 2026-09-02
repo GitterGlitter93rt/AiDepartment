@@ -542,6 +542,37 @@ export const CONSTRUCTION_KNOWLEDGE: KnowledgeEntry[] = [
 
 export const COLLISION_KNOWLEDGE: KnowledgeEntry[] = [
   {
+    id: 'collision.tow_equipment',
+    question: 'what the tow driver needs to know to bring the right truck',
+    triggers: [/\btow(ing|ed)?\b/i, /\bflat ?bed\b/i, /\bwrecker\b/i, /\bwinch\b/i, /\b(roll|rolls|steer|steers)\b/i, /\b(awd|4wd|4x4|all[- ]wheel|four[- ]wheel)\b/i],
+    source: 'business_config',
+    guidance:
+      'A tow is not one thing. Before a truck is sent you need enough to know WHICH truck: does it roll, does it steer, is any wheel jammed, is the suspension damaged, and — if none of that settles it — whether it is front, rear, all-wheel or four-wheel drive. ' +
+      'Never guess the drivetrain from the year, make and model. An all-wheel-drive car towed on its wheels needs a new drivetrain, and the caller pays for it. If they do not know, ask them to look for a badge, or say a dispatcher will confirm. ' +
+      'Also ask where it is sitting: on the road, in a parking garage, down a bank, on a median. A garage has a height limit and a bank needs a winch. ' +
+      'Ask these as ordinary questions — "does it still roll and steer?" — not as a checklist. The system works out the equipment; you just need the facts.',
+  },
+  {
+    id: 'collision.unattended_keys',
+    question: 'what happens to the keys if they cannot wait with the vehicle',
+    triggers: [/\bkeys?\b/i, /\b(have to|need to|got to|gotta) (go|leave)\b/i, /\bcan'?t (stay|wait)\b/i, /\bunattended\b/i, /\bleaving (the|my) (car|vehicle)\b/i, /\b(ride|lift) (is )?(here|coming)\b/i],
+    source: 'business_config',
+    guidance:
+      'People leave — a lift turns up, they go to hospital, they have to collect a child. That is fine and the tow still happens. ' +
+      'Ask where they want to leave the key AT THE VEHICLE: on top of a tyre, in the wheel well, behind the fuel door, or inside if they are happy leaving it unlocked. It is their choice; do not tell them where to put it. ' +
+      'Nobody is sent to their house to collect a key. There is no second trip. ' +
+      'Repeat the instruction back once so they know the driver has it, then leave it alone. Asking twice about keys sounds like the system lost the answer.',
+  },
+  {
+    id: 'collision.shop_key_drop',
+    question: 'what happens when the vehicle reaches the shop, especially out of hours',
+    triggers: [/\b(after|once|when) (they|it|the truck)\b[^.]{0,30}\b(get|gets|arrive|arrives|drop)/i, /\b(closed|after hours|overnight|tonight)\b/i, /\bkey drop\b/i, /\bwhat happens (to|with) (the|my) (car|vehicle)\b/i],
+    source: 'business_config',
+    guidance:
+      'The driver brings the vehicle straight to the shop — it does not sit at a yard. If the shop is closed when it arrives, the driver puts the key in the secure key drop and the vehicle is checked in when the shop opens. ' +
+      'Say this without being asked once a tow is arranged: someone who has just left their car on a bridge is wondering about exactly this.',
+  },
+  {
     // The rates are a fact the shop publishes, so the agent states
     // them. Sending a caller into an accident intake to find out what
     // an hour costs is the behaviour this entry exists to stop.
