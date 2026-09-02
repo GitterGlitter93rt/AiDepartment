@@ -46,6 +46,26 @@ export interface CallSummary {
   guardrailHits: number;
   /** One-line plain-language description. */
   headline: string;
+  /**
+   * Outbound actions taken during the call.
+   *
+   * Separated from qualification so whoever picks this up can see at a
+   * glance what the caller was already promised — a tow that was
+   * dispatched, paperwork that went out, a referral they consented to.
+   */
+  actions: {
+    towRequested?: boolean;
+    towStatus?: string;
+    towDestination?: string;
+    esignPacketId?: string;
+    esignStatus?: string;
+    uploadLinkPurpose?: string;
+    uploadLinkStatus?: string;
+    referralOffered?: boolean;
+    referralConsent?: boolean;
+    referralPartner?: string;
+    referralStatus?: string;
+  };
 }
 
 function seconds(from: string, to: string): number {
@@ -92,6 +112,32 @@ export function buildCallSummary(
     scenarioSwitches: session.scenarioSwitches,
     guardrailHits: session.probeCount,
     headline: headlineFor(session, appointmentBooked, transferred, contact),
+    actions: extractActions(session),
+  };
+}
+
+/**
+ * The outbound actions, pulled out of qualification.
+ *
+ * Deliberately a fixed list rather than everything: an injury referral
+ * record needs to say that consent was given and where it went, not
+ * carry a description of somebody's neck pain into a CRM.
+ */
+function extractActions(session: Session): CallSummary['actions'] {
+  const q = session.qualification as Record<string, unknown>;
+  const pick = <T>(key: string): T | undefined => (q[key] === undefined ? undefined : (q[key] as T));
+  return {
+    towRequested: pick<boolean>('towRequested'),
+    towStatus: pick<string>('towStatus'),
+    towDestination: pick<string>('towDestination'),
+    esignPacketId: pick<string>('esignPacketId'),
+    esignStatus: pick<string>('esignStatus'),
+    uploadLinkPurpose: pick<string>('uploadLinkPurpose'),
+    uploadLinkStatus: pick<string>('uploadLinkStatus'),
+    referralOffered: pick<boolean>('referralOffered'),
+    referralConsent: pick<boolean>('referralConsent'),
+    referralPartner: pick<string>('referralPartner'),
+    referralStatus: pick<string>('referralStatus'),
   };
 }
 
@@ -146,6 +192,12 @@ export interface DemoAnalyticsEvent {
   guardrailHits: number;
   /** Whether ANY contact detail was captured — not which, or what. */
   contactCaptured: boolean;
+  /** Counting fields only. No destination, no partner, no purpose. */
+  towRequested: boolean;
+  esignSent: boolean;
+  uploadLinkSent: boolean;
+  referralOffered: boolean;
+  referralConsented: boolean;
 }
 
 export function buildDemoAnalytics(session: Session, now: Date = new Date()): DemoAnalyticsEvent {
@@ -174,6 +226,11 @@ export function buildDemoAnalytics(session: Session, now: Date = new Date()): De
     transferred: session.toolCalls.some((t) => t.name === 'transfer_to_human' && t.ok),
     guardrailHits: session.probeCount,
     contactCaptured,
+    towRequested: session.qualification.towRequested === true,
+    esignSent: session.qualification.esignStatus !== undefined,
+    uploadLinkSent: session.qualification.uploadLinkStatus !== undefined,
+    referralOffered: session.qualification.referralOffered === true,
+    referralConsented: session.qualification.referralConsent === true,
   };
 }
 

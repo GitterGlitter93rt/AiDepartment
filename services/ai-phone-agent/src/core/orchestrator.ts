@@ -29,6 +29,7 @@ import { matchKnowledge, renderKnowledge } from '../knowledge/types.ts';
 import { demoProfile, renderBusinessProfile, type BusinessProfile } from '../business/profile.ts';
 import { extractFromUtterance, mergeContact } from './extract.ts';
 import { renderSpeechGuidance, speakZip, speakPhone, speakAddress } from './speech.ts';
+import { renderActionPolicies } from '../business/render-policies.ts';
 import { DEFAULT_SERVICE_AREA, serviceLocalTime, partOfDay, type ServiceArea } from '../business/service-area.ts';
 import { renderPricing, PLUMBING_DEMO_PRICING, PLUMBING_DEMO_ETA, type ServicePricing, type EtaPolicy } from '../business/pricing.ts';
 
@@ -336,10 +337,38 @@ export class Orchestrator {
       });
     }
 
+    // Pricing and dispatch timing, resolved for the SERVICE AREA's local
+    // time. Rendered with the rate band already worked out so the model
+    // quotes rather than calculates — asking it which band 11:27 PM
+    // falls into is asking for arithmetic on a live call.
+    const area = this.deps.serviceArea ?? DEFAULT_SERVICE_AREA;
+    const pricing = this.pricingFor(session.route.industry);
+    const pricingBlock = pricing
+      ? renderPricing(pricing, this.deps.etaPolicy ?? PLUMBING_DEMO_ETA, area, session.route.urgency)
+      : null;
+
+    // What this business can actually DO — tow, paperwork, uploads,
+    // referrals — with the honest mode of each, so a mocked action is
+    // never described as done.
+    const actionBlock = this.deps.tools
+      ? renderActionPolicies(session.route.industry, {
+          tow: this.deps.tools.modes.tow,
+          esign: this.deps.tools.modes.esign,
+          uploadLink: this.deps.tools.modes.uploadLink,
+          referral: this.deps.tools.modes.referral,
+        })
+      : null;
+
+    // How to pronounce what has already been captured.
+    const speechBlock = renderSpeechGuidance(session.contact);
+
     const system = [
       CORE_AGENT_RULES,
       spec ? spec.systemPrompt : 'You are a general intake receptionist. Find out what the caller needs and take their contact details.',
       renderBusinessProfile(profile),
+      ...(pricingBlock ? [pricingBlock] : []),
+      ...(actionBlock ? [actionBlock] : []),
+      ...(speechBlock ? [speechBlock] : []),
       // Earlier narrative, once the call has outgrown the history
       // window. Structured state below covers the fields; this covers
       // what was said that never became one.

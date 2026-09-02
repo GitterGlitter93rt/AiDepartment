@@ -20,6 +20,7 @@ import { createMockSms } from '../src/tools/sms.ts';
 import { createTransferTool } from '../src/tools/transfer.ts';
 import { createPlaceholderCrm } from '../src/tools/crm.ts';
 import { selectSpecialist } from '../src/industries/index.ts';
+import { createMockToolbox } from '../src/tools/index.ts';
 
 function harness() {
   const events: { event: LogEvent; data: Record<string, unknown> }[] = [];
@@ -271,11 +272,7 @@ describe('Long calls do not forget what was said early', () => {
     // A toolbox is supplied so the specialist turn takes the tool-capable
     // path (claude.send) rather than the plain-completion fallback —
     // otherwise the assembled system prompt is never recorded.
-    const tools = {
-      calendar: createMockCalendar(), sms: createMockSms(),
-      transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
-      modes: { calendar: 'mock' as const, sms: 'mock' as const },
-    };
+    const tools = createMockToolbox();
     const orch = new Orchestrator({ sessions, claude, tools, log: createLogger({}, () => {}) });
     return { sessions, calls, orch };
   }

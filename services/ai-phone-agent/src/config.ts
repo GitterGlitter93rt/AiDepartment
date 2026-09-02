@@ -49,6 +49,8 @@ export interface Config {
   /** Where the business works. Never the server's clock. */
   serviceAreaState: string;
   serviceAreaTimezone: string;
+  /** Base for generated upload links. The backend builds every URL. */
+  uploadLinkBaseUrl: string;
   /** Log a full end-of-call summary. Off in environments where the
    * summary would duplicate a CRM record. */
   callSummaryEnabled: boolean;
@@ -114,6 +116,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ttsLanguage: str('TWILIO_TTS_LANGUAGE', 'en-US'),
     serviceAreaState: str('SERVICE_AREA_STATE', 'FL'),
     serviceAreaTimezone: str('SERVICE_AREA_TIMEZONE', 'America/New_York'),
+    // Deliberately an .invalid host by default: a demo link that goes
+    // nowhere is safer than one that resolves to something unexpected.
+    uploadLinkBaseUrl: str('UPLOAD_LINK_BASE_URL', 'https://upload.example-demo.invalid'),
     callSummaryEnabled: bool('CALL_SUMMARY_ENABLED', true),
     routerConfidenceThreshold: num('ROUTER_CONFIDENCE_THRESHOLD', 0.6),
 

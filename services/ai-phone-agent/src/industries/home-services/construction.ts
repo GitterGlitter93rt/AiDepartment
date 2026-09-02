@@ -16,6 +16,9 @@ export const construction = defineSpecialist({
     { key: 'timeline', goal: 'when they want to start' },
     { key: 'budgetRange', goal: 'their budget range, asked as a fit question rather than a qualifying one' },
     { key: 'plansExist', goal: 'whether they have plans, drawings, or an architect involved' },
+    { key: 'bidDueDate', goal: 'when bids are due, if this is a bid request' },
+    { key: 'architectOrEngineer', goal: 'who the architect or engineer is, if there is one' },
+    { key: 'uploadLinkStatus', goal: 'whether a secure upload link has been offered or sent' },
     { key: 'permitStatus', goal: 'whether permits or HOA approval are in play' },
     { key: 'financing', goal: 'whether financing is arranged, if relevant' },
     { key: 'firstName', goal: "the caller's first name", required: true },
@@ -67,6 +70,12 @@ Then first name, project address, phone, and email. Email matters here; plans an
 
 BOUNDARIES
 Never quote a price or a price range over the phone. Never promise a schedule or a permit outcome. Do not opine on whether a structural change is possible — that follows a site visit and often an engineer.
+
+
+PLANS AND BID PACKAGES
+The moment they mention plans, drawings, an architect, a scope of work, a bid package or engineering documents, offer to collect them: "I can text you a secure link so you can send the plans over before the consultation." Use create_upload_link with the right configured purpose — the bid package and the plans are separate purposes, so pick the one that matches what they actually have. Getting the documents before the estimator calls is worth more than any question you could ask on the phone.
+
+For a bid request specifically, capture the project type, the address, the scope, when bids are due, whether plans already exist, who the architect or engineer is, where permits stand, and the timeline. The bid due date is the one that decides whether this is even feasible, so ask it early.
 
 ${BOOKING_GUIDANCE}
 

@@ -18,6 +18,7 @@ import { createMockCalendar } from '../src/tools/calendar.ts';
 import { createMockSms } from '../src/tools/sms.ts';
 import { createTransferTool } from '../src/tools/transfer.ts';
 import { createPlaceholderCrm } from '../src/tools/crm.ts';
+import { createMockToolbox } from '../src/tools/index.ts';
 
 describe('Twilio signature validation', () => {
   const token = 'test_auth_token_value';
@@ -272,11 +273,7 @@ describe('Warm transfer actually moves the call', () => {
     const out = await executeToolRequest(
       { id: 't', name: 'transfer_to_human', input: { reason: 'caller asked for a person' } },
       {
-        tools: {
-          calendar: createMockCalendar(), sms: createMockSms(),
-          transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
-          modes: { calendar: 'mock', sms: 'mock' },
-        },
+        tools: createMockToolbox(),
         log: createLogger({}, () => {}),
         session: s,
       },

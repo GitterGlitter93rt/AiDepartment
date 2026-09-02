@@ -16,6 +16,7 @@ import { createTransferTool } from '../src/tools/transfer.ts';
 import { createPlaceholderCrm } from '../src/tools/crm.ts';
 import type { Toolbox } from '../src/tools/index.ts';
 import type { Session } from '../src/core/types.ts';
+import { createMockTow, createMockEsign, createMockUploadLink, createMockReferral } from '../src/tools/actions.ts';
 
 const NOW = new Date('2026-09-01T14:00:00.000Z');
 
@@ -25,7 +26,9 @@ function mockTools(): Toolbox {
     sms: createMockSms(),
     transfer: createTransferTool('+19045550100'),
     crm: createPlaceholderCrm(),
-    modes: { calendar: 'mock', sms: 'mock' },
+    tow: createMockTow(), esign: createMockEsign(),
+    uploadLink: createMockUploadLink(), referral: createMockReferral(),
+    modes: { calendar: 'mock', sms: 'mock', tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' },
   };
 }
 

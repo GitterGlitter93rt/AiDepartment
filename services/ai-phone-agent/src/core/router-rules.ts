@@ -432,6 +432,18 @@ export const RULES: Rule[] = [
     anchors: [/\b(pressure|power|soft) ?wash\w*/i] },
 
   // ================= COLLISION REPAIR =================
+  { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair', urgency: 'emergency',
+    // A crash that JUST happened. The caller is usually still at the
+    // scene and needs a tow, not a lawyer — "I just got into an
+    // accident" is the shop's call, while the injury firm's version of
+    // the same event arrives days later and leads with the injury.
+    anchors: [/\b(just|literally just)\b[^.]{0,30}\b(got in(to)?|had|been in|was in)\b[^.]{0,25}\b(a )?(car |auto |vehicle )?(accident|crash|wreck|collision)\b/i,
+              /\bi(?:'ve| have)? just (crashed|wrecked|been hit)\b/i,
+              /\b(accident|crash|wreck)\b[^.]{0,35}\b(right now|just now|a few minutes ago|happening now)\b/i],
+    support: [/\b(bridge|highway|interstate|i-\d+|shoulder|exit|road|street)\b/i,
+              /\b(tow|towed|drivable|won'?t (drive|start)|blocking)\b/i],
+    // An injury or a lawyer in the same breath makes it a PI call.
+    veto: [/\b(lawyer|attorney|law firm|sue|lawsuit|my (neck|back) (is )?(hurt|killing)|injur\w+ (claim|attorney)|settlement)\b/i] },
   { industry: 'collision_repair', specialty: 'general', intent: 'accident_repair',
     anchors: [/\b(body|collision) (shop|work|repair)\b/i,
               /\b(car|truck|vehicle|bumper|fender|door|quarter panel)\b[^.]{0,30}\b(dent\w*|damage\w*|smashed|wrecked|banged up|crumpled|scraped)\b/i,

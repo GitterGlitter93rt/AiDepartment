@@ -1,0 +1,229 @@
+// Tow dispatch, e-signature packets, secure upload links, and partner
+// referrals.
+//
+// All four share one shape, because they share one risk: each performs
+// something in the outside world that a caller will believe happened.
+// So each reports its MODE honestly, and the agent is told what to say
+// accordingly. A mocked action must never be described as done — a
+// prospect watching a demo can be shown the workflow without being lied
+// to about an integration nobody has connected.
+//
+// None of these tools accepts a URL, a phone number, a template, a
+// partner or a destination as free text. Every identifier is looked up
+// against src/business/policies.ts, which is what makes it impossible
+// for a language model to invent an endpoint.
+
+import { randomBytes } from 'node:crypto';
+
+/** What actually happened. Never guessed at, never softened. */
+export type ActionMode = 'sent' | 'queued' | 'mocked' | 'failed';
+
+export interface ActionResult {
+  mode: ActionMode;
+  /** Safe reference the caller could quote. Never a tokenised URL. */
+  reference?: string;
+  /** Why it failed, for logs. Never spoken verbatim. */
+  error?: string;
+}
+
+// ---------------------------------------------------------------------
+// Tow
+// ---------------------------------------------------------------------
+
+export interface TowRequest {
+  callerName: string;
+  callbackPhone: string;
+  pickupLocation: string;
+  directionOfTravel?: string;
+  vehicleYear?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleColor?: string;
+  vehicleCondition?: string;
+  /** Resolved from configuration before it reaches here. */
+  destinationId: string;
+  destinationName: string;
+  insuranceCarrier?: string;
+  claimNumber?: string;
+  notes?: string;
+  callSid: string;
+}
+
+export interface TowResult extends ActionResult {
+  /** Minutes, only when a live provider actually returned one. */
+  driverEtaMinutes?: number;
+  destinationName: string;
+}
+
+export interface TowTool {
+  dispatch(req: TowRequest): Promise<TowResult>;
+  mode: 'mock' | 'live';
+}
+
+/**
+ * Mock dispatcher.
+ *
+ * Deliberately returns no driver ETA. A demo that invents "your driver
+ * is 38 minutes away" teaches the agent to say things it cannot know,
+ * and the habit survives the integration.
+ */
+export function createMockTow(sink: (r: TowRequest) => void = () => {}): TowTool {
+  return {
+    mode: 'mock',
+    async dispatch(req) {
+      sink(req);
+      return { mode: 'mocked', reference: `tow-${shortId()}`, destinationName: req.destinationName };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
+// E-signature
+// ---------------------------------------------------------------------
+
+export interface EsignRequest {
+  /** Provider-side template. Resolved from config, never from the model. */
+  templateId: string;
+  packetId: string;
+  recipientName: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  deliveryChannel: 'sms' | 'email';
+  callSid: string;
+  claimNumber?: string;
+}
+
+export interface EsignResult extends ActionResult {
+  /** Envelope reference. Safe to log; contains no access token. */
+  envelopeId?: string;
+}
+
+export interface EsignTool {
+  send(req: EsignRequest): Promise<EsignResult>;
+  mode: 'mock' | 'docusign';
+}
+
+/**
+ * Mock e-sign provider.
+ *
+ * The seam a real DocuSign adapter drops into: same interface, same
+ * validation, same result shape. Nothing in the conversation layer has
+ * to change when it is connected — which is the point of building it
+ * this way rather than wiring the provider into the prompt.
+ */
+export function createMockEsign(sink: (r: EsignRequest) => void = () => {}): EsignTool {
+  return {
+    mode: 'mock',
+    async send(req) {
+      sink(req);
+      return { mode: 'mocked', envelopeId: `env-${shortId()}`, reference: `env-${shortId()}` };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
+// Secure upload links
+// ---------------------------------------------------------------------
+
+export interface UploadLinkRequest {
+  /** Purpose id, already checked against the business's allowed list. */
+  purposeId: string;
+  callSid: string;
+  expiryHours: number;
+}
+
+export interface UploadLinkResult extends ActionResult {
+  /**
+   * The link itself.
+   *
+   * Returned to the tool layer so it can be texted, and deliberately
+   * never logged: it carries a token, and a token in a log file is a
+   * token in a backup.
+   */
+  url?: string;
+  expiresAt?: string;
+}
+
+export interface UploadLinkTool {
+  create(req: UploadLinkRequest): Promise<UploadLinkResult>;
+  mode: 'mock' | 'live';
+}
+
+/**
+ * Mock link generator.
+ *
+ * The URL is built HERE, from a configured base. The model never sees a
+ * URL parameter and could not supply one if it tried.
+ */
+export function createMockUploadLink(baseUrl = 'https://upload.example-demo.invalid'): UploadLinkTool {
+  return {
+    mode: 'mock',
+    async create(req) {
+      const token = randomBytes(16).toString('hex');
+      return {
+        mode: 'mocked',
+        url: `${baseUrl}/u/${token}`,
+        reference: `upl-${shortId()}`,
+        expiresAt: new Date(Date.now() + req.expiryHours * 3_600_000).toISOString(),
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
+// Partner referral
+// ---------------------------------------------------------------------
+
+export interface ReferralRequest {
+  partnerId: string;
+  partnerLabel: string;
+  /** Only the fields the partner's config lists. Nothing else. */
+  payload: Record<string, string>;
+  consentAt: string;
+  callSid: string;
+}
+
+export interface ReferralResult extends ActionResult {
+  partnerId: string;
+}
+
+export interface PartnerReferralTool {
+  refer(req: ReferralRequest): Promise<ReferralResult>;
+  mode: 'mock' | 'live';
+}
+
+export function createMockReferral(sink: (r: ReferralRequest) => void = () => {}): PartnerReferralTool {
+  return {
+    mode: 'mock',
+    async refer(req) {
+      sink(req);
+      return { mode: 'mocked', reference: `ref-${shortId()}`, partnerId: req.partnerId };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
+
+function shortId(): string {
+  return randomBytes(4).toString('hex');
+}
+
+/**
+ * How the agent should describe an outcome.
+ *
+ * The distinction that keeps a sales demo honest: a real send may be
+ * announced as done, a mocked one is described as something the system
+ * can do. Both are useful to watch; only one of them is true.
+ */
+export function speechFor(mode: ActionMode, doneWording: string, capabilityWording: string): string {
+  switch (mode) {
+    case 'sent':
+      return `DONE — you may tell the caller: ${doneWording}`;
+    case 'queued':
+      return `QUEUED — tell the caller it is on its way. ${doneWording}`;
+    case 'mocked':
+      return `NOT ACTUALLY SENT — this is a demonstration. Do NOT say you sent it. Say instead: ${capabilityWording}`;
+    case 'failed':
+      return 'FAILED — do not mention a system problem. Say the team will follow up, and carry on with the call.';
+  }
+}

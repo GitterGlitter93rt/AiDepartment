@@ -23,6 +23,11 @@ import type { Session } from './types.ts';
 import type { Toolbox } from '../tools/index.ts';
 import type { Logger } from '../logger.ts';
 import { resolveWhen, speakSlot } from './when.ts';
+import {
+  policiesFor, packetById, purposeById, partnerById,
+} from '../business/policies.ts';
+import { speechFor } from '../tools/actions.ts';
+import { speakZip } from './speech.ts';
 
 export interface ToolSchema {
   name: string;
@@ -148,6 +153,69 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
         reason: { type: 'string' },
       },
       required: ['action'],
+    },
+  },
+  {
+    name: 'dispatch_tow',
+    description:
+      'Send a tow truck to the caller. Only after you know where they are precisely enough for a driver to find them, and only when the vehicle cannot be driven. The destination is set by the business — you do not choose it and must never name a towing company, a driver, or a price.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        callerName: { type: 'string' },
+        callbackPhone: { type: 'string', description: 'E.164. Use the number they called from unless they gave another.' },
+        pickupLocation: { type: 'string', description: "Where the vehicle is, in the caller's own words — road, direction, nearest exit or landmark." },
+        directionOfTravel: { type: 'string', description: 'Northbound, southbound and so on, when it is a highway or bridge.' },
+        vehicleYear: { type: 'string' },
+        vehicleMake: { type: 'string' },
+        vehicleModel: { type: 'string' },
+        vehicleColor: { type: 'string' },
+        vehicleCondition: { type: 'string', description: 'Drivable, undrivable, airbags deployed, blocking a lane.' },
+        insuranceCarrier: { type: 'string' },
+        claimNumber: { type: 'string' },
+        notes: { type: 'string' },
+      },
+      required: ['callerName', 'callbackPhone', 'pickupLocation'],
+    },
+  },
+  {
+    name: 'create_upload_link',
+    description:
+      'Create a secure link the caller can use to send photos or documents, and text it to them. Choose the purpose from the list the business allows — you cannot supply a web address, and one you invented would be rejected. Never ask anyone to take photos while they are somewhere unsafe.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        purposeId: { type: 'string', description: 'One of the purpose ids listed in your business configuration.' },
+        callerIsSafe: { type: 'boolean', description: 'True only if the caller is out of danger and away from traffic. Required before any photo request.' },
+      },
+      required: ['purposeId', 'callerIsSafe'],
+    },
+  },
+  {
+    name: 'send_esign_packet',
+    description:
+      'Send the business\'s electronic signature packet. Choose only a packet id from your configuration — you do not write, name, describe or select forms, and you must never characterise what the paperwork says.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        packetId: { type: 'string', description: 'One of the packet ids in your business configuration.' },
+        deliveryChannel: { type: 'string', enum: ['sms', 'email'] },
+        recipientEmail: { type: 'string', description: 'Required when delivering by email.' },
+      },
+      required: ['packetId', 'deliveryChannel'],
+    },
+  },
+  {
+    name: 'create_partner_referral',
+    description:
+      "Pass the caller's contact details to a partner the business works with. ONLY after they have clearly said yes to being referred — never because they mentioned being hurt. If they decline, that is the end of it and the rest of the call carries on exactly as before.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        partnerId: { type: 'string', description: 'One of the partner ids in your business configuration.' },
+        consentConfirmed: { type: 'boolean', description: 'True only if the caller explicitly agreed on this call.' },
+      },
+      required: ['partnerId', 'consentConfirmed'],
     },
   },
   {
@@ -404,6 +472,152 @@ export function validateToolRequest(
       };
     }
 
+    case 'dispatch_tow': {
+      const callerName = str(input, 'callerName');
+      const phone = str(input, 'callbackPhone');
+      const pickup = str(input, 'pickupLocation');
+
+      const policy = policiesFor(session.route.industry).tow;
+      if (!policy?.available) {
+        return { ok: false, reason: 'This business does not arrange towing. Take their details instead.' };
+      }
+      if (!callerName) return { ok: false, reason: 'Get their name before dispatching a truck.' };
+      if (!phone || !E164.test(phone.replace(/[\s()-]/g, ''))) {
+        return { ok: false, reason: 'A valid callback number is required — the driver needs to reach them.' };
+      }
+      // A road name alone will not find anybody. A driver needs a
+      // direction, an exit, a landmark or a mile marker, and asking for
+      // one more detail is cheaper than a truck circling a bridge.
+      const direction = str(input, 'directionOfTravel');
+      if (pickup === null || pickup.length < 8) {
+        return { ok: false, reason: 'That location is not specific enough for a driver to find them. Ask which direction they were heading, the nearest exit, or a landmark.' };
+      }
+      if (/\b(bridge|highway|interstate|i-\d+|freeway|turnpike|expressway|\bhwy\b)\b/i.test(pickup) && !direction) {
+        return { ok: false, reason: 'On a bridge or highway a driver needs the direction of travel. Ask which way they were heading before dispatching.' };
+      }
+
+      // The destination is the business's, never the model's.
+      const destination = policy.destinations.find((d) => d.id === policy.defaultDestinationId) ?? policy.destinations[0];
+      if (!destination) return { ok: false, reason: 'No tow destination is configured. Take their details instead.' };
+
+      return {
+        ok: true,
+        value: {
+          callerName, callbackPhone: phone, pickupLocation: pickup,
+          directionOfTravel: direction ?? undefined,
+          vehicleYear: str(input, 'vehicleYear') ?? undefined,
+          vehicleMake: str(input, 'vehicleMake') ?? undefined,
+          vehicleModel: str(input, 'vehicleModel') ?? undefined,
+          vehicleColor: str(input, 'vehicleColor') ?? undefined,
+          vehicleCondition: str(input, 'vehicleCondition') ?? undefined,
+          insuranceCarrier: str(input, 'insuranceCarrier') ?? undefined,
+          claimNumber: str(input, 'claimNumber') ?? undefined,
+          notes: str(input, 'notes') ?? undefined,
+          destinationId: destination.id,
+          destinationName: destination.name,
+        },
+      };
+    }
+
+    case 'create_upload_link': {
+      const purposeId = str(input, 'purposeId');
+      if (!purposeId) return { ok: false, reason: 'purposeId is required.' };
+
+      const policy = policiesFor(session.route.industry).upload;
+      if (!policy?.enabled) return { ok: false, reason: 'This business does not accept uploads.' };
+      // The allowed list is the whole security boundary. A purpose the
+      // model invented, or one belonging to another trade, stops here.
+      if (!policy.allowedPurposes.includes(purposeId)) {
+        return { ok: false, reason: `"${purposeId}" is not an upload type this business accepts. Allowed: ${policy.allowedPurposes.join(', ')}.` };
+      }
+      const purpose = purposeById(purposeId);
+      if (!purpose) return { ok: false, reason: `Unknown upload purpose "${purposeId}".` };
+
+      // Photos are never worth a risk. If the caller is not clear of
+      // danger the answer is no, whatever the purpose allows.
+      if (input.callerIsSafe !== true && purpose.safetyPrecondition) {
+        return { ok: false, reason: `Not yet — ${purpose.safetyPrecondition} Make sure they are safe first, then offer the link.` };
+      }
+
+      return { ok: true, value: { purposeId, purposeLabel: purpose.label, guidance: purpose.guidance, expiryHours: policy.expiryHours } };
+    }
+
+    case 'send_esign_packet': {
+      const packetId = str(input, 'packetId');
+      const channel = str(input, 'deliveryChannel');
+      if (!packetId) return { ok: false, reason: 'packetId is required.' };
+      if (channel !== 'sms' && channel !== 'email') {
+        return { ok: false, reason: "deliveryChannel must be 'sms' or 'email'." };
+      }
+
+      const allowed = policiesFor(session.route.industry).esignPacketIds;
+      if (!allowed.includes(packetId)) {
+        return { ok: false, reason: `"${packetId}" is not a packet this business sends. Allowed: ${allowed.join(', ') || 'none'}.` };
+      }
+      const packet = packetById(packetId);
+      if (!packet) return { ok: false, reason: `Unknown packet "${packetId}".` };
+
+      // A signature request is not something to send at someone who has
+      // not finished telling you who they are.
+      const record = { ...session.contact, ...session.qualification } as Record<string, unknown>;
+      const missing = packet.requires.filter((f) => {
+        const v = record[f];
+        return v === undefined || v === null || v === '';
+      });
+      if (missing.length > 0) {
+        return { ok: false, reason: `Not yet — still missing ${missing.join(', ')}. Ask for those first.` };
+      }
+
+      const email = str(input, 'recipientEmail') ?? session.contact.email ?? null;
+      if (channel === 'email') {
+        if (!email || !EMAIL.test(email)) return { ok: false, reason: 'An email address is needed to send it by email. Ask for it, or offer to text it instead.' };
+      }
+      const phone = session.contact.phone ?? session.from;
+      if (channel === 'sms' && !E164.test(String(phone).replace(/[\s()-]/g, ''))) {
+        return { ok: false, reason: 'No usable mobile number on file. Confirm the number, or offer to email it.' };
+      }
+
+      return {
+        ok: true,
+        value: {
+          packetId, templateId: packet.templateId, label: packet.label,
+          deliveryChannel: channel,
+          recipientEmail: email ?? undefined,
+          recipientPhone: channel === 'sms' ? phone : undefined,
+          recipientName: session.contact.firstName ?? 'the caller',
+          afterSendLanguage: packet.afterSendLanguage,
+          createsRelationshipOnSignature: packet.createsRelationshipOnSignature,
+        },
+      };
+    }
+
+    case 'create_partner_referral': {
+      const partnerId = str(input, 'partnerId');
+      if (!partnerId) return { ok: false, reason: 'partnerId is required.' };
+
+      // Consent is the entire point of this tool. Somebody mentioning
+      // that their neck hurts has not agreed to have their details sent
+      // to a law firm, and treating it as though they had would be a
+      // serious breach of their expectations.
+      if (input.consentConfirmed !== true) {
+        return { ok: false, reason: 'You have not recorded the caller agreeing to this. Ask them clearly, and only send it if they say yes.' };
+      }
+
+      const policy = policiesFor(session.route.industry).referral;
+      if (!policy?.enabled) return { ok: false, reason: 'This business does not make referrals.' };
+      if (!policy.allowedPartnerIds.includes(partnerId)) {
+        return { ok: false, reason: `"${partnerId}" is not a partner this business refers to.` };
+      }
+      const partner = partnerById(partnerId);
+      if (!partner) return { ok: false, reason: `Unknown partner "${partnerId}".` };
+
+      if (!session.contact.firstName || !session.contact.phone) {
+        return { ok: false, reason: 'A name and a contact number are needed before a referral is any use.' };
+      }
+
+      return { ok: true, value: { partnerId, partnerLabel: partner.label, payloadFields: partner.payloadFields } };
+    }
+
     case 'end_call': {
       const reason = str(input, 'reason');
       if (!reason) return { ok: false, reason: 'reason is required.' };
@@ -603,6 +817,167 @@ async function run(name: string, args: Record<string, unknown>, deps: ExecuteDep
         note:
           `The ${action} request is logged for a person to action. Tell the caller someone will confirm it shortly. ` +
           `Do NOT say the appointment has been ${action === 'cancel' ? 'cancelled' : 'moved'} — nothing has changed yet.`,
+      });
+    }
+
+    case 'dispatch_tow': {
+      const res = await tools.tow.dispatch({
+        callerName: String(args.callerName),
+        callbackPhone: String(args.callbackPhone),
+        pickupLocation: String(args.pickupLocation),
+        directionOfTravel: args.directionOfTravel as string | undefined,
+        vehicleYear: args.vehicleYear as string | undefined,
+        vehicleMake: args.vehicleMake as string | undefined,
+        vehicleModel: args.vehicleModel as string | undefined,
+        vehicleColor: args.vehicleColor as string | undefined,
+        vehicleCondition: args.vehicleCondition as string | undefined,
+        insuranceCarrier: args.insuranceCarrier as string | undefined,
+        claimNumber: args.claimNumber as string | undefined,
+        notes: args.notes as string | undefined,
+        destinationId: String(args.destinationId),
+        destinationName: String(args.destinationName),
+        callSid: session.callSid,
+      });
+
+      Object.assign(session.qualification, {
+        towRequested: true,
+        towStatus: res.mode,
+        towDestination: res.destinationName,
+        pickupLocation: args.pickupLocation,
+      });
+
+      const policy = policiesFor(session.route.industry).tow;
+      // An ETA is spoken only when a provider returned one, or when the
+      // business configured a demo range. Never otherwise.
+      const eta = res.driverEtaMinutes
+        ? `The driver is about ${res.driverEtaMinutes} minutes out.`
+        : policy
+          ? `Typical right now is roughly ${policy.etaMinMinutes} to ${policy.etaMaxMinutes} minutes — say it as an approximation, never a promise.`
+          : 'You do not have an ETA. Do not invent one.';
+
+      return JSON.stringify({
+        mode: res.mode,
+        destination: res.destinationName,
+        speech: speechFor(
+          res.mode,
+          `the tow is arranged and the vehicle is going to ${res.destinationName}.`,
+          `this demo can dispatch a tow to ${res.destinationName} — say the shop can arrange it, not that you just did.`,
+        ),
+        eta,
+        billing: policy?.billingLanguage,
+      });
+    }
+
+    case 'create_upload_link': {
+      const res = await tools.uploadLink.create({
+        purposeId: String(args.purposeId),
+        callSid: session.callSid,
+        expiryHours: Number(args.expiryHours),
+      });
+
+      // The URL is texted but never returned to the model and never
+      // logged: it carries a token, and a token in a log is a token in
+      // a backup.
+      let smsMode: string = 'not_attempted';
+      if (res.url && session.contact.phone) {
+        try {
+          await tools.sms.send({
+            to: session.contact.phone,
+            body: `Here is a secure link to send ${String(args.purposeLabel)}: ${res.url}`,
+          });
+          smsMode = tools.modes.sms === 'mock' ? 'mocked' : 'sent';
+        } catch {
+          smsMode = 'failed';
+        }
+      }
+
+      Object.assign(session.qualification, {
+        uploadLinkPurpose: args.purposeId,
+        uploadLinkStatus: res.mode,
+      });
+
+      return JSON.stringify({
+        mode: res.mode,
+        smsMode,
+        speech: speechFor(
+          smsMode === 'sent' ? 'sent' : res.mode,
+          `the link is on its way by text — they can send ${String(args.guidance)} whenever they are somewhere safe.`,
+          `this demo can text them a secure link for ${String(args.guidance)} — describe it as something the system does, not something you just did.`,
+        ),
+      });
+    }
+
+    case 'send_esign_packet': {
+      const res = await tools.esign.send({
+        templateId: String(args.templateId),
+        packetId: String(args.packetId),
+        recipientName: String(args.recipientName),
+        recipientEmail: args.recipientEmail as string | undefined,
+        recipientPhone: args.recipientPhone as string | undefined,
+        deliveryChannel: args.deliveryChannel as 'sms' | 'email',
+        callSid: session.callSid,
+        claimNumber: session.qualification.claimNumber as string | undefined,
+      });
+
+      Object.assign(session.qualification, {
+        esignPacketId: args.packetId,
+        esignStatus: res.mode,
+        esignChannel: args.deliveryChannel,
+      });
+
+      return JSON.stringify({
+        mode: res.mode,
+        speech: speechFor(
+          res.mode,
+          `the ${String(args.label)} is on its way.`,
+          `this demo can send the ${String(args.label)} electronically — say the system does that, not that you just sent it.`,
+        ),
+        afterSend: args.afterSendLanguage,
+        // The single most important line in this result. Signing is not
+        // the same as a business accepting the matter.
+        relationship: args.createsRelationshipOnSignature
+          ? 'Signing this packet does complete the agreement.'
+          : 'Signing does NOT by itself mean the business has accepted the matter. If they ask, say it will be reviewed and confirmed.',
+      });
+    }
+
+    case 'create_partner_referral': {
+      // Only the fields the partner's configuration lists. Nothing
+      // else leaves, and medical detail is not on any list.
+      const source = { ...session.contact, ...session.qualification } as Record<string, unknown>;
+      const payload: Record<string, string> = {};
+      for (const field of args.payloadFields as string[]) {
+        const v = source[field];
+        if (typeof v === 'string' && v.trim() !== '') payload[field] = v.trim();
+        else if (typeof v === 'boolean' || typeof v === 'number') payload[field] = String(v);
+      }
+
+      const consentAt = new Date().toISOString();
+      const res = await tools.referral.refer({
+        partnerId: String(args.partnerId),
+        partnerLabel: String(args.partnerLabel),
+        payload,
+        consentAt,
+        callSid: session.callSid,
+      });
+
+      Object.assign(session.qualification, {
+        referralOffered: true,
+        referralConsent: true,
+        referralConsentAt: consentAt,
+        referralPartner: args.partnerId,
+        referralStatus: res.mode,
+        referralFields: Object.keys(payload).join(','),
+      });
+
+      return JSON.stringify({
+        mode: res.mode,
+        speech: speechFor(
+          res.mode,
+          `their details have gone over for a free case review.`,
+          `this demo can pass their details across for a free case review — describe it as what the system does, not as done.`,
+        ),
+        limits: 'Do not say they have a case, that the partner will take it, that they will recover anything, or that the partner is "ours".',
       });
     }
 

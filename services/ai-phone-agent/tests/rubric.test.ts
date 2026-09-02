@@ -16,6 +16,7 @@ import { EVAL_CASES, estimateRequests, casesByIndustry } from '../src/eval/cases
 import { SessionStore } from '../src/core/session.ts';
 import type { Scenario } from '../src/sim/scenarios.ts';
 import type { Session } from '../src/core/types.ts';
+import { createMockToolbox } from '../src/tools/index.ts';
 
 function fixture(over: Partial<Session> = {}): Session {
   const s = new SessionStore().ensure('EVAL_T');
@@ -372,11 +373,7 @@ describe('The harness works end to end without a real model', () => {
     ]);
     const orch = new Orchestrator({
       sessions, claude, log: createLogger({}, () => {}),
-      tools: {
-        calendar: createMockCalendar(), sms: createMockSms(),
-        transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
-        modes: { calendar: 'mock', sms: 'mock' },
-      },
+      tools: createMockToolbox(),
     });
 
     const turns: TurnPair[] = [];

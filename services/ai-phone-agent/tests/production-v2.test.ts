@@ -22,13 +22,10 @@ import { createTransferTool } from '../src/tools/transfer.ts';
 import { createPlaceholderCrm } from '../src/tools/crm.ts';
 import { finaliseCall } from '../src/core/finalise.ts';
 import type { Toolbox } from '../src/tools/index.ts';
+import { createMockToolbox } from '../src/tools/index.ts';
 
 const silent = createLogger({}, () => {});
-const tools = (): Toolbox => ({
-  calendar: createMockCalendar(), sms: createMockSms(),
-  transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
-  modes: { calendar: 'mock', sms: 'mock' },
-});
+const tools = (): Toolbox => (createMockToolbox());
 
 // 11:27 PM on Tuesday 1 September in Florida — the actual time of the
 // first production call, expressed as the UTC instant the server sees.

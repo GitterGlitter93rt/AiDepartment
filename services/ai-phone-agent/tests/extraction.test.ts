@@ -20,13 +20,10 @@ import { createTransferTool } from '../src/tools/transfer.ts';
 import { createPlaceholderCrm } from '../src/tools/crm.ts';
 import type { Toolbox } from '../src/tools/index.ts';
 import type { ContactRecord } from '../src/core/types.ts';
+import { createMockToolbox } from '../src/tools/index.ts';
 
 const silent = createLogger({}, () => {});
-const tools = (): Toolbox => ({
-  calendar: createMockCalendar(), sms: createMockSms(),
-  transfer: createTransferTool('+19045550100'), crm: createPlaceholderCrm(),
-  modes: { calendar: 'mock', sms: 'mock' },
-});
+const tools = (): Toolbox => (createMockToolbox());
 
 describe('Phone numbers are caught however they are spoken', () => {
   const SPOKEN: [string, string][] = [

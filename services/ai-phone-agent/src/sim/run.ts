@@ -23,6 +23,7 @@ import { createPlaceholderCrm } from '../tools/crm.ts';
 import { buildCallSummary } from '../core/call-summary.ts';
 import { selectSpecialist } from '../industries/index.ts';
 import { SCENARIOS, NEVER_SAY, type Scenario } from './scenarios.ts';
+import { createMockToolbox } from '../tools/index.ts';
 import type { Toolbox } from '../tools/index.ts';
 
 export interface TurnRecord {
@@ -46,13 +47,7 @@ export interface SimResult {
 }
 
 function tools(): Toolbox {
-  return {
-    calendar: createMockCalendar(),
-    sms: createMockSms(),
-    transfer: createTransferTool('+19045550100'),
-    crm: createPlaceholderCrm(),
-    modes: { calendar: 'mock', sms: 'mock' },
-  };
+  return createMockToolbox();
 }
 
 export async function runScenario(scenario: Scenario, opts: { verbose?: boolean } = {}): Promise<SimResult> {

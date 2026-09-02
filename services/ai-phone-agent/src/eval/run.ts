@@ -33,6 +33,7 @@ import { scoreConversation, type Finding, type TurnPair } from './rubric.ts';
 import { judgeConversation, type JudgeScore } from './judge.ts';
 import { EVAL_CASES, estimateRequests, type EvalCase } from './cases.ts';
 import type { Toolbox } from '../tools/index.ts';
+import { createMockTow, createMockEsign, createMockUploadLink, createMockReferral } from '../tools/actions.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = resolve(HERE, '../../eval-results');
@@ -71,7 +72,9 @@ function toolbox(fail?: EvalCase['toolFailure']): Toolbox {
     // that never configured one.
     transfer: createTransferTool(fail === 'transfer' ? '' : '+19045550100'),
     crm: fail === 'crm' ? { pushLead: boom('crm') } : createPlaceholderCrm(),
-    modes: { calendar: 'mock', sms: 'mock' },
+    tow: createMockTow(), esign: createMockEsign(),
+    uploadLink: createMockUploadLink(), referral: createMockReferral(),
+    modes: { calendar: 'mock', sms: 'mock', tow: 'mock', esign: 'mock', uploadLink: 'mock', referral: 'mock' },
   };
 }
 
