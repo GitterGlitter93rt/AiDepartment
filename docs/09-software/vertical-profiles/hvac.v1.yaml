@@ -1,0 +1,867 @@
+profile_id: hvac-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: HVAC
+industry_aliases:
+  - heating and air conditioning
+  - heating and cooling
+  - air conditioning contractor
+  - HVAC contractor
+  - AC contractor
+priority: 1
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-10-hvac-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - service_repair
+    - replacement_installation
+    - maintenance_memberships
+    - accessories_addons
+    - commercial_service_projects
+  lead_types:
+    - urgent_service_call
+    - replacement_estimate
+    - maintenance_request
+    - web_form
+    - online_booking
+    - referral
+    - existing_customer
+    - paid_search_lead
+    - local_services_lead
+    - meta_lead
+  customer_types:
+    - residential_homeowner
+    - commercial_facility_account
+  high_value_service_families:
+    - system_replacement
+    - heat_pump_replacement
+    - installation
+    - duct_system_upgrade
+    - commercial_project
+  recurring_revenue_families:
+    - maintenance_agreement
+    - membership
+    - seasonal_tune_up
+  urgency_characteristics:
+    - no_cool
+    - no_heat
+    - emergency_service
+    - after_hours_demand
+  seasonality_characteristics:
+    - summer_peak
+    - winter_peak_market_dependent
+    - shoulder_season
+  phone_dependence: high
+  appointment_dependence: high
+  estimate_proposal_dependence: high
+  field_service_dependence: high
+
+search_taxonomy:
+  core_queries:
+    - query: HVAC contractor
+      family: core
+      intent_weight: 3
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: heating and cooling
+      family: core
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: air conditioning contractor
+      family: core
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: AC repair
+      family: urgent_service
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: HVAC repair
+      family: urgent_service
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: AC replacement
+      family: replacement
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: HVAC replacement
+      family: replacement
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: heat pump replacement
+      family: replacement
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency HVAC
+    - emergency AC repair
+    - 24 hour AC repair
+    - no cool AC repair
+    - furnace repair
+    - heat pump repair
+  high_ticket_queries:
+    - AC installation
+    - new air conditioner
+    - HVAC installation
+    - heat pump installation
+    - AC replacement
+    - HVAC replacement
+  financing_queries:
+    - HVAC financing
+    - AC financing
+    - AC replacement financing
+  commercial_queries:
+    - commercial HVAC
+    - commercial AC repair
+    - commercial HVAC contractor
+  service_aliases:
+    - air conditioning
+    - AC
+    - heating
+    - cooling
+    - heat pump
+    - furnace
+  negative_terms:
+    - auto AC
+    - automotive air conditioning
+    - HVAC school
+    - HVAC training
+    - HVAC supply
+    - parts supplier
+    - wholesale
+    - manufacturer only
+  classification_warning_terms:
+    - appliance repair
+    - refrigeration only
+    - duct cleaning only
+    - handyman
+
+classification_rules:
+  positive_business_categories:
+    - hvac_contractor
+    - air_conditioning_contractor
+    - heating_contractor
+    - mechanical_contractor_hvac
+  negative_business_categories:
+    - auto_repair
+    - supply_house
+    - manufacturer_only
+    - training_school
+    - parts_wholesaler
+  website_keyword_positive:
+    - AC repair
+    - air conditioning repair
+    - HVAC repair
+    - heating repair
+    - system replacement
+    - HVAC installation
+    - heat pump
+    - furnace
+  website_keyword_negative:
+    - automotive air conditioning
+    - training program
+    - wholesale only
+  required_any_of:
+    - hvac_service_evidence
+    - hvac_replacement_evidence
+    - heating_cooling_service_evidence
+  exclude_if_all:
+    - non_service_business
+    - no_hvac_customer_service_evidence
+  manual_review_if:
+    - lead_generation_site_possible
+    - franchise_parent_child_ambiguous
+    - refrigeration_hvac_mix_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Indicates current willingness to pay for high-intent customer acquisition and makes downstream response/follow-up/attribution questions more relevant.
+    possible_hypothesis_ids:
+      - paid_after_hours_call_handling
+      - speed_to_lead
+      - attribution_gap
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Indicates current paid demand generation on Meta and can make lead-response/follow-up/booking questions relevant.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - lead_follow_up
+      - attribution_gap
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: emergency_24_7
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: Creates after-hours and surge-handling relevance.
+    possible_hypothesis_ids:
+      - paid_after_hours_call_handling
+      - missed_call_recovery
+      - surge_capacity
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: financing_promoted
+    category: replacement_sales
+    evidence_claim_key: financing_promoted
+    confidence_required: confirmed
+    why_it_matters: Often accompanies higher-value replacement sales and follow-up needs.
+    possible_hypothesis_ids:
+      - unsold_replacement_estimates
+      - financing_follow_up
+    score_rule_reference: vertical_priority_signal_only
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Increases routing, reporting, attribution and consistency complexity.
+    possible_hypothesis_ids:
+      - attribution_gap
+      - routing_consistency
+      - reporting_visibility
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: online_quote_or_booking
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Shows an observable lead-entry path worth mapping.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - lead_follow_up
+      - crm_capture
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Can make employee-capacity and scaling questions more relevant.
+    possible_hypothesis_ids:
+      - employee_capacity
+      - surge_capacity
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: demand
+    label: Customer need
+    common_inputs:
+      - no_cool
+      - no_heat
+      - maintenance
+      - replacement_need
+    common_outputs:
+      - search_or_referral
+    handoff_risks: []
+    human_judgment_required: false
+  - stage_id: acquisition
+    label: Search / Maps / Referral / Ad / Existing customer
+    common_inputs:
+      - google
+      - maps
+      - referral
+      - paid_ad
+      - existing_customer
+    common_outputs:
+      - call
+      - form
+      - booking
+    handoff_risks:
+      - attribution_loss
+    human_judgment_required: false
+  - stage_id: intake
+    label: Call / Form / Booking and intake
+    common_inputs:
+      - phone
+      - web_form
+      - booking
+    common_outputs:
+      - lead_record
+      - appointment
+    handoff_risks:
+      - missed_call
+      - slow_response
+      - no_record
+      - duplicate_entry
+    human_judgment_required: true
+  - stage_id: scheduling_dispatch
+    label: Schedule and dispatch
+    common_inputs:
+      - lead_record
+      - appointment_request
+    common_outputs:
+      - technician_visit
+    handoff_risks:
+      - reschedule_load
+      - ETA_communication_load
+      - surge_capacity
+    human_judgment_required: true
+  - stage_id: technician_visit
+    label: Technician visit / diagnosis / options
+    common_inputs:
+      - dispatched_job
+    common_outputs:
+      - repair
+      - replacement_opportunity
+      - estimate
+    handoff_risks:
+      - incomplete_notes
+      - sales_handoff_gap
+    human_judgment_required: true
+  - stage_id: replacement_sales
+    label: Estimate / financing / sale
+    common_inputs:
+      - replacement_opportunity
+      - estimate
+    common_outputs:
+      - won
+      - open_estimate
+      - lost
+    handoff_risks:
+      - no_follow_up
+      - financing_follow_up_gap
+      - lost_reason_missing
+    human_judgment_required: true
+  - stage_id: completion_retention
+    label: Work completed / payment / review / membership / reactivation
+    common_inputs:
+      - completed_job
+    common_outputs:
+      - review
+      - membership
+      - future_service
+    handoff_risks:
+      - review_request_inconsistent
+      - membership_lapse
+      - reactivation_gap
+    human_judgment_required: false
+  - stage_id: reporting
+    label: Revenue attribution and management reporting
+    common_inputs:
+      - lead_source
+      - job
+      - revenue
+    common_outputs:
+      - dashboards
+      - management_decisions
+    handoff_risks:
+      - source_revenue_disconnect
+      - manual_reporting
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: paid_after_hours_call_handling
+    category: after_hours
+    title: Paid after-hours call handling
+    description: Paid or high-intent calls may require a measurable process when office staff are unavailable or already occupied.
+    trigger_signals:
+      - active_google_search_ads
+      - emergency_24_7
+      - strong_phone_dependence
+    disqualifying_signals:
+      - prospect_confirms_strong_after_hours_process
+    public_fact_requirements:
+      - fresh_paid_ad_evidence_if_ad_referenced
+    questions_to_verify:
+      - What happens when one of those calls comes in after hours?
+      - What happens when all CSRs are already on calls?
+      - Does a missed call automatically create a text or callback task?
+    primary_hook_template: I noticed you are advertising around {{advertised_service}} in {{market}}. When one of those calls comes in after hours or everybody is already tied up, what happens next?
+    backup_hook_templates:
+      - What happens to a legitimate new-business call that reaches voicemail?
+      - When all office lines are busy, how are new opportunities recovered?
+    offer_families:
+      - ai_phone_agent
+      - workflow_automation
+      - ai_growth_systems
+    roi_tool_ids:
+      - missed_call_roi
+      - lead_response_roi
+    must_not_claim:
+      - exact_missed_call_rate
+      - exact_lost_revenue
+      - every_missed_call_is_lost_sale
+      - ai_will_capture_every_call
+  - hypothesis_id: speed_to_lead
+    category: speed_to_lead
+    title: Web/ad lead response speed
+    description: New web or paid leads may require fast acknowledgement, routing and persistent follow-up.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - online_quote_or_booking
+    disqualifying_signals:
+      - prospect_confirms_fast_measured_response
+    public_fact_requirements: []
+    questions_to_verify:
+      - How quickly is a new web lead contacted?
+      - What happens if the customer does not answer the first callback?
+      - Does every new inquiry create a record and assigned owner?
+    primary_hook_template: When somebody submits {{cta_type}} after hours, what is the first thing that happens?
+    backup_hook_templates:
+      - How quickly does a brand-new inbound lead normally hear from somebody?
+    offer_families:
+      - workflow_automation
+      - crm_system
+      - ai_growth_systems
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - current_response_time_without_measurement
+  - hypothesis_id: unsold_replacement_estimates
+    category: unsold_estimate
+    title: Unsold replacement estimate follow-up
+    description: High-value replacement proposals that do not close on the first presentation may need standardized follow-up and visibility.
+    trigger_signals:
+      - replacement_service_focus
+      - financing_promoted
+    disqualifying_signals:
+      - prospect_confirms_strong_estimate_follow_up
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a replacement estimate that does not close during the first presentation?
+      - Who owns follow-up after day seven?
+      - Can management see every unsold estimate by value and age?
+      - Are lost reasons captured?
+    primary_hook_template: When a homeowner gets a replacement proposal and says they need to think about it, who owns the next 30 days of follow-up?
+    backup_hook_templates:
+      - Can management see the total dollar value of unsold replacement estimates right now?
+    offer_families:
+      - crm_system
+      - workflow_automation
+      - ai_growth_systems
+    roi_tool_ids:
+      - unsold_estimate_roi
+    must_not_claim:
+      - entire_unsold_pipeline_is_recoverable
+      - fixed_close_rate_improvement
+  - hypothesis_id: attribution_gap
+    category: attribution
+    title: Lead-source-to-revenue attribution
+    description: Paid acquisition may not be fully tied from ad/call/form through booked job and collected revenue.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - multiple_locations
+      - call_tracking_signal
+    disqualifying_signals:
+      - prospect_confirms_closed_loop_attribution
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you trace a Google lead from click or call through booked job and collected revenue?
+      - Do you know cost per booked job or mainly cost per lead?
+      - Which campaigns produce the highest-value replacement customers?
+    primary_hook_template: Can you currently trace a marketing dollar from the original ad through the booked job and actual revenue?
+    backup_hook_templates:
+      - If I picked one Google lead today, could you show me the whole path to revenue in one place?
+    offer_families:
+      - ai_growth_systems
+      - crm_system
+      - workflow_automation
+    roi_tool_ids:
+      - advertising_efficiency
+    must_not_claim:
+      - attribution_is_broken
+      - agency_is_wasting_money
+  - hypothesis_id: employee_capacity
+    category: employee_capacity
+    title: Front-office/dispatch capacity
+    description: Seasonal volume and repetitive communication/data work may consume CSR/dispatcher capacity.
+    trigger_signals:
+      - visible_hiring
+      - multiple_locations
+      - emergency_24_7
+    disqualifying_signals:
+      - prospect_confirms_no_capacity_problem
+    public_fact_requirements: []
+    questions_to_verify:
+      - When summer volume spikes, where does the office get overloaded first?
+      - What repetitive task eats the most office time?
+      - What workload is driving your next planned office hire?
+    primary_hook_template: When peak-season volume spikes, what part of the office gets overloaded first: phones, scheduling, dispatch, follow-up, or reporting?
+    backup_hook_templates:
+      - What repetitive work would your CSRs happily never do manually again?
+    offer_families:
+      - workflow_automation
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+      - hiring_deferral_capacity
+    must_not_claim:
+      - employees_are_wasting_time
+      - automation_means_staff_reduction
+  - hypothesis_id: crm_capture
+    category: crm_workflow
+    title: CRM / field-service lead capture and workflow
+    description: The existing platform may or may not consistently capture, route, follow, attribute and report every lead.
+    trigger_signals:
+      - crm_frontend_signal
+      - online_quote_or_booking
+      - active_google_search_ads
+    disqualifying_signals:
+      - prospect_confirms_strong_end_to_end_workflow
+    public_fact_requirements: []
+    questions_to_verify:
+      - Does every new caller create a lead or customer record?
+      - What happens automatically after a lead enters the system?
+      - Can you trace one Google lead to revenue in the same workflow?
+    primary_hook_template: What happens automatically after a new lead enters your current system?
+    backup_hook_templates:
+      - Where does customer information get entered more than once?
+    offer_families:
+      - crm_system
+      - workflow_automation
+      - ai_implementation
+    roi_tool_ids: []
+    must_not_claim:
+      - no_crm
+      - detected_system_is_configured_poorly
+
+# Public-signal aliases used by hypothesis triggers.
+derived_signals:
+  strong_phone_dependence: true
+  replacement_service_focus_from_website_terms:
+    - replacement
+    - installation
+    - new system
+    - heat pump installation
+  crm_frontend_signal_examples:
+    - ServiceTitan
+    - Housecall Pro
+    - Jobber
+    - HubSpot
+    - Salesforce
+    - Podium
+
+# Stakeholder map.
+decision_maker_roles:
+  - role_category: owner
+    titles: [owner, founder, president]
+    relevant_hypothesis_ids: [paid_after_hours_call_handling, unsold_replacement_estimates, attribution_gap, employee_capacity]
+    priority: 1
+  - role_category: general_manager
+    titles: [general manager, GM]
+    relevant_hypothesis_ids: [paid_after_hours_call_handling, crm_capture, employee_capacity, reporting_visibility]
+    priority: 1
+  - role_category: operations
+    titles: [operations manager, director of operations, service manager]
+    relevant_hypothesis_ids: [paid_after_hours_call_handling, crm_capture, employee_capacity]
+    priority: 1
+  - role_category: sales
+    titles: [sales manager, comfort advisor manager, replacement sales manager]
+    relevant_hypothesis_ids: [unsold_replacement_estimates, lead_follow_up]
+    priority: 1
+  - role_category: marketing
+    titles: [marketing manager, marketing director]
+    relevant_hypothesis_ids: [attribution_gap, speed_to_lead]
+    priority: 1
+  - role_category: office_manager
+    titles: [office manager, CSR manager, call center manager, dispatch manager]
+    relevant_hypothesis_ids: [paid_after_hours_call_handling, employee_capacity, crm_capture]
+    priority: 2
+
+system_families:
+  - system_family_id: field_service_platforms
+    names:
+      - ServiceTitan
+      - Housecall Pro
+      - Jobber
+    category: field_service_crm
+    frontend_detection_terms:
+      - servicetitan
+      - housecallpro
+      - jobber
+    positioning_rule: Treat detection positively. Ask what the existing platform already handles and what remains manual; do not recommend replacement merely because YAD can implement CRM.
+    questions:
+      - What happens automatically after a lead enters it?
+      - What is the biggest thing you wish your current setup did better?
+  - system_family_id: general_crm
+    names:
+      - HubSpot
+      - Salesforce
+      - HighLevel
+      - GoHighLevel
+    category: crm
+    frontend_detection_terms:
+      - hubspot
+      - salesforce
+      - leadconnector
+      - gohighlevel
+    positioning_rule: Existing CRM is part of the diagnosis, not an objection to overcome.
+    questions:
+      - Are calls, forms, booked jobs and revenue consistently connected to it?
+  - system_family_id: call_tracking
+    names:
+      - CallRail
+      - other_call_tracking
+    category: call_tracking
+    frontend_detection_terms:
+      - callrail
+    positioning_rule: Detection proves a call-tracking signal, not that source-to-revenue attribution is complete.
+    questions:
+      - Can those call sources be tied to booked jobs and revenue?
+
+hook_priorities:
+  - hook_family: paid_after_hours
+    base_priority: 100
+    boost_if_signals: [active_google_search_ads, emergency_24_7]
+    demote_if_signals: [prospect_confirms_strong_after_hours_process]
+    avoid_if: []
+    question_templates:
+      - I noticed you are advertising around {{service}}. When one of those calls comes in after hours or the office is tied up, what happens next?
+  - hook_family: replacement_follow_up
+    base_priority: 90
+    boost_if_signals: [replacement_service_focus, financing_promoted]
+    demote_if_signals: [prospect_confirms_strong_estimate_follow_up]
+    avoid_if: []
+    question_templates:
+      - What happens to a replacement estimate that does not close on the first presentation?
+  - hook_family: attribution
+    base_priority: 80
+    boost_if_signals: [active_google_search_ads, active_meta_ads, multiple_locations]
+    demote_if_signals: [prospect_confirms_closed_loop_attribution]
+    avoid_if: []
+    question_templates:
+      - Can you trace a Google lead from click or call through booked job and revenue in one place?
+  - hook_family: employee_capacity
+    base_priority: 70
+    boost_if_signals: [visible_hiring, multiple_locations, emergency_24_7]
+    demote_if_signals: [prospect_confirms_no_capacity_problem]
+    avoid_if: []
+    question_templates:
+      - When peak-season volume spikes, where does the office get overloaded first?
+
+# Question banks are deliberately smaller than the full manual. Live/manual RAG can retrieve more.
+discovery_question_banks:
+  lead_generation:
+    - What are your biggest lead sources?
+    - Which service categories do you advertise most aggressively?
+    - Can you track lead source through to revenue?
+    - Do you know cost per booked job or mainly cost per lead?
+  phone_after_hours:
+    - How many inbound calls do you receive in a normal month?
+    - What percentage are new-business opportunities?
+    - Do you know your unanswered-call rate?
+    - What happens after hours?
+    - Does a missed call automatically trigger a text or callback task?
+  scheduling_dispatch:
+    - How are appointments booked today?
+    - How much is handled by phone versus online?
+    - Are confirmations automatic?
+    - How much dispatcher or CSR time goes into ETA questions?
+  sales_follow_up:
+    - How many replacement opportunities do you quote in a normal month?
+    - How many estimates remain open after seven days?
+    - Who owns follow-up?
+    - Are lost reasons captured?
+  retention_reactivation:
+    - Do you offer maintenance agreements or memberships?
+    - How are renewals handled?
+    - How are overdue maintenance customers identified?
+  employee_capacity:
+    - What repetitive task eats the most office time?
+    - What happens to the office when summer volume spikes?
+    - What is your next planned office hire and what workload is driving it?
+  reporting:
+    - Can you see booked jobs by source?
+    - Can you see unsold-estimate value?
+    - Can you see revenue by marketing channel?
+    - What report still takes hours to assemble manually?
+
+roi_tools:
+  - roi_tool_id: missed_call_roi
+    name: Missed Call ROI
+    relevant_hypothesis_ids: [paid_after_hours_call_handling]
+    required_inputs: [monthly_inbound_calls, unanswered_percent, legitimate_new_business_percent, scenario_capture_close_percent, average_customer_revenue]
+    prohibited_shortcuts: [every_missed_call_is_customer, hundred_percent_capture]
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids: [speed_to_lead]
+    required_inputs: [lead_volume, current_response_process, outcome_rate_or_measurement_plan]
+    prohibited_shortcuts: [invented_speed_to_lead_gain]
+  - roi_tool_id: unsold_estimate_roi
+    name: Unsold Estimate Follow-Up ROI
+    relevant_hypothesis_ids: [unsold_replacement_estimates]
+    required_inputs: [unsold_estimate_count, average_estimate_value, illustrative_incremental_close_rate]
+    prohibited_shortcuts: [entire_open_pipeline_recoverable]
+  - roi_tool_id: advertising_efficiency
+    name: Advertising Efficiency
+    relevant_hypothesis_ids: [attribution_gap]
+    required_inputs: [ad_spend_if_prospect_supplies, lead_count, booked_jobs, revenue_if_available]
+    prohibited_shortcuts: [infer_spend_from_ad_presence]
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids: [employee_capacity]
+    required_inputs: [employees, repetitive_hours_per_week, addressable_percent, loaded_hourly_cost_or_measurement_plan]
+    prohibited_shortcuts: [call_recovered_time_payroll_savings]
+
+objection_guidance:
+  - objection_id: already_servicetitan
+    match_phrases: [we use ServiceTitan, already have ServiceTitan]
+    principle: Do not replace a strong incumbent system without a business reason.
+    response_guidance: A strong field-service platform may already solve a lot. Diagnose whether marketing, phone handling, follow-up, attribution, reporting and usage are connected well.
+    follow_up_questions:
+      - What is the biggest thing you wish your current setup did better?
+    must_not_say:
+      - ServiceTitan is bad
+      - You need our CRM instead
+    manual_reference: module-10 section 36
+  - objection_id: answering_service
+    match_phrases: [we have an answering service]
+    principle: Determine what the current service actually accomplishes.
+    response_guidance: Ask whether it only takes a message or can qualify, schedule, route and create a tracked next step.
+    follow_up_questions:
+      - How quickly does the internal team take over afterward?
+    must_not_say:
+      - answering services do not work
+    manual_reference: module-10 section 37
+  - objection_id: dispatchers_handle_it
+    match_phrases: [our dispatchers handle that, dispatch handles that]
+    principle: Do not attack dispatchers. Investigate repetitive work around true judgment-heavy dispatch functions.
+    response_guidance: Ask what repetitive communication/data tasks keep dispatchers from exceptions and route decisions.
+    follow_up_questions:
+      - What work keeps dispatchers from spending more time on true exceptions and route decisions?
+    must_not_say:
+      - AI can replace dispatch
+    manual_reference: module-10 section 38
+  - objection_id: too_busy_peak_season
+    match_phrases: [too busy right now, peak season]
+    principle: Bad implementation timing is legitimate.
+    response_guidance: Separate low importance from wrong implementation timing and capture a legitimate follow-up trigger.
+    follow_up_questions:
+      - Is the issue that the problem is not important or that this is the wrong time to change the workflow?
+    must_not_say:
+      - you must do it now
+    manual_reference: module-10 section 39
+  - objection_id: customers_want_humans
+    match_phrases: [customers want humans, my customers want a person]
+    principle: Preserve human relationship and judgment while improving capture/routing/follow-up.
+    response_guidance: Position AI as support around the human team, not automatic human removal.
+    follow_up_questions:
+      - Which parts of the call truly require a human today and which parts are routine capture/routing?
+    must_not_say:
+      - customers do not care
+    manual_reference: module-10 section 40
+  - objection_id: ai_cannot_diagnose_hvac
+    match_phrases: [AI cannot diagnose HVAC, AI cannot fix AC]
+    principle: Agree with the technical boundary.
+    response_guidance: Keep diagnosis, repair, code and safety decisions with qualified technicians; focus on intake, scheduling, communication, CRM, follow-up and reporting.
+    follow_up_questions: []
+    must_not_say:
+      - AI can replace a technician
+    manual_reference: module-10 section 41
+
+safety_boundaries:
+  - boundary_id: hvac_technical_judgment
+    category: technical_safety
+    prohibited_agent_claims:
+      - autonomous_HVAC_diagnosis
+      - equipment_safety_decision
+      - refrigerant_handling_decision
+      - electrical_safety_decision
+      - code_compliance_decision
+      - installation_decision
+      - repair_authorization_requiring_qualified_judgment
+    human_required_for:
+      - technical_diagnosis
+      - repair_decision
+      - safety_decision
+      - code_compliance
+    escalation_guidance: Qualified contractor personnel remain responsible for technical and safety-sensitive work.
+
+no_sale_conditions:
+  - prospect_confirms_strong_workflow_in_primary_hypothesis
+  - no_meaningful_pain_found
+  - opportunity_economics_too_small
+  - existing_system_sufficient
+  - no_realistic_decision_path
+  - unsafe_or_unethical_requested_scope
+  - unsupported_guarantee_required
+
+scoring_overrides:
+  canonical_model: module_04c
+  tier_thresholds:
+    A: 9
+    B_min: 6
+    B_max: 8
+    C_min: 3
+    C_max: 5
+    D_max: 2
+  vertical_priority_signals:
+    - active_google_search_ads
+    - active_meta_ads
+    - multichannel_paid
+    - replacement_installation_focus
+    - emergency_24_7
+    - multiple_locations
+    - financing_promoted
+    - strong_phone_dependence
+    - online_quote_or_booking
+    - visible_hiring
+  note: Financing and replacement focus are strong HVAC prioritization signals, but the canonical general Module 4C score must remain separately auditable unless leadership explicitly revises it.
+
+research_requirements:
+  required_before_score:
+    - identity_attempted
+    - vertical_classification_attempted
+    - website_resolution_attempted
+  recommended_before_human_queue:
+    - website_research
+    - paid_google_check
+    - location_check
+    - phone_verification
+    - crm_technology_detection
+    - decision_maker_search_attempted
+  required_before_research_specific_hook:
+    - referenced_evidence_fresh
+    - referenced_evidence_confirmed
+  refresh_before_call:
+    - active_google_search_ad_if_older_than_48_hours
+    - active_meta_ad_if_older_than_48_hours
+    - time_sensitive_offer_if_older_than_7_days
+
+call_pack_defaults:
+  default_primary_hook_family: paid_after_hours
+  default_backup_hook_family: replacement_follow_up
+  default_first_questions:
+    - What happens after hours today?
+    - What happens if the customer does not answer the first callback?
+    - What happens to a replacement estimate that does not close on the first presentation?
+  common_objection_ids:
+    - already_servicetitan
+    - answering_service
+    - dispatchers_handle_it
+    - too_busy_peak_season
+    - customers_want_humans
+    - ai_cannot_diagnose_hvac
+  vertical_truth_boundaries:
+    - never_invent_ticket_size
+    - never_invent_ad_spend
+    - never_invent_missed_call_rate
+    - never_invent_close_rate
+    - never_claim_frontend_system_signal_proves_backend_workflow
+    - never_position_AI_as_HVAC_technician
+  preferred_next_step: strategy_call_or_measurement_review
