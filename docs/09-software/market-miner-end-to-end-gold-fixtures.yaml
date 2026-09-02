@@ -1,0 +1,350 @@
+fixture_set: yad_market_miner_end_to_end_gold_v1
+version: 1.0.0
+purpose: Synthetic end-to-end fixtures from discovery observations through Account, Evidence, Module 4C score, strategy and Call Pack assertions.
+
+fixtures:
+  - fixture_id: hvac_google_lsa_emergency_multiloc
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations:
+        - provider: fake_serp
+          result_type: google_search_ad
+          query: emergency AC repair
+          query_family: urgent_service
+          geography: Jacksonville FL
+          observed_at: "2026-09-02T09:00:00-04:00"
+          advertiser_name: Sunshine Comfort Air
+          landing_domain: sunshinecomfort.example
+          advertised_service: Emergency AC Repair
+        - provider: fake_serp
+          result_type: google_local_services_ad
+          query: AC repair
+          query_family: urgent_service
+          geography: Jacksonville FL
+          observed_at: "2026-09-02T09:05:00-04:00"
+          advertiser_name: Sunshine Comfort Air
+          landing_domain: sunshinecomfort.example
+    website:
+      canonical_domain: sunshinecomfort.example
+      verified_phone: "+19045550101"
+      services: [ac_repair, ac_replacement, heat_pump]
+      emergency_24_7: true
+      quote_cta: true
+      physical_locations:
+        - Jacksonville FL
+        - St Augustine FL
+      service_territories: [Jacksonville, St Augustine, Ponte Vedra]
+      financing_promoted: true
+      careers:
+        - csr
+      technology_signals:
+        - provider: ServiceTitan
+          signal_type: booking_widget
+          confidence: confirmed
+        - provider: CallRail
+          signal_type: call_tracking
+          confidence: confirmed
+    expected_identity:
+      accounts: 1
+      locations: 2
+      phones: 1
+    expected_evidence:
+      active_google_search_ad: yes
+      google_local_services_ad: yes
+      emergency_24_7_service: yes
+      high_value_service_promoted: ac_replacement
+      multiple_physical_locations: 2
+      visible_growth_hiring: yes
+      strong_phone_dependence: yes
+      prominent_lead_capture_cta: yes
+      crm_frontend_signal:
+        provider: ServiceTitan
+        backend_workflow: unknown
+    score_inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: true
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: true
+      visible_growth_hiring: true
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected_score:
+      total: 14
+      tier: A
+    expected_strategy:
+      primary_hypothesis: paid_after_hours_call_handling
+      acceptable_solution_categories: [ai_phone_handling, workflow_automation, lead_response_automation]
+      primary_hook_must_reference_any: [Emergency AC Repair, paid calls, advertising]
+      primary_hook_must_not_claim: [missed_call_rate, ad_spend, bad_servicetitan_configuration]
+    expected_call_pack:
+      current_ad_hook_allowed: true
+      max_top_confirmed_facts: 5
+      system_signal_language: signal_only
+
+  - fixture_id: hvac_google_meta_replacement
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations:
+        - provider: fake_serp
+          result_type: google_search_ad
+          query: AC replacement
+          query_family: replacement
+          geography: Jacksonville FL
+          observed_at: "2026-09-02T13:00:00-04:00"
+          advertiser_name: First Coast Heating
+          landing_domain: firstcoastheat.example
+          advertised_service: AC Replacement
+        - provider: fake_meta
+          result_type: meta_active_ad
+          observed_at: "2026-09-02T13:10:00-04:00"
+          advertiser_name: First Coast Heating
+          landing_domain: firstcoastheat.example
+          advertised_service: AC Replacement Financing
+    website:
+      canonical_domain: firstcoastheat.example
+      verified_phone: "+19045550102"
+      services: [ac_repair, ac_replacement]
+      emergency_24_7: false
+      quote_cta: true
+      physical_locations: [Jacksonville FL]
+      financing_promoted: true
+    score_inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: true
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected_score:
+      multi_channel_bonus: true
+      total: 15
+      tier: A
+    expected_strategy:
+      primary_hypothesis: unsold_replacement_estimates
+      backup_hypothesis: speed_to_lead_or_attribution
+      forbidden_claims: [monthly_google_spend, monthly_meta_spend, poor_follow_up]
+
+  - fixture_id: plumbing_google_emergency
+    vertical_profile: plumbing-us-v1
+    market: St Augustine FL
+    discovery:
+      paid_observations:
+        - provider: fake_serp
+          result_type: google_search_ad
+          query: emergency plumber
+          query_family: urgent_service
+          geography: St Augustine FL
+          observed_at: "2026-09-02T19:00:00-04:00"
+          advertiser_name: Ancient City Plumbing
+          landing_domain: ancientcityplumbing.example
+          advertised_service: 24 Hour Emergency Plumber
+    website:
+      canonical_domain: ancientcityplumbing.example
+      verified_phone: "+19045550103"
+      services: [emergency_plumbing, drain_cleaning, water_heater, repipe]
+      emergency_24_7: true
+      quote_cta: true
+      physical_locations: [St Augustine FL]
+      technology_signals:
+        - provider: Housecall Pro
+          signal_type: booking_widget
+          confidence: likely
+    score_inputs:
+      google_paid_search_confirmed: true
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: true
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected_score:
+      total: 12
+      tier: A
+    expected_strategy:
+      primary_hypothesis: paid_urgent_call_handling
+      forbidden_claims: [housecall_pro_is_crm_system_of_record, missed_call_loss]
+
+  - fixture_id: hvac_non_advertiser_multiloc_growth
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations: []
+      google_searches_sampled: 3
+    website:
+      canonical_domain: growingair.example
+      verified_phone: "+19045550104"
+      services: [ac_repair, ac_replacement]
+      emergency_24_7: false
+      quote_cta: true
+      physical_locations: [Jacksonville FL, Orange Park FL]
+      careers: [csr, technician]
+    expected_evidence:
+      active_google_search_ad: unknown
+      active_meta_ad: unknown
+    score_inputs:
+      google_paid_search_confirmed: false
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: true
+      visible_growth_hiring: true
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected_score:
+      total: 9
+      tier: A
+    expected_strategy:
+      ad_specific_hook_allowed: false
+      acceptable_primary_hypotheses: [employee_capacity, routing_consistency, unsold_replacement_estimates]
+
+  - fixture_id: hvac_pixel_trap
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations: []
+    website:
+      canonical_domain: pixelairexample.example
+      verified_phone: "+19045550105"
+      services: [ac_repair, ac_replacement]
+      quote_cta: true
+      technology_signals:
+        - provider: Meta
+          signal_type: pixel
+          confidence: confirmed
+        - provider: Google Ads
+          signal_type: conversion_tag
+          confidence: confirmed
+    expected_evidence:
+      meta_pixel_signal: yes
+      google_ads_tag_signal: yes
+      active_meta_ad: unknown
+      active_google_search_ad: unknown
+    score_inputs:
+      google_paid_search_confirmed: false
+      meta_active_ads_confirmed: false
+      high_value_economics_signal: true
+      operationally_important_lead_volume_signal: true
+      emergency_after_hours: false
+      appointment_estimate_consultation_intake_heavy: true
+      multiple_locations_or_service_territories: false
+      visible_growth_hiring: false
+      strong_phone_dependence: true
+      prominent_forms_booking_quote_consultation_cta: true
+    expected_score:
+      total: 7
+      tier: B
+    expected_strategy:
+      ad_specific_hook_allowed: false
+      forbidden_claims: [currently_running_google_ads, currently_running_meta_ads]
+
+  - fixture_id: hvac_repeated_observations_dedupe
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations:
+        - {provider: fake_serp, query: AC repair, geography: Jacksonville FL, advertiser_name: Repeat Air, landing_domain: repeatair.example, observed_at: "2026-09-02T09:00:00-04:00"}
+        - {provider: fake_serp, query: emergency AC repair, geography: Jacksonville FL, advertiser_name: Repeat Air LLC, landing_domain: repeatair.example, observed_at: "2026-09-02T09:02:00-04:00"}
+        - {provider: fake_serp, query: AC replacement, geography: "32256", advertiser_name: Repeat Air, landing_domain: repeatair.example, observed_at: "2026-09-02T09:05:00-04:00"}
+    website:
+      canonical_domain: repeatair.example
+      verified_phone: "+19045550106"
+      physical_locations: [Jacksonville FL]
+    expected_identity:
+      accounts: 1
+      search_observations: 3
+    expected_ad_scoring:
+      google_points: 4
+      not: 12
+    expected_advertiser_strength:
+      distinct_query_families_greater_than_one: true
+
+  - fixture_id: hvac_stale_ad_refresh_required
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations:
+        - provider: fake_serp
+          query: emergency AC repair
+          geography: Jacksonville FL
+          advertiser_name: Old Ad Air
+          landing_domain: oldadair.example
+          observed_at: "2026-08-10T10:00:00-04:00"
+    as_of: "2026-09-02T10:00:00-04:00"
+    website:
+      canonical_domain: oldadair.example
+      verified_phone: "+19045550107"
+      emergency_24_7: true
+    expected_evidence:
+      historical_google_ad_preserved: true
+      current_google_ad_state: stale
+    expected_queue:
+      current_ad_specific_hook: refresh_required
+    forbidden_behavior:
+      - say_currently_advertising_without_refresh
+
+  - fixture_id: aggregator_identity_review
+    vertical_profile: plumbing-us-v1
+    market: Jacksonville FL
+    discovery:
+      paid_observations:
+        - provider: fake_serp
+          query: emergency plumber
+          geography: Jacksonville FL
+          advertiser_name: Best Local Plumbing Quotes
+          landing_domain: localplumbingleads.example
+          observed_at: "2026-09-02T10:00:00-04:00"
+    website:
+      canonical_domain: localplumbingleads.example
+      page_characteristics:
+        - lists_multiple_contractors
+        - generic_lead_form
+        - generic_tracking_phone
+    expected_classification:
+      entity_type: lead_generator_or_aggregator
+      contractor_account_assignment: none
+      status: identity_review_required_or_excluded
+    expected_queue:
+      ready_human_assist: false
+      ready_autonomous: false
+
+  - fixture_id: strong_existing_system_no_sale_after_call
+    vertical_profile: hvac-us-v1
+    market: Jacksonville FL
+    pre_call:
+      confirmed_google_ad: true
+      tier: A
+      primary_hypothesis: paid_after_hours_call_handling
+      backup_hypothesis: unsold_replacement_estimates
+    prospect_statements:
+      - "We have live CSRs 24/7, overflow, and we review our 99 percent answer rate weekly."
+      - "All replacement estimates have a standardized ServiceTitan follow-up cadence owned by our sales manager."
+    expected_post_call:
+      primary_hypothesis_status: contradicted
+      backup_hypothesis_status: contradicted
+      disposition: spoke_no_pain_or_disqualified
+      meeting_required: false
+      crm_note_must_preserve_strong_existing_process: true
+      qa_should_reward_no_sale: true
+
+property_assertions:
+  - Every material Call Pack fact must trace to an EvidenceRecord.
+  - Repeated observations never create repeated canonical channel score points.
+  - Unknown ad status never renders as no_confirmed without appropriate evidence.
+  - Technology signals never become backend workflow facts.
+  - Stale current-ad evidence must be refreshed or omitted from current-tense hook.
+  - Aggregators are not silently assigned to local contractors.
+  - A no-sale outcome can be correct even for a pre-call Tier A prospect.
