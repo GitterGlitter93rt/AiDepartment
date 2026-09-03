@@ -1,0 +1,577 @@
+schema_catalog_id: yad_outbound_sales_brain_domain_v1
+version: 1.0.0
+status: architecture_authority
+implementation_note: This is a domain contract, not a physical database schema. Claude Code maps it to TypeScript/SQL while preserving semantics, IDs, provenance, immutability and relations.
+
+common:
+  id_format: implementation_defined_stable_unique
+  timestamps: UTC_storage_with_explicit_business_timezone_where_relevant
+  provenance_required_for_facts: true
+  immutable_snapshot_objects:
+    - ScoreSnapshot
+    - CallPack
+    - QualificationSnapshot
+    - CommercialTruthSnapshot
+    - ProposalVersion
+    - ComplianceDecision
+    - KnowledgeSnapshot
+
+entities:
+  Account:
+    purpose: Canonical business/organization identity.
+    required:
+      - account_id
+      - canonical_name
+      - lifecycle_state
+      - created_at
+    fields:
+      account_id: id
+      canonical_name: string
+      legal_name: string_optional
+      dba_names: string_array
+      lifecycle_state: enum
+      parent_account_id: id_optional
+      franchise_relationship: enum_optional
+      existing_client: boolean
+      global_suppression_state: enum
+      created_at: timestamp
+      updated_at: timestamp
+    relations:
+      locations: Location[]
+      domains: Domain[]
+      phones: PhoneEndpoint[]
+      contacts: Contact[]
+      source_identities: SourceIdentity[]
+      vertical_assignments: VerticalAssignment[]
+
+  Location:
+    purpose: Physical/service/temporary/market location distinct from Account.
+    fields:
+      location_id: id
+      account_id: id
+      name: string_optional
+      location_type: enum
+      street: string_optional
+      city: string_optional
+      region: string_optional
+      postal_code: string_optional
+      country: string
+      latitude: number_optional
+      longitude: number_optional
+      timezone: string_optional
+      service_area: structured_optional
+      active_state: enum
+      source_evidence_ids: id_array
+
+  Domain:
+    purpose: Web property associated with Account/Location.
+    fields:
+      domain_id: id
+      account_id: id
+      location_id: id_optional
+      hostname: string
+      canonical_url: string_optional
+      role: enum_primary_secondary_landing_microsite_other
+      verification_status: enum
+      first_observed_at: timestamp
+      last_verified_at: timestamp_optional
+
+  PhoneEndpoint:
+    purpose: Business/contact telephone endpoint with contact-policy metadata.
+    fields:
+      phone_id: id
+      account_id: id
+      contact_id: id_optional
+      location_id: id_optional
+      e164: string
+      source: string
+      line_type: enum_optional
+      line_type_verified_at: timestamp_optional
+      purpose: enum_main_sales_service_personal_unknown
+      contact_policy_state: enum
+      suppression_state: enum
+      last_verified_at: timestamp_optional
+
+  Contact:
+    purpose: Person/role associated with Account.
+    fields:
+      contact_id: id
+      account_id: id
+      name: string_optional
+      raw_title: string_optional
+      normalized_role: enum_optional
+      location_scope: id_optional
+      email: string_optional
+      phone_ids: id_array
+      language_preference: string_optional
+      currentness: enum
+      source_confidence: enum
+      source_ids: id_array
+      individual_suppression_state: enum
+      last_verified_at: timestamp_optional
+
+  SourceIdentity:
+    purpose: Provider/source-native identity observation without replacing canonical Account.
+    fields:
+      source_identity_id: id
+      account_id: id_optional
+      provider: string
+      provider_native_id: string_optional
+      observed_name: string_optional
+      observed_domain: string_optional
+      observed_phone: string_optional
+      observed_address: string_optional
+      source_reference: string_optional
+      retention_class: enum
+      observed_at: timestamp
+
+  VerticalAssignment:
+    purpose: Evidence-backed mapping of Account to one or more business-context profiles.
+    fields:
+      assignment_id: id
+      account_id: id
+      profile_id: string
+      profile_version: string
+      role: enum_primary_secondary_campaign_context
+      confidence: enum_confirmed_likely_review_required
+      evidence_ids: id_array
+      reasons: string_array
+      assigned_at: timestamp
+      superseded_at: timestamp_optional
+
+  SearchTask:
+    purpose: One planned external market-search observation.
+    fields:
+      search_task_id: id
+      mining_job_id: id
+      provider: string
+      query_family: string
+      rendered_query: string
+      search_cell_id: id
+      market_id: id
+      device: enum
+      language: string
+      priority: number
+      reason: string
+      estimated_cost: number_optional
+      status: enum
+      scheduled_at: timestamp_optional
+      completed_at: timestamp_optional
+
+  SearchObservation:
+    purpose: Provider-neutral result from a search task.
+    fields:
+      observation_id: id
+      search_task_id: id
+      result_type: enum
+      advertiser_name_observed: string_optional
+      display_url: string_optional
+      final_url: string_optional
+      phone: string_optional
+      offer_service_classification: string_optional
+      observed_at: timestamp
+      identity_resolution_status: enum
+      source_reference: string_optional
+      retention_class: enum
+
+  ResearchRun:
+    purpose: Versioned execution of research adapters for Account/context.
+    fields:
+      research_run_id: id
+      account_id: id
+      campaign_id: id_optional
+      reason: enum
+      started_at: timestamp
+      completed_at: timestamp_optional
+      adapters_run: string_array
+      adapter_failures: structured_array
+      research_completeness: enum
+      research_version: string
+      provider_cost: number
+
+  EvidenceRecord:
+    purpose: Atomic claim-safe fact/hypothesis source record.
+    fields:
+      evidence_id: id
+      account_id: id
+      location_id: id_optional
+      claim_key: string
+      category: string
+      value: structured
+      confidence: enum_confirmed_likely_unknown
+      lifecycle: enum_active_aging_stale_contradicted_superseded
+      source_type: string
+      source_reference: string_optional
+      observed_at: timestamp
+      expires_at: timestamp_optional
+      can_state_as_fact: boolean
+      safe_wording_class: string_optional
+      contradicted_by_ids: id_array
+      supersedes_ids: id_array
+      research_run_id: id_optional
+
+  ScoreSnapshot:
+    purpose: Immutable canonical Module 4C fit score.
+    fields:
+      score_snapshot_id: id
+      account_id: id
+      campaign_id: id_optional
+      profile_id: string
+      scoring_version: string
+      component_points: map
+      total_score: integer
+      tier: enum_A_B_C_D
+      evidence_ids_by_component: map
+      created_at: timestamp
+
+  AdvertiserStrengthSnapshot:
+    purpose: Separate evidence-strength ranking for current paid acquisition.
+    fields:
+      advertiser_strength_id: id
+      account_id: id
+      platform: enum
+      strength_label: enum
+      features: map
+      evidence_ids: id_array
+      created_at: timestamp
+      expires_at: timestamp_optional
+
+  OpportunityHypothesis:
+    purpose: Ranked question-worthy business problem hypothesis, not confirmed pain.
+    fields:
+      hypothesis_id: id
+      account_id: id
+      campaign_id: id
+      profile_id: string
+      category: string
+      title: string
+      support_evidence_ids: id_array
+      contradictory_evidence_ids: id_array
+      missing_fact_keys: string_array
+      discovery_questions: string_array
+      strength: enum_STRONG_GOOD_TENTATIVE_GENERIC_ONLY_CONTRADICTED_NOT_APPLICABLE
+      primary_hook_template: string
+      backup_hook_templates: string_array
+      must_not_claim: string_array
+      generated_at: timestamp
+      strategy_version: string
+
+  ContactTarget:
+    purpose: Problem-owner contact routing decision.
+    fields:
+      contact_target_id: id
+      account_id: id
+      contact_id: id_optional
+      role_category: enum
+      source_confidence: enum
+      currentness: enum
+      campaign_relevance: string
+      reason_for_targeting: string
+      evidence_ids: id_array
+      fallback_roles: enum_array
+      selected_at: timestamp
+
+  CallPack:
+    purpose: Immutable compact prospect-specific context for human/voice conversation.
+    fields:
+      call_pack_id: id
+      account_id: id
+      campaign_id: id
+      profile_id: string
+      score_snapshot_id: id
+      commercial_truth_snapshot_id: string
+      knowledge_snapshot_id: id_optional
+      relationship_brief_id: id_optional
+      confirmed_facts: structured_array
+      primary_hypothesis_id: id
+      backup_hypothesis_ids: id_array
+      target_contact_id: id_optional
+      target_role: enum
+      opener: string
+      discovery_questions: string_array
+      objection_guidance_ids: string_array
+      prohibited_claims: string_array
+      available_actions: string_array
+      generated_at: timestamp
+      expires_at: timestamp_optional
+
+  Campaign:
+    purpose: Controlled prospecting/mining/outreach configuration.
+    fields:
+      campaign_id: id
+      name: string
+      vertical_profile_id: string
+      geography_policy: structured
+      mining_mode: enum
+      operating_mode: enum
+      minimum_tier: enum
+      inventory_low_water: integer_optional
+      inventory_high_water: integer_optional
+      provider_budget: number_optional
+      approved_query_families: string_array
+      contact_policy_version: string_optional
+      status: enum
+
+  AccountLease:
+    purpose: Prevent duplicate simultaneous human/automated outreach.
+    fields:
+      lease_id: id
+      account_id: id
+      owner_user_or_worker: string
+      purpose: enum
+      acquired_at: timestamp
+      expires_at: timestamp
+      released_at: timestamp_optional
+
+  CommunicationEvent:
+    purpose: Unified relationship event across channels.
+    fields:
+      communication_event_id: id
+      account_id: id
+      contact_id: id_optional
+      channel: enum
+      direction: enum
+      intent: enum
+      campaign_id: id_optional
+      owner: string_optional
+      occurred_at: timestamp
+      outcome: string_optional
+      provider_reference: string_optional
+      content_version: string_optional
+      suppression_impact: string_optional
+      next_action: string_optional
+
+  ProspectStatement:
+    purpose: Structured fact/estimate/correction provided by prospect/gatekeeper/rep.
+    fields:
+      statement_id: id
+      account_id: id
+      contact_id: id_optional
+      source_event_id: id
+      normalized_claim_key: string
+      value: structured
+      source_class: enum_prospect_verified_prospect_estimate_gatekeeper_rep_observation
+      extraction_confidence: number_optional
+      observed_at: timestamp
+      quote_anchor: string_optional
+      contradicts_evidence_ids: id_array
+      supersedes_statement_ids: id_array
+      sensitivity: enum
+
+  RelationshipBrief:
+    purpose: Compact structured memory for current interaction.
+    fields:
+      relationship_brief_id: id
+      account_id: id
+      relationship_state: enum
+      current_owner: string_optional
+      last_meaningful_contact: timestamp_optional
+      key_current_statements: structured_array
+      systems: structured_array
+      prior_objections: string_array
+      promises_pending: id_array
+      callback_or_meeting: structured_optional
+      suppression_state: enum
+      generated_at: timestamp
+
+  QualificationSnapshot:
+    purpose: Immutable progressive business-opportunity qualification state.
+    fields:
+      qualification_snapshot_id: id
+      opportunity_id: id_optional
+      account_id: id
+      stage: enum
+      primary_problem: string_optional
+      leak_tags: enum_array
+      workflow_summary: structured_optional
+      confirmed_constraint: string_optional
+      volume_values: structured_array
+      economic_inputs: structured_array
+      desired_state: string_optional
+      priority: enum_optional
+      process_owner: string_optional
+      stakeholders: structured_array
+      systems: structured_array
+      measurement_quality: enum
+      technical_review_flags: string_array
+      missing_discovery_fields: string_array
+      next_step: string_optional
+      source_event_id: id_optional
+      created_at: timestamp
+
+  Opportunity:
+    purpose: One legitimate business problem/commercial opportunity for Account.
+    fields:
+      opportunity_id: id
+      account_id: id
+      vertical_profile_id: string
+      state: enum
+      primary_problem: string
+      owner: string_optional
+      qualification_snapshot_id: id_optional
+      created_at: timestamp
+      closed_at: timestamp_optional
+      closed_reason: string_optional
+
+  ReviewItem:
+    purpose: Human decision queue for ambiguity/high-impact approval.
+    fields:
+      review_id: id
+      category: enum
+      priority: enum
+      account_id: id_optional
+      opportunity_id: id_optional
+      triggering_event: string
+      question: string
+      relevant_record_ids: id_array
+      state: enum
+      assigned_role: enum
+      assigned_user: string_optional
+      decision: structured_optional
+      created_at: timestamp
+      decided_at: timestamp_optional
+
+  PromiseRecord:
+    purpose: Material commitment made or proposed by YAD.
+    fields:
+      promise_id: id
+      account_id: id
+      opportunity_id: id_optional
+      promise_type: string
+      normalized_commitment: string
+      source_event_id: id
+      authority_rule_id: string
+      authority_status: enum
+      verification_status: enum
+      approval_reference: string_optional
+      owner: string_optional
+      due_at: timestamp_optional
+      resolved_at: timestamp_optional
+
+  ScopeRecommendation:
+    purpose: Structured recommendation for appropriate commercial next step and scope certainty.
+    fields:
+      scope_recommendation_id: id
+      opportunity_id: id
+      certainty_level: integer
+      recommended_offer_family: string_optional
+      proposal_ready: boolean
+      blockers: string_array
+      scope_items: structured_array
+      phases: structured_array
+      pilot_recommended: boolean
+      client_responsibilities: structured_array
+      third_party_costs: structured_array
+      human_review_points: structured_array
+      success_metrics: structured_array
+      assumptions: structured_array
+      exclusions: structured_array
+      created_at: timestamp
+
+  ProposalReadinessReport:
+    purpose: Deterministic gate before client proposal.
+    fields:
+      proposal_readiness_id: id
+      opportunity_id: id
+      result: enum
+      checks: structured_array
+      blockers: string_array
+      assumptions: structured_array
+      unresolved_questions: string_array
+      commercial_approval_status: enum
+      generated_at: timestamp
+
+  ProposalVersion:
+    purpose: Immutable client-facing proposal source version.
+    fields:
+      proposal_id: id
+      opportunity_id: id
+      version_number: integer
+      readiness_report_id: id
+      scope_recommendation_id: id
+      commercial_truth_snapshot_id: string
+      sections: structured_array
+      investment: structured
+      third_party_costs: structured_array
+      assumptions: structured_array
+      exclusions: structured_array
+      client_responsibilities: structured_array
+      approval_status: enum
+      client_exposed_at: timestamp_optional
+      supersedes_proposal_id: id_optional
+
+  DeliveryHandoffPackage:
+    purpose: Sold-scope transfer from sales to implementation.
+    fields:
+      handoff_id: id
+      opportunity_id: id
+      proposal_id: id
+      client_account_id: id
+      sponsor: structured_optional
+      operational_owner: structured_optional
+      technical_owner: structured_optional
+      primary_problem: string
+      current_state: structured
+      future_state: structured
+      scope_items: structured_array
+      deliverables: structured_array
+      exclusions: structured_array
+      assumptions: structured_array
+      client_responsibilities: structured_array
+      integrations: structured_array
+      human_review_points: structured_array
+      baseline_metrics: structured_array
+      success_metrics: structured_array
+      promise_ids: id_array
+      open_questions: string_array
+      risks: structured_array
+      status: enum
+      delivery_owner: string_optional
+      created_at: timestamp
+
+  ClientOutcomeRecord:
+    purpose: Verified post-implementation metric/outcome evidence.
+    fields:
+      outcome_record_id: id
+      account_id: id
+      engagement_id: id
+      metric: string
+      baseline_value: structured_optional
+      baseline_source: enum
+      post_value: structured_optional
+      post_source: enum
+      measurement_window: structured
+      attribution_confidence: enum
+      confounding_factors: string_array
+      verified_by: string_optional
+      client_confirmed: boolean
+      public_case_study_eligible: boolean
+      approval_reference: string_optional
+
+  OptimizationProposal:
+    purpose: Human-reviewed learning recommendation, not self-modifying production behavior.
+    fields:
+      optimization_proposal_id: id
+      type: enum
+      target: string
+      current_behavior: structured
+      proposed_behavior: structured
+      evidence_summary: structured
+      sample_size: integer
+      uncertainty: structured
+      risks: string_array
+      status: enum
+      reviewer: string_optional
+      deployed_version: string_optional
+
+relations_and_invariants:
+  - One Account may have many SourceIdentities, SearchObservations, Locations, Contacts and VerticalAssignments.
+  - One Account may have multiple Opportunities over time.
+  - Multiple vertical campaigns never create duplicate Account relationship history.
+  - ScoreSnapshot is canonical Module 4C only; advertiser strength/research/contact quality remain separate.
+  - Public Evidence and ProspectStatements are separate sources and are not silently overwritten.
+  - CallPack references immutable versioned context.
+  - Proposal requires ProposalReadinessReport.
+  - Closed-won engagement requires DeliveryHandoffPackage before normal implementation start.
+  - DNC/suppression is checked outside and above LLM behavior.
+  - Existing customer rediscovery never becomes cold prospect queue without explicit account process.
