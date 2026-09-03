@@ -18,6 +18,7 @@
 // clarifying question. The caller never hears a menu, never hears the
 // word "industry", and never hears anything about classification.
 
+import { decisiveServiceIntent } from './service-intent.ts';
 import type { Industry, RouteDecision, Urgency } from './types.ts';
 import type { ClaudeClient } from '../claude/client.ts';
 import { RULES, EMERGENCY_MARKERS } from './router-rules.ts';
@@ -187,7 +188,7 @@ const EXPLICIT_SWITCH = [
 
 export interface ScenarioChange {
   changed: boolean;
-  reason: 'explicit' | 'new-scenario' | null;
+  reason: 'explicit' | 'new-scenario' | 'service-request' | null;
   decision: RouteDecision | null;
 }
 
@@ -200,11 +201,38 @@ export interface ScenarioChange {
  * explicitly to try something else, or stand on its own as a clear,
  * high-confidence scenario in a different industry.
  */
+/**
+ * A stated service request beats any score.
+ *
+ * The live failure: a call routed to a personal injury firm, the
+ * caller said "I need a tow", that scored 0.78 against a switch
+ * threshold of 0.85, so nothing moved and the law firm persona told
+ * them they had rung the wrong number. A caller naming the service
+ * they want is not a scoring signal to be weighed — it is the answer.
+ */
+function serviceOverride(utterance: string, currentIndustry: Industry | null): ScenarioChange | null {
+  const signal = decisiveServiceIntent(utterance);
+  if (!signal || signal.industry === currentIndustry) return null;
+
+  const fresh = classifyHeuristic(utterance);
+  // Prefer the full classification when it agrees, so the intent and
+  // urgency come with it; otherwise switch on the service alone.
+  const decision = fresh.industry === signal.industry
+    ? stripInternals(fresh)
+    : { industry: signal.industry, specialty: null, intent: null, urgency: 'normal' as const, confidence: 0.9, source: 'heuristic' as const };
+  return { changed: true, reason: 'service-request', decision };
+}
+
 export function detectScenarioChange(
   utterance: string,
   currentIndustry: Industry | null,
   switchThreshold = 0.85,
 ): ScenarioChange {
+  // Checked before anything else: it is the caller telling us which
+  // business they want, in words.
+  const override = serviceOverride(utterance, currentIndustry);
+  if (override) return override;
+
   const explicit = EXPLICIT_SWITCH.some((re) => re.test(utterance));
   const fresh = classifyHeuristic(utterance);
   const differentIndustry = fresh.industry !== null && fresh.industry !== currentIndustry;

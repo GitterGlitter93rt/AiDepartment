@@ -116,7 +116,8 @@ export const UNIVERSAL_KNOWLEDGE: KnowledgeEntry[] = [
     source: 'needs_more_info',
     guidance:
       'Find out what they actually need before answering. If it is clearly outside this trade, say so simply and, if you can, name the kind of business that does handle it — ' +
-      'do not recommend a specific company you cannot vouch for. If it is arguably adjacent, do not rule it out; take the details and let a person decide.',
+      'do not recommend a specific company you cannot vouch for. If it is arguably adjacent, do not rule it out; take the details and let a person decide. ' +
+      'NEVER tell anyone they have called the wrong number on this line without being certain, and never on the demo line at all — see the demo host section if it is present.',
   },
 
   // ---------- pricing, the universal version ----------

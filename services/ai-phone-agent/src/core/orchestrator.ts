@@ -13,7 +13,11 @@ import type { ClaudeClient } from '../claude/client.ts';
 import type { Logger } from '../logger.ts';
 import type { Session } from './types.ts';
 import type { SessionStore } from './session.ts';
-import { route, detectScenarioChange } from './router.ts';
+import { route, detectScenarioChange, classifyHeuristic } from './router.ts';
+import {
+  decisiveServiceIntent, isMixedServiceIntent, isBareAccidentMention,
+  SERVICE_CLARIFIER, BARE_ACCIDENT_CLARIFIER,
+} from './service-intent.ts';
 import { selectSpecialist } from '../industries/index.ts';
 import { CORE_AGENT_RULES } from '../prompts/core-agent.ts';
 import {
@@ -60,6 +64,16 @@ export const MAX_SPEECH_CHARS = 340;
  * the conversation is anywhere near it.
  */
 export const MAX_GOALS_SHOWN = 6;
+
+/**
+ * The bar an industry must clear when the only evidence is vocabulary
+ * two industries share.
+ *
+ * A crash is described identically by someone who wants a tow and
+ * someone who wants a lawyer. Committing on a middling score is how a
+ * caller ends up hearing "you have reached a law firm".
+ */
+export const SHARED_VOCABULARY_THRESHOLD = 0.85;
 
 /**
  * Has the caller asked how long the repair will take?
@@ -393,7 +407,54 @@ export class Orchestrator {
     // classification back to attorneys.
     const since = session.turns.filter((t) => t.role === 'caller').slice(-(session.clarifyAttempts + 1));
     const context = since.map((t) => t.text).join(' ');
+    // A stated service request settles the industry before anything is
+    // scored. Accident words are shared vocabulary — "rear-ended"
+    // belongs to a body shop and a law firm equally — and the thing
+    // that separates them is what the caller is asking us to DO.
+    const service = decisiveServiceIntent(utterance);
+
+    // Naming both services is genuinely ambiguous however it scores —
+    // they told us two things and we would be picking one at random.
+    if (!service && isMixedServiceIntent(utterance) && session.clarifyAttempts < maxClarifyAttempts) {
+      session.clarifyAttempts += 1;
+      log.log('router.clarify', { callSid: session.callSid, attempt: session.clarifyAttempts, reason: 'mixed-service' });
+      return SERVICE_CLARIFIER;
+    }
+
     const decision = await route(context || utterance, { claude, threshold: confidenceThreshold });
+
+    // Routing reads the last few caller turns together, which is right
+    // for working out the industry and wrong for the intent: after a
+    // clarifying question the older turns dilute what they just asked
+    // for, and "the car first, I need a tow" came back as a general
+    // estimate. When the current sentence alone agrees on the industry
+    // and is more specific, it wins.
+    if (context && context !== utterance) {
+      const now = classifyHeuristic(utterance);
+      if (now.industry === decision.industry && now.intent && now.intent !== decision.intent) {
+        decision.intent = now.intent;
+        decision.urgency = now.urgency;
+      }
+    }
+
+    // The classifier may still have landed on the other industry — a
+    // sentence full of crash words scores that way. The service the
+    // caller named wins.
+    if (service && decision.industry !== service.industry) {
+      log.log('router.decision', {
+        callSid: session.callSid, overridden: true,
+        from: decision.industry, to: service.industry, matched: service.matched,
+      });
+      // The intent has to go with it. Leaving the old one behind gives
+      // a collision route an attorneys intent — which is how a tow
+      // request ended up answered with "is the car still drivable?".
+      const asService = classifyHeuristic(utterance);
+      decision.industry = service.industry;
+      decision.specialty = null;
+      decision.intent = asService.industry === service.industry ? asService.intent : null;
+      decision.urgency = asService.industry === service.industry ? asService.urgency : 'normal';
+      decision.confidence = Math.max(decision.confidence, 0.9);
+    }
 
     log.log('router.decision', {
       callSid: session.callSid,
@@ -405,11 +466,31 @@ export class Orchestrator {
       source: decision.source,
     });
 
-    const confident = decision.industry !== null && decision.confidence >= confidenceThreshold;
+    // Accident words are shared vocabulary, so a merely-passable score
+    // on them is not enough to commit an industry. "I was rear-ended"
+    // scoring 0.78 for a law firm is precisely the case that put a tow
+    // caller through to one.
+    //
+    // Only where the spec demands it: accident vocabulary alone is not
+    // enough to commit to a LAW FIRM. Routing the same words to the
+    // body shop needs no extra bar — a caller who wanted a lawyer can
+    // say so and be moved, whereas the reverse is the failure this
+    // exists to stop, and someone describing a scene on a bridge must
+    // not be handed a menu.
+    const bareAccident = !service && isBareAccidentMention(utterance);
+    const unevidencedLegal = bareAccident && decision.industry === 'attorneys';
+    const bar = unevidencedLegal ? Math.max(confidenceThreshold, SHARED_VOCABULARY_THRESHOLD) : confidenceThreshold;
+    const confident = decision.industry !== null && decision.confidence >= bar;
     if (!confident && session.clarifyAttempts < maxClarifyAttempts) {
       session.clarifyAttempts += 1;
-      const question = decision.clarifyingQuestion ??
-        "Can you tell me a bit more about what you need help with?";
+      // Crash words with no service attached and no confident route.
+      // "I was rear-ended" says something happened and nothing about
+      // what they want; picking an industry from it is what put a tow
+      // caller through to a law firm. A confident route is left alone
+      // — someone describing a scene on a bridge does not want a menu.
+      const question = bareAccident
+        ? BARE_ACCIDENT_CLARIFIER
+        : decision.clarifyingQuestion ?? "Can you tell me a bit more about what you need help with?";
       log.log('router.clarify', { callSid: session.callSid, attempt: session.clarifyAttempts });
       return question;
     }
