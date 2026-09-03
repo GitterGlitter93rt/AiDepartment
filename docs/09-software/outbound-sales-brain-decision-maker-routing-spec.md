@@ -1,7 +1,8 @@
 # Your AI Department — Decision-Maker Routing & Contact Strategy
 
 **Status:** Architecture authority  
-**Purpose:** Decide who YAD should contact inside a researched company, why that role owns the likely problem, how confidence is established, and what to do when no named decision-maker is found.  
+**Date:** 2026-09-03  
+**Purpose:** Decide who YAD should contact inside a researched company, why that role owns the likely problem, how currentness/confidence is established, and what to do when no named decision-maker or direct endpoint is found.  
 **Implementation owner:** Claude Code
 
 ---
@@ -10,16 +11,18 @@
 
 The correct contact is not always the owner.
 
-The system should route by **problem ownership**, not prestige.
+Route by **problem ownership**, not prestige.
 
 Examples:
 
 - missed-call/dispatch problem -> operations/office/GM may be better than owner;
-- paid marketing attribution -> marketing/owner/GM;
-- unsold roofing proposals -> sales manager/owner/GM;
-- collision estimate workflow -> GM/CSR manager/marketing depending problem;
-- law-firm intake -> intake director/COO/administrator/managing partner;
-- real-estate nurture -> team leader/ISA manager/operations/marketing.
+- paid marketing attribution -> marketing/operations/owner/GM;
+- unsold roofing proposals -> sales manager/GM/owner;
+- collision estimate workflow -> GM/CSR/operations depending problem;
+- law intake -> intake director/COO/administrator/managing partner;
+- real-estate nurture -> ISA/lead manager/team leader/operations.
+
+YAD must be able to route useful Accounts in `PUBLIC_ONLY` mode with no Apollo dependency.
 
 ---
 
@@ -30,28 +33,30 @@ Examples:
 - account_id
 - contact_id optional
 - role_category
-- observed_title
-- normalized_title
-- source
-- source_confidence
+- observed_title optional
+- normalized_title optional
+- company_relationship optional
+- source/evidence IDs
+- employer_match
+- role_match
+- currentness
 - problem_ownership_score
 - authority_score
 - accessibility_score
-- currentness_score
+- location_scope_match
 - campaign_relevance
 - preferred_contact_channel if approved
-- evidence_ids[]
 - reason_for_targeting
 - fallback_role_category
 - last_verified_at
 
-These internal routing scores do NOT modify Module 4C fit score.
+Internal routing values do NOT modify Module 4C fit score.
 
 ---
 
 # 3. ROLE CATEGORIES
 
-Canonical categories:
+Canonical categories include:
 
 - owner_founder
 - president_ceo
@@ -71,60 +76,58 @@ Canonical categories:
 - isa_leadership
 - market_manager
 - location_manager
-- other_relevant
+- other_relevant.
 
-Profiles map titles into these categories.
+Public-record relationships such as `registered_agent`, `license_holder`, and `qualifier` are evidence relationships and must not be silently normalized to operational sales roles.
 
 ---
 
 # 4. ROUTING BY HYPOTHESIS
 
-The primary opportunity hypothesis should produce a ranked role list.
-
 ## Paid-lead response / attribution
 
 Default:
 
-1. marketing
-2. operations / GM
-3. owner/president
-4. sales leadership
+1. marketing where current/relevant;
+2. operations / GM;
+3. owner/president;
+4. sales leadership.
 
-Small business fallback: owner/GM.
+Small-business fallback: owner/GM.
 
 ## Missed calls / after-hours
 
-1. operations / office manager
-2. GM
-3. customer service / dispatch leadership
-4. owner
+1. operations / office manager;
+2. GM;
+3. customer service / dispatch leadership;
+4. owner.
 
 ## Unsold estimates/proposals
 
-1. sales leadership
-2. GM/operations
-3. owner
+1. sales leadership;
+2. GM/operations;
+3. owner.
 
 ## CRM workflow
 
-1. operations
-2. sales leadership
-3. marketing
-4. owner/GM
+1. operations;
+2. sales leadership;
+3. marketing;
+4. owner/GM.
 
 ## Employee capacity / admin
 
-1. operations
-2. office/practice administrator
-3. GM
-4. owner
+1. operations;
+2. office/practice administrator;
+3. GM;
+4. owner.
 
 ## AI governance in law
 
-1. COO/operations
-2. managing partner
-3. IT/security leadership if present
-4. practice administrator
+1. COO/operations;
+2. managing partner;
+3. IT/security leadership if present;
+4. practice administrator.
 
 ---
 
@@ -132,14 +135,12 @@ Small business fallback: owner/GM.
 
 ## HVAC / Plumbing
 
-Possible priorities:
-
 - owner/president
 - GM
 - operations manager
 - office manager
 - dispatch/customer-service manager
-- marketing director
+- marketing director.
 
 ## Roofing
 
@@ -147,7 +148,7 @@ Possible priorities:
 - sales manager
 - GM
 - operations
-- marketing
+- marketing.
 
 ## Collision Repair
 
@@ -155,7 +156,7 @@ Possible priorities:
 - GM
 - multi-store operations
 - marketing
-- CSR/front-office manager where relevant
+- CSR/front-office manager where relevant.
 
 ## PDR/Hail
 
@@ -163,15 +164,15 @@ Possible priorities:
 - market manager
 - sales manager
 - operations
-- marketing
+- marketing.
 
 ## Law Firms
 
-- managing partner
+- intake director
 - COO
 - practice administrator
-- intake director
-- marketing director
+- managing partner
+- marketing director depending hypothesis.
 
 Do not default to an attorney merely because they are the most visible person if another role clearly owns intake operations.
 
@@ -181,22 +182,26 @@ Do not default to an attorney merely because they are the most visible person if
 - team leader
 - operations director
 - ISA manager
-- marketing director
+- marketing director.
 
 ---
 
-# 6. CONTACT SOURCES
+# 6. CURRENT SOURCE HIERARCHY — PUBLIC FIRST
 
-Preferred evidence hierarchy:
+Preferred evidence order for current routing:
 
-1. first-party team/leadership page;
-2. first-party contact/about/location page;
-3. licensed enrichment provider;
-4. public professional/business directory with suitable use rights;
-5. imported CRM/list data;
-6. receptionist/gatekeeper correction after contact.
+1. fresh prospect/gatekeeper correction;
+2. current first-party company team/leadership/contact evidence;
+3. approved public company/entity records where the relationship actually supports the claim;
+4. approved public licensing/professional records where relevant;
+5. approved public business/professional directory or business news evidence;
+6. optional licensed contact provider when campaign policy enables it;
+7. older imported/third-party records;
+8. AI inference only as a candidate requiring evidence.
 
-Do not let low-confidence third-party data overwrite a current first-party title silently.
+Do not let low-confidence third-party data overwrite a fresh first-party or prospect-confirmed role silently.
+
+Registered-agent evidence is not decision-maker evidence by default.
 
 ---
 
@@ -209,7 +214,7 @@ Examples:
 - `Office Administrator`, `Firm Administrator` -> practice_administrator/office_manager depending vertical
 - `BDC Manager` -> sales/customer-acquisition leadership
 - `CSR Manager` -> customer_service
-- `Market Sales Manager` -> sales_leadership / market_manager depending profile
+- `Market Sales Manager` -> sales_leadership / market_manager depending profile.
 
 Store raw title and normalized category.
 
@@ -217,14 +222,16 @@ Store raw title and normalized category.
 
 # 8. CONTACT CONFIDENCE
 
-Possible statuses:
+Keep dimensions explicit rather than a single opaque score.
+
+Possible currentness/employer states:
 
 - `CONFIRMED_CURRENT`
 - `LIKELY_CURRENT`
 - `STALE_POSSIBLE`
 - `ROLE_ONLY_NO_PERSON`
 - `CONFLICTED`
-- `UNKNOWN`
+- `UNKNOWN`.
 
 A named person from an old source should not automatically outrank a current role-only target.
 
@@ -232,19 +239,33 @@ A named person from an old source should not automatically outrank a current rol
 
 # 9. ROLE-ONLY CALLING
 
-If no named person is found, the Call Pack can still be useful.
+If no named person is found, the Call Pack remains useful.
 
 Example:
 
-> “I'm trying to figure out who oversees intake operations and marketing-to-client tracking.”
+> “I'm trying to figure out who oversees inbound lead handling and operations.”
 
-The gatekeeper branch should ask for the role naturally.
+The gatekeeper branch asks naturally for the role.
 
-The agent must not invent a name.
+The agent/rep must not invent a name.
+
+`ROLE_ROUTE_READY` is a valid contact-resolution state.
 
 ---
 
-# 10. GATEKEEPER LEARNING
+# 10. NAMED PERSON + MAIN-LINE ROUTE
+
+If a current named person exists but no direct number is found:
+
+> `Sarah Jones — Operations Manager; official company main line; ask for Sarah.`
+
+This is valid and should appear as such in the portal.
+
+Do not attach the main number to Sarah as a direct endpoint without explicit evidence.
+
+---
+
+# 11. GATEKEEPER LEARNING
 
 A gatekeeper may provide:
 
@@ -252,27 +273,30 @@ A gatekeeper may provide:
 - correct department
 - best callback time
 - person no longer employed
-- shared inbox/number
+- extension
+- shared/business email.
 
-These become `ProspectStatement` / contact corrections with provenance.
+These become structured prospect/contact corrections with provenance.
 
-The system should update routing for future attempts without erasing the original source history.
+Future routing should use the current correction while retaining older source history.
 
 ---
 
-# 11. CONTACT LEASING / OWNERSHIP
+# 12. ACCOUNT OWNERSHIP
 
-When a rep begins working an Account:
+When a rep claims/works an Account:
 
-- lease Account/contact to rep;
-- prevent simultaneous duplicate outreach;
+- ownership is account-wide unless manager rules say otherwise;
+- prevent simultaneous duplicate cold outreach;
 - preserve account-wide contact history across vertical campaigns;
-- route future callbacks to current owner when possible;
-- release/reassign lease according to manager policy.
+- route callbacks to the current relationship owner when possible;
+- release/reassign according to manager policy.
+
+A newly discovered alternative decision-maker does not create a new cold Account.
 
 ---
 
-# 12. MULTI-LOCATION COMPANIES
+# 13. MULTI-LOCATION COMPANIES
 
 Decision-maker may be:
 
@@ -285,115 +309,163 @@ Store scope:
 - account-wide
 - region
 - location
-- market
+- market.
 
-Do not call five location GMs about the same centralized marketing problem when corporate owns it.
+Do not call five local managers about the same centralized marketing problem when corporate owns it.
 
-Conversely, do not assume corporate controls a locally franchised operation.
+Do not assume corporate controls a local workflow without evidence.
 
 ---
 
-# 13. FRANCHISES
+# 14. FRANCHISES
 
-Required classification:
+Required distinctions:
 
 - franchisor corporate
 - franchisee business
 - branch/location
-- shared marketing center where known
+- shared marketing center where known.
 
-Contact routing must follow actual ownership/control evidence.
+Contact routing follows actual ownership/control evidence.
 
-Avoid implying the local owner controls corporate advertising or systems when that is unknown.
+Avoid implying local franchise leadership controls corporate advertising/systems when unknown.
 
 ---
 
-# 14. CONTACTABILITY IS NOT FIT
+# 15. CONTACTABILITY IS NOT FIT
 
-A Tier A company with no decision-maker email/phone remains Tier A.
+A Tier A company with no decision-maker direct phone/email remains Tier A.
 
-Contactability affects queue readiness and channel strategy, not business-fit score.
+Contactability affects readiness/channel strategy, not business fit.
 
-Separate fields:
+Separate:
 
 - YAD fit score
 - contact target quality
-- contact-channel readiness
-- compliance eligibility
+- endpoint quality
+- channel readiness
+- compliance eligibility.
 
 ---
 
-# 15. ROUTING SCORE
+# 16. ROUTING COMPARATOR
 
-A transparent contact routing comparator may consider:
+A transparent comparator may consider:
 
-1. hypothesis ownership
-2. title authority
-3. source confidence/currentness
-4. location/account scope match
-5. contactability
-6. prior conversation/gatekeeper confirmation
+1. opportunity-hypothesis ownership;
+2. current role/title evidence;
+3. authority;
+4. location/account scope match;
+5. evidence currentness;
+6. contactability;
+7. prior prospect/gatekeeper confirmation.
 
-Do not use one opaque LLM probability.
+Do not use one hidden LLM probability as final authority.
 
 ---
 
-# 16. DO-NOT-CONTACT PROPAGATION
+# 17. PUBLIC RECORD RELATIONSHIP GUARDS
+
+## Registered agent
+
+Never primary decision-maker solely from registered-agent relationship.
+
+## License holder / qualifier
+
+May support person-company relationship but does not automatically prove operational ownership.
+
+## Founder
+
+Founder may be historical/non-operational; current role evidence still matters.
+
+## Corporate officer
+
+Officer may be a valid authority fallback, but route to workflow owner where current evidence exists.
+
+---
+
+# 18. OPTIONAL PAID ENRICHMENT
+
+Paid enrichment is permitted only when policy/configuration enables it.
+
+Recommended modes:
+
+- `PUBLIC_ONLY` — default
+- `PUBLIC_THEN_PAID`
+- `PAID_ALLOWED_FOR_TIER_A`
+- `IMPORT_ONLY`.
+
+The portal/miner must operate normally if no Apollo/equivalent credentials exist.
+
+Do not make paid direct-contact fill a release dependency for Human Assist.
+
+---
+
+# 19. DO-NOT-CONTACT PROPAGATION
 
 If a contact requests DNC:
 
 - apply suppression according to policy scope;
-- do not bypass by calling another person at the company merely because a different role exists if policy/account suppression prohibits it.
+- do not bypass valid account/contact suppression simply by discovering another person.
 
-If request clearly applies only to the individual number/contact, policy engine determines whether other legitimate company contact is permissible.
-
-Sales model never decides this itself.
+Sales model never decides suppression scope by itself.
 
 ---
 
-# 17. FIRST CONTACT FALLBACKS
+# 20. FIRST CONTACT FALLBACKS
 
 If primary named contact unavailable:
 
-1. ask gatekeeper for role owner;
-2. create corrected target if provided;
-3. leave concise voicemail if campaign policy allows;
+1. ask gatekeeper for correct role/person;
+2. store corrected target if provided;
+3. leave approved concise voicemail if campaign policy allows;
 4. schedule requested callback;
 5. use approved alternate channel if permitted;
 6. avoid cycling through unrelated employees.
 
 ---
 
-# 18. CONTACT ENRICHMENT BUDGET
-
-Do not spend premium contact enrichment on every discovered candidate.
+# 21. CONTACT RESEARCH BUDGET
 
 Suggested cascade:
 
 - company qualifies/researches to plausible Tier B+;
-- then run decision-maker enrichment;
-- Tier A may receive deeper enrichment;
+- run public decision-maker resolution;
+- Tier A may receive deeper public research;
+- optional paid enrichment only if incremental direct-contact value justifies cost;
 - low-tier candidates remain company-level until promoted.
 
-Track cost per usable decision-maker.
+Track:
+
+- public named-target rate
+- role-route rate
+- direct-public endpoint rate
+- optional provider incremental lift
+- cost per decision-maker reached.
 
 ---
 
-# 19. ACCEPTANCE TESTS
+# 22. ACCEPTANCE TESTS
 
-1. HVAC 24/7 advertiser with operations director -> operations first.
-2. small plumbing owner-operated company -> owner first.
-3. roofing company with sales manager -> sales manager for proposal-follow-up hook.
-4. collision MSO with corporate marketing director and local GM -> marketing for attribution, local GM for front-office overflow.
-5. law firm with intake director -> intake director before random partner for intake issue.
-6. law firm with only managing partner known -> managing partner valid fallback.
-7. brokerage with ISA manager -> ISA manager for nurture/speed-to-lead.
-8. stale CEO name but current first-party GM -> current GM wins for operational hook.
-9. no person found -> role-only gatekeeper strategy, no invented name.
-10. same Account discovered in HVAC and Plumbing campaigns -> one contact history/lease.
+Use:
+
+`outbound-sales-brain-public-contact-resolution-fixtures.v1.yaml`
+
+At minimum:
+
+1. HVAC advertiser with current operations director -> operations first.
+2. Small owner-operated plumbing company -> owner valid.
+3. Roofing proposal hook -> sales manager before owner where current/relevant.
+4. Collision MSO -> role depends on local vs centralized hypothesis.
+5. Law intake director -> intake before random partner.
+6. No person -> role-only main-line route, no invented name.
+7. Stale CEO but current GM -> current GM wins for operational hook.
+8. Registered agent -> never automatic POC.
+9. Qualifier -> supporting relationship, not automatic workflow owner.
+10. Apollo unavailable -> Account still eligible for Human Assist if company route exists.
 
 ---
 
-# 20. CORE RULE
+# 23. CORE RULE
 
-Contact the person most likely to own the business process being investigated. Do not mistake hierarchy for relevance, and do not invent personal information to make a cold call sound more researched than it is.
+**Contact the current person or role most likely to own the business process being investigated. Public/first-party evidence is sufficient for routing; direct paid contact data is optional. Never mistake hierarchy, a filing relationship, or a clean-looking phone number for proof of relevance.**
