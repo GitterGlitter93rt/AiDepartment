@@ -1,0 +1,935 @@
+profile_id: law-firms-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Law Firms
+industry_aliases:
+  - law firm
+  - attorney office
+  - legal practice
+  - lawyers
+priority: 6
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-15-law-firms-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+  - docs/07-sales/training-manual/module-07-objection-handling.md
+source_manual_commit: main-current-at-profile-review
+
+practice_area_taxonomy:
+  supported_initial:
+    - personal_injury
+    - criminal_defense
+    - family_law
+    - employment
+    - immigration
+    - estate_planning
+    - business_law
+    - bankruptcy
+    - real_estate_law
+    - mass_tort_complex_litigation
+    - other_specialty
+  rule: Practice area materially changes economics, urgency, qualification, fee model and advertising behavior. Never transfer economic assumptions from one practice area to another.
+
+business_model:
+  revenue_categories:
+    - contingency_fee_matters
+    - hourly_matters
+    - flat_fee_matters
+    - retainer_or_other_fee_arrangements
+  lead_types:
+    - paid_search_inquiry
+    - local_services_inquiry
+    - organic_search_inquiry
+    - referral
+    - website_form
+    - inbound_call
+    - email_inquiry
+    - chat_inquiry
+    - meta_lead
+  customer_types:
+    - prospective_client
+    - existing_client
+    - referral_source
+  high_value_service_families:
+    - practice_area_dependent_retained_client
+    - contingency_case_where_applicable
+    - complex_or_high_value_matter_where_applicable
+  recurring_revenue_families:
+    - ongoing_business_client_relationships_where_applicable
+    - retainer_relationships_where_applicable
+  urgency_characteristics:
+    - arrest_or_criminal_matter
+    - injury_or_accident
+    - filing_or_deadline_sensitive_matter
+    - family_crisis
+    - time_sensitive_consultation
+  seasonality_characteristics:
+    - practice_area_dependent
+  phone_dependence: high
+  appointment_dependence: high
+  estimate_proposal_dependence: low
+  field_service_dependence: low
+
+search_taxonomy:
+  core_queries:
+    - query: lawyer
+      family: core
+      intent_weight: 3
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: law firm
+      family: core
+      intent_weight: 3
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: personal injury lawyer
+      family: personal_injury
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: criminal defense lawyer
+      family: criminal_defense
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: family lawyer
+      family: family_law
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: divorce lawyer
+      family: family_law
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: employment lawyer
+      family: employment
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: estate planning lawyer
+      family: estate_planning
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: immigration lawyer
+      family: immigration
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - criminal defense lawyer
+    - DUI lawyer
+    - personal injury lawyer
+    - accident lawyer
+  high_ticket_queries:
+    - practice_area_dependent
+  financing_queries: []
+  commercial_queries:
+    - business lawyer
+    - employment lawyer
+    - corporate law firm
+  service_aliases:
+    - attorney
+    - lawyer
+    - legal counsel
+    - law office
+  negative_terms:
+    - law school
+    - legal forms
+    - court records
+    - legal document templates
+    - lawyer directory only
+  classification_warning_terms:
+    - legal lead generation site
+    - referral directory
+    - government legal aid
+    - nonprofit legal service
+    - solo practice with no growth workflow
+
+classification_rules:
+  positive_business_categories:
+    - law_firm
+    - attorney_office
+    - legal_practice
+  negative_business_categories:
+    - lawyer_directory
+    - legal_forms_provider
+    - law_school
+    - court
+  website_keyword_positive:
+    - free consultation
+    - case evaluation
+    - schedule consultation
+    - call now
+    - attorneys
+    - practice areas
+    - client intake
+  website_keyword_negative:
+    - attorney directory
+    - legal forms only
+    - law school
+  required_any_of:
+    - legal_service_evidence
+    - attorney_practice_evidence
+  exclude_if_all:
+    - non_law_firm
+    - no_legal_client_service_evidence
+  manual_review_if:
+    - referral_directory_possible
+    - multi_firm_shared_brand
+    - practice_area_unclear
+    - legal_aid_or_nonprofit
+    - franchise_network_or_lead_generator
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Current legal paid search creates a reason to investigate intake response, qualification, consultation scheduling, follow-up and retained-client attribution.
+    possible_hypothesis_ids:
+      - after_hours_intake
+      - first_response_follow_up
+      - retained_client_attribution
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Meta lead generation can create form-driven potential-client inquiries requiring intake routing and follow-up.
+    possible_hypothesis_ids:
+      - first_response_follow_up
+      - intake_completion
+      - retained_client_attribution
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: consultation_cta
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Consultation forms and scheduling create an observable intake path.
+    possible_hypothesis_ids:
+      - first_response_follow_up
+      - consultation_no_show
+      - intake_completion
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: after_hours_language
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: 24/7 or immediate-response language makes after-hours intake process worth testing.
+    possible_hypothesis_ids:
+      - after_hours_intake
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: multiple_offices
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Multiple offices can increase intake routing, consistent follow-up and source reporting complexity.
+    possible_hypothesis_ids:
+      - intake_routing_consistency
+      - retained_client_attribution
+      - reporting_visibility
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: visible_intake_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Intake/admin hiring can indicate growth or capacity pressure worth investigating.
+    possible_hypothesis_ids:
+      - administrative_capacity
+      - first_response_follow_up
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: need
+    label: Legal need / problem
+    common_inputs:
+      - legal_issue
+      - referral
+      - event
+    common_outputs:
+      - search
+      - call
+      - referral_contact
+    handoff_risks: []
+    human_judgment_required: false
+  - stage_id: acquisition
+    label: Referral / Google / LSA / SEO / ad / social
+    common_inputs:
+      - google
+      - LSA
+      - referral
+      - SEO
+      - meta
+    common_outputs:
+      - call
+      - email
+      - form
+      - chat
+    handoff_risks:
+      - attribution_loss
+    human_judgment_required: false
+  - stage_id: acknowledgment_intake
+    label: Acknowledgment / intake
+    common_inputs:
+      - inquiry
+    common_outputs:
+      - intake_record
+      - follow_up_task
+      - consultation_candidate
+    handoff_risks:
+      - missed_call
+      - slow_response
+      - repeated_information
+      - no_record
+      - no_second_attempt
+    human_judgment_required: true
+  - stage_id: conflict_qualification
+    label: Conflict / eligibility / qualification processes
+    common_inputs:
+      - intake_record
+    common_outputs:
+      - consultation
+      - attorney_review
+      - not_qualified
+      - referred_out
+    handoff_risks:
+      - incomplete_intake
+      - improper_automation_authority
+    human_judgment_required: true
+  - stage_id: consultation
+    label: Consultation / attorney or qualified human review
+    common_inputs:
+      - qualified_or_reviewable_inquiry
+    common_outputs:
+      - retained
+      - not_retained
+      - future
+      - referred
+    handoff_risks:
+      - no_show
+      - weak_follow_up
+      - no_next_action
+    human_judgment_required: true
+  - stage_id: matter_client
+    label: Matter work / client communication
+    common_inputs:
+      - retained_client
+    common_outputs:
+      - client_service
+      - matter_outcome
+    handoff_risks:
+      - repetitive_admin
+      - document_workload
+      - knowledge_search_load
+    human_judgment_required: true
+  - stage_id: attribution
+    label: Retained-client / business outcome measurement
+    common_inputs:
+      - retained_client
+    common_outputs:
+      - source_reporting
+      - firm_value_metric
+    handoff_risks:
+      - source_to_retained_gap
+      - long_cycle_revenue_gap
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: after_hours_intake
+    category: after_hours
+    title: Qualified potential-client inquiries may not receive useful after-hours handling
+    description: After-hours callers may need prompt acknowledgment, basic approved intake and scheduling while legal judgment remains human.
+    trigger_signals:
+      - active_google_search_ads
+      - after_hours_language
+      - phone_heavy_site
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_after_hours_intake
+    public_fact_requirements:
+      - current_paid_ad_evidence_if_referenced
+    questions_to_verify:
+      - What happens to a potential client who calls after intake has closed?
+      - Can basic non-legal information be captured and routed without making legal judgments?
+    primary_hook_template: What happens to a potential client who reaches out after intake has closed or does not answer the first callback?
+    backup_hook_templates:
+      - How quickly are after-hours inquiries reviewed by intake?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - caller_is_a_good_case
+      - legal_qualification_by_ai
+      - known_client_value
+  - hypothesis_id: first_response_follow_up
+    category: speed_to_lead
+    title: Paid or web inquiries may lose momentum after the first contact attempt
+    description: Intake teams may benefit from consistent acknowledgment, defined statuses, additional attempts and next-action dates.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - consultation_cta
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_intake_follow_up
+    public_fact_requirements:
+      - current_paid_ad_evidence_if_referenced
+    questions_to_verify:
+      - How many contact attempts occur after the first missed connection?
+      - Can management see inquiries that have gone untouched for 24 hours?
+    primary_hook_template: I noticed the firm is advertising around [practice area]. What happens if intake does not connect with that inquiry on the first attempt?
+    backup_hook_templates:
+      - How quickly does a paid-search inquiry receive a real response?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - paid_inquiries_are_being_lost
+      - known_ad_spend
+  - hypothesis_id: consultation_no_show
+    category: appointment_no_show
+    title: Consultation no-shows and reschedules may lack a defined recovery workflow
+    description: Consultation capacity can be protected with reminders, easy rescheduling and appropriate human follow-up.
+    trigger_signals:
+      - consultation_cta
+      - online_scheduling
+    disqualifying_signals:
+      - prospect_confirms_high_show_rate_and_strong_recovery
+    public_fact_requirements: []
+    questions_to_verify:
+      - What percentage of scheduled consultations occur?
+      - What happens after a no-show or reschedule request?
+    primary_hook_template: What happens after a scheduled consultation no-shows or needs to reschedule?
+    backup_hook_templates:
+      - How are no-show consultations followed up?
+    offer_families:
+      - ai_implementation
+    roi_tool_ids:
+      - no_show_roi
+    must_not_claim:
+      - known_no_show_rate_without_firm_data
+  - hypothesis_id: retained_client_attribution
+    category: attribution
+    title: Marketing source may not tie through qualified and retained-client status
+    description: Legal acquisition should be measured beyond raw leads, with practice-area-appropriate value metrics and long-cycle caution.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - call_tracking_signal
+      - multiple_offices
+    disqualifying_signals:
+      - prospect_confirms_reliable_retained_client_attribution
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which campaigns produce retained clients rather than just inquiries?
+      - Can phone/form source be tied through consultation and retained-client status?
+    primary_hook_template: Can you trace your paid campaigns from the original inquiry through consultation and retained-client status?
+    backup_hook_templates:
+      - Do you know cost per retained client or mainly cost per lead?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - advertising_efficiency_roi
+    must_not_claim:
+      - case_value_is_known
+      - ad_campaign_is_unprofitable
+  - hypothesis_id: administrative_capacity
+    category: employee_capacity
+    title: Intake and administrative staff may be carrying repetitive non-legal work
+    description: Scheduling, reminders, intake summaries, CRM notes, document requests, internal search and reporting can consume time without requiring legal judgment.
+    trigger_signals:
+      - visible_intake_hiring
+      - multiple_offices
+      - high_intake_signal
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which repetitive administrative work consumes the most intake or paralegal time without requiring legal judgment?
+      - If your best intake employee got five hours back each week, where would you want that time spent?
+    primary_hook_template: What repetitive administrative work consumes the most intake time without requiring legal judgment?
+    backup_hook_templates:
+      - Where is information entered more than once during intake?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+    must_not_claim:
+      - attorneys_or_staff_should_be_replaced
+  - hypothesis_id: ai_governance
+    category: governance
+    title: Existing employee AI use may need approved tools, data rules and verification policy
+    description: Firms may already have staff using AI without a consistent policy, creating governance and confidentiality questions.
+    trigger_signals:
+      - explicit_ai_usage_signal
+      - ai_job_posting_signal
+      - prospect_mentions_ai_use
+    disqualifying_signals:
+      - mature_governance_program_confirmed
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which AI tools are employees currently using?
+      - What information can employees enter and what verification rules apply?
+    primary_hook_template: Do you know which AI tools employees are already using and what information is allowed to go into them?
+    backup_hook_templates:
+      - Who owns AI policy and vendor approval at the firm?
+    offer_families:
+      - executive_ai_strategy
+      - ai_training
+      - managed_ai_department
+    roi_tool_ids: []
+    must_not_claim:
+      - current_AI_use_is_unethical
+      - YAD_can_certify_ethics_compliance
+
+decision_maker_roles:
+  - role_category: managing_partner
+    titles:
+      - managing partner
+      - partner
+      - owner
+    relevant_hypothesis_ids:
+      - retained_client_attribution
+      - ai_governance
+      - administrative_capacity
+    priority: 1
+  - role_category: operations
+    titles:
+      - COO
+      - operations manager
+      - executive director
+      - firm administrator
+      - office administrator
+    relevant_hypothesis_ids:
+      - after_hours_intake
+      - first_response_follow_up
+      - administrative_capacity
+      - ai_governance
+    priority: 1
+  - role_category: intake
+    titles:
+      - intake director
+      - intake manager
+      - intake supervisor
+      - client intake manager
+    relevant_hypothesis_ids:
+      - after_hours_intake
+      - first_response_follow_up
+      - consultation_no_show
+    priority: 1
+  - role_category: marketing_business_development
+    titles:
+      - marketing director
+      - marketing manager
+      - business development director
+    relevant_hypothesis_ids:
+      - retained_client_attribution
+      - first_response_follow_up
+    priority: 2
+  - role_category: technology_governance
+    titles:
+      - IT director
+      - CIO
+      - innovation director
+      - knowledge management director
+    relevant_hypothesis_ids:
+      - ai_governance
+      - administrative_capacity
+    priority: 2
+
+system_families:
+  - system_family_id: legal_crm_intake
+    names:
+      - Clio
+      - Filevine
+      - Lawyaw
+    category: legal_intake_CRM_practice_management
+    frontend_detection_terms:
+      - clio
+      - filevine
+      - lawyaw
+    positioning_rule: A legal platform signal proves only the system/feature signal observed; it does not prove intake, follow-up, attribution, data governance or employee adoption are configured well.
+    questions:
+      - Does every inquiry enter the system?
+      - What happens after first no-response?
+      - Can retained-client source be reported?
+  - system_family_id: phone_system
+    names: []
+    category: telephony
+    frontend_detection_terms:
+      - call tracking
+    positioning_rule: Phone-system presence does not prove after-hours intake or source-to-retained-client attribution.
+    questions:
+      - What happens after hours and after a missed intake call?
+  - system_family_id: scheduling
+    names: []
+    category: consultation_scheduling
+    frontend_detection_terms:
+      - book consultation
+      - schedule consultation
+    positioning_rule: Online scheduling does not prove reminders/no-show recovery or qualification boundaries are configured.
+    questions:
+      - What happens after a consultation no-show?
+
+hook_priorities:
+  - hook_family: after_hours_intake
+    base_priority: 10
+    boost_if_signals:
+      - active_google_search_ads
+      - after_hours_language
+      - phone_heavy_site
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_strong_after_hours_process
+    question_templates:
+      - What happens to a potential client after intake has closed?
+  - hook_family: first_response_follow_up
+    base_priority: 9
+    boost_if_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - consultation_cta
+    demote_if_signals: []
+    avoid_if:
+      - strong_intake_follow_up_confirmed
+    question_templates:
+      - What happens if intake does not connect on the first attempt?
+  - hook_family: attribution
+    base_priority: 9
+    boost_if_signals:
+      - active_google_search_ads
+      - call_tracking_signal
+      - multiple_offices
+    demote_if_signals: []
+    avoid_if:
+      - reliable_retained_client_attribution_confirmed
+    question_templates:
+      - Can you trace paid inquiries through retained-client status?
+  - hook_family: administrative_capacity
+    base_priority: 7
+    boost_if_signals:
+      - visible_intake_hiring
+      - multiple_offices
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Which repetitive intake task consumes the most time without requiring legal judgment?
+  - hook_family: ai_governance
+    base_priority: 6
+    boost_if_signals:
+      - explicit_ai_usage_signal
+      - prospect_mentions_ai_use
+    demote_if_signals: []
+    avoid_if:
+      - mature_governance_program_confirmed
+    question_templates:
+      - Which AI tools are employees using and what data rules apply?
+
+discovery_question_banks:
+  lead_generation:
+    - text: Which practice areas and channels drive growth?
+      purpose: economics and source mix
+    - text: Are Google, LSA or Meta campaigns active, and which retained-client metrics are used?
+      purpose: acquisition measurement
+  phone_after_hours:
+    - text: What happens to a potential client after intake has closed?
+      purpose: after-hours process
+    - text: How many contact attempts occur after the first missed connection?
+      purpose: follow-up
+  scheduling_dispatch:
+    - text: How are consultations scheduled, reminded and recovered after no-shows?
+      purpose: consultation utilization
+  sales_follow_up:
+    - text: What happens to a legitimate prospect who says call me next week?
+      purpose: next-action discipline
+  retention_reactivation:
+    - text: Which inquiry statuses are appropriate for future follow-up rather than immediate closure?
+      purpose: pipeline lifecycle
+  employee_capacity:
+    - text: Which repetitive administrative tasks consume intake, paralegal or staff time without legal judgment?
+      purpose: capacity
+  reporting:
+    - text: Can leadership see inquiries, qualified consultations and retained clients by source?
+      purpose: reporting
+  systems_crm:
+    - text: Where does the potential-client record begin and does every inquiry enter it?
+      purpose: intake architecture
+  attribution:
+    - text: Can phone and form source be tied to retained-client status using a defensible practice-area metric?
+      purpose: closed-loop attribution
+  technical_constraints:
+    - text: What should absolutely remain under attorney or qualified staff control?
+      purpose: professional boundary
+    - text: What are the firm's approved AI tools, data-handling and verification rules?
+      purpose: governance
+
+offer_mapping:
+  - opportunity_category: after_hours
+    possible_offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    positioning: Support non-legal intake capture, routing, scheduling and human escalation without making legal judgments.
+    required_discovery_before_recommending:
+      - approved_intake_fields
+      - qualification_boundaries
+      - conflict_process
+      - scheduling_rules
+      - confidentiality_requirements
+    do_not_recommend_if:
+      - firm_requests_unsupervised_legal_judgment
+  - opportunity_category: speed_to_lead
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Improve acknowledgment, intake statuses, next-action discipline and human follow-up around paid demand.
+    required_discovery_before_recommending:
+      - intake_volume
+      - response_process
+      - contact_attempt_policy
+    do_not_recommend_if:
+      - intake_follow_up_already_strong
+  - opportunity_category: attribution
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Connect source through inquiry, qualification, consultation and retained-client status using firm-approved economics.
+    required_discovery_before_recommending:
+      - practice_area
+      - fee_model
+      - attribution_systems
+      - firm_value_metric
+    do_not_recommend_if:
+      - attribution_already_reliable
+  - opportunity_category: employee_capacity
+    possible_offer_families:
+      - ai_implementation
+      - managed_ai_department
+    positioning: Automate repetitive administrative work around attorneys and staff while confidentiality and legal judgment remain human.
+    required_discovery_before_recommending:
+      - task_frequency
+      - data_sensitivity
+      - approved_tools
+      - human_review
+    do_not_recommend_if:
+      - confidentiality_requirements_cannot_be_met
+  - opportunity_category: governance
+    possible_offer_families:
+      - executive_ai_strategy
+      - ai_training
+      - managed_ai_department
+    positioning: Help the firm evaluate tools, data rules, training and governed workflows in coordination with its own legal/ethics authorities.
+    required_discovery_before_recommending:
+      - current_AI_use
+      - approved_tools
+      - confidentiality_policy
+      - governance_owner
+    do_not_recommend_if:
+      - firm_expects_YAD_to_provide_legal_ethics_opinion
+
+roi_tools:
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids:
+      - after_hours_intake
+      - first_response_follow_up
+    required_inputs:
+      - inquiries
+      - unsuccessfully_contacted_percent
+      - legitimately_qualified_percent
+      - conservative_incremental_retention_scenario
+      - firm_selected_value_metric
+    prohibited_shortcuts:
+      - guessing_case_value
+      - using_one_practice_area_economics_for_another
+      - treating_every_inquiry_as_qualified
+  - roi_tool_id: no_show_roi
+    name: No-Show ROI
+    relevant_hypothesis_ids:
+      - consultation_no_show
+    required_inputs:
+      - scheduled_consultations
+      - no_show_rate
+      - realistically_recoverable_percent
+      - retained_conversion_metric
+      - firm_selected_value_metric
+    prohibited_shortcuts:
+      - treating_every_consultation_as_future_client
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids:
+      - administrative_capacity
+    required_inputs:
+      - employee_count
+      - repetitive_hours
+      - addressable_percent
+      - loaded_hourly_cost
+    prohibited_shortcuts:
+      - guaranteed_payroll_savings
+  - roi_tool_id: advertising_efficiency_roi
+    name: Advertising Efficiency
+    relevant_hypothesis_ids:
+      - retained_client_attribution
+    required_inputs:
+      - actual_ad_cost
+      - inquiries
+      - qualified_inquiries
+      - consultations
+      - retained_clients
+      - firm_selected_value_metric
+    prohibited_shortcuts:
+      - guessing_ad_spend
+      - assuming_collected_revenue_timing
+
+objection_guidance:
+  - objection_id: clients_want_lawyer_not_ai
+    match_phrases:
+      - clients want a lawyer not AI
+    principle: Agree that legal advice/judgment remains with lawyers; focus on administrative workflow.
+    response_guidance: Position intake capture, scheduling, reminders, summaries, CRM updates and document organization as support around attorney relationships.
+    follow_up_questions:
+      - Which parts of intake are repetitive administration and which require legal judgment?
+    must_not_say:
+      - AI can replace the lawyer
+    manual_reference: module-15-law-firms-industry-playbook.md#32-law-firm-objections
+  - objection_id: confidentiality
+    match_phrases:
+      - confidentiality makes this impossible
+    principle: Confidentiality increases governance requirements; it does not justify casual tool use.
+    response_guidance: Ask about data types, vendor terms, permissions, retention and approved tools before recommending anything.
+    follow_up_questions:
+      - Which data can never enter an external AI tool?
+    must_not_say:
+      - our system automatically makes you compliant
+    manual_reference: module-15-law-firms-industry-playbook.md#32-law-firm-objections
+  - objection_id: existing_legal_platform
+    match_phrases:
+      - we already have Clio
+      - we already have Filevine
+      - we already have Lawyaw
+      - we already have a CRM
+    principle: Existing systems are positive if configured and used well.
+    response_guidance: Ask how intake, communications, follow-up, source and retained outcomes move through the current stack.
+    follow_up_questions:
+      - What is the biggest thing you wish the current setup did better?
+    must_not_say:
+      - you need a new platform
+    manual_reference: module-15-law-firms-industry-playbook.md#32-law-firm-objections
+  - objection_id: cannot_let_ai_qualify_cases
+    match_phrases:
+      - we cannot let AI qualify cases
+    principle: Do not give AI final legal/case-acceptance authority.
+    response_guidance: Separate structured information collection/routing from legal judgment and case acceptance.
+    follow_up_questions:
+      - Which fields can intake safely collect before attorney review?
+    must_not_say:
+      - AI can decide if a case is good
+    manual_reference: module-15-law-firms-industry-playbook.md#32-law-firm-objections
+
+safety_boundaries:
+  - boundary_id: legal_advice
+    category: professional_judgment
+    prohibited_agent_claims:
+      - legal_advice
+      - case_merit_decision
+      - legal_strategy
+      - conflict_clearance
+      - case_acceptance
+      - outcome_prediction
+    human_required_for:
+      - legal_judgment
+      - attorney_review
+      - conflict_decisions
+      - case_acceptance
+    escalation_guidance: Route substantive legal, case evaluation and consequential decisions to qualified legal professionals.
+  - boundary_id: confidentiality
+    category: privacy_professional
+    prohibited_agent_claims:
+      - generic_public_AI_is_safe_for_confidential_data
+      - vendor_terms_guarantee_confidentiality_without_review
+      - YAD_certifies_ethics_compliance
+    human_required_for:
+      - vendor_data_policy_approval
+      - privileged_or_confidential_data_policy
+      - jurisdiction_specific_ethics_review
+    escalation_guidance: Firm leadership/counsel must approve tools, confidentiality controls and professional obligations.
+  - boundary_id: advertising_professional_rules
+    category: marketing_legal
+    prohibited_agent_claims:
+      - outreach_is_compliant_in_every_jurisdiction
+      - professional_advertising_rules_do_not_apply
+    human_required_for:
+      - jurisdiction_specific_marketing_rules
+    escalation_guidance: Professional and jurisdictional advertising/outreach rules require firm review.
+
+no_sale_conditions:
+  - no_meaningful_workflow_problem
+  - legal_advice_or_unsupervised_case_decision_requested
+  - confidential_data_cannot_be_protected
+  - required_vendor_or_integration_fails_firm_requirements
+  - economics_weak
+  - leadership_will_not_participate_in_governance
+  - guaranteed_client_acquisition_or_case_outcomes_demanded
+  - marketing_or_outreach_plan_conflicts_with_professional_rules
+
+scoring_overrides:
+  enabled: false
+  rule: Use canonical Module 4C only. High-value and lead-volume recognition must be practice-area/evidence specific rather than automatic for every law firm.
+
+research_requirements:
+  minimum_before_research_ready:
+    - company_identity
+    - practice_area_attempted
+    - geography
+    - website_attempted
+    - google_ad_check_attempted
+  refresh_before_ad_specific_opener:
+    - current_practice_area_paid_ad_evidence
+  optional_deep_research:
+    - LSA_signal
+    - meta_ads
+    - consultation_CTA
+    - after_hours_language
+    - multiple_offices
+    - intake_hiring
+    - legal_platform_signals
+    - leadership_roles
+  forbidden_research_actions:
+    - fake_legal_inquiry
+    - fake_consultation_request
+    - fake_case_facts
+    - fake_client_contact
+    - inspecting_visible_client_documents
+
+call_pack_defaults:
+  preferred_primary_hook_order:
+    - after_hours_intake
+    - first_response_follow_up
+    - attribution
+    - administrative_capacity
+    - ai_governance
+  default_first_question: What happens to a potential client who reaches out after intake has closed or does not answer the first callback?
+  employee_safe_positioning: The goal is to give attorneys and staff better systems around repetitive work while legal judgment, client relationships, confidentiality and professional responsibility stay human.
+  default_prohibited_claims:
+    - known_ad_spend_without_verified_data
+    - known_case_value_without_firm_data
+    - every_inquiry_is_qualified
+    - AI_can_decide_case_merit
+    - YAD_guarantees_ethics_or_confidentiality_compliance
+    - generic_public_AI_is_safe_for_client_data
