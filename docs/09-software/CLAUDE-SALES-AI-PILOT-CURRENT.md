@@ -1,114 +1,148 @@
-# CLAUDE CODE — SALES AI PILOT CURRENT TASK
+# CLAUDE CODE — SALES AI PILOT CURRENT
 
-**Status:** Immediate implementation addendum  
+**Status:** Current implementation authority for the outbound Sales AI gate  
 **Date:** 2026-09-03  
 **Branch:** `feature/outbound-sales-brain`  
 **Implementation owner:** Claude Code on EdgeXpert  
 **Architecture owner:** ChatGPT
 
+If an older Sales AI handoff conflicts with this file, this file wins for the immediate pilot implementation.
+
 ---
 
-# 1. COORDINATION RULE
+# 1. COORDINATION
 
-ChatGPT is continuing to add architecture/documentation commits to `feature/outbound-sales-brain` while Claude implements locally.
+ChatGPT may add architecture/documentation commits to the same feature branch while Claude implements locally.
 
-Before beginning this Sales AI pilot gate:
+Before starting/restarting this gate:
 
 1. inspect local status;
-2. preserve/commit or stash legitimate local work;
+2. preserve legitimate local work;
 3. `git fetch origin`;
-4. reconcile/rebase against the current remote `feature/outbound-sales-brain` safely;
-5. do **not** merge `main`;
-6. do **not** force-push over remote architecture commits.
-
-If local and remote edits conflict in an architecture document, current remote architecture docs are the design authority unless Michael/ChatGPT explicitly resolved otherwise.
-
-Code implementation findings may require architecture review rather than silently rewriting the doctrine.
+4. safely reconcile/rebase with current `origin/feature/outbound-sales-brain`;
+5. never merge `main` as part of this task;
+6. never force-push over remote architecture commits.
 
 ---
 
-# 2. READ THESE NEW FILES FIRST
-
-1. `docs/09-software/outbound-sales-brain-yad-sales-ai-core-script-v1.md`
-2. `docs/09-software/outbound-sales-brain-yad-sales-ai-dialogue-policy.v1.yaml`
-3. `docs/09-software/outbound-sales-brain-sales-ai-opener-selector-spec.md`
-4. `docs/09-software/outbound-sales-brain-sales-ai-response-cards.v1.yaml`
-5. `docs/09-software/outbound-sales-brain-sales-ai-gold-dialogues-v1.md`
-6. `docs/09-software/outbound-sales-brain-strategy-call-qualification-gate-spec.md`
-7. `docs/09-software/outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
-8. `docs/09-software/outbound-sales-brain-ai-cold-call-pilot-scorecard.md`
-9. `docs/09-software/outbound-sales-brain-calcom-strategy-call-booking-spec.md`
-10. `docs/09-software/outbound-sales-brain-demo-production-voice-mode-spec.md`
-11. `docs/09-software/outbound-sales-brain-conversation-state-machine.md`
-12. `docs/09-software/outbound-sales-brain-priority-intent-detector-spec.md`
-13. `docs/09-software/outbound-sales-brain-agent-persona-style-spec.md`
-14. `docs/09-software/outbound-sales-brain-action-tools-spec.md`
-15. Sales Manual Modules 04A, 05 and 07.
-
-These refine but do not discard the broader `CLAUDE-CURRENT-TASK.md` architecture.
-
----
-
-# 3. CURRENT SALES AI PRODUCT DECISION
+# 2. CURRENT PRODUCT DECISION
 
 One outbound Sales AI:
 
 `yad-sales-core-v1`
 
-Do not build a separate conversational agent/prompt for each vertical.
+Do **not** build one sales agent per vertical.
 
-Vertical profiles and Call Packs supply:
+Vertical/business research changes the Call Pack:
 
-- research context;
-- correct business process;
-- primary/backup hypothesis;
-- target role/person;
-- opening question;
-- evidence/proof boundaries;
-- relevant safety boundaries;
-- relevant Sales Manual retrieval.
+- who the company is;
+- what we observed;
+- which business process to investigate;
+- which stakeholder to seek;
+- which hook/question to use;
+- what facts may be stated;
+- what must remain a question/hypothesis;
+- vertical safety boundaries.
 
-Core sales behavior remains shared.
+The core sales personality/process stays shared.
 
 ---
 
-# 4. IMMEDIATE IMPLEMENTATION GOAL
+# 3. READ ORDER — SALES CONVERSATION
 
-Implement the Sales AI as a **stateful conversation system**, not one giant system prompt.
+Read these in this order:
 
-Required conceptual layers:
+1. `outbound-sales-brain-yad-sales-ai-core-script-v1.md`
+2. `outbound-sales-brain-sales-ai-opener-selector-spec.md`
+3. `outbound-sales-brain-sales-ai-response-cards.v1.yaml`
+4. `outbound-sales-brain-yad-sales-ai-dialogue-policy.v1.yaml`
+5. `outbound-sales-brain-strategy-call-qualification-gate-spec.md`
+6. `outbound-sales-brain-sales-ai-next-step-ladder-spec.md`
+7. `outbound-sales-brain-sales-ai-gold-dialogues-v1.md`
+8. `outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
+9. `outbound-sales-brain-agent-persona-style-spec.md`
+10. `outbound-sales-brain-conversation-state-machine.md`
+11. `outbound-sales-brain-priority-intent-detector-spec.md`
+12. Sales Manual Modules 04A, 05 and 07.
+
+---
+
+# 4. READ ORDER — RUNTIME DATA / PROMPT
+
+1. `outbound-sales-brain-sales-ai-runtime-callpack-contract.v1.yaml`
+2. `outbound-sales-brain-sales-ai-working-memory-contract.v1.yaml`
+3. `outbound-sales-brain-call-pack-spec.md`
+4. `outbound-sales-brain-prompt-composition-spec.md`
+5. `outbound-sales-brain-sales-manual-rag-spec.md`
+6. `outbound-sales-brain-action-tools-spec.md`
+
+The realtime model should receive a compact normalized Call Pack, structured working memory, current state and only the relevant Sales Manual/response-card material.
+
+Do not feed raw crawler/provider payloads or the entire Sales Manual into every turn.
+
+---
+
+# 5. READ ORDER — BOOKING / NEXT STEP
+
+1. `outbound-sales-brain-calcom-strategy-call-booking-spec.md`
+2. `outbound-sales-brain-strategy-call-prep-brief-spec.md`
+3. `outbound-sales-brain-15-minute-strategy-call-playbook.md`
+4. `outbound-sales-brain-qualified-hot-transfer-spec.md` — optional/later
+
+Current booking authority:
+
+- Cal.com scheduling;
+- Michael calendar = `michael@youraidepartment.ai`;
+- Cal Video meeting location;
+- event = YAD 15-Minute AI Strategy Call.
+
+Do not create duplicate direct Outlook meetings when Cal.com owns the booking.
+
+---
+
+# 6. READ ORDER — VOICE / PILOT
+
+1. `outbound-sales-brain-demo-production-voice-mode-spec.md`
+2. `outbound-sales-brain-realtime-voice-policy.md`
+3. `outbound-sales-brain-twilio-telephony-spec.md`
+4. `outbound-sales-brain-ai-pilot-control-plane-spec.md`
+5. `outbound-sales-brain-ai-cold-call-pilot-scorecard.md`
+6. `outbound-sales-brain-sales-ai-conversation-optimization-spec.md`
+
+Same approved Twilio business number can support:
+
+- `DEMO_AI`;
+- `PRODUCTION_INBOUND`;
+- `PRODUCTION_OUTBOUND_SALES`.
+
+Keep processes/session namespaces/config separate.
+
+---
+
+# 7. IMPLEMENTATION TARGET
+
+Build a stateful conversation system:
 
 ```text
-Immutable CallPack
-        +
-Sales AI core persona
-        +
-Opener selector
-        +
-Dialogue policy
-        +
-Conversation state machine
-        +
-Priority-intent detector
-        +
-Small relevant Sales Manual retrieval / response cards
-        +
-Typed action tools
-        +
-Conversation working memory
-        =
-Realtime turn generation
+Immutable Runtime Call Pack
+ + Sales AI Persona
+ + Opener Selector
+ + Conversation State Machine
+ + Dialogue Policy
+ + Priority Intent Detector
+ + Structured Working Memory
+ + Relevant Response Card / Sales Manual Retrieval
+ + Typed Action Tools
+ = Realtime Sales Turn
 ```
 
-Do not place the entire Sales Manual into every realtime prompt.
-
-Use the gold dialogues as behavior examples, not exact transcripts to memorize.
+Do not implement one giant static script prompt.
 
 ---
 
-# 5. REQUIRED LIVE STATES FOR PILOT
+# 8. REQUIRED PILOT STATES
 
-At minimum support/test:
+At minimum:
 
 - opening
 - role_check
@@ -124,304 +158,249 @@ At minimum support/test:
 - booking
 - confirmation
 - close
-- terminal
+- terminal.
 
-Priority interrupts:
+Priority interrupts override ordinary selling:
 
-- DNC
-- wrong number/company
-- prospect ends call
+- DNC;
+- wrong number/company;
+- clear prospect end;
 - policy/technical stop.
 
 ---
 
-# 6. STRATEGY CALL READINESS
+# 9. STRATEGY CALL READINESS
 
-Implement explicit result categories:
+Implement explicit results:
 
 - `BOOK_NOW`
 - `CONTINUE_BRIEFLY`
 - `CALLBACK`
 - `SEND_TARGETED_INFO`
 - `END_NO_NEED`
-- `DISQUALIFY_OR_REVIEW`
+- `DISQUALIFY_OR_REVIEW`.
 
-Do not infer `BOOK_NOW` merely from positive sentiment.
+Do not use positive sentiment as a proxy for meeting qualification.
 
-Read `outbound-sales-brain-strategy-call-qualification-gate-spec.md`.
-
----
-
-# 7. OPENER SELECTION
-
-Do not use one identical opener for every prospect.
-
-Use `outbound-sales-brain-sales-ai-opener-selector-spec.md`.
-
-Opening priority:
-
-1. fresh claim-safe paid-demand/service context;
-2. strong first-party workflow/service context;
-3. market + category relevance;
-4. role-based process question.
-
-Then ask one question driven by the active hypothesis.
-
-Do not turn public evidence into an accusation.
+No-sale is a valid successful outcome.
 
 ---
 
-# 8. RESPONSE CARDS
+# 10. NEXT-STEP LADDER
 
-Use `outbound-sales-brain-sales-ai-response-cards.v1.yaml` as a concise doctrine retrieval layer for common situations such as:
+Preferred order when appropriate:
 
-- busy;
-- send email;
-- not interested;
-- has receptionist;
-- has answering service;
-- has CRM;
-- uses ChatGPT;
-- has IT company;
-- has marketing agency;
-- asks if AI;
-- price;
-- booking;
-- wrong person;
-- wrong number;
-- DNC.
+1. 15-minute strategy call;
+2. requested callback;
+3. targeted short email;
+4. free AI Department Assessment when useful;
+5. human follow-up/review;
+6. no sale;
+7. DNC/end.
 
-Cards are response shapes, not exact lines to repeat mechanically.
+Never stack every CTA after a clear rejection.
 
-The model must answer the prospect's actual last statement before applying a card.
+Assessment link/config must come from current funnel authority rather than a stale hard-coded URL.
 
 ---
 
-# 9. BOOKING
+# 11. RECEPTIONIST / DEMO RUNTIME REUSE
 
-Current authority:
+Audit the actually deployed working demo/receptionist on the voice VPS before rewriting transport.
 
-- Cal.com = scheduling authority;
-- Michael Outlook calendar `michael@youraidepartment.ai` = connected calendar/source of conflicts;
-- Cal Video = meeting location;
-- event = YAD 15-Minute AI Strategy Call.
+Reuse proven components where appropriate:
 
-Required typed tools:
-
-- `check_strategy_call_availability`
-- `book_strategy_call`
-
-Do not directly create a duplicate Outlook event if Cal.com owns booking.
-
-Do not claim booking success until Cal.com confirms.
-
----
-
-# 10. DEMO / PRODUCTION ROUTING
-
-Same approved Twilio business number may be used, but runtime roles remain distinct:
-
-- `DEMO_AI`
-- `PRODUCTION_INBOUND`
-- `PRODUCTION_OUTBOUND_SALES`
-
-Outbound Calls API may specify the Sales AI voice URL while the number's inbound webhook remains routed to the currently selected inbound mode.
-
-Reuse proven demo/receptionist transport/voice components where appropriate, not demo business prompts/context.
-
----
-
-# 11. RECEPTIONIST RUNTIME REUSE AUDIT
-
-Before rewriting voice transport, inspect the actually deployed demo/receptionist runtime on the voice VPS.
-
-Identify reusable implementation for:
-
-- Twilio webhook validation;
-- ConversationRelay/WebSocket transport;
-- STT/TTS provider/config;
-- interruption/barge-in;
-- natural number pronunciation;
+- Twilio webhook/signature handling;
+- ConversationRelay/WebSocket;
+- STT/TTS;
+- barge-in;
+- number/date pronunciation;
 - session lifecycle;
-- initial greeting latency;
-- logging/telemetry;
-- transfer/tool plumbing.
+- low-latency greeting;
+- transfer/tool transport;
+- telemetry.
 
-Then implement outbound Sales AI as a separate service/process/session namespace.
+Do not reuse demo business prompts/context in production Sales AI.
 
-Do not run heavy Market Miner research in the realtime service.
+Outbound Sales AI should be a separate service/process from production inbound reception.
 
 ---
 
-# 12. TEXT SIMULATION BEFORE VOICE
+# 12. TEXT ROLEPLAY BEFORE VOICE
 
-Build a deterministic text simulation runner around:
+Build a simulator around:
 
 `outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
 
-For each fixture capture:
+Capture per fixture:
 
 - state transitions;
 - generated turns;
-- extracted prospect facts;
-- readiness decision;
-- requested tool actions;
-- termination reason;
-- QA/hard-fail result.
+- working-memory updates;
+- readiness result;
+- action/tool requests;
+- terminal reason;
+- hard-fail/QA result.
 
-The fixture does not require exact wording. Grade required/prohibited behaviors.
+Compare behavior to `outbound-sales-brain-sales-ai-gold-dialogues-v1.md` without forcing exact wording.
 
-Compare high-quality outputs against `outbound-sales-brain-sales-ai-gold-dialogues-v1.md` for behavioral style.
-
-Critical fixtures must pass before controlled voice test.
+Critical fixtures must pass before controlled voice testing.
 
 ---
 
-# 13. PROMPT CONSTRUCTION
+# 13. VOICE QUALITY
 
-Realtime prompt should contain only what is necessary for the turn/session:
+Required behavior:
 
-- YAD identity/persona;
-- immutable Account/Call Pack summary;
-- current conversation state;
-- current prospect working-memory facts;
-- current hypothesis/readiness;
-- relevant proof boundaries;
-- relevant objection/manual card when needed;
-- tool contracts/action result;
-- concise dialogue-policy instructions.
-
-Avoid resending:
-
-- irrelevant vertical manuals;
-- raw crawler content;
-- huge research logs;
-- unrelated commercial material.
-
----
-
-# 14. CALL WORKING MEMORY
-
-Implement/update structured in-call memory for:
-
-- current stakeholder/person/role;
-- corrected person/role;
-- current workflow;
-- systems prospect explicitly states;
-- pain status;
-- volume/numbers + source turn;
-- primary hypothesis status;
-- backup hypothesis status;
-- objections;
-- busy/timing request;
-- email request;
-- callback request;
-- booking intent;
-- promised next action;
-- DNC/wrong endpoint.
-
-The live model should not have to reconstruct all of this from a growing transcript every turn.
-
----
-
-# 15. VOICE BEHAVIOR
-
-Hard implementation targets:
-
-- concise 1–2 sentence normal turns;
+- no 3–5 second dead air;
+- concise 1–2 sentence turns;
 - one question at a time;
-- stop output promptly on barge-in;
-- do not replay the interrupted sentence from the beginning;
-- natural phone-number/date/time speech;
-- no 3–5 second dead-air gaps;
-- acknowledge prospect content specifically;
-- no generic script continuation after unexpected answer.
+- immediate barge-in handling;
+- no stale sentence replay after interruption;
+- natural phone/email/date/time speech;
+- specific acknowledgement of what the prospect said;
+- no generic next-script-line behavior.
 
-Instrument latency.
+Instrument the existing realtime latency targets.
 
 ---
 
-# 16. POST-CALL HANDOFF
+# 14. PILOT CONTROL PLANE
 
-For every call persist structured outcome.
+Implement/prepare the manager pilot workflow in:
 
-For every booked meeting, create Michael handoff containing:
+`outbound-sales-brain-ai-pilot-control-plane-spec.md`
 
-- Account/company;
+Initial pilot should support:
+
+- exact candidate selection;
+- Call Pack/opener preview;
+- deterministic pre-flight result;
+- concurrency = 1 initially;
+- Start Next Call;
+- Pause After Current;
+- STOP NEW OUTBOUND CALLS;
+- completed-call review;
+- immutable configuration/version snapshot.
+
+Do not begin with unattended high-volume dialing.
+
+---
+
+# 15. BOOKING
+
+Typed actions:
+
+- `check_strategy_call_availability`
+- `book_strategy_call`.
+
+Rules:
+
+- prospect must agree;
+- use real Cal.com availability;
+- offer max two slots at a time;
+- prefer same-day when provider/event rules permit;
+- next-business-day is normal fallback;
+- collect/confirm business email;
+- claim success only after provider confirms;
+- booking failure -> capture preference + human follow-up.
+
+---
+
+# 16. POST-CALL / MICHAEL HANDOFF
+
+Every booked strategy call gets a `StrategyCallPrepBrief` with:
+
+- company;
 - attendee/role;
-- meeting time/timezone;
-- reason YAD called;
-- confirmed workflow;
-- problem in prospect's words;
-- numbers/systems prospect stated;
-- objections/concerns;
-- expectation for meeting;
+- meeting time;
+- why YAD called;
+- public research context;
+- exact prospect-stated workflow;
+- problem/pain wording;
+- numbers/systems they stated;
+- objections;
+- unanswered questions;
 - suggested questions for Michael;
-- things Michael must not assume;
-- source call/transcript/recording refs.
+- prominent `DO NOT ASSUME` section;
+- transcript/recording/source refs.
+
+Michael should be able to prep in under 60 seconds.
 
 ---
 
-# 17. PILOT QA
+# 17. QA / OPTIMIZATION
 
 Use:
 
 `outbound-sales-brain-ai-cold-call-pilot-scorecard.md`
 
-Instrument enough telemetry to distinguish:
+Classify failures by actual root cause:
 
-- research failure;
-- wrong contact;
-- conversation/prompt failure;
-- model reasoning failure;
-- STT failure;
-- TTS/prosody failure;
-- latency/runtime failure;
-- booking-tool failure;
-- telephony failure.
+- contact/research;
+- hypothesis;
+- opener;
+- listening;
+- state/prompt;
+- objection;
+- qualification;
+- STT;
+- TTS;
+- latency;
+- telephony;
+- booking/tool;
+- policy.
 
-Do not label all failures `AI issue`.
+Use `outbound-sales-brain-sales-ai-conversation-optimization-spec.md` before promoting script/prompt changes.
 
----
-
-# 18. DO NOT DO
-
-- do not implement 30 vertical-specific sales agents;
-- do not load the entire Sales Manual per turn;
-- do not use one giant static script prompt as the state machine;
-- do not make Cal.com and direct Outlook writes both create meetings;
-- do not let demo context enter production calls;
-- do not let outbound crash kill inbound reception;
-- do not book polite/no-pain prospects just to increase conversion;
-- do not call real prospects as an implementation test;
-- do not re-enable automatic GitHub Actions;
-- do not merge `main`;
-- do not force-push over architecture changes;
-- do not commit secrets.
+Keep a last-known-good conversation package for rollback.
 
 ---
 
-# 19. IMPLEMENTATION CHECKPOINT RESPONSE
+# 18. HARD CONSTRAINTS
 
-After this gate report:
+Do not:
 
-1. latest remote commit reconciled;
-2. receptionist/demo components audited;
-3. reusable components identified;
-4. Sales AI service/package structure;
-5. opener selector implementation status;
-6. state machine implementation status;
-7. working-memory implementation;
-8. prompt/response-card composition implementation;
-9. roleplay test count/pass/fail;
-10. Cal.com adapter status;
-11. voice-runtime readiness;
-12. latency instrumentation readiness;
-13. blockers;
-14. exact next step before controlled test.
+- build 30 separate vertical agents;
+- load the whole Sales Manual per turn;
+- invent public/internal business facts;
+- fabricate contact source/identity;
+- attack employees, CRM, IT or marketing agencies;
+- book polite/no-pain prospects to inflate metrics;
+- claim an unconfirmed calendar booking;
+- let demo context leak into production;
+- let outbound failure take down inbound reception;
+- run heavy Market Miner crawling on realtime voice process;
+- use real prospects as implementation tests;
+- re-enable automatic GitHub Actions;
+- merge `main`;
+- force-push over architecture commits;
+- commit secrets.
+
+---
+
+# 19. IMPLEMENTATION CHECKPOINT
+
+Report:
+
+1. remote branch reconciled;
+2. demo/receptionist runtime audit;
+3. reusable components;
+4. Sales AI service structure;
+5. runtime Call Pack implementation;
+6. working-memory implementation;
+7. opener selector;
+8. state machine;
+9. response-card/RAG prompt composition;
+10. roleplay pass/fail;
+11. Cal.com adapter;
+12. pilot control plane;
+13. voice/latency readiness;
+14. blockers;
+15. exact next controlled-test step.
 
 ---
 
 # 20. SUCCESS CONDITION
 
-**The system can run the same researched sales process across verticals, choose a truthful relevant opener, react to what the prospect actually says, decide whether a 15-minute call is warranted, and book a real Cal.com slot without behaving like a scripted robocaller.**
+**One YAD Sales AI can call a researched prospect, choose a truthful relevant opener, react to the prospect instead of reciting a script, identify whether a real opportunity exists, choose the correct next step, and when warranted book a real 15-minute Cal.com strategy call with Michael — while remaining observable and controllable enough to improve from every reviewed call.**
