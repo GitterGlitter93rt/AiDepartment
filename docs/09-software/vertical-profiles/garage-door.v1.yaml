@@ -1,0 +1,402 @@
+profile_id: garage-door-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Garage Door Service / Installation
+industry_aliases:
+  - garage door repair
+  - garage door company
+  - garage door installer
+  - garage door opener repair
+priority: 33
+country_scope: [US]
+source_manual_paths:
+  - docs/07-sales/training-manual/module-33-garage-door-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - urgent_repair
+    - garage_door_opener_repair
+    - garage_door_replacement
+    - opener_replacement
+    - installation
+    - maintenance
+  lead_types:
+    - urgent_phone_call
+    - paid_search
+    - organic_search
+    - web_form
+    - referral
+  customer_types: [residential, light_commercial]
+  high_value_service_families:
+    - full_door_replacement
+    - opener_replacement
+    - multi_door_installation
+  recurring_revenue_families: []
+  urgency_characteristics:
+    - stuck_door
+    - broken_spring_or_mechanism
+    - same_day_service
+    - after_hours_possible
+  seasonality_characteristics: [market_dependent]
+  phone_dependence: very_high
+  appointment_dependence: high
+  estimate_proposal_dependence: medium_high
+  field_service_dependence: very_high
+
+search_taxonomy:
+  core_queries:
+    - query: garage door repair
+      family: urgent_repair
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: garage door company
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: garage door opener repair
+      family: opener_repair
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: garage door replacement
+      family: replacement
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency garage door repair
+    - same day garage door repair
+    - garage door stuck
+  high_ticket_queries:
+    - garage door replacement
+    - garage door installation
+    - commercial garage door installation
+  financing_queries:
+    - garage door financing
+  commercial_queries:
+    - commercial garage door repair
+    - commercial garage door installation
+  service_aliases:
+    - overhead door repair
+    - garage opener repair
+    - garage door service
+  negative_terms:
+    - garage door parts
+    - garage door wholesale
+    - garage door training
+    - garage door manufacturer only
+  classification_warning_terms:
+    - locksmith
+    - gate repair only
+    - overhead door supplier only
+
+classification_rules:
+  positive_business_categories:
+    - garage_door_service
+    - garage_door_installer
+  negative_business_categories:
+    - parts_supplier
+    - manufacturer_only
+    - training_school
+  website_keyword_positive:
+    - garage door repair
+    - garage door opener
+    - garage door replacement
+    - same day service
+  website_keyword_negative:
+    - wholesale parts
+    - training course
+  required_any_of:
+    - garage_door_repair_evidence
+    - garage_door_installation_evidence
+  exclude_if_all:
+    - non_service_business
+  manual_review_if:
+    - gate_and_garage_mix_unclear
+    - manufacturer_dealer_service_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Paid urgent-service acquisition makes call capture, scheduling and attribution highly relevant.
+    possible_hypothesis_ids: [missed_call_recovery, speed_to_lead, attribution]
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: emergency_same_day
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: Strengthens urgent-call/overflow relevance.
+    possible_hypothesis_ids: [missed_call_recovery]
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: online_booking_or_quote
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Shows visible inquiry/scheduling path.
+    possible_hypothesis_ids: [speed_to_lead, replacement_follow_up]
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Adds routing/reporting complexity.
+    possible_hypothesis_ids: [routing_consistency, attribution]
+    score_rule_reference: module4c_multiple_locations_plus1
+
+customer_journey:
+  - stage_id: acquisition
+    label: Problem to search/referral to call/form
+    common_inputs: [problem, google, referral, paid_ad]
+    common_outputs: [call, form]
+    handoff_risks: [missed_call, slow_response]
+    human_judgment_required: false
+  - stage_id: scheduling
+    label: Intake / schedule / route
+    common_inputs: [call, form]
+    common_outputs: [appointment]
+    handoff_risks: [after_hours_gap, scheduling_delay]
+    human_judgment_required: true
+  - stage_id: technician
+    label: Technician visit / repair or replacement options
+    common_inputs: [appointment]
+    common_outputs: [repair, replacement_estimate]
+    handoff_risks: [estimate_followup_gap]
+    human_judgment_required: true
+  - stage_id: completion
+    label: Work / payment / review
+    common_inputs: [approved_work]
+    common_outputs: [completed_job]
+    handoff_risks: [review_request_inconsistent]
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: missed_call_recovery
+    category: missed_call_recovery
+    title: Urgent paid-call overflow
+    trigger_signals: [active_google_search_ads, emergency_same_day]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens when an urgent garage-door call comes in and everybody is already tied up?
+      - Does a missed call create an acknowledgment and callback task?
+    primary_hook_template: I noticed you're advertising garage-door repair in {market}. When one of those paid calls comes in and the office can't answer live, what happens next?
+    backup_hook_templates:
+      - What happens after hours or when several calls hit at once?
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [missed_call_roi]
+    must_not_claim: [missed_call_rate, lost_revenue_amount]
+  - hypothesis_id: replacement_follow_up
+    category: sales_follow_up
+    title: Full-door / replacement estimate follow-up
+    trigger_signals: [online_booking_or_quote]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a full-door or opener replacement estimate that does not close on the first visit?
+    primary_hook_template: Who follows up replacement estimates that don't close during the technician's first visit?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [unsold_estimate_roi]
+    must_not_claim: [all_estimates_recoverable]
+  - hypothesis_id: scheduling_capacity
+    category: employee_capacity
+    title: Scheduling / route / office capacity
+    trigger_signals: []
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What scheduling or rescheduling task consumes the most office time?
+      - What breaks if call volume doubles?
+    primary_hook_template: If call volume doubled tomorrow, what part of scheduling or customer communication would break first?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, Managed_AI_Department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [staff_replacement]
+  - hypothesis_id: attribution
+    category: attribution
+    title: Google Ads to completed job attribution
+    trigger_signals: [active_google_search_ads]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can Google Ads be tied to actual completed repair/replacement revenue?
+    primary_hook_template: Can you trace a paid search call all the way to the completed garage-door job and revenue?
+    backup_hook_templates: []
+    offer_families: [AI_Growth_Systems]
+    roi_tool_ids: [attribution_roi]
+    must_not_claim: [agency_waste]
+
+decision_maker_roles:
+  - role_category: owner_founder
+    titles: [Owner, Founder, President]
+    relevant_hypothesis_ids: [missed_call_recovery, replacement_follow_up, scheduling_capacity, attribution]
+    priority: 1
+  - role_category: operations
+    titles: [Operations Manager, General Manager, Service Manager]
+    relevant_hypothesis_ids: [missed_call_recovery, scheduling_capacity]
+    priority: 1
+  - role_category: office_manager
+    titles: [Office Manager, Dispatch Manager, Customer Service Manager]
+    relevant_hypothesis_ids: [missed_call_recovery, scheduling_capacity]
+    priority: 1
+  - role_category: sales_leadership
+    titles: [Sales Manager, Installation Sales Manager]
+    relevant_hypothesis_ids: [replacement_follow_up]
+    priority: 2
+  - role_category: marketing
+    titles: [Marketing Manager, Marketing Director]
+    relevant_hypothesis_ids: [attribution]
+    priority: 2
+
+system_families:
+  - system_family_id: garage_door_field_service
+    names: [field service platform, CRM, scheduling, call tracking]
+    category: field_service
+    frontend_detection_terms: []
+    positioning_rule: Improve routing, estimate follow-up and source tracking around existing systems before recommending replacement.
+    questions:
+      - Does every call/form enter the system?
+      - Are replacement estimates visible for follow-up?
+
+hook_priorities:
+  - hook_family: missed_call
+    base_priority: 10
+    boost_if_signals: [active_google_search_ads, emergency_same_day]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens to an urgent call nobody answers live?
+  - hook_family: replacement_follow_up
+    base_priority: 9
+    boost_if_signals: [online_booking_or_quote]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Who follows up full-door replacement estimates?
+  - hook_family: scheduling_capacity
+    base_priority: 8
+    boost_if_signals: []
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What scheduling task consumes the most office time?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals: [active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Can Google Ads tie to completed jobs?
+
+discovery_question_banks:
+  phone_after_hours:
+    - text: What happens to missed or after-hours urgent calls?
+      purpose: call_handling
+      data_field_created: after_hours_process
+  scheduling_dispatch:
+    - text: What scheduling or route task consumes the most time?
+      purpose: capacity
+      data_field_created: scheduling_bottleneck
+  sales_follow_up:
+    - text: Who follows up larger replacement estimates?
+      purpose: estimate_pipeline
+      data_field_created: estimate_followup
+  systems_crm:
+    - text: Which field-service/CRM platform do you use?
+      purpose: system_map
+      data_field_created: systems
+  attribution:
+    - text: Can paid source tie to completed repair/replacement revenue?
+      purpose: attribution
+      data_field_created: attribution_state
+
+offer_mapping:
+  - opportunity_category: missed_call_recovery
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Add overflow, acknowledgment, callback and CRM capture around CSRs/dispatch.
+    required_discovery_before_recommending: [call_volume, current_overflow, field_service_system]
+    do_not_recommend_if: [strong_existing_workflow]
+  - opportunity_category: replacement_follow_up
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Standardize next-action tasks and follow-up for replacement opportunities.
+    required_discovery_before_recommending: [estimate_volume, current_followup]
+    do_not_recommend_if: [minimal_replacement_work]
+
+roi_tools:
+  - roi_tool_id: missed_call_roi
+    name: Missed Call ROI
+    relevant_hypothesis_ids: [missed_call_recovery]
+    required_inputs: [missed_calls, legitimate_opportunity_percent, close_rate, average_customer_value]
+    prohibited_shortcuts: [assume_every_missed_call_is_lost_sale]
+  - roi_tool_id: unsold_estimate_roi
+    name: Unsold Estimate ROI
+    relevant_hypothesis_ids: [replacement_follow_up]
+    required_inputs: [open_estimates, legitimate_active_percent, incremental_close_scenario, average_sold_revenue]
+    prohibited_shortcuts: [assume_all_estimates_recoverable]
+
+objection_guidance:
+  - objection_id: technicians_need_to_decide
+    match_phrases: [our techs have to diagnose it, AI can't repair garage doors]
+    principle: preserve_technician_judgment
+    response_guidance: Agree. YAD targets call handling, scheduling, follow-up, CRM and communication around technicians.
+    follow_up_questions:
+      - Which business-process task creates the most office or technician friction?
+    must_not_say: [AI_can_diagnose_springs_or_safety]
+    manual_reference: module-33
+
+safety_boundaries:
+  - boundary_id: garage_door_safety
+    category: safety_technical
+    prohibited_agent_claims:
+      - AI_can_diagnose_springs
+      - AI_can_determine_structural_or_opener_safety
+    human_required_for:
+      - repair_diagnosis
+      - spring_door_safety
+      - structural_conditions
+      - opener_electrical_decisions
+    escalation_guidance: Keep automation around intake, scheduling, follow-up and administrative communication.
+
+no_sale_conditions:
+  - low_call_volume
+  - strong_existing_call_recovery
+  - minimal_replacement_estimate_flow
+  - weak_economics
+  - unsafe_automation_expectation
+
+scoring_overrides:
+  hidden_points: none
+  use_canonical_module_4c: true
+
+research_requirements:
+  prioritize:
+    - active_google_ads
+    - emergency_same_day
+    - repair_vs_replacement
+    - online_quote_booking
+    - multiple_locations
+    - financing
+    - field_service_signals
+  do_not_infer:
+    - missed_call_rate
+    - job_value
+    - technician_diagnosis
+    - CRM_workflow
+
+call_pack_defaults:
+  preferred_primary_hook_family: missed_call
+  preferred_backup_hook_family: replacement_follow_up
+  maximum_confirmed_facts: 3
+  default_next_step: strategy_conversation
