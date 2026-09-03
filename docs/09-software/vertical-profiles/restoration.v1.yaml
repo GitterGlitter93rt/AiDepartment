@@ -1,0 +1,435 @@
+profile_id: restoration-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Water / Fire / Mold Restoration
+industry_aliases:
+  - restoration company
+  - water damage restoration
+  - fire restoration
+  - mold remediation
+  - emergency restoration
+priority: 30
+country_scope: [US]
+source_manual_paths:
+  - docs/07-sales/training-manual/module-30-restoration-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - water_mitigation
+    - fire_smoke_restoration
+    - mold_remediation_where_qualified
+    - contents
+    - reconstruction
+    - commercial_emergency_response
+  lead_types:
+    - emergency_phone_call
+    - paid_search
+    - organic_search
+    - plumber_referral
+    - property_manager_referral
+    - insurer_or_professional_referral
+    - web_form
+  customer_types:
+    - homeowner
+    - property_manager
+    - commercial_facility
+  high_value_service_families:
+    - water_mitigation
+    - fire_restoration
+    - reconstruction
+    - commercial_loss
+  recurring_revenue_families:
+    - referral_partner_relationships
+    - commercial_accounts
+  urgency_characteristics:
+    - true_emergency
+    - 24_7
+    - surge_after_storm_freeze
+  seasonality_characteristics:
+    - storm_dependent
+    - freeze_dependent
+    - market_dependent
+  phone_dependence: very_high
+  appointment_dependence: high
+  estimate_proposal_dependence: medium
+  field_service_dependence: very_high
+
+search_taxonomy:
+  core_queries:
+    - query: water damage restoration
+      family: core
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: restoration company
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: emergency water removal
+      family: urgent_water
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: fire restoration
+      family: fire
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: mold remediation
+      family: mold
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency water removal
+    - 24 hour water damage
+    - emergency restoration
+    - fire damage restoration
+  high_ticket_queries:
+    - fire restoration
+    - reconstruction after water damage
+    - commercial water damage restoration
+  financing_queries: []
+  commercial_queries:
+    - commercial water damage restoration
+    - commercial restoration company
+  service_aliases:
+    - water mitigation
+    - flood cleanup
+    - fire damage cleanup
+    - smoke damage restoration
+  negative_terms:
+    - restoration training
+    - restoration equipment rental
+    - restoration supplies
+    - art restoration
+    - furniture restoration
+  classification_warning_terms:
+    - carpet cleaning only
+    - janitorial only
+    - mold testing only
+
+classification_rules:
+  positive_business_categories:
+    - water_damage_restoration
+    - fire_damage_restoration
+    - mold_remediation
+    - disaster_restoration
+  negative_business_categories:
+    - equipment_supplier
+    - training_school
+    - art_restoration
+  website_keyword_positive:
+    - water damage
+    - water mitigation
+    - fire damage
+    - emergency restoration
+    - mold remediation
+  website_keyword_negative:
+    - art conservation
+    - equipment sales
+  required_any_of:
+    - emergency_property_restoration_evidence
+    - water_fire_mold_service_evidence
+  exclude_if_all:
+    - non_property_restoration_business
+  manual_review_if:
+    - carpet_cleaning_restoration_mix_unclear
+    - mold_testing_vs_remediation_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: High-intent emergency search advertising makes call capture, dispatch and source-to-job attribution highly relevant.
+    possible_hypothesis_ids: [emergency_call_overflow, attribution]
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: emergency_24_7
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: Strongly supports after-hours/surge workflow questions.
+    possible_hypothesis_ids: [emergency_call_overflow, surge_capacity]
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Adds routing, referral attribution and operational consistency complexity.
+    possible_hypothesis_ids: [routing_consistency, reporting_visibility]
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: prominent_call_or_form
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Shows observable emergency intake path.
+    possible_hypothesis_ids: [emergency_call_overflow, crm_capture]
+    score_rule_reference: module4c_lead_capture_plus1
+
+customer_journey:
+  - stage_id: emergency_demand
+    label: Loss occurs / search / referral
+    common_inputs: [water_loss, fire_loss, mold_issue, referral]
+    common_outputs: [call, form]
+    handoff_risks: [missed_call, source_loss]
+    human_judgment_required: false
+  - stage_id: intake_triage
+    label: Emergency intake / human triage / dispatch
+    common_inputs: [call, form]
+    common_outputs: [dispatch, callback, job_record]
+    handoff_risks: [overflow, delayed_response, incomplete_context]
+    human_judgment_required: true
+  - stage_id: site_work
+    label: Site / authorization / mitigation-restoration
+    common_inputs: [dispatch]
+    common_outputs: [active_job]
+    handoff_risks: [document_admin, status_communication]
+    human_judgment_required: true
+  - stage_id: completion
+    label: Customer/insurer communication / completion / payment
+    common_inputs: [active_job]
+    common_outputs: [completed_job]
+    handoff_risks: [status_load, document_handoff]
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: emergency_call_overflow
+    category: missed_call_recovery
+    title: Emergency call capture / after-hours overflow
+    trigger_signals: [active_google_search_ads, emergency_24_7]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens when a water-loss call hits after hours and the on-call person is already handling another emergency?
+      - Does every missed/overflow call create a trackable callback or job record?
+    primary_hook_template: I noticed you handle emergency restoration in {market}. What happens when a new loss call comes in and the on-call team is already tied up?
+    backup_hook_templates:
+      - How are missed or overflow emergency calls recovered?
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [missed_call_roi]
+    must_not_claim: [every_missed_call_is_lost_job, coverage_decision]
+  - hypothesis_id: surge_capacity
+    category: employee_capacity
+    title: Storm/freeze surge handling
+    trigger_signals: [emergency_24_7]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What breaks first when a freeze or storm creates several times normal call volume?
+    primary_hook_template: When a weather event spikes loss calls, which office or dispatch workflow gets overloaded first?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, Managed_AI_Department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [specific_surge_volume]
+  - hypothesis_id: referral_attribution
+    category: attribution
+    title: Referral-source to job attribution
+    trigger_signals: []
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you see which plumber/property-manager/referral partners generate completed jobs?
+    primary_hook_template: Can you tie referral partners and paid sources all the way to completed restoration jobs?
+    backup_hook_templates: []
+    offer_families: [AI_Growth_Systems, AI_Implementation]
+    roi_tool_ids: [attribution_roi]
+    must_not_claim: [partner_quality_without_data]
+  - hypothesis_id: document_admin
+    category: repetitive_admin
+    title: Restoration document / claim administration
+    trigger_signals: []
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which document or customer-information workflow gets chased repeatedly?
+    primary_hook_template: Which documentation or status workflow consumes the most office time after the crew is dispatched?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, Managed_AI_Department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [AI_can_make_coverage_or_claim_decisions]
+  - hypothesis_id: customer_status
+    category: customer_status_communication
+    title: Repetitive customer status communication
+    trigger_signals: []
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which status call or update does the office repeat most often?
+    primary_hook_template: Which customer status question is your office answering over and over during active jobs?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [automatic_job_status_without_reliable_data]
+
+decision_maker_roles:
+  - role_category: owner_founder
+    titles: [Owner, Founder, President]
+    relevant_hypothesis_ids: [emergency_call_overflow, surge_capacity, referral_attribution]
+    priority: 1
+  - role_category: operations
+    titles: [Operations Manager, General Manager, Branch Manager]
+    relevant_hypothesis_ids: [emergency_call_overflow, surge_capacity, document_admin, customer_status]
+    priority: 1
+  - role_category: dispatch
+    titles: [Dispatch Manager, Emergency Response Manager]
+    relevant_hypothesis_ids: [emergency_call_overflow, surge_capacity]
+    priority: 1
+  - role_category: marketing
+    titles: [Marketing Director, Business Development Manager]
+    relevant_hypothesis_ids: [referral_attribution]
+    priority: 2
+
+system_families:
+  - system_family_id: restoration_crm_job_management
+    names: [CRM, job management, restoration management platform, call tracking]
+    category: field_service_job_management
+    frontend_detection_terms: []
+    positioning_rule: Improve capture/routing/reporting around current systems; never infer field or insurance decisions.
+    questions:
+      - Does every emergency lead become a trackable record?
+      - Can source be tied to completed jobs?
+
+hook_priorities:
+  - hook_family: missed_call
+    base_priority: 10
+    boost_if_signals: [active_google_search_ads, emergency_24_7]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens to an emergency call nobody can answer live?
+  - hook_family: surge_capacity
+    base_priority: 9
+    boost_if_signals: [emergency_24_7]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What breaks first when losses spike?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals: [active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Can paid/referral sources tie to completed jobs?
+  - hook_family: repetitive_admin
+    base_priority: 8
+    boost_if_signals: []
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Which document/status workflow gets chased repeatedly?
+
+discovery_question_banks:
+  phone_after_hours:
+    - text: How are 24/7 calls handled when the on-call team is already busy?
+      purpose: emergency_call_handling
+      data_field_created: after_hours_process
+  employee_capacity:
+    - text: What admin explodes during storms or freezes?
+      purpose: surge_capacity
+      data_field_created: capacity_constraint
+  systems_crm:
+    - text: Which CRM/job platform captures emergency inquiries and jobs?
+      purpose: system_map
+      data_field_created: systems
+  attribution:
+    - text: Can paid and referral sources tie through to completed jobs?
+      purpose: attribution
+      data_field_created: attribution_state
+  technical_constraints:
+    - text: Which decisions must remain with qualified restoration/field professionals?
+      purpose: safety_boundary
+      data_field_created: human_required_decisions
+
+offer_mapping:
+  - opportunity_category: emergency_call_overflow
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Add call/overflow intake, acknowledgment, routing and CRM capture around the existing emergency-response team.
+    required_discovery_before_recommending: [call_volume, after_hours_process, escalation_rules, systems]
+    do_not_recommend_if: [strong_existing_overflow_workflow]
+  - opportunity_category: surge_capacity
+    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    positioning: Improve temporary administrative and communication capacity around field response.
+    required_discovery_before_recommending: [surge_pattern, admin_bottlenecks, systems]
+    do_not_recommend_if: [weak_economics]
+
+roi_tools:
+  - roi_tool_id: missed_call_roi
+    name: Missed Call ROI
+    relevant_hypothesis_ids: [emergency_call_overflow]
+    required_inputs: [missed_or_overflow_calls, legitimate_opportunity_percent, close_rate, average_job_revenue]
+    prohibited_shortcuts: [assume_every_missed_call_is_lost_job]
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids: [surge_capacity, document_admin, customer_status]
+    required_inputs: [employees, repetitive_hours, addressable_percent, loaded_cost]
+    prohibited_shortcuts: [treat_capacity_as_payroll_savings]
+
+objection_guidance:
+  - objection_id: emergency_decisions_need_humans
+    match_phrases: [we need humans for emergencies, AI can't decide restoration work]
+    principle: preserve_field_judgment
+    response_guidance: Agree. YAD improves intake, routing, admin, reminders and communication around qualified field professionals.
+    follow_up_questions:
+      - Which business-process step creates the most overload before or after dispatch?
+    must_not_say: [AI_can_make_mitigation_or_coverage_decisions]
+    manual_reference: module-30
+
+safety_boundaries:
+  - boundary_id: restoration_safety
+    category: safety_technical
+    prohibited_agent_claims:
+      - AI_can_decide_mitigation_scope
+      - AI_can_determine_insurance_coverage
+      - AI_can_make_environmental_safety_decisions
+    human_required_for:
+      - emergency_triage_decisions
+      - field_safety
+      - remediation_scope
+      - coverage_or_legal_decisions
+      - consequential_job_decisions
+    escalation_guidance: Automate intake/admin/communication only within approved rules and reliable data.
+
+no_sale_conditions:
+  - low_emergency_lead_volume
+  - strong_existing_call_overflow
+  - no_measurable_admin_gap
+  - unsafe_automation_expectation
+  - weak_economics
+
+scoring_overrides:
+  hidden_points: none
+  use_canonical_module_4c: true
+
+research_requirements:
+  prioritize:
+    - active_google_ads
+    - emergency_24_7
+    - water_fire_mold_services
+    - phone_cta
+    - multiple_locations
+    - referral_partner_language
+    - commercial_response
+  do_not_infer:
+    - job_value
+    - missed_call_rate
+    - insurance_coverage
+    - remediation_scope
+    - CRM_workflow
+
+call_pack_defaults:
+  preferred_primary_hook_family: missed_call
+  preferred_backup_hook_family: surge_capacity
+  maximum_confirmed_facts: 3
+  default_next_step: strategy_conversation
