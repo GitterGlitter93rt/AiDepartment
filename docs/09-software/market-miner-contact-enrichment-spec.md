@@ -1,7 +1,9 @@
 # Your AI Department — Market Miner Decision-Maker / Contact Enrichment Specification
 
 **Status:** Architecture authority  
-**Purpose:** Define how a researched company becomes a contactable sales prospect without confusing business identity with person identity, over-enriching low-value accounts, or treating a guessed owner as the only valid stakeholder.
+**Date:** 2026-09-03  
+**Purpose:** Define how a researched company becomes a contactable sales prospect without confusing company identity, person identity, role relevance, or endpoint quality.  
+**Implementation owner:** Claude Code
 
 ---
 
@@ -13,67 +15,88 @@ The Market Miner first decides:
 
 Then:
 
-> Who is the best person/role to contact about this specific business problem?
+> Which role/person most likely owns the business process YAD wants to investigate?
+
+Then:
+
+> What truthful business contact path is available?
 
 Do not spend premium person-enrichment credits on every raw discovered company.
 
+Do not require Apollo for Human Assist.
+
 ---
 
-# 2. CONTACT ENRICHMENT STAGE
+# 2. CURRENT DEFAULT — PUBLIC FIRST
+
+Default YAD enrichment mode:
+
+`PUBLIC_ONLY`
 
 Recommended cascade:
 
 1. Account discovered/deduped.
 2. Basic website research.
-3. Preliminary YAD score/fit.
-4. If plausible Tier A/B or campaign requires contact: search first-party leadership/team information.
-5. Use licensed provider such as Apollo/equivalent for missing stakeholder/contact details.
-6. Validate/normalize contact.
-7. Preserve source/license/freshness.
-8. Do not block Human Assist if decision-maker remains unknown; gatekeeper strategy can still work.
+3. Preliminary YAD fit/Tier.
+4. Select target role from opportunity hypothesis + vertical profile.
+5. Search first-party team/leadership/contact evidence.
+6. Search approved public company/entity records.
+7. Search approved public licensing/professional records where relevant.
+8. Run bounded public search-result discovery for target roles.
+9. Resolve public business phone/email endpoints.
+10. Produce named-person + company-route or role-only company-route if no direct endpoint exists.
+11. Use gatekeeper/prospect feedback to improve contact memory.
+12. Only if campaign policy allows and Account value justifies it, use Apollo/equivalent as optional paid fallback.
+
+Read:
+
+- `outbound-sales-brain-public-decision-maker-resolution-spec.md`
+- `outbound-sales-brain-public-contact-source-registry.v1.yaml`
+- `outbound-sales-brain-contact-waterfall-spec.md`
+- `outbound-sales-brain-contact-endpoint-quality-spec.md`
 
 ---
 
 # 3. ROLE SELECTION IS PROBLEM-SPECIFIC
 
-Use vertical profile role map.
+Use vertical profile role maps.
 
 ## HVAC examples
 
-Missed calls/after-hours:
+Missed calls / after-hours:
 
-- owner
-- GM
 - operations/service manager
 - office/CSR manager
+- GM
+- owner for smaller firms.
 
 Replacement follow-up:
 
-- owner
-- GM
 - sales/replacement manager
+- GM
+- owner.
 
 Attribution:
 
-- owner
-- GM
 - marketing
-- operations depending organization.
+- GM/operations
+- owner depending organization.
 
 ## Plumbing examples
 
 Urgent call handling:
 
-- owner
-- GM
 - service/operations/dispatch manager
+- GM
+- owner.
 
 Larger estimate follow-up:
 
-- owner
 - sales/estimating leadership
+- GM
+- owner.
 
-Do not blindly target CEO when the operational stakeholder is obvious and accessible.
+Do not blindly target CEO/Owner if another current role clearly owns the workflow.
 
 ---
 
@@ -83,382 +106,400 @@ Required/optional fields:
 
 - contact ID
 - account ID
-- location ID optional
+- location/scope optional
 - full name
 - first/last name
-- title
-- role category
-- seniority
-- department
-- public business email
-- direct business phone(s)
-- source provider/reference
-- confidence
-- last verified
-- contact-basis metadata
-- suppression state
-- preferred contact channel only if known
+- raw title
+- normalized role category
+- company relationship type
+- seniority/department optional
+- employer match
+- role relevance
+- currentness
+- source/evidence IDs
+- last resolved
+- refresh due
+- suppression state.
 
-Never fill unknown fields with guessed names/emails in the canonical contact record.
+Endpoint values live in ContactEndpoint records rather than being flattened into one ambiguous Contact row.
+
+Never fill unknown fields with guessed names, titles, phones, or verified-looking emails.
 
 ---
 
 # 5. SOURCE PRECEDENCE
 
-For current title/employment:
+For current title/employment, consider:
 
-- current first-party company leadership/team page can be strong evidence;
-- licensed current business/contact provider;
-- current professional/public business directory;
-- older public source;
-- AI inference last.
+1. fresh prospect/gatekeeper confirmation;
+2. fresh first-party company team/leadership evidence;
+3. fresh public government/license record where it actually supports the relationship;
+4. fresh public professional/business evidence;
+5. approved licensed contact provider if enabled;
+6. older public/provider evidence;
+7. AI inference only as a candidate, never canonical fact without supporting evidence.
 
-For email/phone:
+For endpoint ownership:
 
-- current explicit first-party business contact;
-- licensed provider according to license;
-- constructed/guessed email pattern is NOT verified contact unless validated and appropriately labeled.
+1. prospect/gatekeeper supplied business endpoint;
+2. explicit current first-party business endpoint;
+3. suitable public business source;
+4. licensed provider assertion if enabled;
+5. guessed/constructed endpoint remains unverified.
 
 ---
 
-# 6. FIRST-PARTY WEBSITE CONTACT EXTRACTION
+# 6. PUBLIC CONTACT RESEARCH
 
 Look for:
 
 - About/Team/Leadership
+- public staff directory
 - management bios
 - location leadership
-- contact page role addresses
-- service/sales department addresses
-- schema/structured data.
+- public PDFs
+- entity/DBA records
+- officers/managers where exposed
+- licenses/qualifiers where relevant
+- chamber/trade/professional profiles where permitted
+- company press/news
+- bounded search queries around the exact Account + target role.
 
-Role evidence should retain page URL/timestamp.
+Every useful claim retains source + timestamp.
 
-Do not scrape private/staff-only portals.
+Do not scrape private/staff-only/login-gated sources by bypassing controls.
 
 ---
 
-# 7. LICENSED PROVIDER ADAPTER
+# 7. REGISTERED AGENT / LICENSE SAFETY
 
-Core operations:
+Registered agent:
 
-- search people by account/domain
-- filter role/seniority
-- retrieve provider-authorized business contact fields
-- record provider person ID
-- record data freshness/confidence if provided
+- is a relationship type;
+- is not owner/POC automatically;
+- must not become cold outreach target solely because filing names it.
+
+License holder / qualifier:
+
+- can strongly support person-company relationship;
+- does not automatically prove workflow ownership or company ownership;
+- must be routed according to the actual hypothesis.
+
+---
+
+# 8. OPTIONAL LICENSED PROVIDER ADAPTER
+
+Provider support is optional.
+
+Core operations when enabled:
+
+- search people by Account/domain;
+- filter role/seniority;
+- retrieve provider-authorized business contact fields;
+- record provider person ID;
+- record provider freshness/confidence semantics;
 - record credit/cost usage.
 
-Core system does not depend on Apollo-specific field names.
+Core domain model must not depend on Apollo-specific field names.
 
-Adapter maps provider data to canonical Contact.
+If no provider credentials exist, Market Miner/portal remains fully functional in PUBLIC_ONLY mode.
 
 ---
 
-# 8. TARGET ROLE RANKING
+# 9. TARGET ROLE RANKING
 
 Rank candidate contacts using:
 
 1. relevance to primary hypothesis;
-2. decision authority/seniority;
-3. direct ownership of workflow;
-4. location relevance;
-5. data confidence/freshness;
-6. contact channel availability.
+2. current ownership of workflow;
+3. authority;
+4. account/location scope match;
+5. evidence currentness;
+6. contactability;
+7. prior prospect/gatekeeper confirmation.
 
-Do not make “owner” an automatic +infinity score.
-
----
-
-# 9. CONTACT CONFIDENCE
-
-## Confirmed
-
-Current first-party or high-quality licensed evidence supports employment/title/contact.
-
-## Likely
-
-Provider/public evidence is plausible but not strongly current.
-
-## Unknown/stale
-
-Do not use personalized statement such as:
-
-> I know you're the operations manager
-
-unless confidence supports it.
-
-Gatekeeper/role-based opening remains safer.
+Do not make owner an automatic infinity score.
 
 ---
 
-# 10. UNKNOWN DECISION-MAKER
+# 10. CONTACT CONFIDENCE DIMENSIONS
 
-Valid Call Pack:
+Keep separately:
+
+## Employer Match
+
+- confirmed
+- likely
+- uncertain
+- historical
+- conflicted.
+
+## Role Relevance
+
+- primary process owner
+- strong stakeholder
+- valid fallback
+- weak.
+
+## Currentness
+
+- fresh
+- aging
+- stale
+- unknown.
+
+## Endpoint Person Relationship
+
+- direct confirmed
+- direct provider asserted
+- company route
+- location route
+- role inbox
+- unverified.
+
+Do not collapse to an opaque percentage.
+
+---
+
+# 11. UNKNOWN DECISION-MAKER
+
+Valid Human Assist Call Pack:
 
 - contact name unknown
-- target role = operations/GM
-- main business phone verified.
+- target role = Operations / GM
+- verified main business phone.
 
 Gatekeeper objective:
 
-> Who normally owns lead handling / operations / marketing / sales process?
+> Who normally owns inbound lead handling / operations / sales follow-up?
 
-Success can be correct role/contact discovery.
+Success may be correct-person discovery.
 
-Do not discard a Tier A account only because person enrichment failed.
+Do not discard a Tier A Account because no named person or direct mobile exists.
 
 ---
 
-# 11. MULTI-LOCATION CONTACTS
+# 12. NAMED PERSON, NO DIRECT NUMBER
+
+Also valid:
+
+- `John Smith — Owner`
+- strong current relationship evidence
+- no public direct number
+- current official main business phone
+- route = ask for John Smith.
+
+Never attach the company main line to John as `DIRECT_BUSINESS_LINE` without explicit evidence.
+
+---
+
+# 13. MULTI-LOCATION / FRANCHISE
 
 Account may have:
 
-- corporate owner/GM;
-- regional operations;
-- local branch manager;
-- location office manager.
+- corporate leadership
+- regional operations
+- location manager
+- local franchisee leadership.
 
-Contact should link to appropriate Account/Location.
+Contact should link to appropriate Account/Location scope.
 
-Campaign decides whether outreach is:
+Do not target corporate leadership for a local branch workflow unless control evidence supports it.
 
-- account-level;
-- branch-level;
-- regional.
-
-Avoid multiple reps calling several branches of the same account simultaneously without deliberate strategy.
+Do not assume local franchise owner is corporate employee.
 
 ---
 
-# 12. FRANCHISE CONTACTS
-
-Franchise requires ownership/account relationship resolution first.
-
-Do not call corporate brand leadership about a local franchise workflow unless campaign targets corporate.
-
-Do not assume local franchise owner is employee of corporate entity.
-
----
-
-# 13. PHONE TYPES
+# 14. PHONE TYPES
 
 Distinguish:
 
 - main business
 - location
 - direct business
-- mobile/direct
+- extension
+- mobile asserted business
 - toll-free
-- tracking number.
-
-Contact enrichment does not decide autonomous call legality/policy.
-
-Line/contact basis moves into Compliance Engine.
-
----
-
-# 14. EMAIL TYPES
-
-- named business email
-- role/business email (`info@`, `sales@`)
-- provider-supplied business email
+- tracking number
 - unknown.
 
-Do not send email merely because address exists; communication policy applies.
+Phone type/contact evidence does not decide autonomous call legality/policy.
 
 ---
 
-# 15. EMAIL GUESSING
+# 15. EMAIL TYPES
 
-Do not store guessed pattern as verified contact.
+Distinguish:
 
-If YAD later uses an email-verification provider:
+- named/direct business email
+- role/business inbox
+- general business email
+- provider-supplied email if enabled
+- guessed/unverified.
 
-- constructed candidate remains provenance-labeled;
-- verification result stored;
-- outreach policy evaluated.
-
-Do not let LLM hallucinate likely email addresses and send them.
-
----
-
-# 16. STALE CONTACT
-
-If contact older than TTL or evidence conflicts:
-
-- mark aging/stale;
-- refresh before highly personalized outreach where cost justified;
-- main business/gatekeeper path remains fallback.
-
-If receptionist says person left:
-
-- record ProspectStatement/contact correction;
-- mark prior contact stale/invalid;
-- ask appropriate role.
+Do not send merely because an address string exists.
 
 ---
 
-# 17. CONTACT COST CONTROL
+# 16. EMAIL GUESSING
 
-Track:
+Pattern inference may be stored only as `GUESSED_UNVERIFIED` if policy permits.
 
-- provider lookup cost
-- contacts found
-- high-confidence contacts
-- decision-makers reached later
-- meetings by contact provider/source.
+It must not:
 
-Metric:
+- display as verified;
+- auto-export under a verified-email requirement;
+- be described as publicly found.
 
-`contact_enrichment_cost_per_decision_maker_reached`
-
-Do not buy ten contact records for a Tier C account by default.
+Verification is a separate adapter/process.
 
 ---
 
-# 18. ENRICHMENT DEPTH
+# 17. STALE CONTACT
 
-## No person enrichment
+Refresh triggers:
 
-Tier C/D or early discovery.
+- role evidence exceeds TTL
+- website no longer lists person
+- public evidence conflicts
+- email bounce
+- wrong-number feedback
+- gatekeeper says person left
+- Account becomes active opportunity and existing contact is aging.
 
-## Basic
+Preserve historical relationship; do not erase provenance.
+
+---
+
+# 18. CONTACT COST CONTROL
+
+Track public and paid costs separately:
+
+- search/crawl cost
+- LLM extraction cost
+- public named-person fill
+- public email/direct-phone fill
+- main-line route rate
+- optional provider lookup cost
+- decision-maker reach rate
+- meetings by contact source.
+
+Key metric:
+
+`contact_resolution_cost_per_decision_maker_reached`
+
+Do not optimize solely for row fill rate.
+
+---
+
+# 19. ENRICHMENT DEPTH
+
+## Company-only
+
+Low-priority / discovery stage.
+
+## Public Basic
 
 First-party website role/name search.
 
-## Standard
+## Public Standard
 
-One licensed provider lookup for top relevant roles.
+First-party + bounded public company/license/search evidence.
 
-## Premium
+## Public Deep
 
-High-value Tier A account: deeper account/role resolution if standard fails and campaign economics justify it.
+Tier A / high-value account receives deeper public-source reconciliation.
+
+## Paid Optional
+
+Only when direct endpoint value justifies incremental cost and campaign permits it.
 
 ---
 
-# 19. DUPLICATE CONTACT RESOLUTION
+# 20. DUPLICATE CONTACT RESOLUTION
 
-Same person may appear:
-
-- website name
-- Apollo record
-- several emails
-- several phones.
+Same person may appear in multiple sources.
 
 Merge Contact when strong identity supports it.
 
-Preserve SourceIdentity/provenance.
+Preserve every source identity/evidence reference.
 
-Do not merge common names across different companies without strong evidence.
+Do not merge common names across companies without strong evidence.
 
 ---
 
-# 20. CONTACT SUPPRESSION
+# 21. CONTACT SUPPRESSION
 
-Suppression can apply to:
+Suppression may apply to:
 
-- a phone
+- endpoint
 - person/contact
-- account/company
+- Account/company
 - email
 - campaign.
 
-Contact provider refresh must never recreate a suppressed contact as “new” outreach target without matching suppression identity.
+Re-research or paid enrichment must never recreate a suppressed target as a new cold record while suppression still applies.
 
 ---
 
-# 21. HUMAN CORRECTION
+# 22. HUMAN CORRECTION
 
 Rep can record:
 
 - correct title
-- person left company
-- right decision-maker
+- person left
+- correct decision-maker
 - preferred department
-- wrong direct line.
+- wrong direct line
+- new extension
+- business email supplied.
 
-Human/prospect correction should update current contact read model while preserving source history.
-
----
-
-# 22. FIXTURE A — OWNER FOUND
-
-Website lists owner + licensed provider confirms same current title/email.
-
-Expected:
-
-- one high-confidence Contact
-- sources linked
-- role owner.
+Prospect/gatekeeper correction updates current routing while preserving source history.
 
 ---
 
-# 23. FIXTURE B — OLD OWNER RECORD
+# 23. ACCEPTANCE FIXTURES
 
-Licensed provider says John Smith owner; current website says Jane Doe owner.
+Use:
 
-Expected:
+`outbound-sales-brain-public-contact-resolution-fixtures.v1.yaml`
 
-- Jane current higher precedence for public ownership clue
-- John record marked stale/needs validation, not silently deleted
-- no personalized call to John as current owner without refresh.
+Required behaviors include:
 
----
-
-# 24. FIXTURE C — OPERATIONS BETTER THAN OWNER
-
-Tier A multi-location HVAC account.
-
-Contacts:
-
-- owner
-- director of operations
-- marketing coordinator.
-
-Primary hypothesis = call handling/dispatch capacity.
-
-Expected preferred target:
-
-- director of operations if role/current contact sufficiently strong, with owner as alternate depending campaign.
+- current owner + main line != direct owner number;
+- registered agent != owner;
+- qualifier supports relationship but not automatic workflow ownership;
+- Operations may outrank Owner for operational hypothesis;
+- stale directory loses to current company evidence;
+- role-only route remains sales-ready;
+- explicit company-published direct endpoint can be direct-confirmed;
+- dubious personal-number source rejected;
+- guessed email not verified;
+- gatekeeper correction updates routing;
+- franchise scope respected;
+- Apollo unavailable does not block Human Assist.
 
 ---
 
-# 25. FIXTURE D — NO PERSON FOUND
+# 24. ACCEPTANCE TEST
 
-Main business phone verified; no decision-maker.
+For manually reviewed Tier A/B sample measure:
 
-Expected:
+- current person/title precision
+- role relevance precision
+- account/location scope precision
+- public named-person rate
+- public direct endpoint fill
+- verified main-line fallback rate
+- registered-agent false-positive rate
+- stale-person error rate
+- decision-maker reach rate
+- optional provider incremental lift if later enabled.
 
-- Account stays in Human Assist if otherwise eligible
-- Call Pack target role `GM/operations`
-- gatekeeper script used
-- no fake name.
-
----
-
-# 26. FIXTURE E — FRANCHISE
-
-Provider returns corporate executive while Account represents locally owned franchise.
-
-Expected:
-
-- do not set corporate executive as local decision-maker automatically
-- resolve local franchise ownership/role or use main business gatekeeper.
+The objective is useful, trustworthy routing—not maximum personal-data collection.
 
 ---
 
-# 27. ACCEPTANCE TEST
+# 25. CORE RULE
 
-For manually reviewed Tier A/B sample:
-
-Measure:
-
-- current employment/title precision
-- account/location association precision
-- direct contact field validity where provider supplies it
-- percentage with useful decision-maker/role
-- false personalized-name/title claims
-- enrichment cost per useful contact.
-
-The objective is useful routing, not maximum personal-data collection.
+**YAD resolves the right business stakeholder from first-party/public evidence first and treats paid contact databases as optional accelerators. A truthful role/name + verified company route is a valid result.**
