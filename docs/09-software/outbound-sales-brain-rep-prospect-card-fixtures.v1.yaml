@@ -1,0 +1,220 @@
+fixture_set: yad_rep_prospect_cards_v1
+version: 1.0.0
+purpose: Representative UI/data fixtures for Sales Team Access prospect cards.
+
+prospects:
+  - id: hvac_google_lsa_tier_a
+    account:
+      account_id: acct_demo_hvac_001
+      company_name: Cool Air Pros
+      website: https://example-hvac.invalid
+      city: Jacksonville
+      state: FL
+      vertical_profile_id: hvac-us-v1
+      relationship_state: COLD_PROSPECT
+      owner: brent
+    contact:
+      target_role: operations
+      contact_name: Sarah Jones
+      contact_title: Operations Manager
+      phone: "+19045550111"
+      phone_quality: VERIFIED_BUSINESS_MAIN
+      email: sarah@example-hvac.invalid
+      email_quality: LICENSED_PROVIDER_EMAIL
+    intelligence:
+      yad_score: 13
+      yad_tier: A
+      advertiser_evidence_strength: VERY_STRONG
+      research_completeness: COMPLETE
+      research_freshness: FRESH
+      why_ranked: Tier A with current Google Search and LSA evidence for emergency AC, 24/7 service, two locations, strong phone/estimate funnel, and no prior YAD contact.
+      evidence:
+        - claim: Current sponsored result observed for emergency AC repair Jacksonville.
+          confidence: confirmed
+          freshness: fresh
+        - claim: Website advertises 24/7 service.
+          confidence: confirmed
+          freshness: fresh
+        - claim: ServiceTitan-related booking signal detected on website.
+          confidence: confirmed
+          freshness: fresh
+        - claim: CallRail-related call-tracking signal detected.
+          confidence: confirmed
+          freshness: fresh
+      primary_hypothesis:
+        family: paid_after_hours
+        text: Paid/after-hours lead handling may be worth investigating.
+      secondary_hypothesis:
+        family: unsold_estimate_follow_up
+        text: Replacement-estimate follow-up may be another meaningful workflow.
+      primary_hook: paid_after_hours
+      first_question: When one of those emergency calls comes in after hours and everybody's tied up, what happens next?
+      backup_question: What happens to a replacement estimate that does not close on the first conversation?
+      do_not_claim:
+        - ad spend amount is unknown
+        - missed-call rate is unknown
+        - ServiceTitan backend workflow is unknown
+        - no revenue-loss amount has been verified
+    channel:
+      eligibility: CALL_AND_EMAIL_ELIGIBLE
+      email_personalized_line: Saw Cool Air Pros is currently showing around emergency AC in Jacksonville. Curious what happens when one of those inquiries hits after hours or nobody reaches them on the first attempt.
+      smartlead_active: false
+    history: []
+    expected_ui:
+      section: BEST_NEW_PROSPECTS
+      call_action_visible: true
+      email_action_visible: true
+      dnc_action_visible: true
+
+  - id: roofing_email_requested_followup
+    account:
+      account_id: acct_demo_roof_001
+      company_name: First Coast Roofing Group
+      city: St. Augustine
+      state: FL
+      vertical_profile_id: roofing-us-v1
+      relationship_state: ENGAGED
+      owner: rep_a
+    contact:
+      target_role: sales_leadership
+      contact_name: Mike Taylor
+      contact_title: Sales Manager
+      phone: "+19045550222"
+      phone_quality: VERIFIED_BUSINESS_MAIN
+      email: mike@example-roof.invalid
+      email_quality: VERIFIED_BUSINESS_EMAIL
+    intelligence:
+      yad_score: 11
+      yad_tier: A
+      advertiser_evidence_strength: STRONG
+      research_completeness: GOOD
+      research_freshness: FRESH
+      primary_hypothesis:
+        family: unsold_proposal_follow_up
+        text: Unsold roofing proposal follow-up may be worth investigating.
+      first_question: What happens to a roof-replacement proposal that doesn't close on the first conversation?
+      do_not_claim:
+        - proposal count unknown
+        - close rate unknown
+        - job value unknown
+    channel:
+      eligibility: FOLLOW_UP_ONLY
+    history:
+      - type: CALL
+        outcome: EMAIL_REQUESTED
+        note: Prospect asked for an email specifically about estimate follow-up and CRM visibility.
+      - type: FOLLOWUP_TASK
+        due: "2026-09-03T15:00:00-04:00"
+    expected_ui:
+      section: FOLLOW_UP
+      generic_cold_call_action_visible: false
+      draft_email_action_visible: true
+      draft_topic: estimate follow-up and CRM visibility
+      smartlead_sequence_action_visible: false
+
+  - id: law_smartlead_positive_reply
+    account:
+      account_id: acct_demo_law_001
+      company_name: Coastal Injury Law
+      city: Jacksonville
+      state: FL
+      vertical_profile_id: law-firms-us-v1
+      relationship_state: ENGAGED
+      owner: rep_b
+    contact:
+      target_role: intake
+      contact_name: Dana Lee
+      contact_title: Intake Director
+      email: dana@example-law.invalid
+      email_quality: VERIFIED_BUSINESS_EMAIL
+      phone: "+19045550333"
+      phone_quality: VERIFIED_BUSINESS_MAIN
+    intelligence:
+      yad_score: 12
+      yad_tier: A
+      advertiser_evidence_strength: STRONG
+      research_completeness: COMPLETE
+      research_freshness: FRESH
+      primary_hypothesis:
+        family: after_hours_intake
+        text: After-hours paid-intake response may be worth investigating.
+      first_question: What happens to a potential client who reaches out after intake has closed or doesn't answer the first callback?
+      do_not_claim:
+        - no legal case-value assumptions
+        - no case-merit automation
+        - no legal-advice positioning
+    channel:
+      eligibility: FOLLOW_UP_ONLY
+      smartlead_active: false
+    history:
+      - type: SMARTLEAD_EMAIL
+        outcome: SENT
+      - type: SMARTLEAD_REPLY
+        reply_class: POSITIVE_INTEREST
+        text: Interested. Can you send a couple times next week?
+    expected_ui:
+      section: FOLLOW_UP
+      generic_cold_actions_visible: false
+      meeting_followup_visible: true
+      reply_context_visible: true
+
+  - id: suppressed_restoration_high_score
+    account:
+      account_id: acct_demo_restoration_001
+      company_name: Rapid Dry Restoration
+      city: Jacksonville
+      state: FL
+      vertical_profile_id: restoration-us-v1
+      relationship_state: SUPPRESSED
+      owner: null
+    contact:
+      phone: "+19045550444"
+      phone_quality: SUPPRESSED
+      email: info@example-restoration.invalid
+      email_quality: OPTED_OUT
+    intelligence:
+      yad_score: 18
+      yad_tier: A
+      advertiser_evidence_strength: VERY_STRONG
+      research_completeness: COMPLETE
+      research_freshness: FRESH
+      primary_hypothesis:
+        family: emergency_call_handling
+        text: Emergency-call overflow would otherwise be a high-priority hypothesis.
+    channel:
+      eligibility: SUPPRESSED
+    expected_ui:
+      section: NONE_ACTIONABLE
+      call_action_visible: false
+      email_action_visible: false
+      export_actionable: false
+      suppression_badge_prominent: true
+
+  - id: ambiguous_identity_review
+    account:
+      account_id: acct_demo_review_001
+      company_name: Jacksonville Home Pros
+      city: Jacksonville
+      state: FL
+      vertical_profile_id: null
+      relationship_state: RESEARCH_REVIEW
+      owner: null
+    contact:
+      phone: "+19045550555"
+      phone_quality: UNKNOWN_LINE_TYPE
+      email: leads@example-aggregator.invalid
+      email_quality: UNVERIFIED
+    intelligence:
+      yad_score: null
+      yad_tier: null
+      advertiser_evidence_strength: UNKNOWN
+      research_completeness: PARTIAL
+      research_freshness: FRESH
+      review_reason: Paid ad appears to route through a lead-generation intermediary; provider identity cannot be assigned safely to a specific contractor.
+    channel:
+      eligibility: HUMAN_REVIEW_REQUIRED
+    expected_ui:
+      section: NEEDS_RESEARCH_REVIEW
+      call_action_visible: false
+      email_action_visible: false
+      research_review_action_visible: true
