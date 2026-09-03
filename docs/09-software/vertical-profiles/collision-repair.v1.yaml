@@ -1,0 +1,848 @@
+profile_id: collision-repair-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Collision Repair
+industry_aliases:
+  - auto body shop
+  - body shop
+  - collision center
+  - auto body repair
+priority: 4
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-13-collision-repair-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - collision_repair
+    - structural_repair
+    - refinishing
+    - parts_and_sublet
+    - cosmetic_light_repair
+    - hail_pdr_related_work
+  lead_types:
+    - estimate_call
+    - estimate_form
+    - google_ads_lead
+    - organic_search
+    - referral
+    - insurer_referral
+    - dealer_referral
+    - prior_customer
+    - towing_related_inquiry
+  customer_types:
+    - vehicle_owner
+    - insurer_referred_customer
+    - dealer_referral_customer
+    - fleet_account
+  high_value_service_families:
+    - collision_repair_order
+    - structural_repair
+    - hail_repair
+    - major_body_repair
+  recurring_revenue_families:
+    - fleet_relationships
+    - dealer_referral_relationships
+    - prior_customer_referrals
+  urgency_characteristics:
+    - post_accident_inquiry
+    - vehicle_not_drivable
+    - towing_or_rental_coordination
+  seasonality_characteristics:
+    - hail_event_surges
+    - weather_related_collision_variation
+  phone_dependence: high
+  appointment_dependence: high
+  estimate_proposal_dependence: high
+  field_service_dependence: medium
+
+search_taxonomy:
+  core_queries:
+    - query: body shop
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: collision repair
+      family: core
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: auto body repair
+      family: core
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: collision repair
+      family: collision
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: auto body repair
+      family: collision
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: body shop estimate
+      family: estimate
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: hail damage repair
+      family: hail
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: dent repair
+      family: cosmetic
+      intent_weight: 4
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - collision repair near me
+    - body shop after accident
+    - auto body repair near me
+  high_ticket_queries:
+    - collision repair
+    - structural auto body repair
+    - hail damage repair
+  financing_queries: []
+  commercial_queries:
+    - fleet collision repair
+    - dealer collision repair
+  service_aliases:
+    - auto body
+    - collision
+    - body repair
+    - dent repair
+    - hail repair
+  negative_terms:
+    - auto body parts
+    - body shop supplies
+    - automotive paint supply
+    - training school
+    - salvage yard
+  classification_warning_terms:
+    - mechanic only
+    - detailing only
+    - PDR only
+    - glass only
+    - lead generation site
+
+classification_rules:
+  positive_business_categories:
+    - collision_repair_shop
+    - auto_body_shop
+    - collision_center
+    - body_and_paint_shop
+  negative_business_categories:
+    - parts_supplier
+    - salvage_yard
+    - paint_supplier
+    - training_school
+  website_keyword_positive:
+    - collision repair
+    - auto body repair
+    - body shop
+    - insurance claim assistance
+    - free estimate
+    - schedule estimate
+    - hail repair
+  website_keyword_negative:
+    - parts only
+    - automotive supplies
+  required_any_of:
+    - collision_service_evidence
+    - auto_body_service_evidence
+    - estimate_repair_evidence
+  exclude_if_all:
+    - non_repair_business
+    - no_collision_customer_service_evidence
+  manual_review_if:
+    - PDR_collision_mix_unclear
+    - dealership_collision_center
+    - multi_location_MSO_parent_child_ambiguous
+    - lead_generation_site_possible
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Current paid estimate demand makes response, missed-call recovery and source-to-repair-order attribution worth testing.
+    possible_hypothesis_ids:
+      - estimate_call_overflow
+      - estimate_lead_response
+      - attribution_gap
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Meta or social lead capture can create form-driven estimate opportunities requiring routing and follow-up.
+    possible_hypothesis_ids:
+      - estimate_lead_response
+      - estimate_follow_up
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: online_estimate_cta
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: A visible estimate form or scheduling path creates an observable pre-repair workflow.
+    possible_hypothesis_ids:
+      - estimate_lead_response
+      - crm_capture
+      - estimate_follow_up
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Multi-location/MSO operations increase lead routing, process consistency, attribution and reporting needs.
+    possible_hypothesis_ids:
+      - multi_location_consistency
+      - attribution_gap
+      - reporting_visibility
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: hail_service
+    category: surge
+    evidence_claim_key: hail_repair_service
+    confidence_required: confirmed
+    why_it_matters: Hail can create temporary estimate and front-office surges.
+    possible_hypothesis_ids:
+      - estimate_call_overflow
+      - surge_capacity
+    score_rule_reference: vertical_priority_signal_only
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Hiring can make front-office capacity, reporting and process consistency more relevant.
+    possible_hypothesis_ids:
+      - front_office_capacity
+      - multi_location_consistency
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: damage
+    label: Accident / damage
+    common_inputs:
+      - accident
+      - hail
+      - cosmetic_damage
+    common_outputs:
+      - search
+      - insurer_referral
+      - dealer_referral
+    handoff_risks: []
+    human_judgment_required: false
+  - stage_id: acquisition
+    label: Search / referral / insurer / dealer
+    common_inputs:
+      - google
+      - referral
+      - insurer
+      - dealer
+      - prior_customer
+    common_outputs:
+      - call
+      - form
+      - estimate_request
+    handoff_risks:
+      - attribution_loss
+    human_judgment_required: false
+  - stage_id: pre_repair_intake
+    label: Intake / estimate / appointment
+    common_inputs:
+      - call
+      - form
+      - estimate_request
+    common_outputs:
+      - estimate
+      - appointment
+      - photo_request
+    handoff_risks:
+      - missed_call
+      - slow_response
+      - no_record
+      - duplicate_entry
+    human_judgment_required: true
+  - stage_id: estimate_decision
+    label: Estimate / customer decision / insurance process
+    common_inputs:
+      - estimate
+    common_outputs:
+      - repair_scheduled
+      - open_estimate
+      - lost
+      - future
+    handoff_risks:
+      - no_follow_up
+      - unknown_lost_reason
+      - no_next_action
+    human_judgment_required: true
+  - stage_id: repair_production
+    label: Drop / teardown / repair / parts / calibration
+    common_inputs:
+      - repair_scheduled
+    common_outputs:
+      - repair_in_progress
+      - repair_complete
+    handoff_risks:
+      - status_data_fragmentation
+      - internal_handoff_gap
+      - parts_status_visibility
+    human_judgment_required: true
+  - stage_id: customer_updates
+    label: Customer status communication
+    common_inputs:
+      - repair_in_progress
+    common_outputs:
+      - customer_update
+      - escalation
+    handoff_risks:
+      - repetitive_status_calls
+      - false_or_stale_status
+    human_judgment_required: true
+  - stage_id: delivery_retention
+    label: Delivery / review / retention
+    common_inputs:
+      - repair_complete
+    common_outputs:
+      - paid_repair
+      - review
+      - referral
+    handoff_risks:
+      - review_request_inconsistent
+      - reactivation_gap
+    human_judgment_required: false
+
+leak_hypotheses:
+  - hypothesis_id: estimate_call_overflow
+    category: missed_call
+    title: Estimate opportunities may be missed when the front office is saturated
+    description: New estimate calls can collide with customer pickups, insurer calls and status requests.
+    trigger_signals:
+      - active_google_search_ads
+      - phone_heavy_site
+      - hail_service
+      - visible_hiring
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_overflow_process
+    public_fact_requirements:
+      - current_paid_ad_evidence_if_referenced
+    questions_to_verify:
+      - When the front office is already tied up and a new estimate call comes in, what happens to it?
+      - Does every missed estimate call create a record and next action?
+    primary_hook_template: When a new estimate call hits while the front office is already tied up, what makes sure that opportunity gets recovered?
+    backup_hook_templates:
+      - What happens to estimate calls after hours?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - missed_call_roi
+    must_not_claim:
+      - every_missed_call_is_a_lost_repair
+      - known_missed_call_rate_without_data
+  - hypothesis_id: estimate_follow_up
+    category: unsold_estimate
+    title: Unsold estimates may lack a defined next action
+    description: Written estimates that do not immediately schedule can disappear from view without structured follow-up.
+    trigger_signals:
+      - online_estimate_cta
+      - high_estimate_volume_signal
+      - paid_acquisition
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_estimate_follow_up
+    public_fact_requirements: []
+    questions_to_verify:
+      - How many written estimates never become repair orders?
+      - Who owns follow-up after a customer leaves without scheduling?
+    primary_hook_template: After somebody gets an estimate and leaves without scheduling, what happens next?
+    backup_hook_templates:
+      - Can management see unsold estimate value by age and reason?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - unsold_estimate_follow_up_roi
+      - lead_reactivation_roi
+    must_not_claim:
+      - every_unsold_estimate_is_recoverable
+  - hypothesis_id: customer_status_capacity
+    category: customer_communication
+    title: Repetitive status calls may consume front-office capacity
+    description: Customers may repeatedly call for repair status when reliable progress data is not pushed consistently.
+    trigger_signals:
+      - customer_status_language
+      - busy_front_office_signal
+      - multi_location_signal
+    disqualifying_signals:
+      - prospect_confirms_strong_automated_status_process
+    public_fact_requirements: []
+    questions_to_verify:
+      - What customer status question hits the front desk most often?
+      - Which repair-status data is reliable enough to trigger updates?
+    primary_hook_template: What customer status question does your front desk answer over and over every day?
+    backup_hook_templates:
+      - Where does repair-status information live and who updates it?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+    must_not_claim:
+      - all_status_calls_can_be_automated
+      - completion_dates_are_reliably_known_without_system_data
+  - hypothesis_id: attribution_gap
+    category: attribution
+    title: Marketing may not be tied through actual repair orders
+    description: Paid channels can report calls/forms while the shop needs source visibility through estimate, scheduled repair, repair order and revenue.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - call_tracking_signal
+    disqualifying_signals:
+      - prospect_confirms_closed_loop_attribution
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you trace the original ad or call source through to repair order and revenue?
+      - Which channel produces actual repair orders rather than just estimate leads?
+    primary_hook_template: Can you trace a paid estimate lead all the way through to the repair order and revenue?
+    backup_hook_templates:
+      - Can phone calls be attributed to the original campaign?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - advertising_efficiency_roi
+    must_not_claim:
+      - attribution_is_broken
+  - hypothesis_id: front_office_capacity
+    category: employee_capacity
+    title: Front-office staff may be carrying avoidable repetitive administration
+    description: Call summaries, status messages, documents, reminders, CRM updates and reporting can consume employee capacity.
+    trigger_signals:
+      - visible_hiring
+      - multiple_locations
+      - online_estimate_cta
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What repetitive front-office task would the team be happiest never doing manually again?
+      - If repair volume grew 25 percent, where would administrative capacity break first?
+    primary_hook_template: What repetitive front-office task eats the most time without requiring repair judgment?
+    backup_hook_templates:
+      - Where is customer or claim information entered more than once?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+    must_not_claim:
+      - staff_should_be_replaced
+
+decision_maker_roles:
+  - role_category: owner_general_manager
+    titles:
+      - owner
+      - general manager
+      - president
+    relevant_hypothesis_ids:
+      - estimate_call_overflow
+      - estimate_follow_up
+      - attribution_gap
+      - front_office_capacity
+    priority: 1
+  - role_category: operations
+    titles:
+      - operations manager
+      - regional manager
+      - COO
+    relevant_hypothesis_ids:
+      - front_office_capacity
+      - customer_status_capacity
+      - multi_location_consistency
+    priority: 1
+  - role_category: customer_service
+    titles:
+      - office manager
+      - CSR manager
+      - customer service manager
+    relevant_hypothesis_ids:
+      - estimate_call_overflow
+      - customer_status_capacity
+      - front_office_capacity
+    priority: 2
+  - role_category: estimator_sales
+    titles:
+      - estimator manager
+      - sales manager
+      - business development manager
+    relevant_hypothesis_ids:
+      - estimate_follow_up
+      - attribution_gap
+    priority: 2
+  - role_category: marketing
+    titles:
+      - marketing director
+      - marketing manager
+    relevant_hypothesis_ids:
+      - attribution_gap
+      - estimate_lead_response
+    priority: 3
+
+system_families:
+  - system_family_id: shop_management
+    names: []
+    category: repair_production_management
+    frontend_detection_terms: []
+    positioning_rule: Shop-management software may manage production while pre-repair lead/CRM/attribution workflows can still live elsewhere. Do not assume a second CRM is required.
+    questions:
+      - Where are pre-estimate leads stored?
+      - Can unsold estimates be segmented and followed up?
+      - Can lead source be tied to repair revenue?
+  - system_family_id: estimating
+    names: []
+    category: estimating
+    frontend_detection_terms: []
+    positioning_rule: Estimating-system presence does not prove marketing, follow-up or CRM workflows are complete.
+    questions:
+      - What happens to a written estimate after the customer leaves without scheduling?
+  - system_family_id: call_tracking
+    names: []
+    category: call_attribution
+    frontend_detection_terms:
+      - call tracking
+    positioning_rule: Call-tracking presence does not prove source-to-repair-order attribution.
+    questions:
+      - Can the original call source be tied to the final repair order?
+
+hook_priorities:
+  - hook_family: estimate_call_overflow
+    base_priority: 10
+    boost_if_signals:
+      - active_google_search_ads
+      - phone_heavy_site
+      - hail_service
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_strong_overflow_process
+    question_templates:
+      - What happens to a new estimate opportunity when nobody can grab the call immediately?
+  - hook_family: unsold_estimates
+    base_priority: 9
+    boost_if_signals:
+      - online_estimate_cta
+      - high_estimate_volume_signal
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_strong_follow_up
+    question_templates:
+      - What happens after someone gets an estimate and leaves without scheduling?
+  - hook_family: customer_status
+    base_priority: 8
+    boost_if_signals:
+      - busy_front_office_signal
+      - multi_location_signal
+    demote_if_signals: []
+    avoid_if:
+      - reliable_automated_status_process_confirmed
+    question_templates:
+      - What status question does the front desk answer constantly?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - call_tracking_signal
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_closed_loop_attribution
+    question_templates:
+      - Can you trace a paid estimate lead to the repair order and revenue?
+  - hook_family: employee_capacity
+    base_priority: 7
+    boost_if_signals:
+      - visible_hiring
+      - multiple_locations
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What repetitive front-office task consumes the most time?
+
+discovery_question_banks:
+  lead_generation:
+    - text: How many estimate inquiries arrive each month and from which sources?
+      purpose: lead volume and source mix
+    - text: Which source produces the best repair orders?
+      purpose: source economics
+  phone_after_hours:
+    - text: What happens after hours or when the front desk cannot answer?
+      purpose: overflow
+  scheduling_dispatch:
+    - text: How are estimate appointments scheduled and rescheduled?
+      purpose: estimate conversion
+  sales_follow_up:
+    - text: What percentage of written estimates never become repair orders?
+      purpose: open opportunity
+    - text: Who owns the next step on unsold estimates?
+      purpose: follow-up ownership
+  retention_reactivation:
+    - text: How are old estimate leads and prior customers reactivated?
+      purpose: dormant opportunity
+  employee_capacity:
+    - text: Which status, document or CRM task consumes the most front-office time?
+      purpose: capacity
+  reporting:
+    - text: Which KPI or report takes the most manual work?
+      purpose: reporting friction
+  systems_crm:
+    - text: Where do pre-estimate leads live before they become repair orders?
+      purpose: pre-repair CRM map
+  attribution:
+    - text: Can lead source be tied to scheduled repair, repair order and revenue?
+      purpose: closed-loop measurement
+  technical_constraints:
+    - text: Which repair, safety, insurer or financial decisions must remain under qualified human control?
+      purpose: safety boundary
+
+offer_mapping:
+  - opportunity_category: missed_call
+    possible_offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    positioning: Improve overflow, callback, intake and CRM capture around the existing front office.
+    required_discovery_before_recommending:
+      - call_volume
+      - missed_call_process
+      - current_phone_system
+      - scheduling_rules
+    do_not_recommend_if:
+      - current_process_strong_and_measured
+  - opportunity_category: unsold_estimate
+    possible_offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    positioning: Improve pre-repair pipeline, follow-up tasks and reactivation before recommending new software.
+    required_discovery_before_recommending:
+      - estimate_volume
+      - current_follow_up
+      - shop_management_system
+    do_not_recommend_if:
+      - follow_up_already_strong
+  - opportunity_category: customer_communication
+    possible_offer_families:
+      - ai_implementation
+      - managed_ai_department
+    positioning: Automate routine communication only when reliable status data exists and preserve human escalation.
+    required_discovery_before_recommending:
+      - reliable_status_fields
+      - system_access
+      - exception_rules
+    do_not_recommend_if:
+      - status_data_unreliable
+  - opportunity_category: attribution
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Connect calls/forms and estimate source to repair orders and revenue where technically feasible.
+    required_discovery_before_recommending:
+      - ad_sources
+      - call_tracking
+      - shop_management_system
+      - revenue_data
+    do_not_recommend_if:
+      - closed_loop_attribution_already_reliable
+
+roi_tools:
+  - roi_tool_id: missed_call_roi
+    name: Missed Call ROI
+    relevant_hypothesis_ids:
+      - estimate_call_overflow
+    required_inputs:
+      - inbound_calls
+      - unanswered_percent
+      - legitimate_estimate_opportunity_percent
+      - conservative_capture_scenario
+      - average_completed_repair_value
+    prohibited_shortcuts:
+      - every_missed_call_equals_lost_repair
+  - roi_tool_id: unsold_estimate_follow_up_roi
+    name: Unsold Estimate / Follow-Up ROI
+    relevant_hypothesis_ids:
+      - estimate_follow_up
+    required_inputs:
+      - estimates
+      - current_conversion
+      - realistic_addressable_percent
+      - incremental_close_scenario
+      - average_completed_repair_value
+    prohibited_shortcuts:
+      - using_national_repair_cost_as_client_value
+      - treating_all_unsold_estimates_as_recoverable
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids:
+      - customer_status_capacity
+      - front_office_capacity
+    required_inputs:
+      - employee_count
+      - repetitive_hours
+      - addressable_percent
+      - loaded_hourly_cost
+    prohibited_shortcuts:
+      - guaranteed_payroll_savings
+  - roi_tool_id: advertising_efficiency_roi
+    name: Advertising Efficiency
+    relevant_hypothesis_ids:
+      - attribution_gap
+    required_inputs:
+      - actual_marketing_cost
+      - inquiries
+      - estimates
+      - scheduled_repairs
+      - repair_orders
+      - revenue
+    prohibited_shortcuts:
+      - guessing_ad_spend
+
+objection_guidance:
+  - objection_id: management_software_already_does_that
+    match_phrases:
+      - our management software already does that
+    principle: If it works, leave it alone; test configuration and adoption rather than attacking the platform.
+    response_guidance: Ask whether the relevant feature is configured, consistently used and connected to pre-repair lead and communication workflows.
+    follow_up_questions:
+      - Can it show every unsold estimate and its next action?
+    must_not_say:
+      - your management software is bad
+    manual_reference: module-13-collision-repair-industry-playbook.md#29-collision-objections
+  - objection_id: insurer_work_no_marketing
+    match_phrases:
+      - we get work from insurance
+      - we do not need marketing
+    principle: Respect the business mix and investigate direct/referral channels only if relevant.
+    response_guidance: Ask how direct, dealer, referral and prior-customer channels are measured.
+    follow_up_questions:
+      - Which non-insurer sources create repair orders today?
+    must_not_say: []
+    manual_reference: module-13-collision-repair-industry-playbook.md#29-collision-objections
+  - objection_id: customers_want_human_updates
+    match_phrases:
+      - customers want human updates
+    principle: Preserve human relationships while reducing routine workload.
+    response_guidance: Explain that reminders, routine notifications and internal data movement can support the human conversation.
+    follow_up_questions:
+      - Which updates are repetitive and which require judgment?
+    must_not_say:
+      - AI should replace customer service
+    manual_reference: module-13-collision-repair-industry-playbook.md#29-collision-objections
+  - objection_id: no_ai_repair_decisions
+    match_phrases:
+      - we do not want AI touching repair decisions
+    principle: Agree; repair and safety decisions remain with qualified people.
+    response_guidance: Focus on intake, communication, CRM, documents and reporting around the repair process.
+    follow_up_questions: []
+    must_not_say:
+      - AI can decide repair procedures
+    manual_reference: module-13-collision-repair-industry-playbook.md#29-collision-objections
+
+safety_boundaries:
+  - boundary_id: repair_safety
+    category: technical_safety
+    prohibited_agent_claims:
+      - repair_procedure_decision
+      - vehicle_safety_clearance
+      - structural_repair_judgment
+      - calibration_requirement_decision
+    human_required_for:
+      - repair_plan
+      - safety_decisions
+      - technical_diagnosis
+      - quality_control
+    escalation_guidance: Qualified repair professionals remain responsible for repair and safety decisions.
+  - boundary_id: insurance_claim
+    category: insurance_legal
+    prohibited_agent_claims:
+      - insurance_coverage_decision
+      - claim_outcome_guarantee
+      - unauthorized_adjusting_advice
+    human_required_for:
+      - claim_specific_advice
+      - contractual_or_financial_decisions
+    escalation_guidance: Route consequential insurer, contractual and financial questions to qualified staff.
+  - boundary_id: customer_status_truth
+    category: communication_truth
+    prohibited_agent_claims:
+      - fabricated_repair_status
+      - fabricated_completion_date
+    human_required_for:
+      - exceptions_without_reliable_system_data
+    escalation_guidance: Customer-facing status automation must use reliable source data and escalate uncertainty.
+
+no_sale_conditions:
+  - minimal_direct_lead_opportunity
+  - estimate_follow_up_already_strong
+  - customer_status_data_unreliable_and_no_integration_path
+  - economics_weak
+  - unsafe_repair_automation_requested
+  - unsupported_required_integration
+  - guaranteed_results_demanded
+  - employee_replacement_is_primary_goal
+
+scoring_overrides:
+  enabled: false
+  rule: Use canonical Module 4C only. Collision-specific signals affect hypothesis ranking but do not add hidden points.
+
+research_requirements:
+  minimum_before_research_ready:
+    - company_identity
+    - geography
+    - website_attempted
+    - google_ad_check_attempted
+  refresh_before_ad_specific_opener:
+    - current_paid_ad_evidence
+  optional_deep_research:
+    - meta_ads
+    - online_estimate_path
+    - multiple_locations
+    - hail_service
+    - visible_hiring
+    - leadership_roles
+  forbidden_research_actions:
+    - fake_estimate_request
+    - fake_accident_inquiry
+    - fake_insurance_claim
+    - fake_booking
+
+call_pack_defaults:
+  preferred_primary_hook_order:
+    - estimate_call_overflow
+    - unsold_estimates
+    - customer_status
+    - attribution
+    - employee_capacity
+  default_first_question: What happens to a new estimate opportunity when nobody at the front desk can grab the call immediately?
+  employee_safe_positioning: The goal is better systems around estimators, CSRs and production so they have more capacity for customers and real repair work.
+  default_prohibited_claims:
+    - known_ad_spend_without_verified_data
+    - known_missed_call_rate_without_data
+    - every_unsold_estimate_is_recoverable
+    - management_software_is_inadequate_without_review
+    - repair_or_safety_decisions_by_ai
+    - fabricated_vehicle_status
