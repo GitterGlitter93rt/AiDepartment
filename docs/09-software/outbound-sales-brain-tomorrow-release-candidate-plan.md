@@ -4,6 +4,15 @@
 **Target date:** 2026-09-04  
 **Branch:** `feature/outbound-sales-brain`
 
+## Immediate release-script authority
+
+Before implementing or testing this plan, read:
+
+- `outbound-sales-brain-yad-sales-ai-release-delta-v1.1.md`
+- `outbound-sales-brain-sales-message-backtest-report-v1.md`
+
+For affected wording/behavior, the V1.1 release delta overrides older examples in the core script.
+
 ---
 
 # 1. RELEASE OBJECTIVE
@@ -60,7 +69,33 @@ Do not include weak/ambiguous entities just to create call volume.
 
 ---
 
-# 3. HOOK RELEASE CANDIDATES
+# 3. OPENING FRAME RELEASE CANDIDATES
+
+Hold the process hook constant initially and compare framing separately.
+
+## F1 — explicit cold frame
+
+> Hey [Name], [identity] with Your AI Department. Quick cold call — I'll keep it short.
+
+Then claim-safe relevance + process question.
+
+Offline design score: 47/50.
+
+## F2 — out-of-nowhere frame
+
+> Hey [Name], [identity] with Your AI Department. I know I'm calling you out of nowhere — one quick question.
+
+Then claim-safe relevance + process question.
+
+Offline design score: 46/50.
+
+Do not default to `Did I catch you at a bad time?`.
+
+Do not change frame and process hook at the same time when trying to learn which variable caused an outcome.
+
+---
+
+# 4. HOOK RELEASE CANDIDATES
 
 ## Primary A1
 
@@ -71,9 +106,9 @@ Context:
 - fresh current advertiser observation;
 - emergency/after-hours service context claim-safe.
 
-Opening shape:
+Question:
 
-> Quick cold call — I came across you guys while looking at companies advertising [service] around [market]. When a new call hits after hours, what happens today?
+> When a new call hits after hours, what happens today?
 
 Offline design score: 48/50.
 
@@ -81,9 +116,9 @@ Offline design score: 48/50.
 
 ID: `HVAC_OVERFLOW_A2`
 
-Opening shape:
+Question:
 
-> Quick cold call — I came across you guys while looking at [category] companies advertising around [market]. When a new call comes in while everybody's already tied up, what happens next?
+> When a new call comes in while everybody's already tied up, what happens next?
 
 Offline design score: 46/50.
 
@@ -93,7 +128,7 @@ ID: `CATEGORY_AH_B1`
 
 Use when advertiser claim is not sufficiently current/clear.
 
-> Quick cold call — I was looking at HVAC companies around [market]. When somebody reaches out after hours, what happens today?
+> When somebody reaches out after hours, what happens today?
 
 Offline design score: 42/50.
 
@@ -101,7 +136,7 @@ No runtime may upgrade B1 to A1 merely because an old ad observation exists.
 
 ---
 
-# 4. PRE-LIVE CHECKPOINT — INTERNAL / ALLOWLISTED VOICE
+# 5. PRE-LIVE CHECKPOINT — INTERNAL / ALLOWLISTED VOICE
 
 Before a real prospect hears the release candidate, complete an internal/allowlisted voice pass using the actual production outbound service and production configuration except destination.
 
@@ -111,14 +146,18 @@ Minimum scenarios:
 2. owner interrupts during opener;
 3. owner asks `who is this?`;
 4. owner asks `are you AI?`;
-5. gatekeeper;
-6. send me an email;
-7. busy owner;
-8. strong existing process/no-sale;
-9. strategy-call booking through Cal.com test configuration;
-10. booking-provider failure;
-11. wrong number;
-12. DNC.
+5. owner asks `how did you get my number?`;
+6. gatekeeper;
+7. send me an email;
+8. busy owner;
+9. not interested;
+10. strong existing process/no-sale;
+11. strategy-call booking through Cal.com test configuration;
+12. booking-provider failure;
+13. wrong number;
+14. DNC;
+15. stale advertiser evidence must degrade to safe opener;
+16. incorrect/ambiguous target name must not be spoken as confident fact.
 
 Hard requirements:
 
@@ -128,18 +167,20 @@ Hard requirements:
 - natural phone/email/time pronunciation;
 - no unsupported research claim;
 - DNC terminates sales behavior;
-- booking is not stated as confirmed before provider confirmation.
+- booking is not stated as confirmed before provider confirmation;
+- endpoint provenance answer is truthful;
+- strong system/no-pain does not become forced booking.
 
 ---
 
-# 5. LIVE PILOT CONTROL
+# 6. LIVE PILOT CONTROL
 
 Use the Pilot Control Plane.
 
 Initial live behavior:
 
 - operator selects exact Accounts;
-- operator can inspect Call Pack/hook before start;
+- operator can inspect Call Pack/frame/hook before start;
 - one new call at a time initially;
 - no uncontrolled auto-refill from Market Miner into active dial batch;
 - `STOP NEW OUTBOUND CALLS` always available;
@@ -148,7 +189,7 @@ Initial live behavior:
 
 ---
 
-# 6. FIRST LIVE CHECKPOINT
+# 7. FIRST LIVE CHECKPOINT
 
 Do **not** decide the whole product from call #1.
 
@@ -159,7 +200,8 @@ Review:
 - audio/greeting latency;
 - contact correctness;
 - right-person rate;
-- opener reaction;
+- frame reaction;
+- opener/hook reaction;
 - first-question answer rate;
 - useful-process-fact rate;
 - AI listening quality;
@@ -178,11 +220,45 @@ If people answer the hook but the agent later gets robotic, fix dialogue/state h
 
 ---
 
-# 7. LIVE HOOK COMPARISON
+# 8. LIVE EXPERIMENT ORDER
 
-Once baseline voice is acceptable, compare A1 vs A2 on reasonably similar prospect cohorts.
+Do not create a combinatorial explosion.
+
+## Stage 1 — frame
+
+Hold `HVAC_AH_A1` constant and compare:
+
+- F1 + A1;
+- F2 + A1.
+
+Only after baseline voice quality is acceptable.
+
+## Stage 2 — hook
+
+Use the acceptable/better frame and compare:
+
+- `HVAC_AH_A1`;
+- `HVAC_OVERFLOW_A2`.
+
+Use reasonably similar prospect quality.
+
+## Stage 3 — safe fallback
+
+Use `CATEGORY_AH_B1` where current advertiser claim is not safe or as a deliberate non-ad-context comparison.
+
+## Stage 4 — second vertical
+
+Plumbing.
+
+## Stage 5 — estimate workflow
+
+Roofing `ESTIMATE_A1` after urgent-service proof.
 
 Do not deliberately send weak/deceptive negative controls to real prospects.
+
+---
+
+# 9. LIVE METRICS
 
 Primary directional metrics:
 
@@ -191,15 +267,18 @@ Primary directional metrics:
 3. meaningful problem supported;
 4. qualified strategy-call offer rate;
 5. strategy-call booked rate;
-6. early hang-up during opener;
-7. DNC;
-8. qualitative naturalness/creepiness feedback.
+6. early hang-up during frame/opener;
+7. targeted email/callback;
+8. no-need;
+9. DNC;
+10. qualitative naturalness/creepiness feedback;
+11. latency/interruption/repetition failures.
 
-The best hook is not automatically the one with highest meeting count if it creates low-quality meetings.
+The best message is not automatically the one with highest meeting count if it creates low-quality meetings.
 
 ---
 
-# 8. QUALIFIED MEETING STANDARD
+# 10. QUALIFIED MEETING STANDARD
 
 The AI may use `BOOK_NOW` when conversation supports a legitimate reason for deeper review.
 
@@ -221,11 +300,19 @@ Do not book merely because:
 
 ---
 
-# 9. MEETING CLOSE
+# 11. POSITIONING / MEETING CLOSE
+
+When a supported problem exists, preferred short positioning from V1.1:
+
+> That's the kind of workflow we help businesses tighten up — lead handling, follow-up and the systems around it. I don't want to guess at a solution on a cold call.
 
 Preferred close when `BOOK_NOW`:
 
 > Based on what you just told me, I think this is worth looking at properly instead of guessing on a cold call. Michael handles these strategy conversations for us, and it's only 15 minutes. Want me to see what he has open?
+
+Compressed close for an obviously engaged/rushed prospect:
+
+> That sounds worth a proper look. Michael handles the strategy side for us — it's 15 minutes. Want me to check his calendar?
 
 If yes:
 
@@ -237,9 +324,11 @@ If yes:
 6. only then confirm;
 7. generate Michael prep brief.
 
+Do not use generic `schedule a demo?` as the default close.
+
 ---
 
-# 10. RELEASE STOP CONDITIONS
+# 12. RELEASE STOP CONDITIONS
 
 Pause new outbound calls immediately if any of the following occurs:
 
@@ -260,7 +349,7 @@ A severe single truth/DNC/policy failure is sufficient to stop the pilot.
 
 ---
 
-# 11. RELEASE SUCCESS CONDITION
+# 13. RELEASE SUCCESS CONDITION
 
 Tomorrow is a successful release even if zero meetings are booked if the sample demonstrates:
 
@@ -277,12 +366,13 @@ A meeting is valuable only if the upstream chain is trustworthy.
 
 ---
 
-# 12. AFTER EACH REVIEW BATCH
+# 14. AFTER EACH REVIEW BATCH
 
 Classify every meaningful failure into one primary root cause:
 
 - prospect quality;
 - contact research;
+- frame;
 - hook;
 - Call Pack;
 - model/dialogue;
@@ -305,7 +395,7 @@ Then move to the next controlled batch.
 
 ---
 
-# 13. SCALE ORDER AFTER PROOF
+# 15. SCALE ORDER AFTER PROOF
 
 Only after the release candidate proves stable:
 
