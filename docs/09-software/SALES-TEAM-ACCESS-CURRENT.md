@@ -2,57 +2,55 @@
 
 **Status:** Near-term product authority  
 **Date:** 2026-09-03  
-**Business objective:** Give YAD salespeople researched people/companies to call and email before autonomous Twilio outbound exists.  
+**Business objective:** Give YAD salespeople a sleek internal web application where they can browse pre-researched prospect inventory, search a ZIP/city/market, claim Accounts to themselves, and then call/email/follow up from one shared company memory.  
 **Implementation owner:** Claude Code on EdgeXpert
 
 ---
 
-# 1. WHAT TO BUILD
+# 1. CURRENT PRODUCT DECISION
 
-The near-term internal product is:
+The primary rep experience is **NOT a forced call queue**.
 
-`Market Miner`
--> `Researched / deduplicated Accounts`
--> `Contact enrichment`
--> `Score / Tier / advertiser evidence`
--> `Opportunity hypothesis / hook`
--> `Sales Team Access`
--> `Human calls + Smartlead/direct email`
+The EdgeXpert should run Market Miner/research workers 24/7 and maintain a shared pool of researched Accounts.
+
+Sales reps should be able to:
+
+1. browse precompiled markets/lists;
+2. search a ZIP/city/market + vertical on demand;
+3. filter the shared inventory;
+4. inspect ranked prospects;
+5. select the companies they want;
+6. click `Claim to Me`;
+7. work those Accounts from `My Prospects` through phone/email/Smartlead/follow-up.
+
+Ranking and recommendations still matter, but they help the rep choose rather than trapping the rep inside a black-box ordered queue.
+
+Canonical flow:
+
+`EdgeXpert 24/7 Market Miner`
+-> `Shared researched Account inventory`
+-> `Find Prospects / Markets`
+-> `Rep search + filters`
+-> `Claim to Me`
+-> `My Prospects`
+-> `Human calls + email + Smartlead`
 -> `Shared Account memory`
--> `Callbacks / meetings / opportunities`.
+-> `Callbacks / meetings / opportunities`
+-> later approved Twilio.
 
-Autonomous AI cold calling is NOT required to deliver value to the sales team.
-
----
-
-# 2. WHAT A REP NEEDS
-
-A rep logs in and gets:
-
-- Call Now
-- Email Now
-- Call + Email
-- Follow-Up / Callbacks
-
-Every prospect should answer:
-
-- who is the company?
-- who should I ask for?
-- what phone/email can I use?
-- how reliable is that endpoint?
-- why is this prospect worth my time?
-- what public evidence supports that?
-- what is the primary business hypothesis?
-- what should I ask first?
-- what should I NOT claim?
-- has anybody at YAD already contacted them?
-- what is the next action?
+Autonomous AI cold calling is not required for this milestone.
 
 ---
 
-# 3. REQUIRED SPECS
+# 2. REQUIRED NEW SPECS
 
-Claude must implement this milestone against:
+Claude must treat these as primary implementation authority for the rep-access milestone:
+
+- `outbound-sales-brain-rep-inventory-browse-claim-spec.md`
+- `outbound-sales-brain-rep-portal-ui-ux-spec.md`
+- `outbound-sales-brain-edge-xpert-sales-portal-deployment-spec.md`
+
+Also use the existing supporting specs:
 
 - `outbound-sales-brain-sales-team-prospect-access-spec.md`
 - `outbound-sales-brain-sales-team-rbac-permissions-spec.md`
@@ -60,11 +58,9 @@ Claude must implement this milestone against:
 - `outbound-sales-brain-sales-team-access-fixtures.v1.yaml`
 - `outbound-sales-brain-sales-team-access-mvp-acceptance.md`
 - `outbound-sales-brain-human-assist-workflow.md`
-- `outbound-sales-brain-human-assist-daily-brief-spec.md`
 - `outbound-sales-brain-smartlead-sync-spec.md`
 - `outbound-sales-brain-multichannel-coordination-spec.md`
 - `market-miner-lead-import-export-spec.md`
-- `outbound-sales-brain-ready-queue-priority-spec.md`
 - `outbound-sales-brain-prospect-memory-spec.md`
 - `outbound-sales-brain-account-opportunity-lifecycle-spec.md`
 
@@ -74,232 +70,320 @@ The global architecture still begins at:
 
 ---
 
-# 4. IMPLEMENTATION ORDER
+# 3. PRIMARY REP PAGES
 
-Do NOT start by building Twilio autonomous outbound.
+The internal portal should be available through a secure web address such as:
 
-## A. Prerequisite Market Miner proof
+`sales.youraidepartment.ai`
 
-Prove trustworthy prospect inventory first.
+Initial page set:
 
-Initial target remains:
+1. Overview
+2. Find Prospects
+3. Markets
+4. My Prospects
+5. Account Detail
+6. Follow-Ups
+7. Manager Team/Assignment
 
-> HVAC — Jacksonville + St. Augustine — advertiser-first — Tier B+ — target 100 research-ready prospects — NO AUTONOMOUS CONTACT.
+The interface should be sleek, modern, fast, responsive, and use existing YAD brand/design primitives rather than looking like Airtable or a raw CRM database.
 
-## B. Sales Team Access data/query layer
+---
 
-Implement:
+# 4. FIND PROSPECTS
 
-- rep/team ownership;
-- channel eligibility;
-- worklists;
-- shared timeline;
-- endpoint quality;
-- suppression filtering;
-- callbacks/follow-ups.
+This is the primary rep workflow.
 
-## C. Internal UI
+Rep can choose:
 
-Implement:
+- vertical;
+- ZIP/ZCTA;
+- city;
+- county;
+- state;
+- radius/saved market;
+- mining mode;
+- Tier;
+- advertiser evidence;
+- phone/email availability;
+- decision-maker availability;
+- ownership state;
+- research freshness.
 
-- login;
-- rep home;
-- Call Now;
-- Email Now;
-- Both;
-- Follow-Ups;
-- prospect detail;
-- claim/release;
-- disposition;
+Example:
+
+> HVAC + 32256 + Advertiser First + Tier B+ + Unclaimed + Phone/Email
+
+The system queries existing durable inventory first and returns it immediately.
+
+If coverage is incomplete/stale, authorized users can select `Research More`, which schedules Market Miner work on EdgeXpert without blocking already available results.
+
+---
+
+# 5. PRECOMPILED MARKETS
+
+The EdgeXpert should maintain saved market inventories 24/7.
+
+Examples:
+
+- Jacksonville HVAC Advertisers
+- St. Augustine HVAC Advertisers
+- Jacksonville Roofing Advertisers
+- St. Augustine Businesses With No Verified Website
+
+Each market should display counts such as:
+
+- researched;
+- unclaimed;
+- claimed;
+- Tier A/B;
+- phone + email;
+- active advertiser evidence;
+- freshness;
+- mining status.
+
+Reps click a market and browse available Accounts.
+
+---
+
+# 6. CLAIM TO ME
+
+A cold Account begins as `UNCLAIMED` unless manager-assigned or already relationship-owned.
+
+A rep can:
+
+- Claim one;
+- select several and `Claim Selected`;
+- manager can assign/reassign.
+
+Claim must be atomic and server-side.
+
+Two reps cannot own the same cold Account at once.
+
+If another rep wins the claim first, the second rep sees the current owner and cannot work the Account through YAD cold workflows.
+
+Ownership changes are audited.
+
+Do not use frontend-only claim state.
+
+---
+
+# 7. MY PROSPECTS
+
+`My Prospects` is the rep's working book of business.
+
+Useful filters:
+
+- newly claimed;
+- not contacted;
+- call ready;
+- email ready;
+- call + email;
 - callback;
-- correction;
-- manager assignment.
+- positive reply;
+- Tier;
+- advertiser strength;
+- geography;
+- vertical;
+- opportunity stage.
 
-## D. Smartlead coordination
-
-Implement export/sync after canonical Account/Contact state exists.
-
-## E. Two-rep acceptance
-
-Run the documented Sales Team Access MVP acceptance with at least two reps.
-
-## F. Improve based on actual rep use
-
-Do not wait for voice AI to learn whether prospect research and UI are useful.
+Priority/ranking can recommend what to work first, but the rep keeps a searchable portfolio.
 
 ---
 
-# 5. INITIAL USER ROLES
+# 8. ACCOUNT CARD / DETAIL
 
-At minimum:
+Every Account should answer quickly:
 
-- SALES_REP
-- SALES_MANAGER
-- RESEARCH_OPS
-- ADMIN
+- who is the company?
+- where are they?
+- what are they advertising/promoting?
+- why are they attractive to YAD?
+- what is the YAD Tier/score?
+- who should the rep ask for?
+- what phone/email is available and how reliable is it?
+- what is the primary business hypothesis?
+- what is the suggested first question?
+- what should the rep not claim?
+- who owns the Account?
+- what has YAD already done with them?
+- what is due next?
 
-Permissions follow RBAC spec.
-
-Important:
-
-- reps can create DNC immediately;
-- reps cannot remove DNC;
-- ordinary reps cannot export unrestricted master database;
-- no sales role can enable autonomous outbound.
-
----
-
-# 6. WORKLIST CONTRACTS
-
-The product must produce:
-
-## CALL_SHEET
-
-For human calling.
-
-## EMAIL_SHEET
-
-For eligible email prospects.
-
-## COMBINED_WORKLIST
-
-For coordinated multichannel human work.
-
-## SMARTLEAD_EXPORT
-
-Minimum permitted personalization/contact fields for approved Smartlead execution.
-
-Canonical machine contract:
-
-`outbound-sales-brain-prospect-worklist-contract.v1.yaml`
-
----
-
-# 7. RELATIONSHIP RULES
-
-One company = one canonical Account.
-
-The Account history follows the company across:
-
-- Google discovery;
-- Apollo/imported lists;
-- different vertical campaigns;
-- human phone calls;
-- Smartlead;
-- direct email;
-- field visits;
-- assessment completion;
-- meetings;
-- proposals;
-- later Twilio.
-
-A new source NEVER resets:
-
-- DNC;
-- prior contact;
-- callback;
-- owner;
-- opportunity stage;
-- client status.
-
----
-
-# 8. SMARTLEAD RULE
-
-Smartlead is an execution channel, not the CRM/master database.
-
-YAD owns canonical:
-
-- Account identity;
-- Contact identity;
-- score/tier;
-- research;
-- owner;
-- suppression;
-- relationship history;
-- opportunity state.
-
-Smartlead sends/replies/bounces/unsubscribes sync back to YAD.
-
-Positive reply should stop contradictory generic cold outreach and create Human Assist ownership/follow-up.
+Do not dump raw research logs on the primary rep view.
 
 ---
 
 # 9. REP EXPERIENCE TARGET
 
-A good rep should:
+A salesperson should be able to:
 
-- understand a new prospect in under ~60 seconds;
-- know exactly who/what to ask for;
-- have a relevant first question;
-- disposition a simple attempt in under ~15 seconds;
-- schedule callback in under ~20 seconds;
-- record DNC in under ~10 seconds;
-- never need a personal spreadsheet to determine ownership/history.
+1. log in;
+2. search `HVAC + 32256`;
+3. see researched businesses immediately if inventory exists;
+4. filter to unclaimed Tier B+ advertisers;
+5. select 5–25 prospects;
+6. claim them;
+7. open My Prospects;
+8. call/email/follow up with context;
+9. record disposition/callback/DNC;
+10. never need a personal spreadsheet to track ownership/history.
 
 ---
 
-# 10. HARD FAILS
+# 10. OWNERSHIP / ANTI-HOARDING
+
+Ownership protects coordination, but reps should not lock unlimited companies forever.
+
+Management rules should be configurable:
+
+- active cold-account target/cap;
+- inactivity review;
+- unworked-account release/reassignment;
+- manager override.
+
+Never auto-release an Account with:
+
+- requested callback;
+- positive reply;
+- active opportunity;
+- scheduled meeting;
+- proposal;
+- client relationship;
+- explicit ongoing follow-up commitment.
+
+---
+
+# 11. CHANNELS
+
+A claimed Account can expose eligibility such as:
+
+- CALL READY
+- EMAIL READY
+- CALL + EMAIL
+- CONTACT RESEARCH NEEDED
+- CALLBACK
+- SUPPRESSED
+
+Smartlead remains an execution channel, not the canonical CRM/database.
+
+Email replies/bounces/unsubscribes must sync back to the Account.
+
+---
+
+# 12. EDGE XPERT DEPLOYMENT
+
+Initial internal architecture:
+
+`sales.youraidepartment.ai`
+-> secure tunnel/reverse proxy
+-> EdgeXpert Sales Portal/API
+-> PostgreSQL
+-> Market Miner/research workers.
+
+Keep realtime Twilio infrastructure at `voice.youraidepartment.ai` logically separate.
+
+The rep browser never directly scrapes Google or contains provider credentials.
+
+ZIP/market searches query PostgreSQL first; background research runs server-side on EdgeXpert.
+
+---
+
+# 13. IMPLEMENTATION ORDER
+
+Do NOT start with autonomous Twilio.
+
+## Phase A — Portal foundation
+
+- Postgres/schema
+- auth/RBAC
+- Account/Contact/ownership state
+- import existing prospect lists
+
+## Phase B — Rep product
+
+- Overview
+- Find Prospects
+- Markets
+- My Prospects
+- Account detail
+- atomic Claim to Me
+- dispositions/callback/DNC
+- manager assignment/reassignment
+
+## Phase C — Secure exposure
+
+- secure `sales.youraidepartment.ai`
+- process supervision
+- backups
+- health checks
+
+## Phase D — 24/7 Market Miner
+
+- approved Google advertiser discovery provider
+- website research
+- contact enrichment
+- dedupe
+- scoring
+- continual saved-market replenishment
+- on-demand ZIP research
+
+## Phase E — Email coordination
+
+- Smartlead export/sync
+- reply/bounce/unsubscribe state
+
+## Phase F — two-rep pilot
+
+Use two internal salespeople in the same markets and verify ownership/collision behavior.
+
+## Phase G — voice later
+
+Controlled Twilio remains a separate downstream gate.
+
+---
+
+# 14. SAME-DAY VALUE RULE
+
+Do not block initial sales-team rollout on perfect Market Miner automation.
+
+If the portal can securely import/display current lists, search them, claim Accounts, preserve ownership, and capture call/email outcomes, reps can begin using it while EdgeXpert research adapters are being completed.
+
+Then Market Miner begins replenishing that same canonical inventory automatically.
+
+---
+
+# 15. HARD FAILS
 
 Do not accept implementation if:
 
-- DNC appears in actionable list;
-- two reps unknowingly own same cold Account;
-- client appears in generic cold list;
-- active opportunity appears in generic cold list;
-- positive email reply is followed by uncoordinated generic cold outreach;
-- stale ad evidence generates current-tense ad personalization;
-- ordinary rep can unsuppress DNC;
+- DNC appears as claimable cold inventory;
+- two reps can unknowingly own the same Account;
+- ownership exists only in frontend/local state;
+- client appears as unclaimed cold prospect;
+- active opportunity appears as generic available prospect;
+- a rep can bypass another rep's ownership through API manipulation;
+- stale ad evidence is presented as current;
 - provider credentials appear in frontend;
-- exports are not audited;
-- callback/follow-up state is only in memory and can disappear after restart.
+- on-demand ZIP search creates duplicate Accounts;
+- manager reassignment is not audited;
+- Account history disappears after restart;
+- heavy mining/crawling runs on the live voice gateway;
+- reps must use private spreadsheets to know which prospects belong to them.
 
 ---
 
-# 11. FIRST PRACTICAL SALES DELIVERY
+# 16. CURRENT FIRST PRACTICAL PROOF
 
-A manager should be able to create:
+The system should support this exact workflow:
 
-> Brent — 50 Jacksonville HVAC Tier A/B advertisers — Call + Email
+> Brent logs into sales.youraidepartment.ai, opens Find Prospects, selects HVAC + Jacksonville/32256 + advertiser-first + Tier B+ + unclaimed, sees the pre-researched companies already available, selects the ones he wants, clicks Claim to Me, and they immediately become his Accounts under My Prospects with phone/email/context/history.
 
-and Brent should receive a working queue with:
+A second rep searching the same market sees Brent's claimed Accounts as owned and selects different companies.
 
-- company;
-- decision-maker/target role;
-- phone;
-- email;
-- Google/LSA evidence;
-- advertised service;
-- score/tier;
-- primary business hypothesis;
-- primary hook;
-- first question;
-- personalized email line;
-- do-not-claim warnings;
-- Account history;
-- one-click disposition/callback/DNC.
-
-This is the first rep-facing proof of the Prospect Factory.
+If inventory is thin, the rep/manager can request more research for that ZIP while continuing to work existing Accounts.
 
 ---
 
-# 12. NEXT AFTER THIS MILESTONE
+# 17. CORE RULE
 
-Once reps are successfully using researched lists:
-
-1. compare advertiser-mined vs Apollo/imported cohorts;
-2. improve contact enrichment;
-3. refine hooks based on qualified-conversation outcomes;
-4. expand verticals/markets;
-5. deepen Smartlead automation;
-6. continue Sales Manual RAG/QA;
-7. benchmark realtime voice;
-8. add controlled Twilio only after its separate gates.
-
----
-
-# 13. CORE RULE
-
-**Get researched prospects into the hands of YAD salespeople now.**
-
-The first commercial value of the Sales Brain is not autonomous dialing. It is giving every rep a better list, better context, better first question, and one shared memory across call and email.
+**EdgeXpert builds and refreshes the pool. Sales reps search the territory, choose the companies they want, claim them, and work them from one shared YAD memory.**
