@@ -2,25 +2,25 @@
 
 **Date:** 2026-09-03  
 **Branch:** `feature/outbound-sales-brain`  
-**Implementation owner:** Claude Code on EdgeXpert  
+**Implementation owner:** Claude Code on EdgeXpert / voice VPS  
 **Architecture owner:** ChatGPT  
 **Business owner:** Michael Chanata
 
 ## START HERE
 
-This file is the current task authority for Claude Code.
+This file is the current implementation task authority.
 
 Do not ask Michael to paste large architecture prompts. Read the repository documentation directly.
 
-If an older handoff conflicts with this file, this file wins for the immediate implementation priority.
+If an older handoff conflicts with this file, this file wins for immediate implementation priority.
 
 ---
 
 # 1. IMMEDIATE BUSINESS OBJECTIVE
 
-Get a usable YAD internal sales system online as quickly as practical while preserving the larger Prospect Factory / AI Sales Brain architecture.
+Get a usable YAD sales operating system online quickly while preserving the larger Prospect Factory / AI Sales Brain architecture.
 
-The current near-term product is:
+Near-term flow:
 
 `EdgeXpert 24/7 prospect research`
 -> `shared canonical Account inventory`
@@ -30,16 +30,22 @@ The current near-term product is:
 -> `rep claims Accounts to self`
 -> `rep calls/emails/follows up`
 -> `shared Account memory`
--> `Outlook strategy-call booking`
--> later controlled AI outbound voice.
+-> `Cal.com 15-minute strategy-call booking`
+-> `Michael Outlook calendar`
+-> `Cal Video meeting`
+-> `controlled outbound Sales AI`.
 
 The rep experience is **browse/search/claim**, not a forced black-box queue.
+
+The outbound voice design uses **one core YAD Sales AI**, not 30+ independent industry sales agents.
+
+Industry-specific research changes the CallPack, hypothesis, terminology, first question and safety boundaries. It does not create a different salesperson persona.
 
 ---
 
 # 2. REQUIRED DOCUMENT ORDER
 
-Read these before implementation:
+Read these before implementing relevant gates:
 
 1. `CLAUDE.md`
 2. `brain/README.md`
@@ -52,20 +58,24 @@ Read these before implementation:
 9. `docs/09-software/outbound-sales-brain-contact-waterfall-spec.md`
 10. `docs/09-software/outbound-sales-brain-contact-endpoint-quality-spec.md`
 11. `docs/09-software/outbound-sales-brain-decision-maker-routing-spec.md`
-12. `docs/09-software/OUTBOUND-SALES-BRAIN-V1-CURRENT.md`
-13. relevant referenced data/RBAC/ownership/import/Market Miner specs.
+12. `docs/09-software/outbound-sales-brain-calcom-strategy-call-booking-spec.md`
+13. `docs/09-software/outbound-sales-brain-single-sales-agent-operating-model.md`
+14. `docs/09-software/outbound-sales-brain-shared-twilio-number-dual-service-spec.md`
+15. `docs/09-software/outbound-sales-brain-demo-production-voice-mode-spec.md`
+16. `docs/09-software/OUTBOUND-SALES-BRAIN-V1-CURRENT.md`
+17. relevant referenced data/RBAC/ownership/import/Market Miner/voice specs.
 
-Do not reread every architecture file if the gate-specific docs above are sufficient.
+Do not reread every architecture file if the gate-specific documents are sufficient.
 
 ---
 
-# 3. CURRENT CONTACT STRATEGY — IMPORTANT CHANGE
+# 3. CURRENT CONTACT STRATEGY
 
 Apollo is NOT a mandatory dependency.
 
 Default contact mode is `PUBLIC_ONLY`.
 
-The system should first resolve decision-makers from approved public/first-party business sources such as:
+Resolve decision-makers from approved public/first-party business sources first:
 
 - company website/team/about/location pages;
 - company schema/structured data;
@@ -75,7 +85,7 @@ The system should first resolve decision-makers from approved public/first-party
 - company press/team/news pages;
 - current publicly indexed business documents/search results.
 
-Then resolve the best legitimate contact path:
+Then resolve the best supported contact path:
 
 - direct business phone if publicly supported;
 - business email if publicly supported;
@@ -90,50 +100,77 @@ Never fabricate a person, title, mobile number, extension or email.
 
 ---
 
-# 4. TODAY'S IMPLEMENTATION PRIORITY
+# 4. GATE T0 — AUDIT CURRENT ENVIRONMENTS
 
-## Gate T0 — Audit current EdgeXpert and repo
+Before coding, inspect the real systems.
 
-Before coding, inspect:
+## EdgeXpert
 
-- current application/package structure;
-- existing `phone-agent/` reusable vs disposable code;
-- EdgeXpert services/processes/ports;
-- Postgres availability/state;
-- existing reverse proxy/tunnel/DNS setup;
-- authentication options already present;
-- current branch status;
+Audit:
+
+- repository/package structure;
+- current branch/worktree state;
+- PostgreSQL availability/state;
+- current services/processes/ports;
+- reverse proxy/tunnel/DNS state;
+- auth options;
 - migration state;
 - secrets handling;
-- available current prospect CSV/list assets if locally accessible;
-- current Outlook/Microsoft 365 integration readiness if credentials/config exist locally.
+- current prospect CSV/list assets if locally accessible.
 
-Return concise findings, blockers and proposed exact file/module structure.
+## Voice VPS
 
-Then proceed unless a blocker requires Michael.
+Audit the actually deployed demo/receptionist runtime:
 
-## Gate T1 — Canonical sales data foundation
+- Twilio number/configuration;
+- inbound webhook routing;
+- current process supervisor/services;
+- reverse proxy/routes;
+- ConversationRelay/WebSocket implementation;
+- current STT/TTS provider/config;
+- realtime model/provider;
+- interruption/barge-in handling;
+- latency instrumentation;
+- transfer/booking/tool primitives;
+- health endpoints;
+- logs/error behavior;
+- reusable code vs demo-specific code.
 
-Implement or reconcile:
+Do not assume the isolated `phone-agent/` prototype is the same as the deployed receptionist. Inspect both.
 
-- Account
-- Location
-- Contact
-- PhoneEndpoint / EmailEndpoint
-- Evidence/provenance
-- ownership
-- activity/timeline
-- disposition
-- callback
-- suppression/DNC
-- import source identity
-- research job state
+Return concise findings and then proceed unless a real credential/external-account/business blocker exists.
+
+---
+
+# 5. GATE T1 — CANONICAL SALES DATA FOUNDATION
+
+Implement/reconcile one durable data model for:
+
+- Account;
+- Location;
+- Contact;
+- PhoneEndpoint / EmailEndpoint;
+- Evidence/provenance;
+- ownership;
+- activity/timeline;
+- disposition;
+- callback;
+- suppression/DNC;
+- import source identity;
+- research job state;
+- Booking;
+- CallPack;
+- CallSession / CallAttempt.
 
 Do not create a second parallel lead database.
 
-## Gate T2 — Rep portal
+---
 
-Build the sleek internal portal intended for `sales.youraidepartment.ai`.
+# 6. GATE T2 — REP PORTAL
+
+Build the sleek internal portal intended for:
+
+`sales.youraidepartment.ai`
 
 Required initial pages:
 
@@ -153,9 +190,11 @@ Use existing YAD brand primitives. Do not ship a generic admin table/Airtable cl
 
 Claim ownership must be server-enforced and atomic.
 
-## Gate T3 — Seed inventory
+---
 
-Support importing current YAD lists into the canonical Account model.
+# 7. GATE T3 — SEED INVENTORY
+
+Support controlled imports of current YAD lists into the canonical Account model.
 
 Possible sources:
 
@@ -171,11 +210,13 @@ Import flow:
 
 No automatic outreach on import.
 
-## Gate T4 — Public decision-maker resolver
+---
 
-Implement public-first Decision Maker Resolver and Public Contact Research Worker according to the current specs.
+# 8. GATE T4 — PUBLIC DECISION-MAKER RESOLVER
 
-For each sales-ready Account, attempt to answer:
+Implement the public-first Decision Maker Resolver and Public Contact Research Worker.
+
+For each sales-ready Account answer:
 
 - who likely owns the problem/workflow?
 - who is the current named person, if publicly supportable?
@@ -185,7 +226,9 @@ For each sales-ready Account, attempt to answer:
 
 Keep role confidence and endpoint confidence separate.
 
-## Gate T5 — Market Miner inventory connection
+---
+
+# 9. GATE T5 — MARKET MINER INVENTORY CONNECTION
 
 Connect cached/shared inventory search first, then background mining/research.
 
@@ -194,12 +237,14 @@ Rep ZIP search must:
 1. query existing PostgreSQL inventory immediately;
 2. show available results;
 3. optionally allow authorized `Research More`;
-4. schedule server-side research without blocking the UI;
+4. schedule server-side research without blocking UI;
 5. dedupe into canonical Accounts.
 
-Heavy mining/crawling stays on EdgeXpert/research workers, not realtime voice process.
+Heavy mining/crawling stays on EdgeXpert/research workers, never the realtime voice process.
 
-## Gate T6 — Secure internal deployment
+---
+
+# 10. GATE T6 — SECURE INTERNAL DEPLOYMENT
 
 Prepare secure internal exposure for `sales.youraidepartment.ai` using the safest practical existing environment path.
 
@@ -208,61 +253,86 @@ Requirements:
 - HTTPS;
 - authenticated users;
 - server-side RBAC;
-- no public Postgres;
+- no public PostgreSQL;
 - no provider credentials in browser;
 - process supervision;
 - restart persistence;
 - backup procedure;
 - health endpoint.
 
-## Gate T7 — Outlook strategy-call booking adapter
+---
 
-Current business intent: successful outbound conversations should normally earn a short strategy/discovery call with Michael rather than attempt to close a full YAD implementation on the cold call.
+# 11. GATE T7 — CAL.COM 15-MINUTE STRATEGY-CALL BOOKING
 
-Target calendar/mailbox:
+## Current product decision
+
+Use **Cal.com as the booking authority**.
+
+Connect it to Michael's real Microsoft 365 / Outlook calendar:
 
 `michael@youraidepartment.ai`
 
-Design/implement provider-neutral booking tools with Microsoft Outlook/Microsoft Graph as the current target adapter if credentials/config are available.
+Use **Cal Video** as the default meeting location.
+
+Initial event type:
+
+`YAD 15-Minute AI Strategy Call`
+
+Do not create both a direct Outlook event and a Cal.com booking for the same meeting. Cal.com owns the booking lifecycle and synchronizes to Outlook.
 
 Required behavior:
 
-- check real availability first;
-- offer real candidate slots only;
-- prefer same-day when a suitable slot actually exists and timing is reasonable;
-- otherwise offer next-business-day/next suitable slots;
-- capture prospect name/email/phone/timezone as required;
-- create calendar event only after prospect agrees;
-- include prospect as attendee when appropriate;
-- write booking ID/time back to canonical Account/Opportunity/timeline;
-- idempotency prevents duplicate events;
-- if booking fails, create human follow-up and tell caller scheduling is not confirmed.
+- check Cal.com real availability first;
+- offer only returned slots;
+- prefer a practical same-day slot when available;
+- otherwise next-business-day / next suitable slots;
+- usually offer two choices, not a long list;
+- capture prospect name/email/timezone as required;
+- create booking only after explicit agreement;
+- include prospect as attendee;
+- use Cal Video meeting link;
+- write provider booking ID/time/status back to canonical Account/Opportunity/timeline;
+- idempotency prevents duplicate bookings;
+- if booking fails, never claim success; refresh or create human follow-up.
 
-Do not hard-code imaginary availability.
+Build booking provider adapter so Cal.com specifics do not leak into core Account schema.
 
-## Gate T8 — AI cold-call script / roleplay preparation
+Human reps and Sales AI should use the same canonical booking tool.
 
-Build script/prompt/state behavior from canonical Sales Manual doctrine, especially:
+---
 
-- Module 4A cold calling;
-- Module 05 hooks;
-- vertical profile;
-- objection intelligence;
-- conversation state machine;
-- priority DNC intent;
-- action tools;
-- booking adapter.
+# 12. GATE T8 — ONE CORE OUTBOUND SALES AI
+
+Implement one core persona/profile:
+
+`yad-sales-core-v1`
+
+Do not create independent HVAC Sales AI, Roofing Sales AI, Law Sales AI, etc.
+
+One core agent uses:
+
+`YAD Sales doctrine`
++ `Company research`
++ `Vertical profile`
++ `Opportunity hypothesis`
++ `Decision-maker route`
++ `Observed paid-demand context`
++ `Relevant Sales Manual excerpts`
++ `Proof boundaries`
++ `Booking tools`.
+
+Industry-specific context belongs in the CallPack.
 
 Primary cold-call purpose:
 
 1. reach correct decision-maker;
 2. ask one researched business-process question;
 3. listen/probe;
-4. identify whether there is a real problem/opportunity;
-5. book a short strategy call with Michael when warranted;
+4. identify whether a real problem/opportunity exists;
+5. book a 15-minute strategy call with Michael when warranted;
 6. otherwise record correct next step/disqualification.
 
-Do not make the AI sell a full undefined implementation on first contact.
+Do not sell a full undefined implementation on the first cold call.
 
 Do not feature-dump.
 
@@ -270,103 +340,182 @@ Do not fabricate spend, ROI, CRM usage, missed-call rate, decision-maker identit
 
 Do not position AI as firing/replacing employees.
 
-Create text-roleplay and test fixtures before any real outbound pilot.
+Create text-roleplay/test fixtures before a real pilot.
 
 ---
 
-# 5. TOMORROW AI COLD-CALL MICRO-PILOT
+# 13. GATE T9 — REUSE THE RECEPTIONIST VOICE CORE
 
-A real prospect pilot is NOT automatically authorized merely because implementation is ready.
+Michael wants to reuse the existing demo/receptionist voice technology rather than build a completely unrelated outbound audio stack.
 
-Before any real autonomous prospect call, require:
+Claude must inspect the deployed voice VPS and reuse proven infrastructure where practical:
 
-- explicit Michael approval for the pilot;
-- deterministic compliance eligibility for each number/contact/jurisdiction/campaign;
-- durable suppression/DNC functioning;
-- approved caller ID;
-- controlled campaign size;
-- Call Pack present;
-- logging/QA present;
-- booking action tested;
-- kill switch available;
-- no unresolved critical roleplay failures.
+- Twilio webhook/signature plumbing;
+- ConversationRelay/WebSocket transport;
+- STT/TTS configuration;
+- interruption/barge-in behavior;
+- speech pacing/pronunciation;
+- session lifecycle;
+- telemetry/latency measurement;
+- transfer/tool dispatch primitives;
+- health/process supervision.
 
-If compliance/voice gates are not ready, run the exact same conversation/booking path on internal/allowlisted test participants first.
+Do **not** copy the receptionist/demo business prompt into the Sales AI.
 
-No model may override the compliance decision.
+The reusable layer is the voice engine/core. The Sales AI has its own prompt, CallPack, state machine and tools.
 
----
+Carry forward lessons from the demos:
 
-# 6. PILOT CALL OUTCOME MODEL
-
-Successful outcomes include:
-
-- correct decision-maker identified;
-- meaningful problem discovered;
-- strategy call booked with Michael;
-- specific requested callback;
-- requested targeted email;
-- clear no-need/disqualification;
-- DNC honored immediately.
-
-A booked meeting is not the only successful outcome.
-
-The system must record exact prospect wording, relevant numbers, current systems if prospect states them, objection, decision-maker correction and next step.
+- 3–5 second conversational pauses are unacceptable;
+- barge-in must stop speech quickly;
+- do not repeat/reset after interruption;
+- phone numbers must sound natural;
+- act now when the caller/prospect wants action now;
+- answer actual intent rather than restarting generic intake.
 
 ---
 
-# 7. TOMORROW CALL STYLE TARGET
+# 14. GATE T10 — SAME NUMBER, THREE EXPLICIT MODES
 
-The AI should sound like a concise researched business-development person, not an AI demo.
+YAD may use the same approved Twilio number for demos, production inbound calls and outbound Sales AI caller ID.
 
-Default shape:
+But use separate logical runtimes/processes:
+
+1. `DEMO_AI`
+2. `PRODUCTION_INBOUND`
+3. `PRODUCTION_OUTBOUND_SALES`
+
+Michael should be able to choose the intended mode from an admin control plane without editing prompts/config by hand.
+
+Recommended controls:
+
+```text
+Inbound Mode
+  Production Receptionist
+  Demo Runtime
+  Human/Fallback
+
+Outbound Sales AI
+  Off
+  Internal Test
+  Controlled Pilot
+  Policy Enabled
+
+STOP NEW OUTBOUND CALLS
+```
+
+Outbound Calls API should explicitly point new outbound calls to the Sales AI route while using the same YAD caller ID.
+
+Inbound callbacks continue through the inbound/receptionist path and can be routed using recent outbound Account context.
+
+No active call may hot-swap prompts when Michael changes a mode.
+
+A crash in outbound Sales AI should not automatically take down production inbound reception.
+
+---
+
+# 15. DEFAULT SALES CONVERSATION SHAPE
+
+The Sales AI should sound like a concise researched business-development person, not an AI demo.
+
+Universal pattern:
 
 `honest context -> one relevant question -> listen -> probe -> quantify only when supported -> position briefly -> next step`.
 
-Example structure, not a universal verbatim script:
+Example structure, not universal verbatim copy:
 
 > Hey [Name], this is [Agent] with Your AI Department. This is a cold call, so I'll be brief. I had a quick question about how you handle [specific researched business process].
+
+If a current paid-ad observation is relevant:
+
+> I came across you while looking at companies advertising [service] in [market]. I had one quick question about what happens after that lead comes in.
+
+Do not infer ad spend, profitability, lead volume, or broken workflows from observing an ad.
 
 If prospect is busy:
 
 > Completely understand. Give me ten seconds and you can tell me whether I should disappear.
 
-If real opportunity emerges:
+If a real opportunity emerges:
 
-> Based on what you just told me, I think this is worth a proper look. Rather than guess on a cold call, the next step would be a short strategy conversation with Michael where we map the workflow and see if there's actually a business case. Would you be open to that?
+> Based on what you just told me, I think it's worth putting you together with Michael for 15 minutes rather than trying to diagnose the whole thing on a cold call. Want me to see what he has open?
 
-Then check actual calendar availability and offer two real slots.
-
-The runtime prompt should use vertical/problem-specific language rather than repeating one generic script.
+If yes, check Cal.com and offer two real slots.
 
 ---
 
-# 8. HARD CONSTRAINTS
+# 16. TOMORROW AI COLD-CALL MICRO-PILOT
+
+Implementation readiness alone does not authorize arbitrary autonomous dialing.
+
+Before a real prospect pilot require:
+
+- explicit Michael approval for that pilot;
+- deterministic eligibility/compliance decision for each endpoint/campaign;
+- durable suppression/DNC;
+- approved YAD caller ID;
+- controlled campaign size;
+- CallPack present;
+- logging/QA present;
+- Cal.com booking action tested;
+- kill switch available;
+- no unresolved critical roleplay/voice failures.
+
+If a real-prospect gate is not ready, run the exact Sales AI + Cal.com path on internal/allowlisted participants first.
+
+No model may override the deterministic eligibility decision.
+
+Initial outbound concurrency should be very low.
+
+---
+
+# 17. PILOT OUTCOMES
+
+Successful outcomes include:
+
+- correct decision-maker identified;
+- meaningful problem discovered;
+- 15-minute strategy call booked with Michael;
+- specific requested callback;
+- requested targeted email;
+- correct no-need/disqualification;
+- DNC honored immediately.
+
+A booked meeting is not the only successful outcome.
+
+Record exact prospect wording, relevant numbers they supply, current systems they state, objections, decision-maker corrections and next step.
+
+---
+
+# 18. HARD CONSTRAINTS
 
 - Do not merge `main` without Michael's explicit approval.
 - Do not re-enable automatic GitHub Actions.
 - Do not manually dispatch CI unless explicitly requested.
 - Do not commit secrets.
 - Do not submit fake prospect/customer forms.
-- Do not call real prospects during tests.
 - Do not invent contact data.
 - Do not make Apollo mandatory.
-- Do not run heavy research workloads on the realtime voice gateway.
-- Do not create calendar events without prospect agreement / approved booking flow.
-- Do not claim a booking succeeded until provider result confirms it.
+- Do not run heavy research workloads on realtime voice service.
+- Do not create duplicate Cal.com + Outlook events.
+- Do not claim a booking succeeded until Cal.com/provider confirms it.
+- Do not create 30 independent Sales AI personalities.
+- Do not share one mutable global prompt between demo, inbound and outbound services.
+- Do not let demo interactions pollute production Account data.
+- Do not spoof/rotate uncontrolled caller IDs.
 
 ---
 
-# 9. REPORTING
+# 19. REPORTING
 
-After each gate, report:
+After each meaningful gate, report:
 
 - exact files changed;
 - schema/migrations;
 - services/processes changed;
 - commands/tests run;
 - test results;
-- UI screenshots/manual verification where useful;
+- UI/manual verification where useful;
 - security checks;
 - credentials/config readiness;
 - blockers requiring Michael;
@@ -376,12 +525,16 @@ Do not ask Michael questions that a repo/server audit can answer.
 
 ---
 
-# 10. CURRENT SUCCESS CONDITION
+# 20. CURRENT SUCCESS CONDITION
 
 Near-term:
 
-**EdgeXpert maintains a shared researched prospect pool; sales reps can securely browse/search a market, claim Accounts, see trustworthy decision-maker/contact paths, call/email/follow up, and book qualified prospects directly onto Michael's Outlook calendar.**
+**EdgeXpert maintains a shared researched prospect pool; sales reps can securely browse/search a market, claim Accounts, see trustworthy decision-maker/contact paths, call/email/follow up, and book qualified prospects through Cal.com onto Michael's Outlook calendar with a Cal Video meeting link.**
 
-Then:
+Voice:
 
-**A tightly controlled AI outbound micro-pilot can use the same prospect intelligence, scripts, tools, calendar and shared memory after explicit approval and compliance/voice gates pass.**
+**The same YAD Twilio number can support an intentionally selected Demo AI, Production Inbound Receptionist, and one Production Outbound Sales AI, while the runtimes remain isolated and switchable.**
+
+Pilot:
+
+**The single Sales AI can use a researched CallPack, carry a natural business conversation, and convert a legitimate opportunity into a confirmed 15-minute Cal.com strategy call with Michael.**
