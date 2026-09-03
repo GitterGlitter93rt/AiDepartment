@@ -7,71 +7,80 @@
 **Implementation owner:** Claude Code on the EdgeXpert  
 **Business owner:** Michael Chanata
 
-If an older architecture index/handoff has a shorter document list, use this manifest as the current navigation authority.
+If any older index/handoff conflicts with or omits files listed here, this manifest is the current architecture navigation authority.
 
 ---
 
 # 1. WHAT WE ARE BUILDING
 
-The core product is a **Prospect Factory / Market Miner**, not merely an AI dialer.
+The core product is a **Prospect Factory / Market Miner first and an AI phone agent second**.
 
 The system must answer:
 
-> Who should YAD contact next, why are they worth contacting, what do we actually know about them, what business problem is worth investigating, and what should the first question be?
+> Who should YAD contact next, why are they worth contacting, what do we actually know about them, which business context applies, what business problem is worth investigating, who inside the company should own that conversation, and what should the first question be?
 
 Canonical flow:
 
-`Territory`
--> `Google advertiser-first discovery`
+`Approved Market / Territory`
+-> `Query Planner`
+-> `Google / approved advertiser-first discovery`
 -> `Identity resolution / dedupe`
+-> `False-positive / aggregator filtering`
 -> `Website / business / contact research`
--> `Evidence ledger`
--> `YAD Module 4C score / Tier A-D`
--> `Advertiser evidence strength`
+-> `Evidence Ledger + freshness`
 -> `Vertical / business-context routing`
--> `Opportunity hypothesis`
+-> `Canonical Module 4C score / Tier A-D`
+-> `Advertiser evidence strength`
+-> `Research completeness`
+-> `Opportunity hypothesis ranking`
+-> `Decision-maker routing`
 -> `Solution category`
 -> `Current commercial offer mapping`
--> `Sales Manual strategy`
+-> `Sales Manual retrieval`
 -> `Call Pack`
--> `Human Assist`
+-> `Ready Queue Priority`
+-> `Human Assist Daily Brief`
 -> `Compliance gate`
 -> `Controlled realtime voice later`
--> `CRM / follow-up`
--> `QA / analytics / learning`.
+-> `CRM / prospect memory / follow-up`
+-> `QA / analytics / closed-loop learning`
+-> `Approved query/market optimization proposals`.
+
+The phone is a downstream consumer of this intelligence chain.
 
 ---
 
-# 2. NON-NEGOTIABLE BUILD ORDER
+# 2. NON-NEGOTIABLE IMPLEMENTATION ORDER
 
-1. Claude Gate 0 audit.
-2. Persistent domain/data model.
-3. Claim registry + evidence engine.
-4. Exact Module 4C score.
-5. Vertical profile registry/loader — implement HVAC/Plumbing first.
-6. Geography/search-cell planner.
-7. Durable jobs/workers.
-8. Google advertiser provider benchmark.
-9. Google advertiser miner.
-10. Entity resolution.
-11. Website intelligence.
-12. Contact enrichment.
-13. Research orchestration.
-14. Opportunity/offer/Call Pack generation.
-15. Jacksonville/St. Augustine HVAC Gate 7 acceptance.
-16. Human Assist MVP for Brent.
-17. Sales Manual RAG.
-18. Text conversation/roleplay/QA.
-19. Compliance software.
-20. Realtime provider benchmark.
-21. Controlled Twilio integration.
-22. Action tools/CRM durability.
-23. Audio certification.
-24. STOP for explicit approval before any real autonomous prospect pilot.
+Use:
 
-The expanded Roofing/Collision/PDR-Hail/Law/Real-Estate profiles are architecture-ready, but Claude must not delay the HVAC/Plumbing proof loop to implement every vertical at once.
+`docs/09-software/outbound-sales-brain-implementation-waves-v1.md`
 
-Production autonomous cold AI voice remains disabled/review-required until explicit approval and policy/gates.
+High-level order:
+
+1. Gate 0 audit.
+2. Durable data model / evidence / scoring.
+3. HVAC/Plumbing profile loader.
+4. Geography / jobs / provider benchmark.
+5. Google advertiser miner.
+6. Entity resolution / website intelligence / contacts.
+7. Opportunity hypotheses / Call Pack / ready queue.
+8. Jacksonville + St. Augustine HVAC Gate 7 proof.
+9. Human Assist for Brent.
+10. Supply autopilot / refresh / query planning.
+11. Sales Manual RAG / QA / roleplay.
+12. Plumbing second-profile proof.
+13. Expand vertical implementations selectively.
+14. Closed-loop learning.
+15. Compliance software.
+16. Realtime voice benchmark.
+17. Controlled Twilio + action tools.
+18. Audio certification.
+19. STOP for explicit approval before any real autonomous prospect pilot.
+
+Architecture-ready does not mean “implement everything now.”
+
+Production autonomous cold AI voice remains disabled/review-required until explicit approval and required policy/gates pass.
 
 ---
 
@@ -86,26 +95,31 @@ Read first:
 - `docs/00-company/launch-decisions.md`
 - `docs/07-sales/training-manual/README.md`
 
-Commercial truth from launch decisions overrides older sales-training references.
+Current commercial truth from launch decisions overrides stale sales-training/commercial references.
+
+Canonical sales doctrine remains:
+
+`docs/07-sales/training-manual/**`
 
 ---
 
 # 4. PRIMARY EXECUTION DOCUMENTS
 
-Claude must read:
+- `outbound-ai-sales-brain-master-spec.md`
+- `outbound-ai-sales-brain-claude-handoff.md`
+- `outbound-sales-brain-implementation-gates.md`
+- `outbound-sales-brain-implementation-waves-v1.md`
+- `outbound-sales-brain-claude-implementation-backlog.md`
+- `outbound-sales-brain-architecture-v1-release-checklist.md`
+- `outbound-sales-brain-consistency-decisions.md`
 
-- `docs/09-software/outbound-ai-sales-brain-master-spec.md`
-- `docs/09-software/outbound-ai-sales-brain-claude-handoff.md`
-- `docs/09-software/outbound-sales-brain-implementation-gates.md`
-- `docs/09-software/outbound-sales-brain-claude-implementation-backlog.md`
-- `docs/09-software/outbound-sales-brain-architecture-v1-release-checklist.md`
-- `docs/09-software/outbound-sales-brain-consistency-decisions.md`
-
-When an older handoff omits a newer spec listed in THIS manifest, the newer spec still applies at its corresponding gate.
+Claude's first engineering action is still Gate 0 audit, not coding the dialer.
 
 ---
 
-# 5. MARKET MINER — CORE
+# 5. MARKET MINER — DISCOVERY / RESEARCH
+
+Core specifications:
 
 - `market-miner-prospect-factory-spec.md`
 - `market-miner-geography-engine-spec.md`
@@ -120,25 +134,49 @@ When an older handoff omits a newer spec listed in THIS manifest, the newer spec
 - `market-miner-research-orchestration-spec.md`
 - `market-miner-lead-import-export-spec.md`
 - `market-miner-data-quality-slo-spec.md`
-- `market-miner-jacksonville-staugustine-hvac-acceptance-pack.md`
 - `market-miner-claim-registry.v1.yaml`
+- `market-miner-jacksonville-staugustine-hvac-acceptance-pack.md`
+
+New autopilot intelligence:
+
+- `market-miner-autonomous-query-planner-spec.md`
+- `market-miner-false-positive-learning-spec.md`
+- `market-miner-refresh-orchestrator-spec.md`
+- `market-miner-territory-expansion-controller-spec.md`
+- `market-miner-autopilot-fixtures.v1.yaml`
+
+Key principles:
+
+- approved query universe only in V1;
+- actual paid SERP/LSA observation is premium evidence;
+- one failed ad observation is UNKNOWN, not “not advertising”;
+- dedupe before expensive research;
+- filter known directories/supply/training noise early;
+- refresh only claims needed for the next decision;
+- saturation is time-bounded, not permanent;
+- never lower minimum Tier secretly to fill inventory;
+- market expansion remains inside admin-approved geography.
 
 ---
 
-# 6. DATA / STORAGE / JOBS / APIs
+# 6. DATA / STORAGE / JOBS / MEMORY
 
 - `outbound-sales-brain-data-contract.md`
 - `outbound-sales-brain-storage-indexing-spec.md`
 - `outbound-sales-brain-job-queue-spec.md`
 - `outbound-sales-brain-service-api-contracts.md`
 - `outbound-sales-brain-local-development-test-spec.md`
+- `outbound-sales-brain-prospect-memory-spec.md`
 
-Normative clarification:
+Normative semantics:
 
-- evidence confidence = confirmed / likely / unknown;
-- evidence lifecycle state = active / aging / stale / contradicted / superseded;
-- three-state fact semantics = yes / no_confirmed / unknown;
-- failed detection is normally unknown.
+- evidence confidence = `confirmed / likely / unknown`;
+- evidence lifecycle = `active / aging / stale / contradicted / superseded`;
+- three-state facts = `yes / no_confirmed / unknown`;
+- failed detection normally yields `unknown`;
+- historical evidence is not deleted merely because new evidence supersedes it;
+- prospect statements retain source/time/scope;
+- DNC/contact history survives rediscovery and cross-vertical campaigns.
 
 ---
 
@@ -146,109 +184,151 @@ Normative clarification:
 
 Core:
 
-- `outbound-sales-brain-scoring-research-fixtures.yaml` — use v1.0.1+ corrected fixture arithmetic.
+- `outbound-sales-brain-scoring-research-fixtures.yaml`
 - `vertical-profile-schema.md`
 - `vertical-profile-generation-process.md`
+- `vertical-profile-registry.v1.yaml`
 
-Machine profiles currently defined:
+Canonical Module 4C:
+
+- maximum current score = 18
+- Tier A = 9+
+- Tier B = 6–8
+- Tier C = 3–5
+- Tier D = 0–2
+
+No hidden vertical, CRM, contactability, research-completeness or classification points.
+
+## Architecture-ready machine profiles
+
+Wave 1 proof:
 
 - `vertical-profiles/hvac.v1.yaml`
 - `vertical-profiles/plumbing.v1.yaml`
+
+Additional profiles:
+
 - `vertical-profiles/roofing.v1.yaml`
 - `vertical-profiles/collision-repair.v1.yaml`
 - `vertical-profiles/pdr-hail.v1.yaml`
 - `vertical-profiles/law-firms.v1.yaml`
+- `vertical-profiles/general-contractors-remodeling.v1.yaml`
+- `vertical-profiles/electrical.v1.yaml`
+- `vertical-profiles/dental.v1.yaml`
+- `vertical-profiles/med-spas.v1.yaml`
 - `vertical-profiles/real-estate-brokerages.v1.yaml`
+- `vertical-profiles/restoration.v1.yaml`
+- `vertical-profiles/garage-door.v1.yaml`
 
-Cross-vertical control:
+Validation/control:
 
 - `outbound-sales-brain-vertical-router-spec.md`
 - `outbound-sales-brain-vertical-router-fixtures.v1.yaml`
+- `outbound-sales-brain-expanded-vertical-fixtures.v1.yaml`
 - `outbound-sales-brain-cross-vertical-intelligence-v1.md`
 
 Router invariants:
 
-- one Account may have multiple vertical assignments;
-- campaign context chooses the active research/search/hook profile;
-- secondary profiles never create duplicate Accounts;
-- account-wide DNC/contact history applies across every vertical;
-- law ad language is practice-area specific;
-- collision and PDR/hail context remain distinct;
-- professional/safety boundaries can only become more restrictive when profiles overlap;
-- unsupported/ambiguous vertical assignment fails closed for vertical-specific Call Packs.
-
-Canonical Module 4C max under current rules = 18.
-
-Tier:
-
-- A 9+
-- B 6–8
-- C 3–5
-- D 0–2.
-
-No hidden vertical/CRM/classification points.
+- one Account may have several vertical assignments;
+- current campaign context chooses active profile;
+- secondary profiles do not create duplicate Accounts;
+- account-wide contact history/DNC persists;
+- classification confidence is separate from fit score;
+- stricter safety/professional boundary wins;
+- ambiguous context blocks vertical-specific claims.
 
 ---
 
 # 8. OPPORTUNITY / OFFER / COMMERCIAL TRUTH
 
+- `outbound-sales-brain-opportunity-hypothesis-ranking-spec.md`
 - `outbound-sales-brain-offer-selection-spec.md`
 - `outbound-sales-brain-commercial-truth-snapshot-spec.md`
 - `outbound-sales-brain-business-case-calculator-spec.md`
 
 Critical distinction:
 
+`Observed fact`
+!=
 `Opportunity hypothesis`
+!=
+`Confirmed pain`
 !=
 `Solution category`
 !=
 `Commercial offer family`.
 
-Example:
+The system selects the most relevant question supported by evidence; it never invents pain to make a pitch more dramatic.
 
-- problem: missed calls
-- solution category: AI phone/overflow workflow
-- commercial wrapper: AI Implementation / AI Growth Systems / Managed AI Department according to current scope and launch decisions.
+Current ads make paid-lead handling/attribution worth investigating. They do not prove a leak.
 
-Do not invent vertical-branded fixed packages unless company authority later defines them.
+No-sale / measure-first remains valid.
 
 ---
 
-# 9. CALL PACK / SALES MANUAL / PROMPT
+# 9. DECISION-MAKER / CONTACT ROUTING
+
+- `outbound-sales-brain-decision-maker-routing-spec.md`
+
+Route by problem ownership, not merely “find the owner.”
+
+Examples:
+
+- intake -> intake/operations/practice administrator
+- unsold proposals -> sales leadership/GM
+- paid attribution -> marketing/operations/owner
+- missed calls -> operations/office/dispatch
+- law AI governance -> operations/managing partner/appropriate security owner
+
+A role-only target is valid when no named current person can be verified.
+
+Never invent a person's name.
+
+---
+
+# 10. CALL PACK / SALES MANUAL / PROMPT
 
 - `outbound-sales-brain-call-pack-spec.md`
 - `outbound-sales-brain-sales-manual-rag-spec.md`
 - `outbound-sales-brain-prompt-composition-spec.md`
 
-Prompt authority order:
+Prompt authority:
 
 1. safety/security
 2. deterministic compliance/tool permissions
-3. invariant YAD sales doctrine
+3. YAD invariant sales doctrine
 4. CommercialTruthSnapshot
 5. campaign objective/mode
 6. active vertical profile/boundaries
-7. current Call Pack
+7. Call Pack
 8. retrieved Sales Manual guidance
-9. conversation state/history
+9. current conversation / relationship brief
 10. prospect instructions that do not conflict with higher authority.
+
+Live model never receives the entire Sales Manual on every turn.
 
 ---
 
-# 10. CAMPAIGN / HUMAN ASSIST
+# 11. READY QUEUE / HUMAN ASSIST
 
+- `outbound-sales-brain-ready-queue-priority-spec.md`
 - `outbound-sales-brain-campaign-replenishment-spec.md`
 - `outbound-sales-brain-admin-control-plane-spec.md`
 - `outbound-sales-brain-human-assist-workflow.md`
+- `outbound-sales-brain-human-assist-daily-brief-spec.md`
 - `outbound-sales-brain-first-launch-plan.md`
 
-Human Assist is a first-class product milestone.
+Relationship commitments outrank cold-prospect optimization.
 
-Brent should be able to work ranked prospects before autonomous voice exists.
+Example:
+
+A requested callback due now outranks a brand-new Tier A cold prospect.
+
+Human Assist is a first-class business product milestone. Brent should be able to work ranked, researched prospects before autonomous voice exists.
 
 ---
 
-# 11. CRM / FOLLOW-UP / ACTIONS
+# 12. CRM / FOLLOW-UP / ACTIONS
 
 - `outbound-sales-brain-crm-followup-spec.md`
 - `outbound-sales-brain-action-tools-spec.md`
@@ -257,227 +337,247 @@ Critical:
 
 - DNC durable and synchronous;
 - requested callback beats generic cadence;
-- booking/email/transfer success only spoken after confirmed tool result;
-- external CRM writes retriable through durable outbox;
-- research corrections preserve historical evidence;
-- cross-vertical rediscovery does not reset contact history.
+- booked meeting removes Account from ordinary cold queue;
+- tool success must be confirmed before agent claims success;
+- external writes use durable outbox/retry;
+- corrections preserve historical provenance;
+- cross-vertical rediscovery never resets relationship state.
 
 ---
 
-# 12. CONVERSATION / QA / ROLEPLAY
+# 13. ANALYTICS / CLOSED-LOOP LEARNING / EXPERIMENTS
+
+- `outbound-sales-brain-analytics-learning-spec.md`
+- `outbound-sales-brain-unit-economics-spec.md`
+- `outbound-sales-brain-closed-loop-learning-spec.md`
+- `outbound-sales-brain-experiment-governance-spec.md`
+
+Separate learning loops:
+
+- supply learning: market/query/provider/research priority;
+- sales learning: hooks/roles/questions/Call Pack proposals;
+- quality learning: evidence/refresh/noise/QA/voice configuration proposals.
+
+V1 may automatically reorder approved tasks within bounded config.
+
+V1 may NOT autonomously rewrite:
+
+- Module 4C scoring
+- sales doctrine
+- commercial truth/pricing
+- compliance/DNC policy
+- professional/safety boundaries
+- production prompt architecture
+- new query families without review.
+
+Use experiments, sample-size discipline, guardrails and rollback.
+
+---
+
+# 14. CONVERSATION / QA / ROLEPLAY
 
 - `outbound-sales-brain-conversation-state-machine.md`
 - `outbound-sales-brain-roleplay-certification-spec.md`
 - `outbound-sales-brain-critical-roleplay-fixtures.yaml`
 - `outbound-sales-brain-qa-grader-spec.md`
 
-QA uses Sales Manual 12-point scorecard plus hard fails.
+QA uses the Sales Manual 12-point scorecard plus hard fails.
 
-No-sale can be a passing/high-quality outcome.
+No-sale can be a high-quality passing outcome.
 
 DNC/truth/tool-success failures override numeric score.
 
 ---
 
-# 13. VOICE / TWILIO
+# 15. VOICE / TWILIO
 
 - `outbound-sales-brain-realtime-voice-policy.md`
 - `outbound-sales-brain-realtime-provider-benchmark-plan.md`
 - `outbound-sales-brain-twilio-telephony-spec.md`
 
-Voice goals include:
+Voice goals:
 
 - no ordinary 3–5 second dead air;
 - p50/p95 measured first-audio latency;
 - reliable barge-in;
-- natural number pronunciation;
-- short turns;
+- natural numbers/dates/emails;
+- short spoken turns;
 - no repeated canned promises.
 
-Do not select live model/TTS/STT until benchmarked.
+Do not select model/STT/TTS on brand preference. Benchmark the real end-to-end caller experience.
 
 ---
 
-# 14. COMPLIANCE
+# 16. COMPLIANCE
 
 - `outbound-sales-brain-compliance-engine-spec.md`
 - `outbound-sales-brain-compliance-policy-review-template.yaml`
 
 Architecture is not final legal advice.
 
-Until the template/policy is reviewed/populated:
+Until policy review is completed:
 
-- research-only can proceed;
-- Human Assist can proceed subject to approved human sales procedures;
-- controlled test allowlist can proceed after technical gates;
-- autonomous cold AI voice remains review-required/disabled.
+- Market Miner can proceed;
+- Human Assist can proceed under approved human-sales procedures;
+- controlled allowlisted voice tests can proceed after technical gates;
+- autonomous real-prospect cold AI voice remains disabled/review-required.
+
+LLM never overrides deterministic suppression/contact policy.
 
 ---
 
-# 15. SECURITY / OPERATIONS / PRIVACY
+# 17. SECURITY / OPERATIONS / PRIVACY
 
 - `outbound-sales-brain-security-operations-spec.md`
 - `outbound-sales-brain-data-retention-privacy-spec.md`
 - `outbound-sales-brain-incident-response-runbook.md`
 
-Critical:
+Non-negotiable:
 
 - secrets server-side;
 - authenticated control APIs;
-- signed provider callbacks;
+- provider callback validation;
+- durable DNC;
+- durable jobs/DB;
 - global kill switch;
-- DNC fails closed;
-- durable DB/jobs;
 - logs redacted;
-- raw media/provider data retained only under policy;
-- incident response stops harm before root-cause debate.
+- source/license retention policy;
+- public website content treated as untrusted data;
+- crawler must prevent SSRF/private-network access;
+- research model does not receive communication/shell/secrets tools.
 
 ---
 
-# 16. ANALYTICS / ECONOMICS
+# 18. FIRST MARKET PROOF
 
-- `outbound-sales-brain-analytics-learning-spec.md`
-- `outbound-sales-brain-unit-economics-spec.md`
+Exact first milestone remains:
 
-V1 learning is analytical/human-reviewed.
+> **HVAC — Jacksonville + St. Augustine — advertiser-first — Tier B+ — target 100 research-ready prospects — NO CONTACT.**
 
-Do not autonomously rewrite:
+If only 63 genuinely qualify, output 63 and explain the coverage/shortfall.
 
-- canonical score
-- production prompt
-- vertical profile
-- compliance rules.
-
-Core economics:
-
-`search cost -> unique Account -> Tier B+ -> decision-maker -> qualified conversation -> meeting -> opportunity -> customer`.
-
-Break reporting down by vertical/profile version so YAD can learn which industries actually justify more mining and sales capacity.
-
----
-
-# 17. FIRST MARKET PROOF
-
-Exact milestone remains:
-
-> HVAC — Jacksonville + St. Augustine — advertiser-first — Tier B+ — target 100 research-ready prospects.
-
-If true qualifying inventory is 63, output 63 and explain coverage/shortfall.
-
-Required:
+Required proof:
 
 - geography plan
 - provider benchmark/routing
 - paid observations
 - dedupe
+- false-positive handling
 - website research
 - score/tier/evidence
 - advertiser strength
+- opportunity hypothesis
+- decision-maker route
 - Call Pack
-- cost/Tier B+
-- random >=20 ready-prospect manual quality audit
-- no prospect contact.
+- provider cost
+- random >=20 ready-prospect human quality audit
 
-Only after the first profile is proven should Claude expand implementation across the additional architecture-ready profiles.
+Only after this passes should implementation broaden beyond the initial profile loop.
 
 ---
 
-# 18. GOOGLE ADVERTISER RULES
+# 19. GOOGLE / ADVERTISER RULES
 
-- actual paid SERP/LSA observation is premium signal;
-- Google tag does not prove current advertising;
-- one search without ad is unknown;
-- repeated observations strengthen evidence, not +4 repeatedly;
-- time/device/geography recorded;
+- paid SERP/LSA observation = premium current signal;
+- tag/pixel != current advertising;
+- one search without an ad = unknown;
+- repeated observations strengthen evidence, not repeated +4 score;
+- record query/time/device/geography;
 - stale ad cannot support current-tense opener;
-- no ad spend inference from visibility/position;
-- aggregator result cannot be assigned to contractor without identity proof;
-- ad-specific law-firm language must match the observed practice area;
-- hail/PDR ads must be tied to current market context when the opener references that market.
+- no ad-spend inference from visibility or placement;
+- aggregator ad cannot be assigned to contractor without identity proof;
+- law ad language must match observed practice area;
+- Hail/PDR market language requires current market/event evidence;
+- Med Spa is intentionally mixed-channel with Meta as an important discovery source where a reliable compliant method exists.
 
 ---
 
-# 19. CURRENT PROVIDER CANDIDATES
+# 20. CURRENT PROVIDER CANDIDATES
 
-Benchmark, do not blindly hard-code:
+Benchmark, do not hard-code blindly:
 
-- DataForSEO — candidate bulk Google advertiser miner
+- DataForSEO — candidate bulk Google paid SERP miner
 - SerpApi — candidate fallback/validation/LSA parser
 - Google Places — gap-fill/identity, not current-ad proof
-- first-party company websites — durable business intelligence
+- first-party business websites — durable intelligence
 - Apollo/licensed equivalent — contacts
 - Google Ads Transparency — supporting advertiser evidence
-- Meta — secondary signal where a compliant/reliable method exists.
+- Meta — secondary/primary-by-vertical ad evidence where reliable compliant access exists.
 
-Revalidate docs/pricing/terms during implementation.
+Revalidate pricing/docs/terms at implementation time.
 
 ---
 
-# 20. EXISTING `phone-agent/` CODE
+# 21. EXISTING `phone-agent/` CODE
 
 Early prototype only.
 
-Claude may:
+Claude may reuse, refactor, replace or delete pieces after Gate 0 audit.
 
-- reuse
-- refactor
-- replace
-- delete.
-
-Do not contort the architecture to preserve prototype code.
-
-Gate 0 audits it before substantial implementation.
+Do not preserve prototype architecture merely because code exists.
 
 ---
 
-# 21. GITHUB / DEVELOPMENT RULE
+# 22. GITHUB / DEVELOPMENT RULE
 
-Automatic GitHub Actions remain manual-only.
+Automatic GitHub Actions remain manual-only unless Michael explicitly changes this.
 
 Claude:
 
-- runs code/tests locally on EdgeXpert;
+- executes/tests locally on EdgeXpert;
 - uses fake providers by default;
-- paid integration tests explicit opt-in;
+- paid integration tests require explicit opt-in;
 - commits coherent tested checkpoints;
-- does not merge `main` without explicit request.
-
-Do not create a new automatic workflow to bypass this rule.
-
----
-
-# 22. EXACT FIRST CLAUDE TASK
-
-Use this instruction:
-
-> Read `docs/09-software/OUTBOUND-SALES-BRAIN-V1-CURRENT.md` first, then the source-of-truth and Gate 0 documents it references. Execute Gate 0 only. Audit the current repository, the existing `phone-agent/` prototype, the Twilio/receptionist implementation, `voice.youraidepartment.ai` runtime/deployment, persistence, and the local EdgeXpert test workflow. Do not enable production dialing, do not call prospects, do not spend on external providers except a tiny explicitly approved diagnostic if truly required, and do not re-enable automatic GitHub Actions. Return the Gate 0 audit, reusable-vs-replaceable code assessment, proposed implementation module structure, database/queue recommendation based on the actual environment, exact local test commands, and blockers before starting Gate 1.
+- does not merge `main` without explicit request;
+- does not enable real prospect dialing during ordinary development.
 
 ---
 
-# 23. ARCHITECTURE V1 STATUS
+# 23. EXACT FIRST CLAUDE TASK
 
-Architecture V1 plus the initial cross-vertical intelligence layer is sufficiently specified for Claude to begin Gate 0.
+> Read `docs/09-software/OUTBOUND-SALES-BRAIN-V1-CURRENT.md` first, then the source-of-truth and Gate 0 documents it references. Execute Gate 0 only. Audit the current repository, the existing `phone-agent/` prototype, the Twilio/receptionist implementation, `voice.youraidepartment.ai` runtime/deployment, persistence, and the local EdgeXpert test workflow. Do not enable production dialing, do not call prospects, do not spend on external providers except a tiny explicitly approved diagnostic if truly required, and do not re-enable automatic GitHub Actions. Return the Gate 0 audit, reusable-vs-replaceable code assessment, proposed Market Miner implementation module structure, database/queue recommendation based on the actual environment, exact local test commands, and blockers before starting Gate 1.
 
-Architecture-ready verticals now include:
+---
 
-- HVAC
-- Plumbing
-- Roofing
-- Collision Repair
-- PDR / Automotive Hail
-- Law Firms
-- Real Estate Brokerages.
+# 24. CURRENT ARCHITECTURE STATUS
 
-Remaining decisions are intentionally implementation-dependent:
+The brain is now specified across:
+
+- advertiser-first market mining
+- adaptive approved query planning
+- geography / saturation / territory expansion
+- provider economics
+- false-positive/noise learning
+- entity resolution
+- website intelligence
+- evidence/freshness/refresh
+- prospect memory
+- canonical scoring
+- 13 architecture-ready vertical profiles
+- cross-vertical routing
+- opportunity-hypothesis ranking
+- decision-maker routing
+- offer/commercial mapping
+- Sales Manual RAG
+- ready-queue priority
+- Human Assist Daily Brief
+- CRM/follow-up/action tools
+- analytics/closed-loop learning
+- experiment governance
+- QA/roleplay
+- compliance architecture
+- realtime voice/Twilio architecture.
+
+Implementation-dependent decisions intentionally remain for Claude at the relevant gate:
 
 - final SERP provider routing after benchmark;
-- final DB/query libraries after environment audit;
-- final queue technology;
-- final realtime STT/LLM/TTS stack after benchmark;
-- final Twilio realtime architecture if ConversationRelay does not meet targets;
-- formal autonomous-calling legal/company policy;
-- final external CRM mapping;
-- learned ranking models after real outcomes;
-- which additional vertical profiles should be implemented after HVAC/Plumbing prove the architecture.
+- exact DB/query library;
+- exact queue implementation;
+- actual provider/account economics;
+- final realtime STT/LLM/TTS stack;
+- final Twilio realtime transport if benchmarked alternative is superior;
+- formal autonomous-calling company/legal policy;
+- external CRM adapter selection;
+- learned propensity models after sufficient labeled outcomes.
 
-Claude should report these decisions at the relevant gate rather than silently inventing them.
+The architecture should now constrain implementation decisions without pretending benchmark-dependent answers are already known.
