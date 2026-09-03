@@ -1,7 +1,7 @@
 # OUTBOUND SALES BRAIN V1 — CURRENT ARCHITECTURE MANIFEST
 
 **THIS IS THE CURRENT START FILE FOR CLAUDE CODE.**  
-**Date:** 2026-09-02  
+**Updated:** 2026-09-03  
 **Branch:** `feature/outbound-sales-brain`  
 **Architecture owner:** ChatGPT  
 **Implementation owner:** Claude Code on the EdgeXpert  
@@ -28,6 +28,7 @@ Canonical flow:
 -> `Evidence ledger`
 -> `YAD Module 4C score / Tier A-D`
 -> `Advertiser evidence strength`
+-> `Vertical / business-context routing`
 -> `Opportunity hypothesis`
 -> `Solution category`
 -> `Current commercial offer mapping`
@@ -47,7 +48,7 @@ Canonical flow:
 2. Persistent domain/data model.
 3. Claim registry + evidence engine.
 4. Exact Module 4C score.
-5. HVAC/Plumbing profile loader.
+5. Vertical profile registry/loader — implement HVAC/Plumbing first.
 6. Geography/search-cell planner.
 7. Durable jobs/workers.
 8. Google advertiser provider benchmark.
@@ -67,6 +68,8 @@ Canonical flow:
 22. Action tools/CRM durability.
 23. Audio certification.
 24. STOP for explicit approval before any real autonomous prospect pilot.
+
+The expanded Roofing/Collision/PDR-Hail/Law/Real-Estate profiles are architecture-ready, but Claude must not delay the HVAC/Plumbing proof loop to implement every vertical at once.
 
 Production autonomous cold AI voice remains disabled/review-required until explicit approval and policy/gates.
 
@@ -139,13 +142,40 @@ Normative clarification:
 
 ---
 
-# 7. SCORING / VERTICALS
+# 7. SCORING / VERTICAL INTELLIGENCE
+
+Core:
 
 - `outbound-sales-brain-scoring-research-fixtures.yaml` — use v1.0.1+ corrected fixture arithmetic.
 - `vertical-profile-schema.md`
+- `vertical-profile-generation-process.md`
+
+Machine profiles currently defined:
+
 - `vertical-profiles/hvac.v1.yaml`
 - `vertical-profiles/plumbing.v1.yaml`
-- `vertical-profile-generation-process.md`
+- `vertical-profiles/roofing.v1.yaml`
+- `vertical-profiles/collision-repair.v1.yaml`
+- `vertical-profiles/pdr-hail.v1.yaml`
+- `vertical-profiles/law-firms.v1.yaml`
+- `vertical-profiles/real-estate-brokerages.v1.yaml`
+
+Cross-vertical control:
+
+- `outbound-sales-brain-vertical-router-spec.md`
+- `outbound-sales-brain-vertical-router-fixtures.v1.yaml`
+- `outbound-sales-brain-cross-vertical-intelligence-v1.md`
+
+Router invariants:
+
+- one Account may have multiple vertical assignments;
+- campaign context chooses the active research/search/hook profile;
+- secondary profiles never create duplicate Accounts;
+- account-wide DNC/contact history applies across every vertical;
+- law ad language is practice-area specific;
+- collision and PDR/hail context remain distinct;
+- professional/safety boundaries can only become more restrictive when profiles overlap;
+- unsupported/ambiguous vertical assignment fails closed for vertical-specific Call Packs.
 
 Canonical Module 4C max under current rules = 18.
 
@@ -156,7 +186,7 @@ Tier:
 - C 3–5
 - D 0–2.
 
-No hidden vertical/CRM points.
+No hidden vertical/CRM/classification points.
 
 ---
 
@@ -180,7 +210,7 @@ Example:
 - solution category: AI phone/overflow workflow
 - commercial wrapper: AI Implementation / AI Growth Systems / Managed AI Department according to current scope and launch decisions.
 
-Do not invent “AI Phone Agent” as a new fixed-priced commercial package unless company authority later defines one.
+Do not invent vertical-branded fixed packages unless company authority later defines them.
 
 ---
 
@@ -197,7 +227,7 @@ Prompt authority order:
 3. invariant YAD sales doctrine
 4. CommercialTruthSnapshot
 5. campaign objective/mode
-6. vertical profile/boundaries
+6. active vertical profile/boundaries
 7. current Call Pack
 8. retrieved Sales Manual guidance
 9. conversation state/history
@@ -229,7 +259,8 @@ Critical:
 - requested callback beats generic cadence;
 - booking/email/transfer success only spoken after confirmed tool result;
 - external CRM writes retriable through durable outbox;
-- research corrections preserve historical evidence.
+- research corrections preserve historical evidence;
+- cross-vertical rediscovery does not reset contact history.
 
 ---
 
@@ -321,11 +352,13 @@ Core economics:
 
 `search cost -> unique Account -> Tier B+ -> decision-maker -> qualified conversation -> meeting -> opportunity -> customer`.
 
+Break reporting down by vertical/profile version so YAD can learn which industries actually justify more mining and sales capacity.
+
 ---
 
 # 17. FIRST MARKET PROOF
 
-Exact milestone:
+Exact milestone remains:
 
 > HVAC — Jacksonville + St. Augustine — advertiser-first — Tier B+ — target 100 research-ready prospects.
 
@@ -345,6 +378,8 @@ Required:
 - random >=20 ready-prospect manual quality audit
 - no prospect contact.
 
+Only after the first profile is proven should Claude expand implementation across the additional architecture-ready profiles.
+
 ---
 
 # 18. GOOGLE ADVERTISER RULES
@@ -356,7 +391,9 @@ Required:
 - time/device/geography recorded;
 - stale ad cannot support current-tense opener;
 - no ad spend inference from visibility/position;
-- aggregator result cannot be assigned to contractor without identity proof.
+- aggregator result cannot be assigned to contractor without identity proof;
+- ad-specific law-firm language must match the observed practice area;
+- hail/PDR ads must be tied to current market context when the opener references that market.
 
 ---
 
@@ -419,7 +456,17 @@ Use this instruction:
 
 # 23. ARCHITECTURE V1 STATUS
 
-Architecture V1 is sufficiently specified for Claude to begin Gate 0.
+Architecture V1 plus the initial cross-vertical intelligence layer is sufficiently specified for Claude to begin Gate 0.
+
+Architecture-ready verticals now include:
+
+- HVAC
+- Plumbing
+- Roofing
+- Collision Repair
+- PDR / Automotive Hail
+- Law Firms
+- Real Estate Brokerages.
 
 Remaining decisions are intentionally implementation-dependent:
 
@@ -430,6 +477,7 @@ Remaining decisions are intentionally implementation-dependent:
 - final Twilio realtime architecture if ConversationRelay does not meet targets;
 - formal autonomous-calling legal/company policy;
 - final external CRM mapping;
-- learned ranking models after real outcomes.
+- learned ranking models after real outcomes;
+- which additional vertical profiles should be implemented after HVAC/Plumbing prove the architecture.
 
 Claude should report these decisions at the relevant gate rather than silently inventing them.
