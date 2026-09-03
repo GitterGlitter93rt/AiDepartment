@@ -182,3 +182,127 @@ Proceeding to Gate T1.
 - `git check-ignore -v services/sales-brain/.env` → matched by `.gitignore:4`. Secrets are generated
   on the box, `chmod 600`, and never committed.
 - No production behaviour was changed; no outbound contact of any kind was made.
+
+---
+
+## Gate T1 — Canonical sales data foundation
+
+**Date:** 2026-09-03
+**Status:** COMPLETE — all six required acceptance data tests pass.
+
+### What was built
+
+One canonical schema in `services/sales-brain`, not a second lead database. 35 tables and one
+search projection, applied by a forward-only migration runner that checksums each file so an
+already-applied migration cannot be silently edited.
+
+| Migration | Contents |
+|---|---|
+| `001_foundation.sql` | users (4 roles), sessions, `audit_log`, `vertical_profiles`, shared `updated_at` trigger |
+| `002_accounts.sql` | Account, Location, Domain, Contact, unified phone/email Endpoint, SourceIdentity, merge history |
+| `003_evidence.sql` | ResearchRun, EvidenceRecord, SearchObservation, ProspectStatement |
+| `004_ownership.sql` | ownership events, activity timeline, follow-ups, suppression |
+| `005_markets_jobs.sql` | Saved Markets, market membership, search context, Postgres job queue, MiningJob, ProviderUsage |
+| `006_scoring.sql` | CanonicalScore, ResearchCompleteness, opportunity/offer hypotheses, CallPack, KnowledgeSnapshot |
+| `007_import_booking.sql` | import batches/rows, `meeting_bookings` |
+| `008_read_model.sql` | `prospect_inventory` view |
+
+### Invariants pushed into the database rather than left to application code
+
+These are the ones the hard-fail lists turn on, so they are enforced where a future bug cannot
+route around them:
+
+- **Ownership consistency** — a CHECK constraint on `accounts` makes an owner exist exactly when
+  `ownership_state` says one should. `UNCLAIMED` with an owner is unrepresentable.
+- **Suppression cannot leak** — a trigger on `suppressions` recomputes `accounts.is_suppressed`
+  and drops a newly suppressed Account out of `UNCLAIMED`. A new discovery source cannot reset it.
+- **Evidence is append-only** — a trigger rejects any UPDATE that changes a claim, its confidence,
+  its source or `can_state_as_fact`. Contradiction creates a new record pointing at the old one.
+- **Ownership history is append-only** — UPDATE and DELETE on `ownership_events` both raise.
+- **Call Packs are immutable** — UPDATE raises; material research change means a new pack.
+- **A booking cannot be recorded confirmed without provider proof** — a CHECK on `meeting_bookings`
+  requires `provider_event_id` and `confirmed_at` before `status = 'CONFIRMED'`.
+- **Import cannot trigger outreach** — `import_batches.outreach_on_import` is CHECKed to false.
+
+### Claim atomicity
+
+`claimAccount` opens a transaction, takes `select ... for update` on the Account row, then
+evaluates suppression, client/opportunity protection, existing ownership and the anti-hoarding
+ceiling against a state no other transaction can change before commit. Bulk claim runs one
+transaction per Account so unrelated successes survive a conflict and no statement locks the table.
+
+### Files added
+
+```
+services/sales-brain/
+  package.json  tsconfig.json  .env.example  deploy/docker-compose.yml
+  migrations/001..008_*.sql
+  src/config.ts
+  src/db/{pool.ts,migrate.ts}
+  src/domain/{normalize.ts,auth.ts,accounts.ts,ownership.ts,activities.ts,search.ts,verticals.ts}
+  src/bin/{migrate.ts,sync-verticals.ts,seed.ts}
+  tests/{setup.ts,helpers.ts,normalize.test.ts,ownership.test.ts}
+```
+
+### Repository fix made along the way
+
+`docs/09-software/vertical-profiles/hvac.v1.yaml:503` did not parse. The
+`primary_hook_template` value contains `first: phones, ...`; YAML read the embedded `": "` as a
+nested mapping and every parser rejected the file. Quoted the scalar — no semantic change. Scanned
+every `docs/**/*.yaml` for the same latent shape (a value that parses into an unintended nested
+map rather than erroring); no other instance exists.
+
+### Tests run
+
+```
+$ npx tsx --test tests/normalize.test.ts      6 pass, 0 fail
+$ npx tsx --test tests/ownership.test.ts     15 pass, 0 fail
+```
+
+The ownership suite is the acceptance list from `rep-ownership-data-model.md` §20 and the mandatory
+concurrency test from `rep-portal-api-contract.v1.md` §22:
+
+| Test | Result |
+|---|---|
+| Duplicate discovery (website + import, differently punctuated name) → one Account | pass, matched on `phone_and_name` |
+| Domain match resolves identity across a renamed record | pass |
+| **Two reps claim simultaneously → exactly one owner, one audit event** | pass |
+| **Eight reps claim simultaneously → exactly one owner** | pass |
+| Bulk claim: 2 conflicts do not roll back 3 successes | pass |
+| DNC survives rediscovery; not claimable; absent from unclaimed inventory | pass |
+| Client Account is not generic cold inventory | pass |
+| Cross-vertical rediscovery keeps the original owner | pass |
+| Wrong number kills the endpoint, not the Account, and stays dead on re-crawl | pass |
+| Requested callback blocks release | pass |
+| Release returns an unprotected Account to inventory | pass |
+| Non-owner cannot disposition, release or reassign | pass |
+| Manager reassignment is audited and preserves prior owner | pass |
+| `ownership_events` rejects UPDATE | pass |
+| Claim ceiling enforced inside the transaction | pass |
+
+A normalizer bug surfaced while writing the tests: `A.B.C. Air` tokenized to `a b c air` and did
+not match `ABC Air`, so the same company would have been created twice. Initialism runs now
+collapse before comparison.
+
+### Data loaded
+
+- 13 vertical profiles synced from `docs/09-software/vertical-profiles/` (HVAC and Plumbing are the
+  wave-1 proof profiles).
+- 48 **synthetic** Accounts across 6 verticals and 6 Jacksonville/St. Augustine ZIPs, 4 saved
+  markets, 4 development users. Every seeded company is fictional, every number is in the
+  `555-01xx` fiction range, every domain is under `example.com`. Nothing in the seed may be dialled
+  or emailed.
+
+### Performance
+
+`explain analyze` on a realistic rep query (unclaimed + HVAC + ZIP 32256 + sorted, limit 50)
+against the projection: **0.53 ms execution**. No further indexing added — the ownership data model
+says to benchmark before over-indexing, and there is nothing here to fix yet.
+
+### Blockers
+
+None new. B-1 through B-4 from Gate T0 stand.
+
+### Next gate
+
+T2 — rep portal.

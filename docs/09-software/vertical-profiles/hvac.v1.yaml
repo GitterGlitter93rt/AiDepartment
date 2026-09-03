@@ -500,7 +500,7 @@ leak_hypotheses:
       - When summer volume spikes, where does the office get overloaded first?
       - What repetitive task eats the most office time?
       - What workload is driving your next planned office hire?
-    primary_hook_template: When peak-season volume spikes, what part of the office gets overloaded first: phones, scheduling, dispatch, follow-up, or reporting?
+    primary_hook_template: "When peak-season volume spikes, what part of the office gets overloaded first: phones, scheduling, dispatch, follow-up, or reporting?"
     backup_hook_templates:
       - What repetitive work would your CSRs happily never do manually again?
     offer_families:
