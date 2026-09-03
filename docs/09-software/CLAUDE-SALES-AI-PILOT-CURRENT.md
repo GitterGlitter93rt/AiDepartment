@@ -31,16 +31,19 @@ Code implementation findings may require architecture review rather than silentl
 
 1. `docs/09-software/outbound-sales-brain-yad-sales-ai-core-script-v1.md`
 2. `docs/09-software/outbound-sales-brain-yad-sales-ai-dialogue-policy.v1.yaml`
-3. `docs/09-software/outbound-sales-brain-strategy-call-qualification-gate-spec.md`
-4. `docs/09-software/outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
-5. `docs/09-software/outbound-sales-brain-ai-cold-call-pilot-scorecard.md`
-6. `docs/09-software/outbound-sales-brain-calcom-strategy-call-booking-spec.md`
-7. `docs/09-software/outbound-sales-brain-demo-production-voice-mode-spec.md`
-8. `docs/09-software/outbound-sales-brain-conversation-state-machine.md`
-9. `docs/09-software/outbound-sales-brain-priority-intent-detector-spec.md`
-10. `docs/09-software/outbound-sales-brain-agent-persona-style-spec.md`
-11. `docs/09-software/outbound-sales-brain-action-tools-spec.md`
-12. Sales Manual Modules 04A, 05 and 07.
+3. `docs/09-software/outbound-sales-brain-sales-ai-opener-selector-spec.md`
+4. `docs/09-software/outbound-sales-brain-sales-ai-response-cards.v1.yaml`
+5. `docs/09-software/outbound-sales-brain-sales-ai-gold-dialogues-v1.md`
+6. `docs/09-software/outbound-sales-brain-strategy-call-qualification-gate-spec.md`
+7. `docs/09-software/outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
+8. `docs/09-software/outbound-sales-brain-ai-cold-call-pilot-scorecard.md`
+9. `docs/09-software/outbound-sales-brain-calcom-strategy-call-booking-spec.md`
+10. `docs/09-software/outbound-sales-brain-demo-production-voice-mode-spec.md`
+11. `docs/09-software/outbound-sales-brain-conversation-state-machine.md`
+12. `docs/09-software/outbound-sales-brain-priority-intent-detector-spec.md`
+13. `docs/09-software/outbound-sales-brain-agent-persona-style-spec.md`
+14. `docs/09-software/outbound-sales-brain-action-tools-spec.md`
+15. Sales Manual Modules 04A, 05 and 07.
 
 These refine but do not discard the broader `CLAUDE-CURRENT-TASK.md` architecture.
 
@@ -80,13 +83,15 @@ Immutable CallPack
         +
 Sales AI core persona
         +
+Opener selector
+        +
 Dialogue policy
         +
 Conversation state machine
         +
 Priority-intent detector
         +
-Small relevant Sales Manual retrieval
+Small relevant Sales Manual retrieval / response cards
         +
 Typed action tools
         +
@@ -96,6 +101,8 @@ Realtime turn generation
 ```
 
 Do not place the entire Sales Manual into every realtime prompt.
+
+Use the gold dialogues as behavior examples, not exact transcripts to memorize.
 
 ---
 
@@ -145,7 +152,52 @@ Read `outbound-sales-brain-strategy-call-qualification-gate-spec.md`.
 
 ---
 
-# 7. BOOKING
+# 7. OPENER SELECTION
+
+Do not use one identical opener for every prospect.
+
+Use `outbound-sales-brain-sales-ai-opener-selector-spec.md`.
+
+Opening priority:
+
+1. fresh claim-safe paid-demand/service context;
+2. strong first-party workflow/service context;
+3. market + category relevance;
+4. role-based process question.
+
+Then ask one question driven by the active hypothesis.
+
+Do not turn public evidence into an accusation.
+
+---
+
+# 8. RESPONSE CARDS
+
+Use `outbound-sales-brain-sales-ai-response-cards.v1.yaml` as a concise doctrine retrieval layer for common situations such as:
+
+- busy;
+- send email;
+- not interested;
+- has receptionist;
+- has answering service;
+- has CRM;
+- uses ChatGPT;
+- has IT company;
+- has marketing agency;
+- asks if AI;
+- price;
+- booking;
+- wrong person;
+- wrong number;
+- DNC.
+
+Cards are response shapes, not exact lines to repeat mechanically.
+
+The model must answer the prospect's actual last statement before applying a card.
+
+---
+
+# 9. BOOKING
 
 Current authority:
 
@@ -165,7 +217,7 @@ Do not claim booking success until Cal.com confirms.
 
 ---
 
-# 8. DEMO / PRODUCTION ROUTING
+# 10. DEMO / PRODUCTION ROUTING
 
 Same approved Twilio business number may be used, but runtime roles remain distinct:
 
@@ -179,7 +231,7 @@ Reuse proven demo/receptionist transport/voice components where appropriate, not
 
 ---
 
-# 9. RECEPTIONIST RUNTIME REUSE AUDIT
+# 11. RECEPTIONIST RUNTIME REUSE AUDIT
 
 Before rewriting voice transport, inspect the actually deployed demo/receptionist runtime on the voice VPS.
 
@@ -201,7 +253,7 @@ Do not run heavy Market Miner research in the realtime service.
 
 ---
 
-# 10. TEXT SIMULATION BEFORE VOICE
+# 12. TEXT SIMULATION BEFORE VOICE
 
 Build a deterministic text simulation runner around:
 
@@ -219,11 +271,13 @@ For each fixture capture:
 
 The fixture does not require exact wording. Grade required/prohibited behaviors.
 
+Compare high-quality outputs against `outbound-sales-brain-sales-ai-gold-dialogues-v1.md` for behavioral style.
+
 Critical fixtures must pass before controlled voice test.
 
 ---
 
-# 11. PROMPT CONSTRUCTION
+# 13. PROMPT CONSTRUCTION
 
 Realtime prompt should contain only what is necessary for the turn/session:
 
@@ -246,7 +300,7 @@ Avoid resending:
 
 ---
 
-# 12. CALL WORKING MEMORY
+# 14. CALL WORKING MEMORY
 
 Implement/update structured in-call memory for:
 
@@ -270,7 +324,7 @@ The live model should not have to reconstruct all of this from a growing transcr
 
 ---
 
-# 13. VOICE BEHAVIOR
+# 15. VOICE BEHAVIOR
 
 Hard implementation targets:
 
@@ -287,7 +341,7 @@ Instrument latency.
 
 ---
 
-# 14. POST-CALL HANDOFF
+# 16. POST-CALL HANDOFF
 
 For every call persist structured outcome.
 
@@ -308,7 +362,7 @@ For every booked meeting, create Michael handoff containing:
 
 ---
 
-# 15. PILOT QA
+# 17. PILOT QA
 
 Use:
 
@@ -330,7 +384,7 @@ Do not label all failures `AI issue`.
 
 ---
 
-# 16. DO NOT DO
+# 18. DO NOT DO
 
 - do not implement 30 vertical-specific sales agents;
 - do not load the entire Sales Manual per turn;
@@ -347,7 +401,7 @@ Do not label all failures `AI issue`.
 
 ---
 
-# 17. IMPLEMENTATION CHECKPOINT RESPONSE
+# 19. IMPLEMENTATION CHECKPOINT RESPONSE
 
 After this gate report:
 
@@ -355,18 +409,19 @@ After this gate report:
 2. receptionist/demo components audited;
 3. reusable components identified;
 4. Sales AI service/package structure;
-5. state machine implementation status;
-6. working-memory implementation;
-7. prompt composition implementation;
-8. roleplay test count/pass/fail;
-9. Cal.com adapter status;
-10. voice-runtime readiness;
-11. latency instrumentation readiness;
-12. blockers;
-13. exact next step before controlled test.
+5. opener selector implementation status;
+6. state machine implementation status;
+7. working-memory implementation;
+8. prompt/response-card composition implementation;
+9. roleplay test count/pass/fail;
+10. Cal.com adapter status;
+11. voice-runtime readiness;
+12. latency instrumentation readiness;
+13. blockers;
+14. exact next step before controlled test.
 
 ---
 
-# 18. SUCCESS CONDITION
+# 20. SUCCESS CONDITION
 
-**The system can run the same researched sales process across verticals, react to what the prospect actually says, decide whether a 15-minute call is warranted, and book a real Cal.com slot without behaving like a scripted robocaller.**
+**The system can run the same researched sales process across verticals, choose a truthful relevant opener, react to what the prospect actually says, decide whether a 15-minute call is warranted, and book a real Cal.com slot without behaving like a scripted robocaller.**
