@@ -1,0 +1,122 @@
+schema_version: "1.0.0"
+contract_id: yad_sales_ai_working_memory_v1
+purpose: >-
+  Mutable structured state for one live outbound conversation. The realtime model should not be forced
+  to reread the full transcript to remember the current stakeholder, tested hypothesis, objections,
+  booking intent or priority actions.
+
+shape:
+  call_id: string
+  call_pack_id: string
+  updated_at: datetime
+  turn_index: integer
+
+  stakeholder:
+    contact_id: string|null
+    person_name: string|null
+    role_category: string|null
+    is_target_stakeholder: yes|no_confirmed|unknown
+    decision_relevance: decision_owner|strong_influencer|routing_only|wrong_person|unknown
+    correction_source_turn_id: string|null
+
+  routing:
+    gatekeeper_detected: boolean
+    corrected_person_name: string|null
+    corrected_role: string|null
+    extension: string|null
+    best_callback_time_text: string|null
+    business_supplied_email: string|null
+
+  hypothesis:
+    primary_id: string
+    primary_status: untested|supported|contradicted|inconclusive|solved_strong_process
+    backup_id: string|null
+    backup_status: unavailable|untested|supported|contradicted|inconclusive|solved_strong_process
+    backup_used: boolean
+
+  workflow:
+    summary: string|null
+    owner_text: string|null
+    current_systems:
+      - value: string
+        source_turn_id: string
+    failure_mode: string|null
+    measurement_visibility: string|null
+
+  pain:
+    status: confirmed_meaningful|confirmed_minor|possible_worth_measuring|solved_strong_process|no_problem|unknown
+    prospect_wording: [string]
+    problem_priority: high|medium|low|unknown
+
+  numbers:
+    - label: string
+      value_text: string
+      normalized_value: number|null
+      unit: string|null
+      source_turn_id: string
+      certainty: prospect_exact|prospect_approximate|unknown
+
+  objections:
+    - objection_type: string
+      first_turn_id: string
+      status: open|answered|resolved|terminal
+      response_card_id: string|null
+      cycle_count: integer
+
+  prospect_intent:
+    current: engaged|neutral|busy|not_interested|wants_email|wants_callback|wants_strategy_call|wants_to_end|dnc|wrong_number|unknown
+    confidence: high|medium|low
+    source_turn_id: string|null
+
+  next_step:
+    readiness: BOOK_NOW|CONTINUE_BRIEFLY|CALLBACK|SEND_TARGETED_INFO|END_NO_NEED|DISQUALIFY_OR_REVIEW|null
+    reason_codes: [string]
+    callback_requested_at: datetime|null
+    callback_time_text: string|null
+    email_requested: boolean
+    assessment_requested_or_offered: boolean
+
+  booking:
+    intent_confirmed: boolean
+    prospect_timezone: string|null
+    candidate_slots: [string]
+    selected_slot: string|null
+    attendee_email: string|null
+    provider_request_id: string|null
+    provider_status: not_started|checking|slots_ready|booking|confirmed|failed
+    booking_id: string|null
+
+  commitments:
+    - commitment_type: string
+      text: string
+      source_turn_id: string
+      completion_status: pending|confirmed|failed
+
+  priority_actions:
+    dnc_detected: boolean
+    dnc_action_status: not_needed|pending|confirmed|failed
+    wrong_number_detected: boolean
+    wrong_number_action_status: not_needed|pending|confirmed|failed
+    prospect_end_detected: boolean
+
+  repetition_memory:
+    semantic_units_already_stated:
+      - company_identity
+      - cold_call_context
+      - yad_explanation
+      - primary_reason_for_call
+      - ai_identity_disclosure
+      - strategy_call_offer
+      - assessment_offer
+      - booking_confirmation
+
+rules:
+  - prospect_statements_are_source_labeled_by_turn
+  - model_inference_must_not_be_stored_as_prospect_statement
+  - dnc_and_wrong_number_priority_actions_override_normal_sales_generation
+  - booking_confirmed_requires_provider_status_confirmed
+  - one_backup_hypothesis_maximum
+  - objection_cycle_count_prevents_rebuttal_loops
+  - strong_existing_process_can_set_pain_to_solved_strong_process
+  - working_memory_is_persisted_after_each_stable_turn_or_priority_event
+  - post_call_extractor_may_refine_summary_but_cannot_erase_priority_actions
