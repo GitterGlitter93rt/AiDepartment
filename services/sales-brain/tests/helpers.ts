@@ -18,9 +18,25 @@ export async function resetDatabase(): Promise<void> {
       opportunity_hypotheses, offer_hypotheses, call_packs, meeting_bookings,
       import_rows, import_batches, jobs, mining_jobs, provider_usage,
       account_market_membership, saved_markets, search_contexts, source_identities, account_merges,
+      pilot_candidates, voice_call_turns, voice_call_events, voice_calls, voice_pilot_state_events,
       contact_endpoints, contacts, account_domains, locations, accounts, sessions, users
     restart identity cascade
   `);
+
+  // Truncating `users` cascades into every table that references it, which includes
+  // the operator state and the integration registry. Both are configuration rather
+  // than data, so they are restored to the state a fresh install ships with.
+  await pool.query(`insert into voice_pilot_state (singleton) values (true) on conflict do nothing`);
+  await pool.query(`
+    insert into integration_settings (integration_key, display_name, secret_env_var) values
+      ('calcom',       'Cal.com scheduling',   'CALCOM_API_KEY'),
+      ('smartlead',    'Smartlead email',      'SMARTLEAD_API_KEY'),
+      ('twilio_voice', 'Twilio voice',         'TWILIO_AUTH_TOKEN'),
+      ('dataforseo',   'DataForSEO research',  'DATAFORSEO_PASSWORD'),
+      ('anthropic',    'Anthropic',            'ANTHROPIC_API_KEY'),
+      ('crm',          'CRM export',           null),
+      ('notifications','Notifications',        null)
+    on conflict do nothing`);
 }
 
 export async function makeUser(

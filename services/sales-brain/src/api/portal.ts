@@ -1,3 +1,4 @@
+import { query } from '../db/pool.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isManager } from '../domain/auth.js';
 import { getAccountDetail } from '../domain/accountDetail.js';
@@ -38,6 +39,19 @@ import { miningJobs, miningKpis, researchExceptions, researchHealthMetrics } fro
 import {
   buildPreview, confirmSession, createSession, getSession, listImportHistory, setColumnMap,
 } from '../import/session.js';
+import {
+  renderAnalyticsPage, renderCallListPage, renderCallReviewPage, renderCampaignsPage,
+  renderPilotPage, renderSettingsPage,
+} from '../web/pages/waveD.js';
+import {
+  analyticsBreakdown, analyticsFunnel, campaignRelationshipConflicts, listCampaigns,
+  listVoiceCalls, voiceCallDetail,
+} from './waveDQueries.js';
+import {
+  addCandidate, listCandidates, readPilotState, removeCandidate, runPreflight,
+  setPilotSwitch, stopNewOutboundCalls,
+} from '../domain/pilot.js';
+import { listIntegrations, setIntegrationEnabled } from '../domain/settings.js';
 
 /** Server-rendered portal routes. Every one of them re-checks the session. */
 
@@ -628,6 +642,199 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
 
     return reply.redirect(`/accounts/${request.params.id}?flash=${encodeURIComponent(flash)}`);
   });
+
+  // -------------------------------------------------- wave C/D: pilot & review --
+
+  /** Manager/admin only. Reps never see the outbound control plane. */
+  const requireManager = (request: FastifyRequest, reply: FastifyReply) => {
+    const user = requireUser(request, reply);
+    if (!user) return null;
+    if (!isManager(user.role)) {
+      reply.code(403).type('text/html').send('<p>Managers and administrators only.</p>');
+      return null;
+    }
+    return user;
+  };
+
+  const requireAdmin = (request: FastifyRequest, reply: FastifyReply) => {
+    const user = requireUser(request, reply);
+    if (!user) return null;
+    if (user.role !== 'ADMIN') {
+      reply.code(403).type('text/html').send('<p>Administrators only.</p>');
+      return null;
+    }
+    return user;
+  };
+
+  app.get<{ Querystring: { flash?: string; error?: string } }>('/ai/pilot', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const [counts, state, candidates] = await Promise.all([
+      navCountsFull(user.userId, user.role), readPilotState(), listCandidates(),
+    ]);
+    return reply.type('text/html').send(renderPilotPage({
+      user, counts, state, candidates,
+      flash: request.query.flash ?? null, error: request.query.error ?? null,
+    }));
+  });
+
+  app.post<{ Body: { field?: string; value?: string; reason?: string } }>(
+    '/ai/pilot/switch', async (request, reply) => {
+      const user = requireManager(request, reply);
+      if (!user) return;
+      const result = await setPilotSwitch({
+        field: request.body.field ?? '', value: request.body.value ?? '',
+        actorUserId: user.userId, reason: request.body.reason ?? '',
+      });
+      return reply.redirect(result.ok
+        ? '/ai/pilot?flash=Setting+updated.+New+calls+only.'
+        : `/ai/pilot?error=${encodeURIComponent(result.message ?? 'Could not change that setting.')}`);
+    });
+
+  app.post<{ Body: { reason?: string } }>('/ai/pilot/stop', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const reason = (request.body.reason ?? '').trim();
+    if (!reason) return reply.redirect('/ai/pilot?error=A+reason+is+required.');
+    const result = await stopNewOutboundCalls(user.userId, reason);
+    return reply.redirect(`/ai/pilot?flash=${encodeURIComponent(
+      `Outbound stopped. ${result.unqueued} queued candidate(s) returned to review. `
+      + 'A call already in progress is unaffected.')}`);
+  });
+
+  app.post<{ Body: { accountId?: string } }>('/ai/pilot/candidates', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const result = await addCandidate({
+      accountId: request.body.accountId ?? '', actorUserId: user.userId,
+    });
+    return reply.redirect(result.ok
+      ? '/ai/pilot?flash=Added+to+the+pilot+list.+Nothing+was+dialled.'
+      : `/ai/pilot?error=${encodeURIComponent(result.message ?? 'Could not add that account.')}`);
+  });
+
+  app.post<{ Body: { pilotCandidateId?: string } }>('/ai/pilot/remove', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    await removeCandidate(request.body.pilotCandidateId ?? '', user.userId);
+    return reply.redirect('/ai/pilot?flash=Removed+from+the+pilot+list.');
+  });
+
+  app.post<{ Body: { pilotCandidateId?: string } }>('/ai/pilot/preflight', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const result = await runPreflight(request.body.pilotCandidateId ?? '', user.userId);
+    const detail = `${result.decision}${result.reasons.length ? `: ${result.reasons.join(', ')}` : ''}`;
+    return reply.redirect(result.ok
+      ? `/ai/pilot?flash=${encodeURIComponent(`Preflight passed (${detail}). Still not dialled.`)}`
+      : `/ai/pilot?error=${encodeURIComponent(
+          `Preflight failed (${detail}).${result.message ? ` ${result.message}` : ''}`)}`);
+  });
+
+  app.get('/calls', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const [counts, calls] = await Promise.all([
+      navCountsFull(user.userId, user.role), listVoiceCalls(),
+    ]);
+    return reply.type('text/html').send(renderCallListPage({ user, counts, calls }));
+  });
+
+  app.get<{ Params: { id: string } }>('/calls/:id', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const detail = await voiceCallDetail(request.params.id);
+    if (!detail) return reply.code(404).type('text/html').send('<p>Call not found.</p>');
+    const counts = await navCountsFull(user.userId, user.role);
+    return reply.type('text/html').send(renderCallReviewPage({
+      user, counts, call: detail.call, turns: detail.turns, events: detail.events,
+    }));
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: { qaScore?: string; rootCause?: string; reviewAction?: string;
+            hardFailure?: string; reviewerNotes?: string };
+  }>('/calls/:id/review', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const score = request.body.qaScore ? Number(request.body.qaScore) : null;
+    await query(
+      `update voice_calls
+          set qa_score = $2, root_cause = nullif($3, ''), review_action = nullif($4, ''),
+              qa_hard_failure = $5, reviewer_notes = nullif($6, ''),
+              reviewed_by = $7, reviewed_at = now()
+        where voice_call_id = $1`,
+      [request.params.id, Number.isFinite(score) ? score : null,
+       request.body.rootCause ?? '', request.body.reviewAction ?? '',
+       request.body.hardFailure === 'true', request.body.reviewerNotes ?? '', user.userId],
+    );
+    await query(
+      `insert into audit_log (actor_user_id, action, subject_type, subject_id, detail)
+       values ($1, 'call.review', 'voice_call', $2, $3::jsonb)`,
+      [user.userId, request.params.id,
+       JSON.stringify({ score, action: request.body.reviewAction ?? null })],
+    );
+    return reply.redirect(`/calls/${request.params.id}`);
+  });
+
+  // ------------------------------------------------ wave D: campaigns, reports --
+
+  app.get('/campaigns', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const [counts, campaigns, conflicts] = await Promise.all([
+      navCountsFull(user.userId, user.role), listCampaigns(), campaignRelationshipConflicts(),
+    ]);
+    return reply.type('text/html').send(renderCampaignsPage({ user, counts, campaigns, conflicts }));
+  });
+
+  app.get<{ Querystring: { from?: string; to?: string } }>('/analytics', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const filters = {
+      fromDate: request.query.from || null,
+      toDate: request.query.to || null,
+      ownerUserId: null, verticalProfileId: null,
+    };
+    const [counts, funnel, byVertical, byOwner, byMarket, byHypothesis] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      analyticsFunnel(filters),
+      analyticsBreakdown('vertical'), analyticsBreakdown('owner'),
+      analyticsBreakdown('market'), analyticsBreakdown('hypothesis'),
+    ]);
+    return reply.type('text/html').send(renderAnalyticsPage({
+      user, counts, funnel,
+      breakdowns: { vertical: byVertical, rep: byOwner, market: byMarket, hypothesis: byHypothesis },
+      filters: { fromDate: filters.fromDate, toDate: filters.toDate },
+    }));
+  });
+
+  // Managers may see integration health; only an administrator may change it.
+  app.get<{ Querystring: { flash?: string; error?: string } }>('/settings', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const [counts, integrations, pilot] = await Promise.all([
+      navCountsFull(user.userId, user.role), listIntegrations(), readPilotState(),
+    ]);
+    return reply.type('text/html').send(renderSettingsPage({
+      user, counts, integrations, pilot, canEdit: user.role === 'ADMIN',
+      flash: request.query.flash ?? null, error: request.query.error ?? null,
+    }));
+  });
+
+  app.post<{ Body: { key?: string; enabled?: string; reason?: string } }>(
+    '/settings/integration', async (request, reply) => {
+      const user = requireAdmin(request, reply);
+      if (!user) return;
+      const result = await setIntegrationEnabled({
+        key: request.body.key ?? '', enabled: request.body.enabled === 'true',
+        actorUserId: user.userId, reason: request.body.reason ?? '',
+      });
+      return reply.redirect(result.ok
+        ? '/settings?flash=Integration+updated.'
+        : `/settings?error=${encodeURIComponent(result.message ?? 'Could not update that integration.')}`);
+    });
 
   // Coverage lookup used by the Find page's background polling.
   app.get('/api/coverage', async (request, reply) => {

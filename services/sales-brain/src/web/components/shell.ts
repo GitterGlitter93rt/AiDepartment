@@ -70,7 +70,7 @@ function navGroups(user: SessionUser, counts: NavCounts): NavGroup[] {
       section: 'Admin',
       items: [
         { href: '/team', label: 'Team & Ownership' },
-        ...(user.role === 'ADMIN' ? [{ href: '/settings', label: 'Settings' }] : []),
+        { href: '/settings', label: 'Settings' },
       ],
     });
   }

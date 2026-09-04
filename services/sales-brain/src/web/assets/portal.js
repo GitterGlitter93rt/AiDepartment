@@ -292,5 +292,54 @@
     }
   });
 
+  // ----------------------------------------------------------------- dialogs --
+  // A confirm dialog is opened by any control carrying data-dialog. It closes on
+  // Cancel, on Escape and on a click outside, and focus returns to the opener so a
+  // keyboard user is not stranded.
+  var dialogOpener = null;
+
+  function openDialog(id) {
+    var scrim = document.getElementById(id + '-scrim');
+    if (!scrim) return;
+    scrim.hidden = false;
+    var focusable = scrim.querySelector('input, select, textarea, button');
+    if (focusable) focusable.focus();
+  }
+
+  function closeDialog(id) {
+    var scrim = document.getElementById(id + '-scrim');
+    if (!scrim) return;
+    scrim.hidden = true;
+    if (dialogOpener) { dialogOpener.focus(); dialogOpener = null; }
+  }
+
+  document.addEventListener('click', function (event) {
+    var trigger = event.target.closest ? event.target.closest('[data-dialog]') : null;
+    if (!trigger) {
+      var openScrim = document.querySelector('.dialog-scrim:not([hidden])');
+      if (openScrim && event.target === openScrim) {
+        closeDialog(openScrim.id.replace(/-scrim$/, ''));
+      }
+      return;
+    }
+    var id = trigger.getAttribute('data-dialog');
+    if (trigger.classList.contains('js-dialog-cancel')) {
+      event.preventDefault();
+      closeDialog(id);
+      return;
+    }
+    // The confirm button submits its own form; only an opener opens.
+    if (trigger.classList.contains('js-dialog-confirm')) return;
+    event.preventDefault();
+    dialogOpener = trigger;
+    openDialog(id);
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    var openScrim = document.querySelector('.dialog-scrim:not([hidden])');
+    if (openScrim) closeDialog(openScrim.id.replace(/-scrim$/, ''));
+  });
+
   syncSelection();
 })();

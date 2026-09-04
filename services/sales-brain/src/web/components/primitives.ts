@@ -325,16 +325,27 @@ export function timeline(entries: TimelineEntry[]): RawHtml {
 export function confirmDialog(input: {
   id: string; title: string; consequence: string;
   confirmLabel: string; cancelLabel?: string; tone?: 'default' | 'destructive';
+  /** When present the dialog posts here, so the confirmation is the action. */
+  action?: string;
+  /** Extra inputs the action needs, such as a required reason. */
+  fields?: RawHtml;
 }): RawHtml {
+  const buttons = html`<div class="row" style="justify-content:flex-end;gap:8px;margin-top:16px">
+    <button class="btn btn-secondary js-dialog-cancel" type="button" data-dialog="${input.id}">${input.cancelLabel ?? 'Cancel'}</button>
+    <button class="btn ${input.tone === 'destructive' ? 'btn-danger' : 'btn-primary'} js-dialog-confirm"
+            type="submit" data-dialog="${input.id}">${input.confirmLabel}</button>
+  </div>`;
+
   return html`<div class="dialog-scrim" id="${input.id}-scrim" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="${input.id}-title">
       <h3 id="${input.id}-title">${input.title}</h3>
       <p>${input.consequence}</p>
-      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:16px">
-        <button class="btn btn-secondary js-dialog-cancel" type="button" data-dialog="${input.id}">${input.cancelLabel ?? 'Cancel'}</button>
-        <button class="btn ${input.tone === 'destructive' ? 'btn-danger' : 'btn-primary'} js-dialog-confirm"
-                type="button" data-dialog="${input.id}">${input.confirmLabel}</button>
-      </div>
+      ${input.action
+        ? html`<form method="post" action="${input.action}">
+            ${input.fields ?? ''}
+            ${buttons}
+          </form>`
+        : buttons}
     </div>
   </div>`;
 }
