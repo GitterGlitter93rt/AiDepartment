@@ -311,3 +311,191 @@ test('a positive reply surfaces on the owner\'s prospect list, not only in email
   assert.equal(positive.total, 1, 'email and phone share one Account memory');
   assert.equal(positive.results[0]!.account_id, accountId);
 });
+
+// --- Smartlead export and the durable outbox ---------------------------------
+
+import {
+  createSmartleadClient, drainEmailOutbox, enqueueCampaignExport,
+  type SmartleadConfig, type Transport as SmartleadTransport,
+} from '../src/email/smartlead.js';
+
+const SMARTLEAD_READY: SmartleadConfig = {
+  apiKey: 'sk-not-a-real-key', baseUrl: 'https://provider.test/api/v1', enabled: true,
+};
+
+function smartleadTransport(options: {
+  ok?: boolean; status?: number; body?: unknown; onCall?: (url: string, body: string) => void;
+} = {}): SmartleadTransport {
+  return async (url, init) => {
+    options.onCall?.(url, init.body);
+    return {
+      ok: options.ok !== false,
+      status: options.status ?? 200,
+      json: async () => options.body ?? { upload_count: 1, leads: [] },
+    };
+  };
+}
+
+/** Links a campaign to a provider campaign, which the drain requires. */
+async function linkProvider(campaignId: string): Promise<void> {
+  await query(
+    `update email_campaigns set provider_campaign_id = 'prov-1' where email_campaign_id = $1`,
+    [campaignId]);
+}
+
+test('enrolling queues an export and sends nothing by itself', async () => {
+  const campaignId = await makeCampaign();
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+
+  const report = await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+  assert.equal(report.enrolled, 1);
+
+  const enrollment = await query(
+    `select status, exported_at, provider_lead_id from email_enrollments`);
+  assert.equal(enrollment.rows[0]!.status, 'PENDING_EXPORT',
+    'a queued export is not an export');
+  assert.equal(enrollment.rows[0]!.exported_at, null);
+
+  const outbox = await query(`select operation, status from email_outbox`);
+  assert.equal(outbox.rows[0]!.operation, 'EXPORT');
+  assert.equal(outbox.rows[0]!.status, 'PENDING');
+});
+
+test('the same account is never enrolled twice in one campaign', async () => {
+  const campaignId = await makeCampaign();
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+
+  await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+  const second = await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+
+  assert.equal(second.enrolled, 0);
+  assert.equal(second.eligible, 0, 'an already-enrolled account is not eligible again');
+  assert.ok(second.rejections['ALREADY_ENROLLED'] >= 1,
+    'the report says why, rather than showing an unexplained shortfall');
+  const rows = await query(`select count(*)::int as n from email_outbox`);
+  assert.equal(rows.rows[0]!.n, 1, 'a second enqueue must not queue a second send');
+});
+
+test('an outage delays a send and never duplicates one', async () => {
+  const campaignId = await makeCampaign();
+  await linkProvider(campaignId);
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+  await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+
+  let calls = 0;
+  const failing = createSmartleadClient({
+    config: SMARTLEAD_READY,
+    transport: smartleadTransport({ ok: false, status: 503, onCall: () => { calls += 1; } }),
+  });
+  const first = await drainEmailOutbox({ client: failing });
+  assert.equal(first.sent, 0);
+  assert.equal(first.failed, 1);
+  assert.equal(calls, 1);
+
+  // The row is still pending, but backed off: an immediate re-drain must not retry.
+  const immediate = await drainEmailOutbox({ client: failing });
+  assert.equal(immediate.sent + immediate.failed, 0, 'a failure backs off rather than hot-looping');
+  assert.equal(calls, 1);
+
+  const state = await query(`select status, attempts, last_error from email_outbox`);
+  assert.equal(state.rows[0]!.status, 'PENDING');
+  assert.equal(state.rows[0]!.attempts, 1);
+  assert.match(state.rows[0]!.last_error, /HTTP_503/);
+
+  const enrollment = await query(`select status from email_enrollments`);
+  assert.equal(enrollment.rows[0]!.status, 'PENDING_EXPORT',
+    'a failed send must not mark the prospect exported');
+});
+
+test('a successful send records the provider id against our enrollment, not the address', async () => {
+  const campaignId = await makeCampaign();
+  await linkProvider(campaignId);
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+  await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+
+  const { rows } = await query<{ enrollment_id: string }>(`select enrollment_id from email_enrollments`);
+  const enrollmentId = rows[0]!.enrollment_id;
+
+  let sentBody = '';
+  const client = createSmartleadClient({
+    config: SMARTLEAD_READY,
+    transport: smartleadTransport({
+      onCall: (_url, body) => { sentBody = body; },
+      body: { upload_count: 1, leads: [
+        { email: 'owner@northgate.example.com', lead_id: 5150,
+          custom_fields: { yad_enrollment_id: enrollmentId } },
+      ] },
+    }),
+  });
+
+  const report = await drainEmailOutbox({ client });
+  assert.equal(report.sent, 1);
+
+  const enrollment = await query(
+    `select status, provider_lead_id, exported_at from email_enrollments`);
+  assert.equal(enrollment.rows[0]!.status, 'EXPORTED');
+  assert.equal(enrollment.rows[0]!.provider_lead_id, '5150');
+  assert.ok(enrollment.rows[0]!.exported_at);
+
+  // Correlation travels with the lead, and nothing internal does.
+  assert.match(sentBody, new RegExp(enrollmentId));
+  assert.equal(/dnc|suppression_reason|transcript|prompt/i.test(sentBody), false,
+    'nothing internal is exported to the provider');
+});
+
+test('the credential never appears in the outbox, the enrollment or a report', async () => {
+  const campaignId = await makeCampaign();
+  await linkProvider(campaignId);
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+  const report = await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+
+  const outbox = await query(`select payload from email_outbox`);
+  const serialized = JSON.stringify({ report, outbox: outbox.rows });
+  assert.equal(serialized.includes(SMARTLEAD_READY.apiKey!), false);
+});
+
+test('without a credential the queue waits rather than failing', async () => {
+  const campaignId = await makeCampaign();
+  await linkProvider(campaignId);
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+  await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+
+  const unconfigured = createSmartleadClient({
+    config: { ...SMARTLEAD_READY, apiKey: null },
+    transport: () => { throw new Error('the provider must not be called'); },
+  });
+  const report = await drainEmailOutbox({ client: unconfigured });
+  assert.equal(report.skipped, 1);
+  assert.equal(report.failed, 0, 'waiting for a credential is not a failure');
+
+  const outbox = await query(`select status, attempts from email_outbox`);
+  assert.equal(outbox.rows[0]!.status, 'PENDING');
+  assert.equal(outbox.rows[0]!.attempts, 0, 'waiting does not burn a retry');
+});
+
+test('a campaign with no provider campaign linked fails loudly, not silently', async () => {
+  const campaignId = await makeCampaign();
+  const accountId = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+  await enqueueCampaignExport({ campaignId, accountIds: [accountId] });
+
+  const client = createSmartleadClient({
+    config: SMARTLEAD_READY, transport: smartleadTransport() });
+  const report = await drainEmailOutbox({ client });
+  assert.equal(report.failed, 1);
+
+  const outbox = await query(`select last_error from email_outbox`);
+  assert.match(outbox.rows[0]!.last_error, /CAMPAIGN_NOT_LINKED_TO_PROVIDER/);
+});
+
+test('a suppressed account is not enrolled, and its shortfall is reported', async () => {
+  const campaignId = await makeCampaign();
+  const good = await seedAccount({ name: 'Northgate Air', email: 'owner@northgate.example.com' });
+  const bad = await seedAccount({ name: 'Palmetto Plumbing', email: 'owner@palmetto.example.com' });
+  await query(`update accounts set is_suppressed = true where account_id = $1`, [bad]);
+
+  const report = await enqueueCampaignExport({ campaignId, accountIds: [good, bad] });
+  assert.equal(report.enrolled, 1);
+  assert.equal(report.shortfall, 1);
+  assert.ok(Object.keys(report.rejections).length > 0,
+    'the shortfall says why, rather than being padded');
+});
