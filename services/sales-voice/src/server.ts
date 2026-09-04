@@ -5,6 +5,7 @@ import {
   RateLimiter, MAX_BODY_BYTES, readBodyLimited, clientIp, createLogger,
 } from '../../voice-core/src/index.ts';
 import { loadSalesVoiceConfig, describeSalesVoiceConfig } from './config.ts';
+import { createSalesRelaySession, type Socket, type TurnProducer } from './relaySession.ts';
 
 /**
  * Production Outbound Sales voice service.
@@ -24,6 +25,25 @@ import { loadSalesVoiceConfig, describeSalesVoiceConfig } from './config.ts';
 const config = loadSalesVoiceConfig();
 const log = createLogger({ service: 'sales-voice' });
 const limiter = new RateLimiter(120, 60_000);
+
+/**
+ * Where the conversation comes from.
+ *
+ * The turn producer is supplied by whoever starts the process, so this service holds
+ * no dialogue of its own. Until a call context can be resolved — which needs the
+ * sales brain and its database — the producer is absent, and the socket says so and
+ * closes rather than improvising a conversation.
+ */
+let turnProducerFor: ((callContextId: string) => Promise<TurnProducer | null>) | null = null;
+
+export function setTurnProducerFactory(
+  factory: (callContextId: string) => Promise<TurnProducer | null>,
+): void {
+  turnProducerFor = factory;
+}
+
+/** Open relay sockets, for the health payload. */
+let activeSockets = 0;
 
 /** Rebuilds the URL Twilio signed — the public one, not what Node sees behind nginx. */
 function signedUrl(req: IncomingMessage): string {
@@ -59,7 +79,8 @@ export const server = createServer(async (req: IncomingMessage, res: ServerRespo
     return send(res, 200, JSON.stringify({
       status: 'ok',
       service: 'sales-voice',
-      activeSessions: 0,
+      activeSessions: activeSockets,
+      conversationSource: turnProducerFor ? 'configured' : 'absent',
       config: describeSalesVoiceConfig(config),
     }, null, 2), 'application/json');
   }
@@ -104,13 +125,80 @@ export const server = createServer(async (req: IncomingMessage, res: ServerRespo
   return send(res, 404, 'Not found', 'text/plain');
 });
 
+/**
+ * The ConversationRelay socket.
+ *
+ * `ws` is imported lazily so every pure module here stays importable and testable
+ * before `npm install` has ever run — the same reason the receptionist does it.
+ */
+export async function attachRelaySocket(): Promise<void> {
+  let WebSocketServer: typeof import('ws').WebSocketServer;
+  try {
+    ({ WebSocketServer } = await import('ws'));
+  } catch {
+    log.log('error', { reason: 'ws is not installed; the relay socket is not listening' });
+    return;
+  }
+
+  const wss = new WebSocketServer({
+    server, path: config.paths.relay, maxPayload: MAX_BODY_BYTES,
+  });
+
+  wss.on('connection', (socket, request) => {
+    activeSockets += 1;
+    const url = new URL(request.url ?? '/', config.publicBaseUrl);
+    const callContextId = url.searchParams.get('callContextId') ?? '';
+    const callSid = { current: '' };
+
+    const adapter: Socket = {
+      send: (data) => socket.send(data),
+      close: () => socket.close(),
+    };
+
+    let session: ReturnType<typeof createSalesRelaySession> | null = null;
+    let refused = false;
+
+    socket.on('message', async (raw: Buffer | string) => {
+      if (refused) return;
+      if (!session) {
+        // No conversation source means no call. Improvising one here is exactly what
+        // this service is built not to do.
+        const producer = turnProducerFor ? await turnProducerFor(callContextId) : null;
+        if (!producer) {
+          refused = true;
+          log.log('error', {
+            reason: 'no conversation source for this call',
+            callContextId: callContextId ? 'present' : 'absent',
+          });
+          socket.close();
+          return;
+        }
+        session = createSalesRelaySession({
+          producer,
+          sink: { log: (event, data) => log.log(event, data) },
+        });
+      }
+      await session.handle(adapter, raw.toString(), callSid);
+    });
+
+    socket.on('close', async () => {
+      activeSockets = Math.max(0, activeSockets - 1);
+      if (session && callSid.current) await session.hangUp(callSid.current);
+    });
+  });
+
+  log.log('call.summary', { msg: 'relay socket listening', path: config.paths.relay });
+}
+
 /* c8 ignore start — only runs when started as a service */
 if (process.argv[1]?.endsWith('server.ts')) {
+  await attachRelaySocket();
   server.listen(config.port, config.host, () => {
     log.log('call.summary', {
       msg: 'sales voice listening',
       url: `http://${config.host}:${config.port}`,
       paths: config.paths,
+      conversationSource: turnProducerFor ? 'configured' : 'absent',
     });
   });
 }

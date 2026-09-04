@@ -53,9 +53,9 @@ test('the two services cannot collide on a port, a health check or an env file',
   assert.match(unit, /CPUWeight=50/);
 });
 
-test('the nginx snippet adds outbound routes and changes none of the receptionist ones', () => {
+test('the nginx locations add outbound routes and change none of the receptionist ones', () => {
   const conf = readFileSync(
-    new URL('../deploy/nginx-outbound-location.conf', import.meta.url), 'utf8');
+    new URL('../deploy/nginx-outbound-locations.conf', import.meta.url), 'utf8');
   // Only real directives: a `location` at the start of a line, not the word in prose.
   const locations = [...conf.matchAll(/^\s*location\s+([^\s{]+)/gm)].map((match) => match[1]!);
   assert.ok(locations.length > 0);
@@ -63,8 +63,49 @@ test('the nginx snippet adds outbound routes and changes none of the receptionis
     assert.match(location, /^\/outbound/,
       `${location} would take a route away from the receptionist`);
   }
-  assert.match(conf, /server\s+127\.0\.0\.1:3002/);
   assert.match(conf, /proxy_read_timeout\s+3600s/, 'the call socket gets the long timeout');
+  // A location block cannot contain an upstream, so the two live in separate files.
+  assert.equal(/^\s*upstream/m.test(conf), false,
+    'an upstream inside a server block is a configuration error');
+});
+
+test('the nginx upstream is a separate http-level file', () => {
+  const conf = readFileSync(
+    new URL('../deploy/nginx-outbound-upstream.conf', import.meta.url), 'utf8');
+  assert.match(conf, /upstream yad_sales_voice/);
+  assert.match(conf, /server\s+127\.0\.0\.1:3002/);
+  assert.equal(/^\s*location/m.test(conf), false,
+    'a location at http level is a configuration error');
+  // The upgrade map is named uniquely so it cannot collide with one the receptionist
+  // already defines.
+  assert.match(conf, /yad_outbound_connection_upgrade/);
+});
+
+test('the deploy script refuses a moving branch tip and never touches inbound', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  assert.match(script, /--sha is required/,
+    'deploying a branch tip is how a reviewed SHA stops meaning anything');
+  assert.match(script, /INBOUND_UNIT="yad-voice-agent\.service"/);
+  assert.match(script, /is no longer active\. That is a deployment failure/);
+  // It must not restart, stop, disable or rewrite the receptionist.
+  for (const forbidden of [/systemctl (?:restart|stop|disable) "?\$INBOUND_UNIT/,
+                           /> ?\/etc\/yad-voice-agent\.env/,
+                           /rm .*yad-voice-agent/]) {
+    assert.equal(forbidden.test(script), false, `deploy.sh matches ${forbidden}`);
+  }
+});
+
+test('the env template carries no value, and forbids arming from a file', () => {
+  const template = readFileSync(
+    new URL('../deploy/yad-sales-voice.env.example', import.meta.url), 'utf8');
+  assert.match(template, /^TWILIO_ACCOUNT_SID=$/m, 'the template is blank');
+  assert.match(template, /^TWILIO_AUTH_TOKEN=$/m);
+  assert.match(template, /^OUTBOUND_APPROVED_CALLER_IDS=$/m);
+  assert.match(template, /TWILIO_VALIDATE_SIGNATURES=true/);
+  assert.match(template, /Do not add OUTBOUND_DIAL_ENABLED/,
+    'the pilot mode lives in the database so a restart cannot arm it');
+  // Nothing that looks like a real credential.
+  assert.equal(/AC[0-9a-f]{32}|[0-9a-f]{32}/.test(template), false);
 });
 
 test('the outbound service decides no sales dialogue of its own', () => {
