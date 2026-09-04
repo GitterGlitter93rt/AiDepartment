@@ -126,6 +126,16 @@ export const server = createServer(async (req: IncomingMessage, res: ServerRespo
 });
 
 /**
+ * Concurrent relay sockets this process will accept.
+ *
+ * The pilot runs one call at a time and the eligibility layer enforces that, but the
+ * transport must not depend on an upstream limit it cannot see: an unbounded socket
+ * count on a shared host is how outbound starves the inbound receptionist, which the
+ * dual-service spec says must always win contention.
+ */
+const MAX_CONCURRENT_SOCKETS = Number(process.env['SALES_VOICE_MAX_SOCKETS'] ?? '4');
+
+/**
  * The ConversationRelay socket.
  *
  * `ws` is imported lazily so every pure module here stays importable and testable
@@ -143,8 +153,19 @@ export async function attachRelaySocket(): Promise<void> {
   const wss = new WebSocketServer({
     server, path: config.paths.relay, maxPayload: MAX_BODY_BYTES,
   });
+  activeSocketServer = wss;
 
   wss.on('connection', (socket, request) => {
+    if (activeSockets >= MAX_CONCURRENT_SOCKETS) {
+      log.log('error', {
+        reason: 'relay socket refused: concurrency ceiling',
+        active: activeSockets, ceiling: MAX_CONCURRENT_SOCKETS,
+      });
+      // 1013 Try Again Later: the honest answer, rather than accepting a call this
+      // process cannot serve without hurting inbound.
+      try { socket.close(1013, 'busy'); } catch { /* already gone */ }
+      return;
+    }
     activeSockets += 1;
     const url = new URL(request.url ?? '/', config.publicBaseUrl);
     const callContextId = url.searchParams.get('callContextId') ?? '';
@@ -159,6 +180,20 @@ export async function attachRelaySocket(): Promise<void> {
     let refused = false;
 
     socket.on('message', async (raw: Buffer | string) => {
+      try {
+        await onMessage(raw);
+      } catch (error) {
+        // An async rejection here would otherwise be an unhandled rejection, which
+        // Node treats as fatal by default.
+        log.log('error', {
+          reason: 'relay message handler failed',
+          detail: String((error as Error).message).slice(0, 200),
+        });
+        if (session && callSid.current) await session.hangUp(callSid.current);
+      }
+    });
+
+    async function onMessage(raw: Buffer | string): Promise<void> {
       if (refused) return;
       if (!session) {
         // No conversation source means no call. Improvising one here is exactly what
@@ -179,6 +214,15 @@ export async function attachRelaySocket(): Promise<void> {
         });
       }
       await session.handle(adapter, raw.toString(), callSid);
+    }
+
+    // An oversized frame, a protocol violation or a network fault arrives here. Left
+    // unhandled, `ws` raises it as an uncaught exception and takes the process down —
+    // one hostile frame would end every call in progress.
+    socket.on('error', async (error: Error) => {
+      log.log('error', { reason: 'relay socket error', detail: String(error.message).slice(0, 200) });
+      if (session && callSid.current) await session.hangUp(callSid.current);
+      try { socket.close(); } catch { /* already gone */ }
     });
 
     socket.on('close', async () => {
@@ -187,12 +231,50 @@ export async function attachRelaySocket(): Promise<void> {
     });
   });
 
+  // A listener-level fault must not be unhandled either.
+  wss.on('error', (error: Error) => {
+    log.log('error', { reason: 'relay listener error', detail: String(error.message).slice(0, 200) });
+  });
+
   log.log('call.summary', { msg: 'relay socket listening', path: config.paths.relay });
 }
+
+/**
+ * Stops accepting work and lets calls in progress finish.
+ *
+ * systemd sends SIGTERM and waits `TimeoutStopSec`. Closing the listener immediately
+ * while a call is live would drop a conversation mid-sentence, so the HTTP listener
+ * stops first and the process exits once the sockets are gone or the grace period
+ * expires — whichever comes first, so a wedged call cannot block a deploy for ever.
+ */
+export async function shutdown(graceMs = Number(process.env['SHUTDOWN_GRACE_MS'] ?? '25000')):
+  Promise<void> {
+  log.log('call.ending', { msg: 'shutting down', activeSessions: activeSockets });
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+
+  const deadline = Date.now() + graceMs;
+  while (activeSockets > 0 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  if (activeSockets > 0) {
+    log.log('error', {
+      reason: 'shutdown grace expired with calls still open', activeSessions: activeSockets,
+    });
+  }
+  if (activeSocketServer) {
+    await new Promise<void>((resolve) => activeSocketServer!.close(() => resolve()));
+  }
+  log.log('call.ending', { msg: 'shutdown complete' });
+}
+
+let activeSocketServer: import('ws').WebSocketServer | null = null;
 
 /* c8 ignore start — only runs when started as a service */
 if (process.argv[1]?.endsWith('server.ts')) {
   await attachRelaySocket();
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.on(signal, () => { void shutdown().then(() => process.exit(0)); });
+  }
   server.listen(config.port, config.host, () => {
     log.log('call.summary', {
       msg: 'sales voice listening',

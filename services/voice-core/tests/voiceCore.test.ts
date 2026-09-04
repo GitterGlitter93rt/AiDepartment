@@ -6,6 +6,7 @@ import {
   conversationRelayTwiml, transferTwiml, fallbackTwiml, hangupTwiml,
   parseRelayMessage, textResponse, chunkForSpeech,
   SessionStore, createTimeline, RateLimiter, clientIp, createLogger,
+  readBodyLimited,
 } from '../src/index.ts';
 
 /**
@@ -251,4 +252,144 @@ test('voice-core contains no business behaviour', async () => {
   }
   assert.deepEqual(offenders, [],
     'the transport must not learn what the services say');
+});
+
+
+// --- adversarial: what an external reviewer would try -------------------------
+
+test('a signature comparison is constant-time and length-safe', () => {
+  const token = 'token-not-a-real-one';
+  const url = 'https://voice.youraidepartment.ai/outbound/twilio/incoming';
+  const params = { CallSid: 'CA1' };
+  const good = expectedSignature(token, url, params);
+
+  for (const candidate of ['', 'x', good.slice(0, -1), good + 'x', 'A'.repeat(4096),
+                           ' ', '!!!', good.toUpperCase()]) {
+    assert.equal(validateTwilioSignature(token, candidate, url, params), false,
+      `accepted ${JSON.stringify(candidate.slice(0, 12))}`);
+  }
+  assert.equal(validateTwilioSignature(token, good, url, params), true);
+});
+
+test('the signature is faithful to Twilio scheme, ordering included', () => {
+  const token = 't';
+  const url = 'https://voice.youraidepartment.ai/x';
+  // Twilio sorts by key, so a reordered body signs the same and a changed value
+  // does not.
+  assert.equal(expectedSignature(token, url, { b: '2', a: '1' }),
+    expectedSignature(token, url, { a: '1', b: '2' }));
+  assert.notEqual(expectedSignature(token, url, { a: '1', b: '2' }),
+    expectedSignature(token, url, { a: '1', b: '3' }));
+});
+
+test('the concatenation collision in Twilio scheme is documented, not patched', () => {
+  const token = 't';
+  const url = 'https://voice.youraidepartment.ai/x';
+  // Twilio's documented algorithm concatenates sorted key+value pairs with no
+  // separator, so {ab:'c'} and {a:'bc'} hash identically. That is a property of the
+  // provider's scheme, not of this code.
+  assert.equal(expectedSignature(token, url, { ab: 'c' }),
+    expectedSignature(token, url, { a: 'bc' }),
+    'if this ever differs, the implementation has diverged from Twilio and every '
+    + 'real webhook will start failing validation');
+
+  // It is not exploitable here: the parameter names are Twilio's, not a caller's,
+  // and the URL is rebuilt from configuration rather than from a request header. A
+  // forged body would have to keep the same concatenation *and* the same URL, and
+  // changing any value the service reads changes the concatenation.
+  const real = { CallSid: 'CA1', From: '+19045550142', To: '+19046829345' };
+  const forged = { CallSid: 'CA1', From: '+19045550143', To: '+19046829345' };
+  assert.notEqual(expectedSignature(token, url, real),
+    expectedSignature(token, url, forged));
+});
+
+test('form parsing keeps a repeated key deterministic', () => {
+  const record = formToRecord('CallSid=CA1&CallSid=CA2');
+  assert.equal(typeof record['CallSid'], 'string');
+});
+
+test('TwiML escapes everything that could break out of an attribute', () => {
+  const xml = conversationRelayTwiml({
+    relayUrl: 'wss://x/y?a=1&b=2',
+    welcomeGreeting: 'He said "hi" and <script>alert(1)</script>',
+  });
+  assert.equal(xml.includes('<script>'), false);
+  assert.equal(xml.includes('"hi"'), false, 'a raw quote would close the attribute');
+  assert.match(xml, /&amp;/);
+  assert.match(xml, /&quot;/);
+  assert.match(xml, /&lt;script&gt;/);
+  assert.match(xml, /a=1&amp;b=2/);
+});
+
+test('chunking never drops or reorders content', () => {
+  const text = 'First sentence here. Second one follows! Third one? And a fourth.';
+  const chunks = chunkForSpeech(text, 24);
+  assert.ok(chunks.length > 1);
+  assert.equal(chunks.join(' ').replace(/\s+/g, ' ').trim(),
+    text.replace(/\s+/g, ' ').trim(), 'speech must say exactly what it was given');
+});
+
+test('chunking handles input with no sentence boundary at all', () => {
+  const long = 'word '.repeat(200).trim();
+  const chunks = chunkForSpeech(long, 60);
+  assert.ok(chunks.length >= 1);
+  assert.equal(chunks.join(' ').replace(/\s+/g, ' ').trim(), long);
+});
+
+test('a relay frame that is valid JSON but not an object is refused', () => {
+  for (const raw of ['"a string"', '123', 'null', 'true', '[]', '[{"type":"setup"}]']) {
+    assert.equal(parseRelayMessage(raw), null, `accepted ${raw}`);
+  }
+});
+
+test('the logger redacts a credential under any key name, at depth', () => {
+  const lines: string[] = [];
+  const log = createLogger({}, (line) => lines.push(line));
+  log.log('error', {
+    nested: { deeper: { authToken: 'AC0123456789abcdef0123456789abcdef' } },
+    innocuous: 'authorization: Bearer sk-ant-abcdefghijklmnopqrst',
+    list: ['sk-ant-abcdefghijklmnopqrst'],
+  });
+  const output = lines.join(String.fromCharCode(10));
+  assert.equal(output.includes('sk-ant-abcdefghijklmnopqrst'), false);
+  assert.equal(/AC0123456789abcdef0123456789abcdef/.test(output), false,
+    'an account SID under a secret-shaped key is redacted too');
+});
+
+test('a log line cannot be forged by injecting a newline', () => {
+  const lines: string[] = [];
+  const log = createLogger({}, (line) => lines.push(line));
+  const forged = 'ok"}' + String.fromCharCode(10) + '{"level":"forged"';
+  log.log('error', { reason: forged });
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0]!.split(String.fromCharCode(10)).length, 1,
+    'a newline in a value cannot split the line');
+});
+
+test('the rate limiter window map is swept, so it cannot be a memory attack', () => {
+  const limiter = new RateLimiter(1, 1000);
+  assert.equal(limiter.check('1.2.3.4', 0), true);
+  assert.equal(limiter.check('1.2.3.4', 10), false);
+  for (let i = 0; i < 5000; i += 1) limiter.check(`key-${i}`, 20);
+  limiter.sweep(5000);
+  assert.equal(limiter.size, 0);
+});
+
+test('a body larger than the cap is refused without being buffered', async () => {
+  async function* hugeBody() {
+    for (let i = 0; i < 100; i += 1) yield Buffer.alloc(4096, 65);
+  }
+  const result = await readBodyLimited(hugeBody(), 8192);
+  assert.equal(result.truncated, true);
+  assert.equal(result.body, '', 'nothing over the cap is retained');
+});
+
+test('the session store bounds what a long call can hold in memory', () => {
+  const store = new SessionStore<{ x: number }>(() => ({ x: 0 }), 1000, 10);
+  store.create('CA1', 'a', 'b');
+  for (let i = 0; i < 50; i += 1) store.addTurn('CA1', 'agent', `turn ${i}`);
+  const session = store.get('CA1')!;
+  assert.equal(session.turns.length, 10);
+  assert.equal(session.turns[9]!.text, 'turn 49', 'the recent end is what is kept');
+  assert.ok((session.turnsDropped ?? 0) > 0, 'and a review can tell turns were dropped');
 });

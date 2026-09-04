@@ -36,7 +36,8 @@ export {
   type RelayInterruptMessage, type RelayErrorMessage, type TextOptions,
 } from './twilio/relay.ts';
 export {
-  SessionStore, type VoiceSession, type Turn, type ToolCallRecord,
+  SessionStore, MAX_RETAINED_TURNS,
+  type VoiceSession, type Turn, type ToolCallRecord,
 } from './core/session.ts';
 export {
   createTimeline, nullTimeline, TimelineStore,

@@ -30,11 +30,29 @@ export interface SalesRelayState {
   turns: number;
   /** Set once the call has ended, so a late frame cannot end it again. */
   ended: boolean;
+  /** Set once setup has been handled, so a duplicate frame is a no-op. */
+  setUp: boolean;
 }
 
 export interface Socket {
   send(data: string): void;
   close(): void;
+}
+
+/**
+ * Sends, and treats a dead socket as the end of the call.
+ *
+ * A closed socket throws from `send`. Letting that propagate takes down the turn
+ * handler mid-call and leaves the session in the store with no way to finish it, so
+ * the failure is caught here and the call is ended once, cleanly.
+ */
+function trySend(socket: Socket, data: string): boolean {
+  try {
+    socket.send(data);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function createSalesRelaySession(input: {
@@ -43,7 +61,7 @@ export function createSalesRelaySession(input: {
   now?: () => number;
 }) {
   const sessions = new SessionStore<SalesRelayState>(
-    () => ({ utteranceOpen: false, lastPartialText: '', turns: 0, ended: false }));
+    () => ({ utteranceOpen: false, lastPartialText: '', turns: 0, ended: false, setUp: false }));
 
   /**
    * Ends the call once.
@@ -61,10 +79,16 @@ export function createSalesRelaySession(input: {
     if (!session || session.state.ended) return false;
     sessions.patchState(callSid, { ended: true });
     inFlight.get(callSid)?.abort();
-    await input.producer.finish(reason);
+    inFlight.delete(callSid);
+    try {
+      await input.producer.finish(reason);
+    } catch {
+      // A producer that fails while closing must not prevent the call being closed.
+    }
     timelines.get(callSid)?.mark('CALL_ENDED');
+    timelines.delete(callSid);
     sessions.end(callSid);
-    socket?.close();
+    if (socket) { try { socket.close(); } catch { /* already gone */ } }
     return true;
   }
   const timelines = new Map<string, Timeline>();
@@ -79,7 +103,15 @@ export function createSalesRelaySession(input: {
       const from = String((message as { from?: string }).from ?? 'unknown');
       const to = String((message as { to?: string }).to ?? 'unknown');
       callSidRef.current = callSid;
+      const existing = sessions.get(callSid);
+      if (existing?.state.setUp) {
+        // Twilio can repeat setup on a reconnect. Running it again would record the
+        // opener a second time, and a second recorded opener breaks the barge-in
+        // truncation that looks for the last agent turn.
+        return;
+      }
       sessions.ensure(callSid, from, to);
+      sessions.patchState(callSid, { setUp: true });
 
       const timeline = createTimeline({
         callSid, sink: input.sink, ...(input.now ? { now: input.now } : {}) });
@@ -150,11 +182,18 @@ export function createSalesRelaySession(input: {
 
       sessions.addTurn(callSid, 'agent', produced.say);
       const chunks = chunkForSpeech(produced.say);
-      chunks.forEach((chunk, index) => {
+      let delivered = true;
+      for (const [index, chunk] of chunks.entries()) {
         const last = index === chunks.length - 1;
-        socket.send(textResponse(chunk, last));
+        if (!trySend(socket, textResponse(chunk, last))) { delivered = false; break; }
         if (index === 0) timeline.mark('FIRST_TEXT_SENT_TO_CONVERSATION_RELAY');
-      });
+      }
+      if (!delivered) {
+        // Nobody is listening any more. End the call rather than carry on producing
+        // turns into a closed socket.
+        await endOnce(callSid, 'error');
+        return;
+      }
       timeline.mark('TURN_COMPLETE');
       sessions.patchState(callSid, { turns: session.state.turns + 1 });
 

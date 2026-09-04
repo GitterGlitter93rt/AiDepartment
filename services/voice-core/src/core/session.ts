@@ -34,23 +34,41 @@ export interface VoiceSession<TState> {
   startedAt: string;
   endedAt?: string;
   turns: Turn[];
+  /** How many turns fell off the front of the window, so a review knows. */
+  turnsDropped?: number;
   toolCalls: ToolCallRecord[];
   /** Owned entirely by the consuming service. */
   state: TState;
 }
 
+/**
+ * How many turns a session keeps.
+ *
+ * Barge-in truncation only ever needs the most recent agent turn, and the consuming
+ * service persists what it needs as it goes. Holding every turn of a long call in
+ * memory is unbounded growth for no benefit — a call that runs for an hour would
+ * carry the whole hour in the process.
+ */
+export const MAX_RETAINED_TURNS = 200;
+
 export class SessionStore<TState> {
   private sessions = new Map<string, VoiceSession<TState>>();
   private readonly ttlMs: number;
+  private readonly maxTurns: number;
   private readonly initialState: () => TState;
 
   // Written as explicit fields rather than parameter properties: Node's
   // --experimental-strip-types runs TypeScript by erasing types only, and parameter
   // properties emit real code, so they are not supported. Keeping to strip-safe
   // syntax is what lets this package run and test with no build step.
-  constructor(initialState: () => TState, ttlMs = 10 * 60 * 1000) {
+  constructor(
+    initialState: () => TState,
+    ttlMs = 10 * 60 * 1000,
+    maxTurns = MAX_RETAINED_TURNS,
+  ) {
     this.initialState = initialState;
     this.ttlMs = ttlMs;
+    this.maxTurns = maxTurns;
   }
 
   create(callSid: string, from: string, to: string): VoiceSession<TState> {
@@ -79,6 +97,12 @@ export class SessionStore<TState> {
     const session = this.sessions.get(callSid);
     if (!session) return;
     session.turns.push({ role, text, at: new Date().toISOString() });
+    // Oldest first: the recent end is the part barge-in and review need.
+    if (session.turns.length > this.maxTurns) {
+      session.turns.splice(0, session.turns.length - this.maxTurns);
+      session.turnsDropped = (session.turnsDropped ?? 0)
+        + 1;
+    }
   }
 
   /**
@@ -122,6 +146,9 @@ export class SessionStore<TState> {
     const session = this.sessions.get(callSid);
     if (!session) return;
     session.toolCalls.push({ name, ok, at: new Date().toISOString() });
+    if (session.toolCalls.length > this.maxTurns) {
+      session.toolCalls.splice(0, session.toolCalls.length - this.maxTurns);
+    }
   }
 
   end(callSid: string): VoiceSession<TState> | undefined {
