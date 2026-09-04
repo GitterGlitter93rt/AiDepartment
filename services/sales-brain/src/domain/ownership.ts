@@ -83,9 +83,28 @@ async function claimOneInTransaction(
     };
   }
 
-  // Anti-hoarding ceiling, counted inside the same transaction so a burst of
-  // parallel claims cannot slip past it (browse-claim spec §7).
-  const target = actor.activeClaimTarget ?? DEFAULT_ACTIVE_CLAIM_TARGET;
+  // Anti-hoarding ceiling.
+  //
+  // Counting inside the transaction is not enough on its own: each claim locks a
+  // different Account row, so eight simultaneous claims all counted zero and all
+  // succeeded against a ceiling of three. Measured, not theorised -- and the bulk
+  // claim path runs one transaction per Account by design, so a rep selecting two
+  // hundred rows and pressing "Claim to Me" bypassed the ceiling entirely.
+  //
+  // The contended resource is this rep's claim budget, so the rep's own row is what
+  // has to be locked. Claims by one rep now serialise on that row; claims by
+  // different reps stay parallel, which is the concurrency that matters. The lock is
+  // taken after the Account lock, the same order everywhere, so two claims cannot
+  // deadlock against each other.
+  //
+  // The ceiling is read from the database under that lock rather than from the
+  // caller's session, which may be minutes old.
+  const { rows: budgetRows } = await client.query<{ active_claim_target: number | null }>(
+    'select active_claim_target from users where user_id = $1 for update',
+    [actor.userId],
+  );
+  const target = budgetRows[0]?.active_claim_target
+    ?? actor.activeClaimTarget ?? DEFAULT_ACTIVE_CLAIM_TARGET;
   const { rows: countRows } = await client.query<{ count: number }>(
     `select count(*)::bigint as count from accounts
       where current_owner_user_id = $1 and ownership_state in ('CLAIMED','MANAGER_ASSIGNED')`,
@@ -283,12 +302,33 @@ export async function reassignAccount(
   });
 }
 
-/** True when the actor may record sales activity against this Account. */
+/**
+ * True when the actor may record sales activity against this Account.
+ *
+ * The row is locked, not just read. Without the lock, recording an outcome and
+ * releasing the Account raced: the release counts open prospect-requested callbacks
+ * inside its own transaction, the disposition writes one from another, and neither
+ * blocked the other. Measured over twelve runs of the product path, the release won
+ * once and left an open callback on an Account with no owner -- a promise made to a
+ * prospect that nobody was responsible for keeping. Through a direct insert it was
+ * eight in twelve.
+ *
+ * Locking here makes the two serialise: whichever commits first, the release then
+ * sees the callback and refuses with PROTECTED_RELATIONSHIP, or the disposition sees
+ * the Account is no longer the rep's and refuses. Two activity writes on one Account
+ * also serialise, which is correct -- both are changing that Account's relationship
+ * state.
+ *
+ * Lock order across the service is Account first, then anything else (the rep's row
+ * for the claim ceiling, the endpoints, the follow-up row). The two paths that lock a
+ * child row first -- completing a follow-up, transitioning an opportunity -- never
+ * take an Account lock before a child lock, so there is no cycle to deadlock on.
+ */
 export async function assertCanWorkAccount(
   client: pg.PoolClient, accountId: string, actor: { userId: string; role: Role },
 ): Promise<{ ok: boolean; reason?: 'NOT_FOUND' | 'NOT_OWNER' }> {
   const { rows } = await client.query<{ current_owner_user_id: string | null }>(
-    'select current_owner_user_id from accounts where account_id = $1', [accountId],
+    'select current_owner_user_id from accounts where account_id = $1 for update', [accountId],
   );
   const account = rows[0];
   if (!account) return { ok: false, reason: 'NOT_FOUND' };

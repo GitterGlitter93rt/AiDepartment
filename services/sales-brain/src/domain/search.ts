@@ -129,15 +129,37 @@ export interface CoverageSummary {
 interface WhereBuild {
   clauses: string[];
   values: unknown[];
+  /**
+   * True when every clause reads a column that lives on `accounts` itself.
+   *
+   * The count then does not need prospect_inventory at all, which matters because
+   * counting through the view evaluates three of its lateral subqueries for every
+   * row -- 435 ms of the 485 ms an unfiltered page cost at 100,000 accounts. Any
+   * filter on geography, contactability, advertising, hypothesis or activity is
+   * derived from a lateral, so it clears this flag and the count goes back through
+   * the view where it is correct.
+   */
+  accountOnly: boolean;
 }
 
-function buildWhere(request: SearchRequest, viewer: { userId: string; role: Role }): WhereBuild {
+/** Columns the view renames. The count path reads the base table's own names. */
+const BASE_COLUMN: Record<string, string> = { company_name: 'canonical_name' };
+
+function buildWhere(
+  request: SearchRequest, viewer: { userId: string; role: Role },
+  target: 'view' | 'accounts' = 'view',
+): WhereBuild {
   const clauses: string[] = [];
   const values: unknown[] = [];
+  let accountOnly = true;
   const push = (value: unknown): string => {
     values.push(value);
     return `$${values.length}`;
   };
+  /** Marks a clause as needing the view, because its column comes from a lateral. */
+  const needsView = (): void => { accountOnly = false; };
+  const column = (name: string): string =>
+    target === 'accounts' ? (BASE_COLUMN[name] ?? name) : name;
 
   // Suppressed Accounts never appear as cold inventory. This is the single most
   // important filter in the system (SALES-TEAM-ACCESS-CURRENT.md §19).
@@ -165,12 +187,15 @@ function buildWhere(request: SearchRequest, viewer: { userId: string; role: Role
   if (geography && geography.value) {
     switch (geography.type) {
       case 'zip_zcta':
+        needsView();
         clauses.push(`postal_code = ${push(geography.value.trim())}`);
         break;
       case 'city':
+        needsView();
         clauses.push(`lower(city) = lower(${push(geography.value.trim())})`);
         break;
       case 'state':
+        needsView();
         clauses.push(`state_region = upper(${push(geography.value.trim())})`);
         break;
       default:
@@ -189,6 +214,7 @@ function buildWhere(request: SearchRequest, viewer: { userId: string; role: Role
   }
 
   for (const filter of request.contactability ?? []) {
+    needsView();
     switch (filter) {
       case 'phone_available': clauses.push('phone_count > 0'); break;
       case 'email_available': clauses.push('email_count > 0'); break;
@@ -205,6 +231,7 @@ function buildWhere(request: SearchRequest, viewer: { userId: string; role: Role
   }
 
   for (const filter of request.advertising ?? []) {
+    needsView();
     switch (filter) {
       case 'google_paid': clauses.push('coalesce(google_paid, false)'); break;
       case 'google_lsa': clauses.push('coalesce(google_lsa, false)'); break;
@@ -223,11 +250,14 @@ function buildWhere(request: SearchRequest, viewer: { userId: string; role: Role
 
   switch (request.myProspectsFilter) {
     case 'NEWLY_CLAIMED': clauses.push(`claimed_at > now() - interval '7 days'`); break;
-    case 'NOT_CONTACTED': clauses.push('activity_count = 0'); break;
-    case 'CALL_READY': clauses.push(`channel_state in ('CALL_READY','CALL_AND_EMAIL')`); break;
-    case 'EMAIL_READY': clauses.push(`channel_state in ('EMAIL_READY','CALL_AND_EMAIL')`); break;
-    case 'CALL_AND_EMAIL': clauses.push(`channel_state = 'CALL_AND_EMAIL'`); break;
-    case 'CALLBACK_DUE': clauses.push('open_callbacks > 0 and next_followup_due <= now()'); break;
+    case 'NOT_CONTACTED': needsView(); clauses.push('activity_count = 0'); break;
+    case 'CALL_READY': needsView(); clauses.push(`channel_state in ('CALL_READY','CALL_AND_EMAIL')`); break;
+    case 'EMAIL_READY': needsView(); clauses.push(`channel_state in ('EMAIL_READY','CALL_AND_EMAIL')`); break;
+    case 'CALL_AND_EMAIL': needsView(); clauses.push(`channel_state = 'CALL_AND_EMAIL'`); break;
+    case 'CALLBACK_DUE':
+      needsView();
+      clauses.push('open_callbacks > 0 and next_followup_due <= now()');
+      break;
     case 'POSITIVE_REPLY': clauses.push(`relationship_state = 'POSITIVE_REPLY'`); break;
     case 'OPPORTUNITY': clauses.push(`relationship_state in ('ACTIVE_OPPORTUNITY','PROPOSAL')`); break;
     default: break;
@@ -235,10 +265,11 @@ function buildWhere(request: SearchRequest, viewer: { userId: string; role: Role
 
   if (request.text?.trim()) {
     const term = `%${request.text.trim().toLowerCase()}%`;
-    clauses.push(`(lower(company_name) like ${push(term)} or lower(coalesce(canonical_domain,'')) like $${values.length})`);
+    clauses.push(`(lower(${column('company_name')}) like ${push(term)} `
+      + `or lower(coalesce(canonical_domain,'')) like $${values.length})`);
   }
 
-  return { clauses, values };
+  return { clauses, values, accountOnly };
 }
 
 export async function searchProspects(
@@ -248,12 +279,23 @@ export async function searchProspects(
   const pageSize = Math.min(200, Math.max(1, request.pageSize ?? 50));
   const sortKey: SortKey = SORT_SQL[request.sort as SortKey] ? (request.sort as SortKey) : 'recommended_priority';
 
-  const { clauses, values } = buildWhere(request, viewer);
+  const build = buildWhere(request, viewer);
+  const { clauses, values } = build;
   const where = clauses.length ? `where ${clauses.join(' and ')}` : '';
 
-  const countResult = await query<{ total: number }>(
-    `select count(*)::bigint as total from prospect_inventory ${where}`, values,
-  );
+  // The count runs against accounts when no filter needs a lateral-derived column.
+  // Counting through the view means evaluating three of its lateral subqueries for
+  // every row, which was 435 ms of the 485 ms an unfiltered page cost at 100,000
+  // accounts, for a number the page shows as "25,000 results".
+  const countBuild = clauses.length > 0 && build.accountOnly
+    ? buildWhere(request, viewer, 'accounts')
+    : null;
+  const countResult = countBuild
+    ? await query<{ total: number }>(
+      `select count(*)::bigint as total from accounts where ${countBuild.clauses.join(' and ')}`,
+      countBuild.values)
+    : await query<{ total: number }>(
+      `select count(*)::bigint as total from prospect_inventory ${where}`, values);
   const total = countResult.rows[0]?.total ?? 0;
 
   // Two phases, on purpose, and two round trips rather than one query.
