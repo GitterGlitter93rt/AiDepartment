@@ -55,6 +55,21 @@ import {
 } from '../domain/pilot.js';
 import { listIntegrations, setIntegrationEnabled, testIntegration } from '../domain/settings.js';
 
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A record id that is not a uuid cannot name a record.
+ *
+ * Without this the database rejects the cast and the request becomes a 500, so a
+ * stale bookmark or a crawler produces server errors and a genuine fault becomes
+ * hard to see among them. Answering 404 is both correct and quieter.
+ */
+function validId(id: string, reply: FastifyReply): boolean {
+  if (UUID_SHAPE.test(id)) return true;
+  reply.code(404).type('text/html').send('<p>Not found.</p>');
+  return false;
+}
+
 /** Server-rendered portal routes. Every one of them re-checks the session. */
 
 function requireUser(request: FastifyRequest, reply: FastifyReply) {
@@ -189,6 +204,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Params: { id: string } }>('/follow-ups/:id/complete', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     await completeFollowUp(Number(request.params.id), user);
     return reply.redirect('/follow-ups');
   });
@@ -199,6 +215,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     '/accounts/:id', async (request, reply) => {
       const user = requireUser(request, reply);
       if (!user) return;
+      if (!validId(request.params.id, reply)) return;
       const detail = await getAccountDetail(request.params.id, user);
       if (!detail) return reply.code(404).type('text/html').send('<p>Account not found.</p>');
       const counts = await navCountsFull(user.userId, user.role);
@@ -222,6 +239,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   }>('/accounts/:id/disposition', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
 
     const disposition = request.body?.disposition as Disposition | undefined;
     if (!disposition) return reply.redirect(`/accounts/${request.params.id}?flash=No+outcome+selected`);
@@ -256,6 +274,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Params: { id: string } }>('/accounts/:id/release', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const result = await releaseAccount(request.params.id, user, 'Released from account page');
     const flash = result.ok
       ? 'Released back to shared inventory.'
@@ -268,6 +287,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Params: { id: string } }>('/accounts/:id/contact-research', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const result = await enqueueContactResearch(request.params.id, user.userId);
     const flash = result.created
       ? 'Contact research queued. It runs in the background.'
@@ -357,6 +377,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/imports/:id', async (request, reply) => {
     const user = requireOps(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const loaded = await getSession(request.params.id, user.userId);
     if (!loaded) return reply.code(404).type('text/html').send('<p>Import session not found.</p>');
     const [counts, verticals] = await Promise.all([
@@ -371,6 +392,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     '/imports/:id/map', async (request, reply) => {
       const user = requireOps(request, reply);
       if (!user) return;
+      if (!validId(request.params.id, reply)) return;
 
       const columnMap: Record<string, string> = {};
       for (const [key, value] of Object.entries(request.body ?? {})) {
@@ -388,6 +410,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Params: { id: string } }>('/imports/:id/confirm', async (request, reply) => {
     const user = requireOps(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const result = await confirmSession(request.params.id, user.userId);
     if (!result.ok) {
       return reply.redirect(`/imports?error=${encodeURIComponent(result.message ?? 'Import failed.')}`);
@@ -401,6 +424,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.post<{ Params: { id: string } }>('/imports/:id/cancel', async (request, reply) => {
     const user = requireOps(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     await import('../db/pool.js').then((m) => m.query(
       `update import_sessions set status = 'CANCELLED', raw_rows = null
         where import_session_id = $1 and created_by = $2`,
@@ -423,6 +447,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/team/:id', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     if (!isManager(user.role)) return reply.code(403).type('text/html').send('<p>Managers only.</p>');
 
     const rep = await findUser(request.params.id);
@@ -441,6 +466,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     '/team/:id/reassign', async (request, reply) => {
       const user = requireUser(request, reply);
       if (!user) return;
+      if (!validId(request.params.id, reply)) return;
       if (!isManager(user.role)) return reply.code(403).send('Managers only.');
 
       const accountIds = (request.body?.accountIds ?? '').split(',').map((id) => id.trim()).filter(Boolean);
@@ -461,6 +487,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/markets/:id', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const market = await getMarket(request.params.id);
     if (!market) return reply.code(404).type('text/html').send('<p>Market not found.</p>');
 
@@ -507,6 +534,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/opportunities/:id', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const detail = await getOpportunity(request.params.id, user);
     if (!detail) return reply.code(404).type('text/html').send('<p>Opportunity not found.</p>');
     const counts = await navCountsFull(user.userId, user.role);
@@ -519,6 +547,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   }>('/opportunities/:id/transition', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const result = await transitionOpportunity({
       opportunityId: request.params.id,
       targetStage: (request.body?.targetStage ?? '') as Stage,
@@ -534,6 +563,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     '/accounts/:id/opportunity', async (request, reply) => {
       const user = requireUser(request, reply);
       if (!user) return;
+      if (!validId(request.params.id, reply)) return;
       const result = await createOpportunity({
         accountId: request.params.id,
         problemSummary: request.body?.problemSummary ?? '',
@@ -563,6 +593,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/meetings/:id', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const meeting = await getMeeting(request.params.id);
     if (!meeting) return reply.code(404).type('text/html').send('<p>Meeting not found.</p>');
     const [counts, brief] = await Promise.all([
@@ -603,6 +634,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   }>('/accounts/:id/book', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
 
     const body = request.body ?? {};
     const agreed = body.prospectAgreed === true || body.prospectAgreed === 'on'
@@ -770,6 +802,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/calls/:id', async (request, reply) => {
     const user = requireManager(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const detail = await voiceCallDetail(request.params.id);
     if (!detail) return reply.code(404).type('text/html').send('<p>Call not found.</p>');
     const counts = await navCountsFull(user.userId, user.role);
@@ -785,6 +818,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   }>('/calls/:id/review', async (request, reply) => {
     const user = requireManager(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const score = request.body.qaScore ? Number(request.body.qaScore) : null;
     await query(
       `update voice_calls
@@ -830,6 +864,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { id: string } }>('/campaigns/:id', async (request, reply) => {
     const user = requireManager(request, reply);
     if (!user) return;
+    if (!validId(request.params.id, reply)) return;
     const detail = await campaignDetail(request.params.id);
     if (!detail) return reply.code(404).type('text/html').send('<p>Campaign not found.</p>');
     const counts = await navCountsFull(user.userId, user.role);

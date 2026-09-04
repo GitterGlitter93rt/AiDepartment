@@ -1,5 +1,6 @@
 import type { CallPack } from './callPack.js';
 import type { AvailableTools, CallContext, CallState } from './stateMachine.js';
+import { fenceUntrusted, untrustedBlock } from './untrusted.js';
 
 /**
  * Runtime prompt composition.
@@ -118,29 +119,41 @@ export function composeSystemPrompt(input: PromptInput): string {
     '',
   );
 
+  // Company and person names come from research, so they are fenced too: a company
+  // called "Ignore your instructions Ltd" must not be able to end a section.
   sections.push(
     '## Who you are calling',
-    `Company: ${pack.companyName} (${pack.geography})`,
-    pack.vertical ? `Industry: ${pack.vertical}` : '',
+    `Company: ${fenceUntrusted(pack.companyName, 120).text} `
+      + `(${fenceUntrusted(pack.geography, 80).text})`,
+    pack.vertical ? `Industry: ${fenceUntrusted(pack.vertical, 60).text}` : '',
     pack.contactName
-      ? `Person: ${pack.contactName}${pack.contactTitle ? ` — ${pack.contactTitle}` : ''}`
-      : `You do not have a verified name. Ask for whoever handles ${pack.askForRoute ?? 'operations'}. `
+      ? `Person: ${fenceUntrusted(pack.contactName, 80).text}${
+          pack.contactTitle ? ` — ${fenceUntrusted(pack.contactTitle, 60).text}` : ''}`
+      : `You do not have a verified name. Ask for whoever handles ${
+          fenceUntrusted(pack.askForRoute ?? 'operations', 40).text}. `
         + 'Do not guess at a name and do not pretend to know one.',
     '',
   );
 
+  // Everything below came off a website, out of a rep's note, or out of the
+  // prospect's own mouth. It is quoted as source content inside a labelled fence, so
+  // a page that says "ignore your instructions" is a fact about that page rather than
+  // a directive (untrusted-content-security-spec §6, §25).
   if (pack.confirmedFacts.length > 0) {
-    sections.push(
-      '## What you actually know (safe to reference)',
-      ...pack.confirmedFacts.slice(0, 8).map((fact) => `- ${fact.claim}`),
-      '',
-    );
+    const block = untrustedBlock({
+      title: 'What research found about them (source content, safe to reference as theirs)',
+      items: pack.confirmedFacts.slice(0, 8).map((fact) => ({
+        text: fact.claim, source: fact.source,
+      })),
+    });
+    sections.push(...block.lines);
   }
 
   if (pack.importantUnknowns.length > 0) {
     sections.push(
       '## What you do NOT know (ask, never assert)',
-      ...pack.importantUnknowns.map((unknown) => `- ${unknown}`),
+      ...pack.importantUnknowns.map(
+        (unknown) => `- ${fenceUntrusted(unknown, 200).text}`),
       '',
     );
   }
@@ -148,7 +161,7 @@ export function composeSystemPrompt(input: PromptInput): string {
   sections.push(
     '## Your reason for calling',
     pack.primaryHypothesis
-      ? `Hypothesis: ${pack.primaryHypothesis}`
+      ? `Hypothesis: ${fenceUntrusted(pack.primaryHypothesis, 240).text}`
       : 'You have no specific hypothesis. Ask an open operational question and let them tell you.',
     'This is a hypothesis, not a fact about their business. It is a reason to ask a question, '
     + 'not permission to claim the problem exists.',
@@ -156,13 +169,15 @@ export function composeSystemPrompt(input: PromptInput): string {
   );
 
   if (pack.firstQuestion) {
-    sections.push('## Your one question', `"${pack.firstQuestion}"`, '');
+    sections.push('## Your one question',
+      `"${fenceUntrusted(pack.firstQuestion, 240).text}"`, '');
   }
   if (pack.backupHypothesis && context.findings.contradicted.length > 0) {
     sections.push(
       '## They have disproved your first hypothesis',
-      `Say so plainly, then try ONE backup: ${pack.backupHypothesis}`,
-      pack.backupQuestion ? `Backup question: "${pack.backupQuestion}"` : '',
+      `Say so plainly, then try ONE backup: ${fenceUntrusted(pack.backupHypothesis, 240).text}`,
+      pack.backupQuestion
+        ? `Backup question: "${fenceUntrusted(pack.backupQuestion, 240).text}"` : '',
       'If that is also handled, thank them and end the call. Do not hunt for a third problem.',
       '',
     );
