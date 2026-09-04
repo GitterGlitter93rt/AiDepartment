@@ -9,6 +9,7 @@ import {
   type AdvertisingFilter, type ContactFilter, type MyProspectsFilter, type SearchRequest, type SortKey,
 } from '../domain/search.js';
 import { enqueueContactResearch } from '../workers/enqueue.js';
+import { bookStrategyCall, getAvailability } from '../booking/service.js';
 import { renderOverviewPage } from '../web/pages/overview.js';
 import { renderFindPage } from '../web/pages/find.js';
 import { renderAccountPage, renderAccountPanel } from '../web/pages/account.js';
@@ -283,6 +284,79 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       return reply.redirect(`/team/${request.params.id}`);
     },
   );
+
+  // ---------------------------------------------------------------- booking --
+
+  /** Real availability only. An unreadable calendar returns zero slots and a reason. */
+  app.get('/api/booking/availability', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const offer = await getAvailability();
+    return reply.send({
+      ok: offer.ok,
+      sameDay: offer.sameDay,
+      calendarUpn: offer.calendarUpn,
+      timezone: offer.timezone,
+      reason: offer.reason ?? null,
+      message: offer.message,
+      slots: offer.slots.map((slot) => ({
+        token: slot.token, spoken: slot.spoken,
+        start: slot.start.toISOString(), end: slot.end.toISOString(),
+      })),
+    });
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: {
+      start?: string; end?: string; slotToken?: string; prospectAgreed?: string | boolean;
+      attendeeName?: string; attendeeEmail?: string; attendeePhone?: string;
+      prospectTimezone?: string; agendaNote?: string;
+    };
+  }>('/accounts/:id/book', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+
+    const body = request.body ?? {};
+    const agreed = body.prospectAgreed === true || body.prospectAgreed === 'on'
+      || body.prospectAgreed === 'true';
+    const start = body.start ? new Date(body.start) : null;
+    const end = body.end ? new Date(body.end) : null;
+
+    if (!start || !end || Number.isNaN(start.getTime())) {
+      return reply.redirect(
+        `/accounts/${request.params.id}?flash=${encodeURIComponent('Pick one of the offered times first.')}`,
+      );
+    }
+
+    const { rows: ownerRows } = await import('../db/pool.js').then((m) =>
+      m.query<{ current_owner_user_id: string | null }>(
+        'select current_owner_user_id from accounts where account_id = $1', [request.params.id]));
+
+    const result = await bookStrategyCall({
+      accountId: request.params.id,
+      ownerUserId: ownerRows[0]?.current_owner_user_id ?? user.userId,
+      start, end,
+      slotToken: body.slotToken,
+      prospectAgreed: agreed,
+      attendeeName: body.attendeeName?.trim() || null,
+      attendeeEmail: body.attendeeEmail?.trim() || null,
+      attendeePhone: body.attendeePhone?.trim() || null,
+      prospectTimezone: body.prospectTimezone?.trim() || null,
+      agendaNote: body.agendaNote?.trim() || null,
+      createdBy: user.userId,
+    });
+
+    // The flash message is the same wording the caller may say out loud: never
+    // "booked" unless the provider actually confirmed it.
+    const flash = result.ok
+      ? result.spokenConfirmation
+      : result.reason === 'NOT_AGREED'
+        ? 'Tick the box confirming the prospect agreed to this time before booking.'
+        : result.spokenConfirmation || 'That booking could not be completed.';
+
+    return reply.redirect(`/accounts/${request.params.id}?flash=${encodeURIComponent(flash)}`);
+  });
 
   // Coverage lookup used by the Find page's background polling.
   app.get('/api/coverage', async (request, reply) => {

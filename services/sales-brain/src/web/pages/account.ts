@@ -303,6 +303,50 @@ export function renderAccountPage(
     </p>
   </div>`;
 
+  // Booking panel. Times are fetched live from the calendar when the rep opens the
+  // panel — never rendered from a fixed schedule, because an offered time the
+  // calendar has not confirmed is a promise we cannot keep.
+  const bookingCard = detail.canWork ? html`
+  <div class="card">
+    <div class="card-head"><h2>Book a strategy call</h2></div>
+    <div class="card-pad">
+      <p class="muted small" style="margin:0 0 10px">
+        Times come from Michael's live calendar. Nothing is booked until he confirms it.
+      </p>
+      <button class="btn btn-secondary btn-sm" type="button" id="js-load-slots">Check availability</button>
+      <div id="slot-area" style="margin-top:12px"></div>
+      <form method="post" action="/accounts/${account.account_id}/book" id="booking-form" hidden
+            style="margin-top:12px">
+        <input type="hidden" name="start" id="booking-start">
+        <input type="hidden" name="end" id="booking-end">
+        <input type="hidden" name="slotToken" id="booking-token">
+        <div class="field" style="margin-bottom:10px">
+          <label for="attendeeName">Their name</label>
+          <input id="attendeeName" name="attendeeName" type="text"
+                 value="${detail.contacts[0]?.full_name ?? ''}">
+        </div>
+        <div class="field" style="margin-bottom:10px">
+          <label for="attendeeEmail">Their email — the invite goes here</label>
+          <input id="attendeeEmail" name="attendeeEmail" type="email">
+        </div>
+        <div class="field" style="margin-bottom:10px">
+          <label for="attendeePhone">Their phone</label>
+          <input id="attendeePhone" name="attendeePhone" type="text">
+        </div>
+        <div class="field" style="margin-bottom:10px">
+          <label for="agendaNote">What they actually said the problem is</label>
+          <textarea id="agendaNote" name="agendaNote"
+                    placeholder="Their words. This goes on the invite so Michael doesn't ask again."></textarea>
+        </div>
+        <label class="row micro" style="gap:8px;margin-bottom:12px;align-items:flex-start">
+          <input type="checkbox" name="prospectAgreed" value="on" required>
+          <span>They agreed to this specific time on the call.</span>
+        </label>
+        <button class="btn btn-primary btn-sm" type="submit">Book it</button>
+      </form>
+    </div>
+  </div>` : raw('');
+
   const ownershipCard = html`
   <div class="card">
     <div class="card-head"><h2>Ownership</h2></div>
@@ -355,6 +399,7 @@ export function renderAccountPage(
       </div>
       <div class="stack">
         ${dispositionForm}
+        ${bookingCard}
         ${ownershipCard}
       </div>
     </div>`;
@@ -367,6 +412,65 @@ export function renderAccountPage(
         : ''}`,
     user, currentPath: '/my-prospects', counts, body,
     actions: html`${tierBadge(account.manual_tier, account.manual_score)} ${adBadges(account)} ${channelBadge(account.channel_state)}`,
+    script: html`
+(function () {
+  var button = document.getElementById('js-load-slots');
+  if (!button) return;
+  var area = document.getElementById('slot-area');
+  var form = document.getElementById('booking-form');
+
+  button.addEventListener('click', function () {
+    button.disabled = true;
+    button.textContent = 'Checking…';
+    fetch('/api/booking/availability', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (offer) {
+        button.disabled = false;
+        button.textContent = 'Check availability';
+        area.innerHTML = '';
+
+        if (!offer.slots || offer.slots.length === 0) {
+          // No invented times. Show exactly what may be said instead.
+          var warn = document.createElement('div');
+          warn.className = 'callout callout-warn';
+          warn.textContent = offer.message || 'No times are available to offer right now.';
+          area.appendChild(warn);
+          form.hidden = true;
+          return;
+        }
+
+        var hint = document.createElement('p');
+        hint.className = 'micro muted';
+        hint.style.margin = '0 0 8px';
+        hint.textContent = offer.sameDay
+          ? 'Same-day availability on ' + offer.calendarUpn
+          : 'Next available on ' + offer.calendarUpn;
+        area.appendChild(hint);
+
+        offer.slots.forEach(function (slot) {
+          var chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'chip';
+          chip.style.marginRight = '8px';
+          chip.textContent = slot.spoken;
+          chip.addEventListener('click', function () {
+            area.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
+            chip.setAttribute('aria-pressed', 'true');
+            document.getElementById('booking-start').value = slot.start;
+            document.getElementById('booking-end').value = slot.end;
+            document.getElementById('booking-token').value = slot.token;
+            form.hidden = false;
+          });
+          area.appendChild(chip);
+        });
+      })
+      .catch(function () {
+        button.disabled = false;
+        button.textContent = 'Check availability';
+        area.innerHTML = '<div class="callout callout-warn">Could not reach the calendar.</div>';
+      });
+  });
+})();`,
   });
 }
 

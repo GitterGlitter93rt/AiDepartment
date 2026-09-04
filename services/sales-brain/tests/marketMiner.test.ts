@@ -158,14 +158,14 @@ test('expired evidence is marked stale so it stops reading as current', async ()
   const before = await query(
     `select google_paid from prospect_inventory where account_id = $1`, [accountId],
   );
-  assert.notEqual(before.rows[0].google_paid, true, 'an expired claim is already excluded from the view');
+  assert.notEqual(before.rows[0]!.google_paid, true, 'an expired claim is already excluded from the view');
 
   const expired = await expireStaleEvidence();
   assert.equal(expired, 1);
   const after = await query(
     `select freshness from evidence_records where account_id = $1`, [accountId],
   );
-  assert.equal(after.rows[0].freshness, 'stale');
+  assert.equal(after.rows[0]!.freshness, 'stale');
 });
 
 test('a market_mine job with no discovery adapter still refreshes and says why', async () => {

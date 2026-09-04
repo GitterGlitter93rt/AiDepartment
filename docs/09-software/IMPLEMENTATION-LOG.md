@@ -754,3 +754,107 @@ rollout.
 ### Next gate
 
 T7 — Outlook strategy-call booking.
+
+---
+
+## Gate T7 — Outlook strategy-call booking
+
+**Date:** 2026-09-03
+**Status:** COMPLETE and fully tested against a controllable fake calendar. Booking against
+Michael's real calendar is blocked on **B-1** (Azure app registration). 115/115 tests pass.
+
+### The rule the whole module serves
+
+> A booking may be spoken as confirmed only after the provider confirms creation.
+
+Everything else follows from it. Availability is read before any time is offered; an unreadable
+calendar produces **zero** offers rather than a guess; and a failed creation produces a human
+follow-up plus the exact tentative wording the caller must use.
+
+### Structure
+
+```
+src/booking/
+  types.ts         CalendarAdapter — the provider-neutral contract
+  policy.ts        pure, timezone-aware slot generation and selection
+  graphAdapter.ts  Microsoft Graph (client credentials)
+  service.ts       availability offers and the booking transaction
+```
+
+`policy.ts` has no I/O at all, so same-day preference, working hours, DST and buffers are testable
+without a calendar. `service.ts` never learns which provider it is talking to.
+
+### Same-day preference, implemented honestly
+
+`selectOfferedSlots` prefers same-day **only when a suitable slot genuinely exists** — at least 90
+minutes out, so "later today" is actually actionable — and otherwise falls back to the *next
+business day*, keeping both offers on the same day rather than scattering them across a week. Two
+offers are always at least 90 minutes apart so they read as a real choice.
+
+Timezone handling is DST-correct: `zonedTimeToUtc` converges on the true offset, verified across the
+2026 spring-forward boundary where 10:00 local on either side is 47 hours apart, not 48.
+
+### Ordering inside `bookStrategyCall`
+
+1. prospect agreement — **no provider call happens without it**;
+2. slot-token check, so a stale offer cannot be booked;
+3. account eligibility — a suppressed account can never be booked;
+4. a `PENDING` row, written **before** the provider call, so a crash leaves a visible unresolved
+   booking rather than nothing;
+5. a fresh availability re-check, because the offer may be minutes old;
+6. the provider call;
+7. only now, holding a provider event id, `CONFIRMED` plus the timeline entry and
+   `relationship_state = MEETING_SCHEDULED`.
+
+Idempotency is derived from account + start + calendar, so a retry books one meeting, not two —
+enforced at the database by a unique index and again at Graph via `transactionId`.
+
+### Tests (`tests/booking.test.ts`, 21)
+
+Policy: DST round-trip; working hours and business days only; busy periods and buffers removed;
+same-day preferred; a full day falling back to the next business day; a slot too soon never offered;
+spoken descriptions ("today at 2:30 PM", "tomorrow at 10:00 AM", "Friday at 10:00 AM").
+
+Availability: an unreadable calendar and an unconfigured provider each return zero slots with a
+reason and honest words — and the message is asserted **not** to contain "confirmed" or "booked".
+The real Graph adapter is asserted to report `NOT_CONFIGURED` rather than failing open.
+
+Booking: no event before agreement (the provider is asserted never to have been called); a confirmed
+booking writes the timeline, the payload and the relationship state; **a provider failure is never
+spoken as confirmed** — the wording is asserted to contain "tentative" and to *not* match
+`you're confirmed|all set`; a 2xx with no event id is treated as a failure; the schema itself
+rejects a forged `CONFIRMED` row; double booking calls the provider exactly once; a slot taken
+between offer and booking is refused without creating a double booking; a suppressed account cannot
+be booked; and an unconfigured provider still leaves a recovery follow-up so the prospect is not
+forgotten.
+
+### In the portal
+
+The account page gained a booking panel for the owner (absent for non-owners). It fetches live
+availability on demand — never a rendered schedule — and offers the returned times as chips. With no
+credentials configured today it renders exactly this, which is the correct behaviour:
+
+> *I can't reach the calendar right now, so I don't want to promise you a time. Let me have someone
+> confirm and come straight back to you.*
+
+The form requires ticking **"They agreed to this specific time on the call"** before it will submit,
+and the flash message after booking is the same wording the caller may say out loud.
+
+### Blocker B-1 — exactly what is needed
+
+An Azure app registration for the `youraidepartment.ai` tenant:
+
+- **Tenant ID**, **Client ID**, **Client secret** → `MS_GRAPH_TENANT_ID` / `MS_GRAPH_CLIENT_ID` /
+  `MS_GRAPH_CLIENT_SECRET` in `services/sales-brain/.env`;
+- **`Calendars.ReadWrite` application permission** with **admin consent granted** (application, not
+  delegated — the worker runs with no signed-in user);
+- optionally scope it to `michael@youraidepartment.ai` with an application access policy, so the app
+  can only touch that one mailbox.
+
+Nothing else changes: the adapter is already wired and the switch is the presence of those three
+values. Until then every booking path degrades to "tentative, a human will confirm", which is
+truthful rather than convenient.
+
+### Next gate
+
+T8 — AI cold-call brain.
