@@ -127,13 +127,13 @@ export function startCall(input: {
  * Order is deliberate and mirrors the state machine: priority intents first, then a
  * relevant card, then reflection and probing, then the qualification gate.
  */
-export function respond(state: AgentState, utterance: string): AgentTurn {
-  const turn = respondToUtterance(state, utterance);
+export async function respond(state: AgentState, utterance: string): Promise<AgentTurn> {
+  const turn = await respondToUtterance(state, utterance);
   state.lastTurn = turn;
   return turn;
 }
 
-function respondToUtterance(state: AgentState, utterance: string): AgentTurn {
+async function respondToUtterance(state: AgentState, utterance: string): Promise<AgentTurn> {
   const { memory, pack, tools } = state;
   memory.turnIndex += 1;
 
@@ -225,7 +225,7 @@ function respondToUtterance(state: AgentState, utterance: string): AgentTurn {
     memory.booking.intentConfirmed = true;
   }
   if (memory.booking.intentConfirmed || memory.nextStep.readiness === 'BOOK_NOW') {
-    const bookingTurn = await0(handleBooking(state, utterance));
+    const bookingTurn = await handleBooking(state, utterance);
     if (bookingTurn) return bookingTurn;
   }
 
@@ -495,7 +495,7 @@ function respondToUtterance(state: AgentState, utterance: string): AgentTurn {
  * the same bridge. The rules are the ones that matter: never name a slot the tool did
  * not return, and never say booked until the provider confirms.
  */
-function handleBooking(state: AgentState, utterance: string): AgentTurn | null {
+async function handleBooking(state: AgentState, utterance: string): Promise<AgentTurn | null> {
   const { memory, tools } = state;
 
   if (!tools.booking || !state.booking) {
@@ -520,7 +520,7 @@ function handleBooking(state: AgentState, utterance: string): AgentTurn | null {
   // Step 1 — real availability, before any time is spoken.
   if (memory.booking.providerStatus === 'not_started') {
     memory.booking.providerStatus = 'checking';
-    const slots = state.booking.getSlots() as OfferedSlot[];
+    const slots = await state.booking.getSlots();
     state.offeredSlots = Array.isArray(slots) ? slots.slice(0, 2) : [];
     memory.booking.candidateSlots = state.offeredSlots.map((slot) => slot.spoken);
 
@@ -550,7 +550,7 @@ function handleBooking(state: AgentState, utterance: string): AgentTurn | null {
           reasonCodes: ['availability_checked', 'slot_selected', 'collecting_attendee_email'],
         };
       }
-      return commitBooking(state, alreadyChosen);
+      return await commitBooking(state, alreadyChosen);
     }
 
     return {
@@ -565,7 +565,7 @@ function handleBooking(state: AgentState, utterance: string): AgentTurn | null {
   if (memory.booking.selectedSlot && memory.booking.attendeeEmail
       && memory.booking.providerStatus !== 'confirmed') {
     const already = state.offeredSlots.find((slot) => slot.token === memory.booking.selectedSlot);
-    if (already) return commitBooking(state, already);
+    if (already) return await commitBooking(state, already);
   }
 
   // Step 3 — they picked one of the offered slots.
@@ -597,17 +597,16 @@ function handleBooking(state: AgentState, utterance: string): AgentTurn | null {
         reasonCodes: ['slot_selected', 'collecting_attendee_email'],
       };
     }
-    return commitBooking(state, chosen);
+    return await commitBooking(state, chosen);
   }
 
   return null;
 }
 
-function commitBooking(state: AgentState, slot: OfferedSlot): AgentTurn {
+async function commitBooking(state: AgentState, slot: OfferedSlot): Promise<AgentTurn> {
   const { memory } = state;
   memory.booking.providerStatus = 'booking';
-  const result = state.booking!.book({ slot, email: memory.booking.attendeeEmail }) as
-    { ok: boolean; error?: string };
+  const result = await state.booking!.book({ slot, email: memory.booking.attendeeEmail });
 
   if (!result.ok) {
     // A failed booking is never spoken as confirmed (state machine §34).
@@ -633,8 +632,6 @@ function commitBooking(state: AgentState, slot: OfferedSlot): AgentTurn {
   };
 }
 
-/** The simulator's bridge is synchronous; this keeps the call site uniform. */
-function await0<T>(value: T): T { return value; }
 
 /** Which approved example a keyed card should use, given the opener actually spoken. */
 const OPENER_EXAMPLE_KEY: Record<string, string> = {

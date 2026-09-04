@@ -51,11 +51,11 @@ function fakeBooking(options: { slots?: number; failBooking?: boolean } = {}) {
 }
 
 /** Runs a scripted conversation and returns everything the grader needs. */
-function runConversation(input: {
+async function runConversation(input: {
   pack: CallPack; tools?: AvailableTools; turns: string[];
   openerContext?: Parameters<typeof startCall>[0]['openerContext'];
   booking?: Parameters<typeof startCall>[0]['booking'];
-}): GradedRun {
+}): Promise<GradedRun> {
   const { state, opening } = startCall({
     pack: input.pack, tools: input.tools ?? TOOLS, agentName: 'Alex',
     openerContext: input.openerContext,
@@ -66,14 +66,14 @@ function runConversation(input: {
   for (const utterance of input.turns) {
     const last = turns[turns.length - 1]!.agent;
     if (last.terminal) break;
-    turns.push({ prospect: utterance, agent: respond(state, utterance) });
+    turns.push({ prospect: utterance, agent: await respond(state, utterance) });
   }
   return { turns, state };
 }
 
 // --- the gold fixture suite ---------------------------------------------------
 
-test('every roleplay fixture is graded, and unmapped expectations are reported', () => {
+test('every roleplay fixture is graded, and unmapped expectations are reported', async () => {
   const fixtures = roleplayFixtures();
   assert.ok(fixtures.length > 0, 'the fixture set loaded from the repository');
 
@@ -82,7 +82,7 @@ test('every roleplay fixture is graded, and unmapped expectations are reported',
 
   for (const fixture of fixtures) {
     const hypothesis = (fixture.context.hypothesis as string | undefined) ?? null;
-    const run = runConversation({
+    const run = await runConversation({
       pack: pack({
         vertical: (fixture.context.vertical as string | undefined) ?? 'hvac',
         primaryHypothesisCategory: normalizeHypothesis(hypothesis),
@@ -136,7 +136,7 @@ function normalizeHypothesis(value: string | null): string | null {
 
 // --- opener selection ---------------------------------------------------------
 
-test('the opener uses the strongest truthful context and degrades when evidence is thin', () => {
+test('the opener uses the strongest truthful context and degrades when evidence is thin', async () => {
   const withAds = selectOpener({
     pack: pack(), agentName: 'Alex',
     freshAdvertising: { service: 'emergency AC', market: 'Jacksonville' },
@@ -156,7 +156,7 @@ test('the opener uses the strongest truthful context and degrades when evidence 
   assert.match(categoryOnly.text, /HVAC companies around Jacksonville/);
 });
 
-test('a genuine prior interaction is never framed as a cold call', () => {
+test('a genuine prior interaction is never framed as a cold call', async () => {
   const opener = selectOpener({
     pack: pack(), agentName: 'Alex',
     priorInteraction: { kind: 'requested_callback', description: 'the callback you asked for last week' },
@@ -166,7 +166,7 @@ test('a genuine prior interaction is never framed as a cold call', () => {
   assert.match(opener.text, /following up on the callback/);
 });
 
-test('the opener never invents a first name', () => {
+test('the opener never invents a first name', async () => {
   const opener = selectOpener({
     pack: pack({ contactName: null, contactIsRoleOnly: true }), agentName: 'Alex',
   });
@@ -174,7 +174,7 @@ test('the opener never invents a first name', () => {
   assert.doesNotMatch(opener.text, /Dana/);
 });
 
-test('the opener asks exactly one question and avoids surveillance detail', () => {
+test('the opener asks exactly one question and avoids surveillance detail', async () => {
   const opener = selectOpener({
     pack: pack(), agentName: 'Alex',
     freshAdvertising: { service: 'emergency AC', market: 'Jacksonville' },
@@ -191,7 +191,7 @@ test('the opener asks exactly one question and avoids surveillance detail', () =
   assert.equal(check.ok, true);
 });
 
-test('claiming advertising without evidence fails the pre-flight check', () => {
+test('claiming advertising without evidence fails the pre-flight check', async () => {
   const opener = selectOpener({
     pack: pack(), agentName: 'Alex',
     freshAdvertising: { service: 'emergency AC', market: 'Jacksonville' },
@@ -204,14 +204,14 @@ test('claiming advertising without evidence fails the pre-flight check', () => {
 
 // --- question bank and signal reading -----------------------------------------
 
-test('the question bank loads and maps a hypothesis to a family', () => {
+test('the question bank loads and maps a hypothesis to a family', async () => {
   const { key, family } = familyFor('after_hours');
   assert.ok(key, 'after_hours maps to a family');
   assert.ok((family?.first_questions ?? []).length > 0);
   assert.ok((family?.probes ?? {}) && Object.keys(family!.probes!).length > 0);
 });
 
-test('answers are read as a gap or a handled process, not as sentiment', () => {
+test('answers are read as a gap or a handled process, not as sentiment', async () => {
   const { family } = familyFor('after_hours');
   assert.equal(readSignal('It just goes to voicemail overnight.', family).read, 'gap');
   assert.equal(readSignal('We have 24/7 live answering and they book directly.', family).read, 'handled');
@@ -222,7 +222,7 @@ test('answers are read as a gap or a handled process, not as sentiment', () => {
 
 // --- response cards -----------------------------------------------------------
 
-test('cards are selected by what was actually said', () => {
+test('cards are selected by what was actually said', async () => {
   assert.equal(cardFor('We already use ChatGPT for that.')?.id, 'uses_chatgpt');
   assert.equal(cardFor('We have a receptionist.')?.id, 'has_receptionist');
   assert.equal(cardFor('Just send me an email.')?.id, 'send_email');
@@ -232,7 +232,7 @@ test('cards are selected by what was actually said', () => {
   assert.equal(cardFor('Tell me about the weather.'), null);
 });
 
-test('the number-provenance answer matches the endpoint source and never invents one', () => {
+test('the number-provenance answer matches the endpoint source and never invents one', async () => {
   assert.match(numberProvenanceAnswer('COMPANY_WEBSITE'), /listed publicly/i);
   assert.match(numberProvenanceAnswer('PAID_PROVIDER'), /contact-data provider/i);
   assert.match(numberProvenanceAnswer('IMPORT'), /prospecting records/i);
@@ -242,8 +242,8 @@ test('the number-provenance answer matches the endpoint source and never invents
   assert.doesNotMatch(unknown, /listed publicly/i);
 });
 
-test('the same objection is not argued twice', () => {
-  const run = runConversation({
+test('the same objection is not argued twice', async () => {
+  const run = await runConversation({
     pack: pack(),
     turns: ['Not interested.', 'I said not interested.', 'Still not interested.'],
   });
@@ -255,14 +255,14 @@ test('the same objection is not argued twice', () => {
 
 // --- qualification gate -------------------------------------------------------
 
-test('politeness is neutral, not interest', () => {
+test('politeness is neutral, not interest', async () => {
   assert.equal(readWillingness('That is interesting, makes sense.'), 'neutral');
   assert.equal(readWillingness('Sure, that sounds good.'), 'explicit_yes');
   assert.equal(readWillingness('Not interested, thanks.'), 'explicit_no');
   assert.equal(readWillingness('I am busy, call me next week.'), 'busy_but_open');
 });
 
-test('a routing-only gatekeeper never books Michael', () => {
+test('a routing-only gatekeeper never books Michael', async () => {
   const memory = createWorkingMemory('after_hours', null);
   memory.stakeholder.relevance = 'routing_only';
   memory.pain.status = 'confirmed_meaningful';
@@ -277,7 +277,7 @@ test('a routing-only gatekeeper never books Michael', () => {
   assert.ok(decision.reasonCodes.includes('routing_only_stakeholder'));
 });
 
-test('a public hypothesis alone never becomes a booking', () => {
+test('a public hypothesis alone never becomes a booking', async () => {
   const memory = createWorkingMemory('after_hours', null);
   memory.stakeholder.relevance = 'decision_owner';
   // Pain is still unknown: nothing the prospect said has confirmed it.
@@ -288,7 +288,7 @@ test('a public hypothesis alone never becomes a booking', () => {
   assert.equal(decision.path, null);
 });
 
-test('no booking is offered when the booking tool is unavailable', () => {
+test('no booking is offered when the booking tool is unavailable', async () => {
   const memory = createWorkingMemory('after_hours', null);
   memory.stakeholder.relevance = 'decision_owner';
   memory.pain.status = 'confirmed_meaningful';
@@ -301,7 +301,7 @@ test('no booking is offered when the booking tool is unavailable', () => {
   assert.ok(decision.reasonCodes.includes('booking_tool_unavailable'));
 });
 
-test('discovery stops rather than becoming free consulting', () => {
+test('discovery stops rather than becoming free consulting', async () => {
   const memory = createWorkingMemory('after_hours', null);
   memory.stakeholder.relevance = 'decision_owner';
   const decision = assessReadiness({
@@ -313,8 +313,8 @@ test('discovery stops rather than becoming free consulting', () => {
 
 // --- whole-conversation behavior ---------------------------------------------
 
-test('an engaged owner with a real gap is offered a strategy call, not a pitch', () => {
-  const run = runConversation({
+test('an engaged owner with a real gap is offered a strategy call, not a pitch', async () => {
+  const run = await runConversation({
     pack: pack(),
     turns: [
       'Yeah this is Dana.',
@@ -331,8 +331,8 @@ test('an engaged owner with a real gap is offered a strategy call, not a pitch',
   assert.equal(PREDICATES['does_not_claim_missed_revenue']!(run), true);
 });
 
-test('a strong existing process ends in a professional no-sale', () => {
-  const run = runConversation({
+test('a strong existing process ends in a professional no-sale', async () => {
+  const run = await runConversation({
     pack: pack(),
     turns: [
       'Speaking.',
@@ -349,8 +349,8 @@ test('a strong existing process ends in a professional no-sale', () => {
   assert.equal(PREDICATES['may_test_at_most_one_supported_backup_hypothesis']!(run), true);
 });
 
-test('the agent identifies itself honestly when asked', () => {
-  const run = runConversation({
+test('the agent identifies itself honestly when asked', async () => {
+  const run = await runConversation({
     pack: pack(),
     turns: ['Wait, is this a robot?'],
   });
@@ -360,8 +360,8 @@ test('the agent identifies itself honestly when asked', () => {
   assert.equal(PREDICATES['truthful_ai_disclosure']!(run), true);
 });
 
-test('a DNC ends the call immediately with nothing after it', () => {
-  const run = runConversation({
+test('a DNC ends the call immediately with nothing after it', async () => {
+  const run = await runConversation({
     pack: pack(),
     turns: [
       'Speaking.',
@@ -374,10 +374,10 @@ test('a DNC ends the call immediately with nothing after it', () => {
   assert.equal(run.state.memory.priorityActions.dncDetected, true);
 });
 
-test('there is one agent profile, not one per industry', () => {
+test('there is one agent profile, not one per industry', async () => {
   assert.equal(AGENT_PROFILE, 'yad-sales-core-v1');
   // The same agent handles a different vertical purely through the Call Pack.
-  const roofing = runConversation({
+  const roofing = await runConversation({
     pack: pack({
       vertical: 'roofing', primaryHypothesisCategory: 'unsold_estimate',
       firstQuestion: HYPOTHESIS_QUESTIONS['unsold_estimate']!,
