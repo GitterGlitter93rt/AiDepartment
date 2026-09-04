@@ -367,3 +367,201 @@ test('the deploy tooling carries no credential of any kind', () => {
       .test(text), false, `${file} contains something credential-shaped`);
   }
 });
+
+// --- deployment handoff: the failure modes an operator will actually hit -------
+
+const deployScript = () => readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+const rollbackScript = () => readFileSync(new URL('../deploy/rollback.sh', import.meta.url), 'utf8');
+const operatorDoc = () => readFileSync(new URL('../deploy/OPERATOR.md', import.meta.url), 'utf8');
+
+test('redeploying the same SHA changes nothing that holds state', () => {
+  const script = deployScript();
+  // The checkout is detached at an exact commit, so a second run of the same SHA is
+  // the same tree. The env file, which is the only hand-entered state, is guarded.
+  assert.match(script, /if \[ ! -f "\$ENV_FILE" \]/);
+  assert.match(script, /already exists and was left alone/);
+  // The include line is added at most once.
+  assert.match(script, /include line already present/);
+  // And the ws install is skipped when it is already there.
+  assert.match(script, /if \[ ! -d "\$TARGET\/services\/sales-voice\/node_modules\/ws" \]/);
+});
+
+test('upgrading to a later SHA restarts the service and keeps the environment', () => {
+  const script = deployScript();
+  const envGuard = script.indexOf('if [ ! -f "$ENV_FILE" ]');
+  const restart = script.indexOf('systemctl restart "$UNIT"');
+  assert.ok(envGuard > 0 && restart > 0);
+  // A fetch precedes the checkout, or a new SHA would not be present locally.
+  assert.ok(script.indexOf('fetch --tags origin') < script.indexOf('checkout --detach'));
+  // A restart drops calls in progress, and the operator doc says so.
+  assert.match(operatorDoc(), /Restarting drops any call in progress/);
+  assert.match(operatorDoc(), /activeSessions.*is `0`/);
+});
+
+test('a failed dependency install stops before anything is installed', () => {
+  const script = deployScript();
+  const npmAt = script.indexOf('npm install');
+  const unitAt = script.indexOf('install -m 0644 "$TARGET/services/sales-voice/deploy/$UNIT"');
+  const nginxAt = script.indexOf('/etc/nginx/snippets/yad-outbound-locations.conf');
+  assert.ok(npmAt > 0 && unitAt > npmAt, 'the unit is installed after the dependency');
+  assert.ok(nginxAt > npmAt, 'nginx is touched after the dependency');
+  // set -e means the failure exits; nothing above it mutates the running system
+  // except the service user and the checkout.
+  assert.match(script, /set -euo pipefail/);
+});
+
+test('a service that will not start is caught in the same run', () => {
+  const script = deployScript();
+  const restart = script.indexOf('systemctl restart "$UNIT"');
+  const isActive = script.indexOf('systemctl is-active "$UNIT"');
+  assert.ok(isActive > restart, 'the state is checked after the restart');
+  // Under set -e a non-zero is-active ends the run.
+  assert.match(script, /sleep 3\nsystemctl is-active "\$UNIT"/);
+  assert.match(operatorDoc(), /journalctl -u yad-sales-voice/,
+    'the operator doc says where to look');
+});
+
+test('a missing nginx site block does not silently skip the routes', () => {
+  const script = deployScript();
+  assert.match(script, /Could not find the voice\.youraidepartment\.ai server block/);
+  assert.match(script, /include \/etc\/nginx\/snippets\/yad-outbound-locations\.conf;/,
+    'it prints the exact line to add by hand');
+  // The message goes to stderr, so it is not lost in a log of successes.
+  assert.match(script, /server block\. Add this line by hand" >&2/);
+  assert.match(operatorDoc(), /the site file is named differently/);
+});
+
+test('broken inbound health is a deployment failure, not a warning', () => {
+  const script = deployScript();
+  const tail = script.slice(script.indexOf('6. the receptionist'));
+  assert.match(tail, /exit 1/, 'it exits non-zero');
+  assert.equal(/inbound \/health.*(?:warn|continuing|ignoring)/i.test(tail), false);
+  // And the rollback script makes the same assertion, so undoing cannot quietly
+  // leave production down either.
+  assert.match(rollbackScript(), /inbound \/health does not answer\. Investigate immediately/);
+});
+
+test('rollback removes everything deploy added and nothing else', () => {
+  const roll = rollbackScript();
+  for (const removal of [
+    'systemctl stop "$UNIT"', 'systemctl disable "$UNIT"',
+    'rm -f "/etc/systemd/system/$UNIT"',
+    'rm -f /etc/nginx/snippets/yad-outbound-locations.conf',
+    'rm -f /etc/nginx/conf.d/yad-outbound-upstream.conf',
+  ]) {
+    assert.ok(roll.includes(removal), `rollback does not undo: ${removal}`);
+  }
+  // It must not touch the receptionist's unit or env file. Only executable lines
+  // count: the script names the inbound unit in order to assert it survived.
+  const commands = roll.split('\n')
+    .filter((line) => line.trim() && !line.trim().startsWith('#'))
+    .filter((line) => !/^\s*(?:echo|printf)\b/.test(line))
+    .join('\n');
+  assert.equal(/(?:stop|disable|restart|rm|shred)[^\n]*yad-voice-agent/.test(commands), false,
+    'rollback touches the receptionist unit');
+  assert.equal(/yad-voice-agent\.env/.test(commands), false);
+  // Nor sshd, nor a firewall, nor a Twilio setting.
+  assert.equal(/sshd|ufw|iptables|twilio/i.test(commands), false);
+  // The only inbound reference left is a read: is-active, show, or a health curl.
+  for (const line of commands.split('\n')) {
+    if (line.includes('$INBOUND_UNIT')) {
+      assert.match(line, /is-active|INBOUND_UNIT=/, `not a read of the inbound unit: ${line.trim()}`);
+    }
+  }
+});
+
+test('rollback keeps the hand-entered environment file unless told otherwise', () => {
+  const roll = rollbackScript();
+  assert.match(roll, /KEEP_ENV=1/);
+  assert.match(roll, /holds a hand-entered token/);
+  // Removal is opt-in and shreds rather than unlinks.
+  assert.match(roll, /--purge-env/);
+  assert.match(roll, /shred -u \/etc\/yad-sales-voice\.env/);
+});
+
+test('rollback restores nginx from the baseline and verifies before reloading', () => {
+  const roll = rollbackScript();
+  assert.match(roll, /restored \$site from the deployment baseline/);
+  assert.match(roll, /cp -a "\$site" "\$site\.rollback-was"/,
+    'the pre-rollback file is kept beside the site');
+  const testAt = roll.indexOf('if nginx -t; then');
+  const reloadAt = roll.indexOf('systemctl reload nginx');
+  assert.ok(testAt > 0 && reloadAt > testAt, 'nginx -t precedes the reload');
+  // With no baseline it deletes only its own include line.
+  assert.match(roll, /sed -i '\/yad-outbound-locations\\\.conf\/d' "\$site"/);
+});
+
+test('rollback is safe when the service was never installed', () => {
+  const roll = rollbackScript();
+  // Every systemd call that can fail on an absent unit tolerates the failure.
+  for (const line of roll.split('\n')) {
+    if (/^\s*systemctl (stop|disable|reset-failed)/.test(line)) {
+      assert.match(line, /\|\| true/, `not tolerant of an absent unit: ${line.trim()}`);
+    }
+  }
+  assert.match(roll, /no baseline directory found/);
+});
+
+test('the key bootstrap never produces or prints a private key', () => {
+  for (const file of ['edgexpert-keygen.sh', 'vultr-console-authorize-key.sh']) {
+    const text = readFileSync(new URL(`../deploy/${file}`, import.meta.url), 'utf8');
+    // No private-key material, and no command that would emit one.
+    assert.equal(/-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/.test(text), false,
+      `${file} contains private key material`);
+    // Nothing reads the private half's *contents*. A path may be mentioned -- the
+    // script tells the operator where the key lives -- but never dereferenced.
+    const body = text.replace(/^#.*$/gm, '');
+    for (const emit of [/\b(?:cat|tee|base64|xxd|od|head|tail|less|more)\s+"?\$KEY"?(?!\.pub)/,
+                        /\bssh-keygen[^\n]*-y[^\n]*\$KEY/,
+                        /\$\(\s*cat\s+"?\$KEY"?(?!\.pub)/]) {
+      assert.equal(emit.test(body), false, `${file} may emit the private key: ${emit}`);
+    }
+  }
+  const keygen = readFileSync(new URL('../deploy/edgexpert-keygen.sh', import.meta.url), 'utf8');
+  // It prints only the .pub half, and says so.
+  assert.match(keygen, /cat "\$KEY\.pub"/);
+  assert.equal(/cat "\$KEY"$/m.test(keygen), false);
+  assert.match(keygen, /never leaves\s+#?\s*~\/\.ssh/,
+    'the script does not state that the private half stays put');
+});
+
+test('the console script refuses a private key and a mangled key', () => {
+  const script = readFileSync(
+    new URL('../deploy/vultr-console-authorize-key.sh', import.meta.url), 'utf8');
+  assert.match(script, /That is a PRIVATE key\. Stop/);
+  assert.match(script, /if ! ssh-keygen -lf "\$TMP"/,
+    'the key is validated before it is installed');
+  assert.match(script, /Nothing was written/);
+  assert.match(script, /grep -qxF "\$KEY_LINE" "\$AUTH"/, 'appending twice is a no-op');
+});
+
+test('the console script cannot lock the operator out', () => {
+  const script = readFileSync(
+    new URL('../deploy/vultr-console-authorize-key.sh', import.meta.url), 'utf8');
+  const body = script.replace(/^#.*$/gm, '');
+  for (const forbidden of [/sshd_config/, /PasswordAuthentication/, /PermitRootLogin/,
+                           /systemctl (?:restart|reload) ssh/, /ufw/, /iptables/]) {
+    assert.equal(forbidden.test(body), false, `the console script touches ${forbidden}`);
+  }
+  // It never truncates authorized_keys.
+  assert.equal(/(?<!>)>\s*"\$AUTH"/.test(body), false, 'it overwrites authorized_keys');
+  assert.match(body, />>\s*"\$AUTH"/, 'it appends');
+  assert.match(script, /KEEP THIS CONSOLE OPEN/);
+});
+
+test('the operator doc carries a rollback section and no credential value', () => {
+  const doc = operatorDoc();
+  assert.match(doc, /^## 5\. ROLLBACK$/m);
+  assert.match(doc, /rollback\.sh/);
+  assert.match(doc, /Manual rollback/);
+  // The credential section names the three values and the one place they go.
+  assert.match(doc, /sudo -e \/etc\/yad-sales-voice\.env/);
+  for (const key of ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'OUTBOUND_APPROVED_CALLER_IDS']) {
+    assert.ok(doc.includes(key), `the doc does not name ${key}`);
+  }
+  assert.match(doc, /Not into git, not into a\nGitHub secret/);
+  // And no real value is present.
+  assert.equal(/AC[0-9a-f]{32}|SK[0-9a-f]{32}|sk-ant-/.test(doc), false);
+  // The token is only ever used on the host where it already lives.
+  assert.match(doc, /Run that on the VPS where the values already live/);
+});
