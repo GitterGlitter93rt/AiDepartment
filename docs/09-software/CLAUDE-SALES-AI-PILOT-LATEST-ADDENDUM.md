@@ -18,10 +18,11 @@ Do not discard completed local implementation merely because these docs are newe
 Read these before the next Sales AI / pilot implementation pass:
 
 1. `outbound-sales-brain-sales-ai-first-60-seconds-spec.md`
-2. `outbound-sales-brain-sales-ai-followup-message-cards.v1.yaml`
-3. `outbound-sales-brain-strategy-call-reminder-no-show-spec.md`
-4. `outbound-sales-brain-tomorrow-cold-call-pilot-runbook.md`
-5. `outbound-sales-brain-first-pilot-cohort-selection-spec.md`
+2. `outbound-sales-brain-sales-ai-hypothesis-question-bank.v1.yaml`
+3. `outbound-sales-brain-sales-ai-followup-message-cards.v1.yaml`
+4. `outbound-sales-brain-strategy-call-reminder-no-show-spec.md`
+5. `outbound-sales-brain-tomorrow-cold-call-pilot-runbook.md`
+6. `outbound-sales-brain-first-pilot-cohort-selection-spec.md`
 
 These extend the existing current Sales AI stack; they do not replace the core script/state machine/Call Pack/booking specs.
 
@@ -55,7 +56,43 @@ Do not book merely because the prospect is polite.
 
 ---
 
-# 3. FOLLOW-UP CARDS
+# 3. ONE SALES AI / BUSINESS-PROBLEM QUESTION BANK
+
+Do not solve cross-vertical relevance by creating separate personalities.
+
+Use:
+
+`outbound-sales-brain-sales-ai-hypothesis-question-bank.v1.yaml`
+
+Current reusable problem families include:
+
+- missed calls / overflow;
+- after-hours response;
+- speed-to-lead;
+- unsold estimate/proposal follow-up;
+- CRM workflow;
+- marketing attribution;
+- employee/admin capacity;
+- reactivation/nurture;
+- appointment/no-show;
+- intake/qualification.
+
+Vertical profiles and Call Packs choose the appropriate family.
+
+Each family defines:
+
+- relevant stakeholder roles;
+- one strong first question;
+- selective probes;
+- gap signals;
+- handled/no-need signals;
+- meeting framing.
+
+The agent asks one question at a time and normally uses at most one supported backup hypothesis.
+
+---
+
+# 4. FOLLOW-UP CARDS
 
 When prospect requests email/info, use the approved message-card layer plus actual conversation facts.
 
@@ -79,7 +116,7 @@ Channel/suppression policy still governs sends.
 
 ---
 
-# 4. BOOKING AFTERCARE
+# 5. BOOKING AFTERCARE
 
 A confirmed Cal.com booking must:
 
@@ -96,7 +133,7 @@ Do not optimize only booked count; track attended qualified meetings.
 
 ---
 
-# 5. FIRST PILOT COHORT
+# 6. FIRST PILOT COHORT
 
 First real cohort should be intentionally clean.
 
@@ -116,7 +153,7 @@ Do not weaken quality just to hit a requested round number.
 
 ---
 
-# 6. PILOT OPERATING METHOD
+# 7. PILOT OPERATING METHOD
 
 Use the existing Pilot control plane plus the runbook.
 
@@ -132,7 +169,7 @@ Hard-stop systematic defects before generating more examples.
 
 ---
 
-# 7. REVIEW OUTPUT
+# 8. REVIEW OUTPUT
 
 After each early real call, operator should be able to see:
 
@@ -152,7 +189,7 @@ Do not require raw server-log inspection for basic pilot review.
 
 ---
 
-# 8. COORDINATION
+# 9. COORDINATION
 
 Before implementing these newer docs:
 
@@ -165,6 +202,6 @@ Before implementing these newer docs:
 
 ---
 
-# 9. CORE RULE
+# 10. CORE RULE
 
-**The first live calls should maximize trustworthy learning per call. The first minute earns the conversation, the core script diagnoses the process, the qualification gate earns the 15-minute meeting, and the post-booking workflow gets the qualified prospect in front of Michael.**
+**The first live calls should maximize trustworthy learning per call. The first minute earns the conversation, the business-problem question bank keeps one Sales AI relevant across industries, the qualification gate earns the 15-minute meeting, and the post-booking workflow gets the qualified prospect in front of Michael.**
