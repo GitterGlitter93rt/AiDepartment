@@ -524,3 +524,127 @@ writing, which is the moment to catch a mis-mapped header.
 ### Next gate
 
 T4 — public decision-maker resolver.
+
+---
+
+## Gate T4 — Public decision-maker resolver
+
+**Date:** 2026-09-03
+**Status:** COMPLETE for Stage A (`PUBLIC_ONLY`, no credential required). Stages B–D ship behind
+adapters and stay disabled pending **B-3**. All 13 canonical fixtures pass. 85/85 tests pass.
+
+### What was built
+
+```
+src/resolver/
+  types.ts               source classes, relationship classes, the two output objects
+  roles.ts               title → relationship, hypothesis and vertical routing ladders
+  reconcile.ts           observations → DecisionMakerIdentity + ContactPath   (pure)
+  fetcher.ts             robots.txt-aware, rate-limited, wall-detecting HTTP
+  adapters/firstParty.ts Stage A: JSON-LD, team pages, tel:/mailto:, extensions
+  persist.ts             writes contacts, endpoints and evidence
+src/workers/
+  runner.ts              leased Postgres job queue
+  contactResearch.ts     the waterfall for one account
+src/bin/{worker,demo-research}.ts
+```
+
+The reconciler is deliberately **pure** — no network, no database — which is what makes the
+honesty rules testable rather than aspirational.
+
+### The separation that drives the design
+
+`DecisionMakerIdentity` (who owns the problem) and `ContactPath` (how we may legitimately reach
+them) are separate objects with separate confidence dimensions. `employer_match`, `role_match`,
+`currentness` and `relationship_to_person` are stored independently and are never collapsed into a
+single percentage. A confirmed Operations Director reachable only through the front desk is a
+complete, useful record.
+
+### Routing by problem ownership, not prestige
+
+`targetRoleLadder(vertical, hypothesis)` puts the hypothesis ladder first and appends the vertical
+default. Demonstrated live below: for an `after_hours` hypothesis the Director of Operations
+resolves as `PRIMARY_PROCESS_OWNER` at priority 10 and the Owner lands third at 62.
+
+### Hard rules enforced, each with a test
+
+| Registry rule | Enforcement |
+|---|---|
+| `no_registered_agent_promotion` | `NON_DECISION_RELATIONSHIPS` excludes them before scoring; the exclusion is written as evidence, not silently dropped |
+| `no_mainline_as_direct` | a phone becomes `DIRECT_CONFIRMED` only when the source **explicitly** presents it as personal; proximity on a page is not enough |
+| `no_guessed_email_as_verified` | `DERIVED_PATTERN` → `GUESSED_UNVERIFIED`, and a guess can never produce `NAMED_EMAIL_READY` |
+| `public_only_default` | `CONTACT_ENRICHMENT_MODE=PUBLIC_ONLY`; the paid stage records itself as skipped |
+| `prospect_correction_precedence` | gatekeeper source outranks all others; a person marked departed is retired, and a later re-crawl cannot resurrect them |
+| `no_sensitive_personal_enrichment` | a people-search style number is dropped with a note, never stored |
+
+Licence qualifiers and officers are `EVIDENCE_ONLY_RELATIONSHIPS`: they corroborate identity but
+carry a scoring penalty that keeps them off the top of the routing on their own.
+
+### Crawling conduct
+
+`fetcher.ts` reads and honours robots.txt (including `Allow` overrides and `Crawl-delay`), serializes
+requests per host, caps response size, and treats a 401/403/429 or a CAPTCHA/interstitial as a
+**wall that ends the crawl for that host** — never as something to retry or route around. Tested
+against live local servers returning each condition.
+
+### Fixture results — all 13 from `outbound-sales-brain-public-contact-resolution-fixtures.v1.yaml`
+
+Every fixture's `hard_fail_if` clause is asserted as an explicit negative, not merely implied by a
+passing positive. Extra cases were added where a fixture had an obvious near-miss: a qualifier with
+no corroboration, a number sitting next to a name, and the same two people flipping when the
+hypothesis changes.
+
+### Live end-to-end
+
+A local fixture site (schema.org markup, a team page, a main line, one explicitly published direct
+line, an extension, `info@` and a personal address) was crawled by the real worker through the job
+queue:
+
+```
+pri  person         title                    role_match             role_confidence
+ 10  Jordan Quill   Director of Operations   PRIMARY_PROCESS_OWNER  LIKELY_CURRENT_ROLE
+ 31  Morgan Ober    Office Manager           STRONG_STAKEHOLDER     LIKELY_CURRENT_ROLE
+ 62  Casey Nash     Owner                    VALID_FALLBACK         LIKELY_CURRENT_ROLE
+
+(904) 555-0188  DIRECT_BUSINESS_LINE    DIRECT_CONFIRMED  → attached to Jordan Quill
+(904) 555-0177  MAIN_BUSINESS_LINE      COMPANY_ROUTE     → account level, no person
+info@…          GENERAL_BUSINESS_EMAIL  ROLE_INBOX        → account level, no person
+```
+
+and the portal renders `Direct line — published by the business` for the first, with the company
+endpoints in a separate block headed *Not tied to a named person*.
+
+`role_confidence` is `LIKELY_CURRENT_ROLE`, not `CONFIRMED`: one source class supports these people.
+`CONFIRMED` requires corroboration from a second independent source. That distinction is the point.
+
+### Five real defects found and fixed
+
+1. **The live run invented a person.** `"Office Manager"` at the end of a team card, followed by
+   `"Marsh Point Air was founded by…"`, produced a contact named *Marsh Point Air, Office Manager* —
+   ranked above a real person. Two fixes: a bare newline is no longer a valid *title→name*
+   separator (it stays valid for *name→title*, which is how cards are laid out), and the company's
+   own name can never become a person. This is the exact failure the fixtures call a hard fail, and
+   only the live run surfaced it.
+2. **`stripTags` flattened element boundaries**, so `<h3>Dana Fielder</h3><p>Owner</p>` became an
+   unparseable three-word run. Block tags now become newlines.
+3. **A `NAME` could begin with a title**, yielding people like *"Owner Riley Marsh"*.
+4. **The `i` flag defeated the uppercase requirement** in every name pattern, so
+   *"Call Jane Smith directly at…"* captured *"Jane Smith directly"*.
+5. **The job runner burned a retry on every poll.** It set `RUNNING` and incremented `attempts`
+   *before* checking whether the job was due, so a backed-off job would exhaust its retries without
+   ever running. Due-ness is now part of the atomic claim.
+
+Two smaller ones: `Crawl-delay: 0` was treated as unset (18s of needless waiting per crawl), and the
+worker rebuilt `https://<hostname>`, discarding the scheme, port and path actually observed.
+
+### Blocker
+
+**B-3 stands.** Stages B–D (state registries, licence records, directories, search) are wired as
+adapters and each records itself as skipped with its reason. They need a provider credential and a
+written source-governance review per
+`market-miner-source-governance-review-template.yaml` before running automatically. Stage A carries
+the resolver without them, which was the point of the public-first design.
+
+### Next gate
+
+T5 — Market Miner inventory connection.
