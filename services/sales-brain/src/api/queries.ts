@@ -163,10 +163,23 @@ export async function findUser(userId: string): Promise<{ user_id: string; displ
 }
 
 export async function recentlyClaimedFor(userId: string, limit = 6) {
-  const { rows } = await query(
-    `select * from prospect_inventory
-      where current_owner_user_id = $1 order by claimed_at desc nulls last limit $2`,
+  // The page of ids first, from accounts, then the projection for those ids.
+  //
+  // Ordering the view itself evaluated its seven laterals for all 1,100 accounts a
+  // rep owns in order to show six of them: 93 ms on the Overview page every load.
+  // Both the filter and the sort key live on accounts, so the first phase is an
+  // index range scan.
+  const { rows: page } = await query<{ account_id: string }>(
+    `select account_id from accounts
+      where current_owner_user_id = $1
+      order by claimed_at desc nulls last limit $2`,
     [userId, limit],
+  );
+  if (page.length === 0) return [];
+  const { rows } = await query(
+    `select * from prospect_inventory where account_id = any($1::uuid[])
+      order by claimed_at desc nulls last`,
+    [page.map((row) => row.account_id)],
   );
   return rows as any[];
 }

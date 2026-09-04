@@ -256,12 +256,34 @@ export async function searchProspects(
   );
   const total = countResult.rows[0]?.total ?? 0;
 
-  const rowsResult = await query<ProspectRow>(
-    `select * from prospect_inventory ${where}
+  // Two phases, on purpose, and two round trips rather than one query.
+  //
+  // prospect_inventory carries seven lateral subqueries. `select * ... limit 50` over
+  // it evaluates all seven for every account before the sort can pick fifty, which at
+  // twenty-five thousand accounts measured 1.8 seconds. Phase one asks only for the
+  // page of ids, so Postgres prunes the laterals that no filter or sort mentions.
+  // Phase two asks for those ids by equality, which becomes an index lookup on
+  // accounts, so the projection is assembled for fifty rows.
+  //
+  // A single query with the page as a CTE is *slower* than the original -- the CTE is
+  // materialised and the view is then scanned again to join against it, so all seven
+  // laterals run twice over the whole table. Measured at 2.2 seconds. Two round trips
+  // it is.
+  const pageResult = await query<{ account_id: string }>(
+    `select account_id from prospect_inventory ${where}
       order by ${SORT_SQL[sortKey]}, account_id
       limit $${values.length + 1} offset $${values.length + 2}`,
     [...values, pageSize, (page - 1) * pageSize],
   );
+  const ids = pageResult.rows.map((row) => row.account_id);
+
+  const rowsResult = ids.length === 0
+    ? { rows: [] as ProspectRow[] }
+    : await query<ProspectRow>(
+      `select * from prospect_inventory where account_id = any($1::uuid[])
+        order by ${SORT_SQL[sortKey]}, account_id`,
+      [ids],
+    );
 
   return {
     results: rowsResult.rows,

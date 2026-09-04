@@ -504,6 +504,14 @@ export async function listAuditEvents(filters: AuditFilters, limit = 200) {
   // audit_log, so a review that read only audit_log could not answer the question
   // managers ask most often: who took this Account, and who gave it away. The two
   // ledgers are unioned for reading; neither is written twice.
+  // The page is selected before the Account name is resolved, and the join key is a
+  // uuid rather than a text cast of one.
+  //
+  // Joining `accounts.account_id::text = subject_id` cannot use the primary key, so
+  // it cost a sequential scan of accounts for every audit row: 505 ms for 200 rows
+  // against 25,000 accounts. Casting the audit side to uuid instead -- guarded,
+  // because subject_id also holds non-uuid subjects -- and resolving names only for
+  // the rows that survive the limit brings it to a couple of milliseconds.
   const { rows } = await query<any>(
     `with entries as (
        select l.audit_id, l.action, l.subject_type, l.subject_id, l.reason, l.detail,
@@ -521,21 +529,28 @@ export async function listAuditEvents(filters: AuditFilters, limit = 200) {
          from ownership_events o
          left join users p on p.user_id = o.previous_owner_user_id
          left join users n on n.user_id = o.new_owner_user_id
+     ),
+     page as (
+       select e.*,
+              case when e.subject_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+                then e.subject_id::uuid end as subject_uuid
+         from entries e
+        where ($1::uuid is null or e.actor_user_id = $1::uuid)
+          and ($2::text is null or e.action = $2::text)
+          and ($3::text is null or e.subject_type = $3::text)
+          and ($4::uuid is null or e.subject_id = $4::text)
+          and ($5::date is null or e.occurred_at >= $5::date)
+          and ($6::date is null or e.occurred_at < ($6::date + interval '1 day'))
+        order by e.occurred_at desc, e.audit_id desc
+        limit $7
      )
-     select e.audit_id, e.action, e.subject_type, e.subject_id, e.reason, e.detail,
-            e.occurred_at, u.display_name as actor_name, e.actor_user_id,
+     select p.audit_id, p.action, p.subject_type, p.subject_id, p.reason, p.detail,
+            p.occurred_at, u.display_name as actor_name, p.actor_user_id,
             a.canonical_name as subject_account_name
-       from entries e
-       left join users u on u.user_id = e.actor_user_id
-       left join accounts a on a.account_id::text = e.subject_id
-      where ($1::uuid is null or e.actor_user_id = $1::uuid)
-        and ($2::text is null or e.action = $2::text)
-        and ($3::text is null or e.subject_type = $3::text)
-        and ($4::uuid is null or e.subject_id = $4::text)
-        and ($5::date is null or e.occurred_at >= $5::date)
-        and ($6::date is null or e.occurred_at < ($6::date + interval '1 day'))
-      order by e.occurred_at desc, e.audit_id desc
-      limit $7`,
+       from page p
+       left join users u on u.user_id = p.actor_user_id
+       left join accounts a on a.account_id = p.subject_uuid
+      order by p.occurred_at desc, p.audit_id desc`,
     [filters.actorUserId, filters.action, filters.subjectType, filters.subjectId,
      filters.fromDate, filters.toDate, limit],
   );
