@@ -196,7 +196,11 @@ export async function getAccountDetail(
               can_state_as_fact, source_type, source_reference, observed_at, expires_at,
               (expires_at is not null and expires_at <= now()) as is_expired
          from evidence_records
-        where account_id = $1 and contradicted_by_evidence_id is null
+        -- Including anything merged into this Account: the two append-only ledgers
+        -- keep pointing at the record they were written against, so history is
+        -- followed rather than rewritten.
+        where account_id = any(select account_id from merged_chain($1))
+          and contradicted_by_evidence_id is null
         order by observed_at desc limit 60`,
       [accountId],
     ),
@@ -221,7 +225,8 @@ export async function getAccountDetail(
          left join users actor on actor.user_id = e.actor_user_id
          left join users prev  on prev.user_id  = e.previous_owner_user_id
          left join users next  on next.user_id  = e.new_owner_user_id
-        where e.account_id = $1 order by e.occurred_at desc limit 20`,
+        where e.account_id = any(select account_id from merged_chain($1))
+        order by e.occurred_at desc limit 20`,
       [accountId],
     ),
   ]);

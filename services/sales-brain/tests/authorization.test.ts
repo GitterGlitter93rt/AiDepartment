@@ -45,6 +45,8 @@ const ROUTES: RouteUnderTest[] = [
   { method: 'POST', path: '/accounts/ACCOUNT/disposition', minimum: 'any_authenticated' },
   { method: 'POST', path: '/accounts/ACCOUNT/opportunity', minimum: 'any_authenticated' },
   { method: 'POST', path: '/accounts/ACCOUNT/release', minimum: 'any_authenticated' },
+  // Merging moves another rep's work into somebody else's book.
+  { method: 'POST', path: '/accounts/ACCOUNT/merge', minimum: 'manager' },
   { method: 'POST', path: '/follow-ups/00000000-0000-0000-0000-000000000000/complete',
     minimum: 'any_authenticated' },
   { method: 'POST', path: '/opportunities/00000000-0000-0000-0000-000000000000/transition',

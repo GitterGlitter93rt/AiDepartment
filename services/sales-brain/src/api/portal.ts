@@ -1,4 +1,4 @@
-import { query } from '../db/pool.js';
+import { pool, query } from '../db/pool.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isManager } from '../domain/auth.js';
 import { getAccountDetail } from '../domain/accountDetail.js';
@@ -54,6 +54,7 @@ import {
   runPreflight, setPilotSwitch, stopNewOutboundCalls,
 } from '../domain/pilot.js';
 import { listIntegrations, setIntegrationEnabled, testIntegration } from '../domain/settings.js';
+import { mergeAccounts, resolveAccountId } from '../domain/merge.js';
 import { compareHookVariants, promotionReadiness } from '../analytics/hookExperiments.js';
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -217,6 +218,12 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const user = requireUser(request, reply);
       if (!user) return;
       if (!validId(request.params.id, reply)) return;
+      // A merged Account keeps its id so old links still work. It redirects to the
+      // record that survived rather than 404ing on a company that still exists.
+      const resolved = await resolveAccountId(pool, request.params.id);
+      if (resolved && resolved !== request.params.id) {
+        return reply.redirect(`/accounts/${resolved}`, 301);
+      }
       const detail = await getAccountDetail(request.params.id, user);
       if (!detail) return reply.code(404).type('text/html').send('<p>Account not found.</p>');
       const counts = await navCountsFull(user.userId, user.role);
@@ -227,6 +234,35 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   );
 
   /** Drawer body. HTML fragment, same authorization as the full page. */
+  app.post<{ Params: { id: string }; Body: {
+    mergedAccountId?: string; reason?: string; keepOwnerUserId?: string;
+  } }>('/accounts/:id/merge', async (request, reply) => {
+    // Authorization before input validation, deliberately. Validating first answers
+    // 404 for a malformed id and 403 for a good one, which tells a rep who may not
+    // use this route which ids exist.
+    const user = requireUser(request, reply);
+    if (!user) return;
+    if (!isManager(user.role)) {
+      return reply.code(403).type('text/html').send('<p>Managers only.</p>');
+    }
+    if (!validId(request.params.id, reply)) return;
+    const mergedAccountId = request.body?.mergedAccountId ?? '';
+    if (!validId(mergedAccountId, reply)) return;
+
+    const result = await mergeAccounts({
+      survivingAccountId: request.params.id,
+      mergedAccountId,
+      reason: request.body?.reason ?? '',
+      keepOwnerUserId: request.body?.keepOwnerUserId ?? null,
+    }, user);
+    if (!result.ok) {
+      const message = result.message ?? `Merge refused: ${result.reason}`;
+      return reply.redirect(`/accounts/${request.params.id}?error=${encodeURIComponent(message)}`);
+    }
+    return reply.redirect(`/accounts/${request.params.id}?flash=${encodeURIComponent(
+      'Merged. Everything from the other record moved here.')}`);
+  });
+
   app.get<{ Params: { id: string } }>('/accounts/:id/panel', async (request, reply) => {
     if (!request.user) return reply.code(401).send('');
     const detail = await getAccountDetail(request.params.id, request.user);
