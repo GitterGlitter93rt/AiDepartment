@@ -230,6 +230,12 @@ export function renderTeamPage(input: {
         <h2>Team ownership</h2>
         <span class="muted small">Claimed prospects with no activity for ${staleThresholdDays}+ days are flagged</span>
       </div>
+      ${team.length === 0 ? emptyState(
+        'No reps are working prospects yet',
+        'Ownership appears here once a rep claims an account. A rep with an empty book is not '
+        + 'shown as a row of zeros, because there is nothing to compare.',
+        { href: '/find', label: 'Find prospects' },
+      ) : html`
       <div class="table-wrap">
         <table class="data">
           <thead>
@@ -255,7 +261,7 @@ export function renderTeamPage(input: {
             </tr>`)}
           </tbody>
         </table>
-      </div>
+      </div>`}
     </div>
     <p class="muted small" style="margin-top:12px">
       Stale claims identify hoarding without taking anything away automatically. Accounts with a

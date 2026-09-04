@@ -40,13 +40,14 @@ import {
   buildPreview, confirmSession, createSession, getSession, listImportHistory, setColumnMap,
 } from '../import/session.js';
 import {
-  renderAnalyticsPage, renderCallListPage, renderCallReviewPage, renderCampaignDetailPage,
-  renderCampaignsPage, renderPilotPage, renderSearchPage, renderSettingsPage,
+  renderAnalyticsPage, renderAuditPage, renderCallListPage, renderCallReviewPage,
+  renderCampaignDetailPage, renderCampaignsPage, renderPilotPage, renderSearchPage,
+  renderSettingsPage,
 } from '../web/pages/waveD.js';
 import {
-  analyticsBreakdown, analyticsFilterOptions, analyticsFunnel, campaignDetail,
-  campaignRelationshipConflicts, globalSearch, listCampaigns, listVoiceCalls,
-  parseAnalyticsFilters, voiceCallDetail,
+  analyticsBreakdown, analyticsFilterOptions, analyticsFunnel, auditFilterOptions,
+  campaignDetail, campaignRelationshipConflicts, globalSearch, listAuditEvents, listCampaigns,
+  listVoiceCalls, parseAnalyticsFilters, parseAuditFilters, voiceCallDetail,
 } from './waveDQueries.js';
 import {
   addCandidate, callPackPreview, listCandidates, readPilotState, removeCandidate,
@@ -813,6 +814,17 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       navCountsFull(user.userId, user.role), listCampaigns(), campaignRelationshipConflicts(),
     ]);
     return reply.type('text/html').send(renderCampaignsPage({ user, counts, campaigns, conflicts }));
+  });
+
+  app.get('/audit', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
+    const filters = parseAuditFilters(params);
+    const [counts, events, options] = await Promise.all([
+      navCountsFull(user.userId, user.role), listAuditEvents(filters), auditFilterOptions(),
+    ]);
+    return reply.type('text/html').send(renderAuditPage({ user, counts, events, filters, options }));
   });
 
   app.get<{ Params: { id: string } }>('/campaigns/:id', async (request, reply) => {

@@ -457,6 +457,65 @@ test('a manager can queue a prospect from the account page without dialling', as
     'a rep has no route into the outbound control plane');
 });
 
+test('the audit trail shows what was done, and nothing can change it there', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'INTERNAL_TEST', reason: 'gate rehearsal' },
+  });
+
+  const page = await app.inject({ method: 'GET', url: '/audit', headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /voice_pilot\.switch/);
+  assert.match(page.body, /gate rehearsal/, 'the reason is part of the record');
+  assert.match(page.body, /Manager/, 'the actor is named');
+  assert.match(page.body, /Nothing on this page can change one/);
+
+  // The page offers no way to mutate an audit row, and no such route exists.
+  assert.equal(/action="\/audit\/[^"]*"/.test(page.body), false);
+});
+
+test('the audit trail filters, and says when a filter value was unusable', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/candidates', headers: { cookie: f.manager },
+    payload: { accountId: f.accountId },
+  });
+
+  const matching = await app.inject({
+    method: 'GET', url: '/audit?action=pilot.add_candidate', headers: { cookie: f.manager } });
+  assert.match(matching.body, /pilot\.add_candidate/);
+
+  const empty = await app.inject({
+    method: 'GET', url: '/audit?action=nothing.ever.happened', headers: { cookie: f.manager } });
+  assert.match(empty.body, /No events match these filters/);
+  assert.match(empty.body, /Clear filters/);
+
+  const bad = await app.inject({
+    method: 'GET', url: '/audit?actor=not-a-uuid', headers: { cookie: f.manager } });
+  assert.equal(bad.statusCode, 200);
+  assert.match(bad.body, /Ignored actor/);
+});
+
+test('an audit detail never renders a secret-looking field', async () => {
+  const f = await fixture();
+  await pool.query(
+    `insert into audit_log (actor_user_id, action, subject_type, subject_id, detail)
+     values (null, 'test.event', 'thing', 'x', $1::jsonb)`,
+    [JSON.stringify({ api_key: 'sk-should-never-render', outcome: 'ok' })]);
+
+  const page = await app.inject({ method: 'GET', url: '/audit', headers: { cookie: f.manager } });
+  assert.equal(page.body.includes('sk-should-never-render'), false,
+    'a key-shaped field is filtered out of the detail summary');
+  assert.match(page.body, /outcome: ok/);
+});
+
+test('a rep cannot read the audit trail', async () => {
+  const f = await fixture();
+  const page = await app.inject({ method: 'GET', url: '/audit', headers: { cookie: f.rep } });
+  assert.equal(page.statusCode, 403);
+});
+
 test('global search resolves a phone number to its canonical account', async () => {
   const f = await fixture();
   const page = await app.inject({

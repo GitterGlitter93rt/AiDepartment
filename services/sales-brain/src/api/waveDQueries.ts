@@ -428,3 +428,102 @@ export async function globalSearch(term: string, limit = 25): Promise<SearchHit[
     matchedValue: row.matched_value,
   }));
 }
+
+// ---------------------------------------------------------------- audit trail
+
+export interface AuditFilters {
+  actorUserId: string | null;
+  action: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+}
+
+export function parseAuditFilters(params: URLSearchParams): AuditFilters & { ignored: string[] } {
+  const ignored: string[] = [];
+  const text = (name: string) => {
+    const raw = (params.get(name) ?? '').trim();
+    return raw.length > 0 ? raw.slice(0, 100) : null;
+  };
+  const uuid = (name: string, label: string) => {
+    const raw = text(name);
+    if (raw === null) return null;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) return raw;
+    ignored.push(label);
+    return null;
+  };
+  const date = (name: string, label: string) => {
+    const raw = text(name);
+    if (raw === null) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    ignored.push(label);
+    return null;
+  };
+  return {
+    actorUserId: uuid('actor', 'actor'),
+    action: text('action'),
+    subjectType: text('subjectType'),
+    subjectId: uuid('subject', 'subject'),
+    fromDate: date('from', 'from date'),
+    toDate: date('to', 'to date'),
+    ignored,
+  };
+}
+
+/**
+ * The audit trail, read-only.
+ *
+ * An audit row is a record of what someone did, so nothing here can edit one — the
+ * table has no update path anywhere in the service. The actor is resolved to a name
+ * for reading; the row itself keeps the id.
+ */
+export async function listAuditEvents(filters: AuditFilters, limit = 200) {
+  const { rows } = await query<any>(
+    `select l.audit_id, l.action, l.subject_type, l.subject_id, l.reason, l.detail,
+            l.occurred_at, u.display_name as actor_name, l.actor_user_id,
+            a.canonical_name as subject_account_name
+       from audit_log l
+       left join users u on u.user_id = l.actor_user_id
+       left join accounts a on a.account_id::text = l.subject_id
+      where ($1::uuid is null or l.actor_user_id = $1::uuid)
+        and ($2::text is null or l.action = $2::text)
+        and ($3::text is null or l.subject_type = $3::text)
+        and ($4::uuid is null or l.subject_id = $4::text)
+        and ($5::date is null or l.occurred_at >= $5::date)
+        and ($6::date is null or l.occurred_at < ($6::date + interval '1 day'))
+      order by l.occurred_at desc, l.audit_id desc
+      limit $7`,
+    [filters.actorUserId, filters.action, filters.subjectType, filters.subjectId,
+     filters.fromDate, filters.toDate, limit],
+  );
+  return rows;
+}
+
+/** The distinct actions and subject types actually recorded, for the filter menus. */
+export async function auditFilterOptions() {
+  const [actions, subjects, actors] = await Promise.all([
+    query<any>(`select distinct action as id, action as label from audit_log order by 1 limit 100`),
+    query<any>(`select distinct subject_type as id, subject_type as label from audit_log
+                 where subject_type is not null order by 1 limit 50`),
+    query<any>(`select u.user_id as id, u.display_name as label from users u
+                 where exists (select 1 from audit_log l where l.actor_user_id = u.user_id)
+                 order by u.display_name`),
+  ]);
+  return { actions: actions.rows, subjects: subjects.rows, actors: actors.rows };
+}
+
+/** Everything recorded against one Account, for the history tab on its page. */
+export async function accountAuditHistory(accountId: string, limit = 50) {
+  const { rows } = await query<any>(
+    `select l.audit_id, l.action, l.reason, l.detail, l.occurred_at,
+            u.display_name as actor_name
+       from audit_log l
+       left join users u on u.user_id = l.actor_user_id
+      where l.subject_id = $1
+      order by l.occurred_at desc
+      limit $2`,
+    [accountId, limit],
+  );
+  return rows;
+}

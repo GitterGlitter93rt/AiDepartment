@@ -8,7 +8,7 @@ import { formatDateTime, relativeTime, titleCase } from '../format.js';
 import type { SessionUser } from '../../domain/auth.js';
 import type { CallPackPreview, CandidateRow, PilotState } from '../../domain/pilot.js';
 import type { IntegrationView } from '../../domain/settings.js';
-import type { AnalyticsFilters, SearchHit } from '../../api/waveDQueries.js';
+import type { AnalyticsFilters, AuditFilters, SearchHit } from '../../api/waveDQueries.js';
 
 /**
  * Sales AI Pilot, Call Review, Campaigns, Analytics, Settings.
@@ -1085,4 +1085,99 @@ export function renderSearchPage(input: {
     subtitle: term.trim() ? `Results for “${term}”` : 'Company, person, phone, email, city or website.',
     user, currentPath: '/search', counts, body,
   });
+}
+
+// ---------------------------------------------------------------- Audit trail
+
+export function renderAuditPage(input: {
+  user: SessionUser; counts: NavCounts;
+  events: any[]; filters: AuditFilters & { ignored?: string[] };
+  options: { actions: FilterOption[]; subjects: FilterOption[]; actors: FilterOption[] };
+}): string {
+  const { user, counts, events, filters, options } = input;
+  const filtered = Boolean(filters.actorUserId || filters.action || filters.subjectType
+    || filters.subjectId || filters.fromDate || filters.toDate);
+
+  const body = html`
+    <div class="card">
+      <form method="get" action="/audit" class="form-grid">
+        <label class="field">
+          <span>From</span>
+          <input type="date" name="from" value="${filters.fromDate ?? ''}">
+        </label>
+        <label class="field">
+          <span>To</span>
+          <input type="date" name="to" value="${filters.toDate ?? ''}">
+        </label>
+        ${selectFilter({ name: 'actor', label: 'Who', options: options.actors,
+                         selected: filters.actorUserId })}
+        ${selectFilter({ name: 'action', label: 'Action', options: options.actions,
+                         selected: filters.action })}
+        ${selectFilter({ name: 'subjectType', label: 'Subject', options: options.subjects,
+                         selected: filters.subjectType })}
+        <div class="field-wide row" style="gap:10px">
+          <button type="submit" class="btn btn-primary">Apply</button>
+          ${filtered ? html`<a class="btn btn-secondary" href="/audit">Clear filters</a>` : ''}
+        </div>
+      </form>
+      ${(filters.ignored ?? []).length > 0
+        ? html`<p class="form-error" role="alert" style="margin-top:10px">
+            Ignored ${filters.ignored!.join(' and ')}: the value in the link was not usable.
+          </p>` : ''}
+    </div>
+
+    <div style="height:18px"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Audit trail</h2>
+        <span class="muted small">
+          A record of what was done. Nothing on this page can change one.
+        </span>
+      </div>
+      ${events.length === 0
+        ? emptyState({
+            title: filtered ? 'No events match these filters' : 'Nothing recorded yet',
+            explanation: filtered
+              ? 'Widen the filters, or clear them to see everything recorded.'
+              : 'Sensitive actions — claiming, suppression, imports, operator switches, '
+                + 'settings and reviews — are recorded here as they happen.',
+            ...(filtered ? { action: { href: '/audit', label: 'Clear filters' } } : {}),
+          })
+        : html`<div class="table-wrap">
+            <table class="data">
+              <thead><tr>
+                <th>When</th><th>Who</th><th>Action</th><th>Subject</th><th>Reason</th><th>Detail</th>
+              </tr></thead>
+              <tbody>
+                ${events.map((row: any) => html`<tr>
+                  <td class="muted small">${formatDateTime(row.occurred_at)}</td>
+                  <td>${row.actor_name ?? html`<span class="muted">System</span>`}</td>
+                  <td><code>${row.action}</code></td>
+                  <td>${row.subject_account_name
+                    ? html`<a href="/accounts/${row.subject_id}">${row.subject_account_name}</a>`
+                    : html`<span class="muted small">${row.subject_type ?? '—'}</span>`}</td>
+                  <td class="muted small">${row.reason ?? '—'}</td>
+                  <td class="muted small">${detailSummary(row.detail)}</td>
+                </tr>`)}
+              </tbody>
+            </table>
+          </div>`}
+    </div>`;
+
+  return renderPage({
+    title: 'Audit trail',
+    subtitle: 'Who did what, when, and why.',
+    user, currentPath: '/audit', counts, body,
+  });
+}
+
+/** A one-line reading of an audit detail object. Never a raw payload dump. */
+function detailSummary(detail: unknown): string {
+  if (!detail || typeof detail !== 'object') return '—';
+  const entries = Object.entries(detail as Record<string, unknown>)
+    .filter(([key]) => !/token|secret|key|password/i.test(key))
+    .slice(0, 4)
+    .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${String(value).slice(0, 40)}`);
+  return entries.length > 0 ? entries.join(' · ') : '—';
 }

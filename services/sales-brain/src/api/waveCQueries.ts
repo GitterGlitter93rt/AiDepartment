@@ -60,7 +60,22 @@ export async function researchHealthMetrics() {
        count(*) filter (where contactability_summary = 'RESEARCH_NEEDED')::int as no_contact
        from prospect_inventory where not is_suppressed`,
   );
-  return rows[0]!;
+  const row = rows[0]!;
+  // The page reads product names, not column names. Returning the raw row meant three
+  // metrics rendered as the word "undefined" on the Research Health page.
+  return {
+    total: row['total'] ?? 0,
+    fresh: row['fresh'] ?? 0,
+    aging: row['aging'] ?? 0,
+    stale: row['stale'] ?? 0,
+    never: row['never'] ?? 0,
+    withWebsite: row['with_website'] ?? 0,
+    namedDm: row['named_dm'] ?? 0,
+    roleOnly: row['role_only'] ?? 0,
+    directRoute: row['direct_route'] ?? 0,
+    namedViaMain: row['named_via_main'] ?? 0,
+    noContact: row['no_contact'] ?? 0,
+  };
 }
 
 /**
