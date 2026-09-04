@@ -381,12 +381,27 @@ export interface SearchHit {
  * here opens the same record the rest of the product uses. Suppression travels with
  * the hit rather than being discovered later.
  */
-export async function globalSearch(term: string, limit = 25): Promise<SearchHit[]> {
+/**
+ * Escapes what LIKE treats as a wildcard.
+ *
+ * Without this, a rep who types `%` searches for everything: `%%` matched every
+ * Account in the database and took 758 ms at 100,000 of them, against 55 ms for a
+ * real term. `_o` matched any two characters ending in o. Neither is a search, and
+ * on a shared box the first is a cheap way to make the CRM slow for everyone.
+ */
+function escapeLike(value: string): string {
+  return value.replace(/([\\%_])/g, '\\$1');
+}
+
+export async function globalSearch(
+  term: string, limit = 25, viewer?: { userId: string },
+): Promise<SearchHit[]> {
   const trimmed = term.trim();
   if (trimmed.length < 2) return [];
   const lower = trimmed.toLowerCase();
-  const like = `%${lower}%`;
-  const prefix = `${lower}%`;
+  const escaped = escapeLike(lower);
+  const like = `%${escaped}%`;
+  const prefix = `${escaped}%`;
   // Digits only, so "(904) 555-0142" finds a number stored as +19045550142. Seven
   // digits is the shortest that identifies a line rather than an area code.
   const digits = trimmed.replace(/\D+/g, '');
@@ -422,6 +437,20 @@ export async function globalSearch(term: string, limit = 25): Promise<SearchHit[
        union all
        select l.account_id, 'City', l.city, 5
          from locations l where lower(l.city) like $2
+       union all
+       -- A ZIP is how a rep describes a patch, and it was not searchable at all: a
+       -- postal code returned nothing unless it happened to appear inside an email.
+       select l.account_id, 'ZIP', l.postal_code, 2
+         from locations l where l.postal_code = $6
+       union all
+       -- The name on the van is often not the name on the incorporation.
+       select a.account_id, 'Also known as', alias, 1
+         from accounts a, unnest(a.dba_names) as alias
+        where lower(alias) like $2
+       union all
+       select o.account_id, 'Opportunity', o.title, 2
+         from opportunities o
+        where lower(o.title) like $2 and o.stage not in ('CLOSED_WON','CLOSED_LOST')
      ),
      best as (
        select distinct on (h.account_id)
@@ -437,10 +466,17 @@ export async function globalSearch(term: string, limit = 25): Promise<SearchHit[
        join accounts a on a.account_id = b.account_id
        left join locations l on l.account_id = a.account_id and l.is_headquarters
        left join users u on u.user_id = a.current_owner_user_id
-      -- Best match first, then the ones a rep can actually act on.
-      order by b.rank, a.is_suppressed, a.canonical_name
+      -- Best match first, then the searcher's own book, then the ones anyone can act
+      -- on. A rep looking for a company they claimed this morning should not have to
+      -- read past four namesakes to find it.
+      order by b.rank,
+               case when a.current_owner_user_id = $7::uuid then 0 else 1 end,
+               a.is_suppressed,
+               a.claimed_at desc nulls last,
+               a.canonical_name
       limit $5`,
-    [lower, like, phoneSearch, prefix, limit],
+    [lower, like, phoneSearch, prefix, limit,
+     /^\d{5}(-\d{4})?$/.test(trimmed) ? trimmed : '', viewer?.userId ?? null],
   );
 
   return rows.map((row) => ({

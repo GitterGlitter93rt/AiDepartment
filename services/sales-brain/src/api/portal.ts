@@ -695,7 +695,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const term = (request.query.q ?? '').slice(0, 120);
     const [counts, hits] = await Promise.all([
       navCountsFull(user.userId, user.role),
-      term.trim().length >= 2 ? globalSearch(term) : Promise.resolve([]),
+      term.trim().length >= 2 ? globalSearch(term, 25, user) : Promise.resolve([]),
     ]);
     return reply.type('text/html').send(renderSearchPage({ user, counts, term, hits }));
   });
