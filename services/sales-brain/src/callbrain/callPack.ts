@@ -39,6 +39,7 @@ export interface CallPack {
   primaryHypothesis: string | null;
   primaryHypothesisCategory: string | null;
   backupHypothesis: string | null;
+  backupHypothesisCategory: string | null;
   firstQuestion: string | null;
   backupQuestion: string | null;
   likelyObjections: string[];
@@ -189,6 +190,7 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     primaryHypothesis: hypothesisRows[0]?.hypothesis_text ?? account.primary_hypothesis,
     primaryHypothesisCategory: hypothesisRows[0]?.category ?? account.primary_hypothesis_category,
     backupHypothesis: hypothesisRows[1]?.hypothesis_text ?? null,
+    backupHypothesisCategory: hypothesisRows[1]?.category ?? null,
     firstQuestion: hypothesisRows[0]?.missing_fact_questions?.[0] ?? null,
     backupQuestion: hypothesisRows[1]?.missing_fact_questions?.[0] ?? null,
     likelyObjections,

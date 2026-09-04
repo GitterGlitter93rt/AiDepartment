@@ -36,6 +36,7 @@ function pack(overrides: Partial<CallPack> = {}): CallPack {
     primaryHypothesis: 'Paid emergency demand may arrive outside staffed hours.',
     primaryHypothesisCategory: 'after_hours',
     backupHypothesis: 'Unsold replacement estimates may not be followed up consistently.',
+    backupHypothesisCategory: 'unsold_estimate_proposal_followup',
     firstQuestion: 'When an emergency call comes in after hours and everyone is already on a job, what happens to it?',
     backupQuestion: 'What happens to a replacement quote that does not close the first time?',
     likelyObjections: [],

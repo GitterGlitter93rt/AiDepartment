@@ -72,7 +72,11 @@ const END_CALL_PATTERNS: RegExp[] = [
   /\b(?:goodbye|good ?bye|bye now)\b/i,
   /\bi'?m\s+done\s+(?:with\s+this|here|talking)\b/i,
   /\bend\s+(?:this|the)\s+call\b/i,
-  /\bnot\s+interested[.,!\s]*(?:goodbye|bye|thanks|thank you)?\s*$/i,
+  // "Not interested" alone is an objection the not_interested card is entitled to
+  // clarify once - bad timing and no need are different answers. Only an explicit
+  // farewell alongside it ends the call outright.
+  /\bnot\s+interested[.,!\s]+(?:goodbye|bye|thanks|thank you)\b/i,
+  /\bnot\s+interested\s+in\s+talking\b/i,
 ];
 
 const HUMAN_REQUESTED_PATTERNS: RegExp[] = [
