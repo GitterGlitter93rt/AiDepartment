@@ -1,0 +1,245 @@
+schema_version: "1.0.0"
+product: yad_sales_crm
+surface: sales.youraidepartment.ai
+visual_authority: docs/09-software/outbound-sales-brain-rep-portal-visual-system.md
+mockup_authority: docs/09-software/YAD-SALES-CRM-UI-MOCKUPS-CURRENT.md
+
+app_shell:
+  desktop_sidebar_width_px: 240
+  workspace: light
+  navigation: dark_midnight_navy
+  heading_font: Manrope
+  body_font: Inter
+  primary_action: electric_blue
+  quick_drawer_width_px: 500
+
+pages:
+  - id: login
+    route: /login
+    nav: hidden
+    roles: [rep, manager, admin]
+    wave: A
+    purpose: authenticate_user
+    primary_components: [auth_split_shell, login_card]
+
+  - id: overview
+    route: /
+    nav: work
+    roles: [rep, manager, admin]
+    wave: A
+    purpose: daily_sales_home
+    primary_components: [page_header, kpi_row, followups_due, recently_claimed, recent_replies, market_cards]
+
+  - id: find_prospects
+    route: /find
+    nav: work
+    roles: [rep, manager, admin]
+    wave: A
+    purpose: search_researched_inventory_and_claim
+    primary_components: [search_hero, filter_chips, prospect_table, bulk_bar, account_quick_drawer]
+    server_critical: [inventory_query, atomic_claim, ownership, rbact, channel_status]
+
+  - id: markets
+    route: /markets
+    nav: work
+    roles: [rep, manager, admin]
+    wave: B
+    purpose: browse_saved_markets
+    primary_components: [market_filters, market_card_grid]
+
+  - id: market_detail
+    route: /markets/:marketId
+    nav: nested
+    roles: [rep, manager, admin]
+    wave: B
+    purpose: inspect_market_inventory_and_freshness
+    primary_components: [market_header, market_kpis, prospect_table, market_intelligence, research_activity]
+
+  - id: my_prospects
+    route: /prospects
+    nav: work
+    roles: [rep, manager, admin]
+    wave: A
+    purpose: rep_book_of_business
+    primary_components: [segment_tabs, filter_bar, account_work_table]
+
+  - id: account_detail
+    route: /accounts/:accountId
+    nav: nested
+    roles: [rep, manager, admin]
+    wave: A
+    purpose: canonical_account_workspace
+    primary_components: [identity_bar, why_yad_calling, contacts, timeline, prospect_statements, fit_signals, channel_status, ownership]
+    tabs: [overview, contacts, activity, research_evidence, opportunity]
+
+  - id: followups
+    route: /follow-ups
+    nav: work
+    roles: [rep, manager, admin]
+    wave: A
+    purpose: manage_due_next_actions
+    primary_components: [followup_tabs, due_task_list, task_detail_drawer]
+
+  - id: replies
+    route: /replies
+    nav: work
+    roles: [rep, manager, admin]
+    wave: B
+    purpose: manage_inbound_sales_replies
+    primary_components: [reply_inbox, thread_panel, account_context, reply_actions]
+
+  - id: opportunities
+    route: /opportunities
+    nav: work
+    roles: [rep, manager, admin]
+    wave: B
+    purpose: qualified_pipeline
+    primary_components: [pipeline_board, opportunity_table, filters]
+
+  - id: opportunity_detail
+    route: /opportunities/:opportunityId
+    nav: nested
+    roles: [rep, manager, admin]
+    wave: B
+    purpose: business_case_and_deal_workspace
+    primary_components: [opportunity_header, problem_outcome, workflow, economics, stakeholders, activity, next_action]
+
+  - id: meetings
+    route: /meetings
+    nav: work
+    roles: [rep, manager, admin]
+    wave: B
+    purpose: strategy_call_and_meeting_workspace
+    primary_components: [meeting_tabs, calendar_list_toggle, meeting_cards, prep_brief_drawer]
+
+  - id: ai_pilot
+    route: /ai/pilot
+    nav: ai_operations
+    roles: [manager, admin]
+    wave: C
+    purpose: operator_controlled_sales_ai_pilot
+    primary_components: [pilot_state, stop_new_calls, candidate_table, pilot_batch, live_call_card, review_queue]
+
+  - id: call_review
+    route: /calls/:callId
+    nav: nested
+    roles: [manager, admin]
+    wave: C
+    purpose: qa_and_debug_voice_call
+    primary_components: [call_header, audio_transcript, state_timeline, tool_actions, latency_panel, qa_scorecard, root_cause]
+
+  - id: team_ownership
+    route: /team
+    nav: admin
+    roles: [manager, admin]
+    wave: C
+    purpose: manage_sales_ownership_and_territories
+    primary_components: [team_cards, ownership_table, reassignment_audit, territory_controls]
+
+  - id: mining
+    route: /mining
+    nav: ai_operations
+    roles: [manager, admin]
+    wave: C
+    purpose: monitor_and_control_market_miner_jobs
+    primary_components: [mining_kpis, job_table, job_drawer]
+
+  - id: research_health
+    route: /research-health
+    nav: ai_operations
+    roles: [manager, admin]
+    wave: C
+    purpose: data_quality_and_freshness_health
+    primary_components: [health_kpis, freshness_charts, source_health, exceptions_table]
+
+  - id: imports
+    route: /imports
+    nav: ai_operations
+    roles: [manager, admin]
+    wave: C
+    purpose: import_external_prospect_sources_into_canonical_accounts
+    primary_components: [source_cards, import_wizard, import_history]
+
+  - id: campaigns
+    route: /campaigns
+    nav: ai_operations
+    roles: [manager, admin]
+    wave: D
+    purpose: coordinate_multi_channel_outreach
+    primary_components: [campaign_table, campaign_metrics, audience_definition, channel_plan]
+
+  - id: analytics
+    route: /analytics
+    nav: ai_operations
+    roles: [manager, admin]
+    wave: D
+    purpose: funnel_and_quality_reporting
+    primary_components: [analytics_filters, kpis, funnel, breakdown_charts]
+
+  - id: settings
+    route: /settings
+    nav: admin
+    roles: [admin]
+    wave: D
+    purpose: organization_and_integration_configuration
+    primary_components: [settings_subnav, organization, users_roles, calcom, smartlead, twilio, research_providers, notifications, security, feature_modes]
+
+shared_states:
+  every_page: [loading, empty, error]
+  server_authoritative: [rbac, ownership, suppression, channel_eligibility, booking_confirmation, opportunity_stage]
+  forbidden_ui_inference:
+    - unknown_contact_as_verified
+    - main_line_as_direct_mobile
+    - stale_ad_as_current
+    - claim_as_contact_permission
+    - polite_call_as_opportunity
+    - pending_booking_as_confirmed
+
+shared_components:
+  - AppShell
+  - SidebarNav
+  - TopUtilityBar
+  - PageHeader
+  - KpiCard
+  - StatusPill
+  - TierBadge
+  - AdEvidenceBadge
+  - ContactRouteBadge
+  - ChannelStatusBadge
+  - SearchHero
+  - FilterBar
+  - FilterChip
+  - ProspectTable
+  - AccountQuickDrawer
+  - Timeline
+  - ContactCard
+  - EvidenceFact
+  - HypothesisCard
+  - TaskCard
+  - ReplyThread
+  - OpportunityCard
+  - MeetingCard
+  - PrepBriefPanel
+  - CallTranscript
+  - QaScorePanel
+  - EmptyState
+  - LoadingSkeleton
+  - ErrorState
+  - ConfirmDialog
+  - Toast
+
+acceptance_per_page:
+  - route_exists
+  - rbac_enforced_server_side
+  - server_authoritative_data
+  - loading_state
+  - empty_state
+  - error_state
+  - desktop_layout
+  - responsive_behavior
+  - primary_actions_work
+  - direct_api_bypass_cannot_break_permissions
+  - sensitive_changes_audited
+  - no_secrets_or_unsupported_claims
+  - visual_tokens_consistent
+  - no_runtime_console_errors
