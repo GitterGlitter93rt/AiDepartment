@@ -7,6 +7,10 @@ import { permissionsFor } from '../domain/auth.js';
 import { enqueueContactResearch, enqueueMarketResearch } from '../workers/enqueue.js';
 import { requireApiUser, requirePermission } from './server.js';
 import { preflightCall, evaluateAccount } from '../compliance/eligibility.js';
+import { ingestBookingWebhook, verifySignature } from '../booking/webhooks.js';
+import { rescheduleStrategyCall, cancelStrategyCall } from '../booking/service.js';
+import { buildPrepBrief } from '../booking/brief.js';
+import { config } from '../config.js';
 import { withTransaction } from '../db/pool.js';
 import { marketCards, navCountsFor } from './queries.js';
 
@@ -95,6 +99,67 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     const user = requirePermission(request, reply, 'search_inventory');
     if (!user) return;
     return searchProspects((request.body ?? {}) as never, user);
+  });
+
+  // --------------------------------------------------------- booking lifecycle --
+
+  /**
+   * Provider webhook. Unauthenticated by design — it is authenticated by signature,
+   * not by session — and an unverified payload is rejected rather than trusted.
+   */
+  app.post('/api/webhooks/calcom', async (request, reply) => {
+    const rawBody = (request as { rawBody?: string }).rawBody ?? '';
+    const signature = request.headers['x-cal-signature-256'] as string | undefined;
+
+    if (!config.booking.calcomWebhookSecret) {
+      // Refusing is safer than accepting unverifiable booking state changes.
+      request.log.warn('calcom webhook received but no signing secret is configured');
+      return reply.code(503).send({ ok: false, message: 'Webhook verification is not configured.' });
+    }
+    if (!verifySignature(rawBody, signature)) {
+      request.log.warn({ ip: request.ip }, 'calcom webhook signature verification failed');
+      return reply.code(401).send({ ok: false, message: 'Invalid signature.' });
+    }
+
+    const result = await ingestBookingWebhook(request.body as never);
+    return reply.send({
+      ok: result.ok, duplicate: result.duplicate, eventType: result.eventType,
+      applied: result.applied,
+    });
+  });
+
+  app.post<{ Params: { id: string }; Body: { start?: string; end?: string; reason?: string } }>(
+    '/api/bookings/:id/reschedule', async (request, reply) => {
+      const user = requireApiUser(request, reply);
+      if (!user) return;
+      const start = request.body?.start ? new Date(request.body.start) : null;
+      const end = request.body?.end ? new Date(request.body.end) : null;
+      const reason = (request.body?.reason ?? '').trim();
+      if (!start || !end || !reason) {
+        return reply.code(400).send({ ok: false, message: 'A new time and a reason are both required.' });
+      }
+      return rescheduleStrategyCall({
+        bookingId: request.params.id, newStart: start, newEnd: end, reason, actorUserId: user.userId,
+      });
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>(
+    '/api/bookings/:id/cancel', async (request, reply) => {
+      const user = requireApiUser(request, reply);
+      if (!user) return;
+      const reason = (request.body?.reason ?? '').trim();
+      if (!reason) return reply.code(400).send({ ok: false, message: 'A reason is required.' });
+      return cancelStrategyCall({ bookingId: request.params.id, reason, actorUserId: user.userId });
+    },
+  );
+
+  app.get<{ Params: { id: string } }>('/api/bookings/:id/brief', async (request, reply) => {
+    const user = requireApiUser(request, reply);
+    if (!user) return;
+    const brief = await buildPrepBrief(request.params.id);
+    if (!brief) return reply.code(404).send({ ok: false, message: 'Booking not found.' });
+    return brief;
   });
 
   app.get('/api/markets', async (request, reply) => {

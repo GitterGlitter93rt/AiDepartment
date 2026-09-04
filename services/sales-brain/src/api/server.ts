@@ -33,6 +33,17 @@ export async function buildServer(): Promise<FastifyInstance> {
     bodyLimit: 1_048_576,
   });
 
+  // Cal.com signs the raw body, so it must be preserved before JSON parsing.
+  app.addContentTypeParser('application/json', { parseAs: 'string' },
+    (request, body: string, done) => {
+      (request as { rawBody?: string }).rawBody = body;
+      try {
+        done(null, body.length > 0 ? JSON.parse(body) : {});
+      } catch (error) {
+        done(error as Error, undefined);
+      }
+    });
+
   await app.register(cookie, { secret: config.portal.sessionSecret });
   await app.register(formbody);
   await app.register(fastifyStatic, {

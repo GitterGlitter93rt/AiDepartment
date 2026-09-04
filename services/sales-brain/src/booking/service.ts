@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { config } from '../config.js';
 import { query, withTransaction } from '../db/pool.js';
 import {
-  DEFAULT_POLICY, computeFreeSlots, describeSlot, selectOfferedSlots, type BookingPolicy,
+  DEFAULT_POLICY, computeFreeSlots, describeSlot, filterProviderSlots, selectOfferedSlots,
+  type BookingPolicy,
 } from './policy.js';
 import type { CalendarAdapter, TimeSlot } from './types.js';
 import { microsoftGraphAdapter } from './graphAdapter.js';
@@ -58,6 +59,16 @@ export interface AvailabilityOffer {
   reason?: 'NOT_CONFIGURED' | 'CALENDAR_UNREADABLE' | 'NO_AVAILABILITY';
 }
 
+/** The one message used whenever availability cannot be read. */
+function unreadable(calendarUpn: string, timezone: string): AvailabilityOffer {
+  return {
+    ok: false, slots: [], sameDay: false, calendarUpn, timezone,
+    reason: 'CALENDAR_UNREADABLE',
+    message: "I can't see the calendar at the moment, so I don't want to give you a time that "
+      + 'might not hold. Can I have someone confirm and come back to you?',
+  };
+}
+
 function slotToken(start: Date, end: Date): string {
   return createHash('sha256')
     .update(`${start.toISOString()}|${end.toISOString()}|${config.portal.sessionSecret}`)
@@ -96,21 +107,29 @@ export async function getAvailability(options: {
 
   const from = now;
   const to = new Date(now.getTime() + policy.horizonDays * 86_400_000);
-  const busyResult = await adapter.getBusy({
+  const request = {
     calendarUpn, from, to, durationMinutes: policy.durationMinutes, timezone: policy.timezone,
-  });
+  };
 
-  if (!busyResult.ok) {
-    // An unreadable calendar is not an empty calendar.
-    return {
-      ok: false, slots: [], sameDay: false, calendarUpn, timezone: policy.timezone,
-      reason: 'CALENDAR_UNREADABLE',
-      message: 'I can\'t see the calendar at the moment, so I don\'t want to give you a time that '
-        + 'might not hold. Can I have someone confirm and come back to you?',
-    };
+  let free: TimeSlot[];
+
+  if (adapter.getBookableSlots) {
+    // The provider is the scheduling authority. Its slots are the entire universe of
+    // what may be offered; policy only removes from that set. Generating our own grid
+    // here would mean offering a time the provider never said it would accept.
+    const slotResult = await adapter.getBookableSlots(request);
+    if (!slotResult.ok) {
+      return unreadable(calendarUpn, policy.timezone);
+    }
+    free = filterProviderSlots(now, slotResult.slots, policy);
+  } else {
+    const busyResult = await adapter.getBusy(request);
+    if (!busyResult.ok) {
+      // An unreadable calendar is not an empty calendar.
+      return unreadable(calendarUpn, policy.timezone);
+    }
+    free = computeFreeSlots(now, busyResult.busy, policy);
   }
-
-  const free = computeFreeSlots(now, busyResult.busy, policy);
   const { slots, sameDay } = selectOfferedSlots(now, free, policy, options.count ?? 2);
 
   if (slots.length === 0) {
@@ -154,6 +173,8 @@ export interface BookingRequest {
   prospectAgreed: boolean;
   createdBy?: string | null;
   calendarUpn?: string;
+  /** Where the booking came from, for attribution. */
+  sourceChannel?: 'portal' | 'ai_call' | 'human_rep' | 'email' | 'inbound';
 }
 
 export interface BookingResult {
@@ -271,16 +292,30 @@ export async function bookStrategyCall(request: BookingRequest): Promise<Booking
   }
 
   // Re-check availability immediately before creating: the offer may be minutes old.
-  const recheck = await adapter.getBusy({
+  const recheckRequest = {
     calendarUpn,
     from: new Date(request.start.getTime() - 60_000),
     to: new Date(request.end.getTime() + 60_000),
     durationMinutes: Math.round((request.end.getTime() - request.start.getTime()) / 60_000),
     timezone: config.booking.timezone,
-  });
-  if (recheck.ok && recheck.busy.some(
-    (period) => period.start < request.end && request.start < period.end,
-  )) {
+  };
+
+  let stillFree = true;
+  if (adapter.getBookableSlots) {
+    const slots = await adapter.getBookableSlots(recheckRequest);
+    // Only treat it as taken when the provider answered and does not list the slot.
+    if (slots.ok) {
+      stillFree = slots.slots.some((slot) => slot.start.getTime() === request.start.getTime());
+    }
+  } else {
+    const recheck = await adapter.getBusy(recheckRequest);
+    if (recheck.ok) {
+      stillFree = !recheck.busy.some(
+        (period) => period.start < request.end && request.start < period.end);
+    }
+  }
+
+  if (!stillFree) {
     await query(
       `update meeting_bookings set status = 'FAILED', failure_reason = $2 where booking_id = $1`,
       [bookingId, 'slot was taken between offering and booking'],
@@ -342,8 +377,9 @@ export async function bookStrategyCall(request: BookingRequest): Promise<Booking
       ],
     );
     await client.query(
-      'update meeting_bookings set activity_id = $2 where booking_id = $1',
-      [bookingId, activityRows[0]!.activity_id],
+      'update meeting_bookings set activity_id = $2, event_type_id = $3, source_channel = $4 where booking_id = $1',
+      [bookingId, activityRows[0]!.activity_id, config.booking.calcomEventTypeId || null,
+       request.sourceChannel ?? 'portal'],
     );
     // A booked meeting is a protected relationship state.
     await client.query(
@@ -352,6 +388,15 @@ export async function bookStrategyCall(request: BookingRequest): Promise<Booking
       [request.accountId],
     );
   });
+
+  // The host should never have to research the company from scratch (§11).
+  try {
+    const { persistPrepBrief } = await import('./brief.js');
+    await persistPrepBrief(bookingId);
+  } catch (error) {
+    // A brief failure must not un-book a confirmed meeting.
+    console.error('[booking] prep brief generation failed', error);
+  }
 
   const spoken = describeSlot({ start: request.start, end: request.end }, new Date(), config.booking.timezone);
   return {
@@ -413,6 +458,123 @@ function buildEventBody(request: BookingRequest, companyName: string): string {
     'Booked by the YAD Sales Brain. Full context is on the account in the sales portal.',
   ];
   return lines.filter((line) => line !== null).join('\n');
+}
+
+/**
+ * Reschedules an existing booking through the provider that created it.
+ * Never creates a second event — the spec forbids it, because two events produce
+ * inconsistent cancellation state (§14).
+ */
+export async function rescheduleStrategyCall(input: {
+  bookingId: string;
+  newStart: Date;
+  newEnd: Date;
+  reason: string;
+  actorUserId?: string | null;
+}): Promise<BookingResult> {
+  const { rows } = await query<{
+    account_id: string; contact_id: string | null; owner_user_id: string | null;
+    provider_event_id: string | null; calendar_upn: string; attendee_email: string | null;
+    attendee_name: string | null; status: string; prospect_timezone: string | null;
+  }>(
+    `select account_id, contact_id, owner_user_id, provider_event_id, calendar_upn,
+            attendee_email, attendee_name, status, prospect_timezone
+       from meeting_bookings where booking_id = $1`,
+    [input.bookingId],
+  );
+  const booking = rows[0];
+  if (!booking) {
+    return { ok: false, reason: 'PROVIDER_FAILED', spokenConfirmation: '', error: 'Booking not found.' };
+  }
+  if (booking.status !== 'CONFIRMED' || !booking.provider_event_id) {
+    return {
+      ok: false, reason: 'PROVIDER_FAILED', spokenConfirmation: '',
+      error: 'Only a confirmed booking can be rescheduled.',
+    };
+  }
+
+  // Cancel-then-rebook is the portable path across adapters. The old row is marked
+  // RESCHEDULED and the new one points back at it, so history stays intact.
+  if (adapter.cancelEvent) {
+    const cancelled = await adapter.cancelEvent(booking.calendar_upn, booking.provider_event_id);
+    if (!cancelled.ok) {
+      return {
+        ok: false, reason: 'PROVIDER_FAILED', spokenConfirmation: '',
+        error: `Could not release the existing slot: ${cancelled.error}`,
+      };
+    }
+  }
+
+  const rebooked = await bookStrategyCall({
+    accountId: booking.account_id,
+    contactId: booking.contact_id,
+    ownerUserId: booking.owner_user_id,
+    start: input.newStart,
+    end: input.newEnd,
+    prospectAgreed: true,
+    attendeeName: booking.attendee_name,
+    attendeeEmail: booking.attendee_email,
+    prospectTimezone: booking.prospect_timezone,
+    agendaNote: `Rescheduled: ${input.reason}`,
+    createdBy: input.actorUserId ?? null,
+    calendarUpn: booking.calendar_upn,
+  });
+
+  if (rebooked.ok) {
+    await withTransaction(async (client) => {
+      await client.query(
+        `update meeting_bookings set status = 'RESCHEDULED' where booking_id = $1`,
+        [input.bookingId],
+      );
+      await client.query(
+        'update meeting_bookings set rescheduled_from_booking_id = $2 where booking_id = $1',
+        [rebooked.bookingId, input.bookingId],
+      );
+    });
+  }
+  return rebooked;
+}
+
+/** Cancels through the provider and mirrors the state locally. */
+export async function cancelStrategyCall(input: {
+  bookingId: string; reason: string; actorUserId?: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { rows } = await query<{
+    provider_event_id: string | null; calendar_upn: string; account_id: string;
+    contact_id: string | null; status: string;
+  }>(
+    `select provider_event_id, calendar_upn, account_id, contact_id, status
+       from meeting_bookings where booking_id = $1`,
+    [input.bookingId],
+  );
+  const booking = rows[0];
+  if (!booking) return { ok: false, error: 'Booking not found.' };
+
+  if (booking.provider_event_id && adapter.cancelEvent) {
+    const cancelled = await adapter.cancelEvent(booking.calendar_upn, booking.provider_event_id);
+    if (!cancelled.ok) return { ok: false, error: cancelled.error };
+  }
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `update meeting_bookings set status = 'CANCELLED', cancelled_at = now(),
+              cancellation_reason = $2, attended_state = 'CANCELLED'
+        where booking_id = $1`,
+      [input.bookingId, input.reason],
+    );
+    await client.query(
+      `update accounts set relationship_state = 'ENGAGED'
+        where account_id = $1 and relationship_state = 'MEETING_SCHEDULED'`,
+      [booking.account_id],
+    );
+    await client.query(
+      `insert into activities (account_id, contact_id, activity_type, channel, actor_user_id, notes)
+       values ($1,$2,'NOTE','system',$3,$4)`,
+      [booking.account_id, booking.contact_id, input.actorUserId ?? null,
+       `Strategy call cancelled: ${input.reason}`],
+    );
+  });
+  return { ok: true };
 }
 
 export { DEFAULT_POLICY, describeSlot };

@@ -22,11 +22,18 @@ console.log(
 // A periodic sweep so a Saved Market does not drift stale while nobody is looking.
 const SWEEP_INTERVAL_MS = Number(process.env.REFRESH_SWEEP_INTERVAL_MS ?? 15 * 60_000);
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
+const { reconcilePendingBookings } = await import('../booking/webhooks.js');
 const sweep = setInterval(async () => {
   try {
     const expired = await expireStaleEvidence();
     await refreshAccountFreshness();
     if (expired > 0) console.log(`[worker] marked ${expired} evidence records stale`);
+
+    // A booking the provider never confirmed must stop looking upcoming.
+    const bookings = await reconcilePendingBookings();
+    if (bookings.failed > 0) {
+      console.log(`[worker] closed ${bookings.failed} bookings the provider never confirmed`);
+    }
   } catch (error) {
     console.error('[worker] freshness sweep failed', error);
   }

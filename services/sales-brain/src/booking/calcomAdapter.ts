@@ -36,8 +36,60 @@ export const calDotComAdapter: CalendarAdapter = {
   },
 
   /**
-   * Cal.com returns *free* slots, not busy periods. The adapter inverts them so the
-   * rest of the system keeps one mental model: adapters report what is unavailable.
+   * Cal.com is the scheduling authority: these are the times it will actually accept.
+   * The service offers only from this set, so YAD can never propose a slot Cal.com
+   * did not return.
+   */
+  async getBookableSlots(request: AvailabilityRequest) {
+    if (!this.isConfigured()) {
+      return {
+        ok: false, slots: [] as TimeSlot[],
+        error: 'Cal.com is not configured (CALCOM_API_KEY / CALCOM_EVENT_TYPE_ID)',
+        errorCode: 'NOT_CONFIGURED' as const,
+      };
+    }
+    try {
+      const url = new URL(`${API_BASE}/slots`);
+      url.searchParams.set('eventTypeId', String(config.booking.calcomEventTypeId));
+      url.searchParams.set('start', request.from.toISOString());
+      url.searchParams.set('end', request.to.toISOString());
+      url.searchParams.set('timeZone', request.timezone);
+
+      const response = await fetch(url, { headers: headers(), signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (response.status === 429) {
+        return { ok: false, slots: [], error: 'rate limited by Cal.com', errorCode: 'RATE_LIMITED' as const };
+      }
+      if (!response.ok) {
+        const detail = await response.text();
+        return {
+          ok: false, slots: [],
+          error: `slots request failed (${response.status}): ${detail.slice(0, 200)}`,
+          errorCode: 'PROVIDER_ERROR' as const,
+        };
+      }
+
+      const body = await response.json() as { data?: Record<string, { start: string }[]> };
+      const slots: TimeSlot[] = [];
+      for (const day of Object.values(body.data ?? {})) {
+        for (const slot of day) {
+          const start = new Date(slot.start);
+          if (Number.isNaN(start.getTime())) continue;
+          slots.push({ start, end: new Date(start.getTime() + request.durationMinutes * 60_000) });
+        }
+      }
+      return { ok: true as const, slots };
+    } catch (error) {
+      return {
+        ok: false, slots: [] as TimeSlot[],
+        error: `slots request error: ${(error as Error).message}`,
+        errorCode: 'PROVIDER_ERROR' as const,
+      };
+    }
+  },
+
+  /**
+   * Free/busy view, for callers that want one. Derived from the bookable slots, so
+   * it stays consistent with the authoritative path above.
    */
   async getBusy(request: AvailabilityRequest) {
     if (!this.isConfigured()) {

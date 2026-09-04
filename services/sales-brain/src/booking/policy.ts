@@ -95,6 +95,31 @@ function overlaps(a: TimeSlot, b: TimeSlot, bufferMs: number): boolean {
  * no fallback that invents availability when the calendar cannot be read — that
  * decision belongs to the caller, which must refuse to offer times instead.
  */
+/**
+ * Filters slots the provider says are bookable down to the ones YAD will offer.
+ * Purely subtractive: it can reject a provider slot for being outside working hours,
+ * too soon or on a non-business day, but it can never invent one.
+ */
+export function filterProviderSlots(
+  now: Date, providerSlots: TimeSlot[], policy: BookingPolicy,
+): TimeSlot[] {
+  const earliest = new Date(now.getTime() + policy.minimumLeadMinutes * 60_000);
+  const horizon = new Date(now.getTime() + policy.horizonDays * 86_400_000);
+
+  return providerSlots
+    .filter((slot) => {
+      if (slot.start < earliest || slot.start > horizon) return false;
+      const parts = zonedParts(slot.start, policy.timezone);
+      if (!policy.businessDays.includes(parts.weekday)) return false;
+      if (parts.hour < policy.workdayStartHour) return false;
+      const endParts = zonedParts(slot.end, policy.timezone);
+      if (endParts.hour > policy.workdayEndHour
+        || (endParts.hour === policy.workdayEndHour && endParts.minute > 0)) return false;
+      return true;
+    })
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
 export function computeFreeSlots(
   now: Date, busy: TimeSlot[], policy: BookingPolicy,
 ): TimeSlot[] {

@@ -79,6 +79,7 @@ export const config = {
     provider: optional('BOOKING_PROVIDER', 'calcom'),
     calcomApiKey: optional('CALCOM_API_KEY'),
     calcomEventTypeId: optional('CALCOM_EVENT_TYPE_ID'),
+    calcomWebhookSecret: optional('CALCOM_WEBHOOK_SECRET'),
     tenantId: optional('MS_GRAPH_TENANT_ID'),
     clientId: optional('MS_GRAPH_CLIENT_ID'),
     clientSecret: optional('MS_GRAPH_CLIENT_SECRET'),

@@ -60,8 +60,25 @@ export interface CreateEventResult {
 export interface CalendarAdapter {
   readonly name: string;
   isConfigured(): boolean;
-  /** Busy periods within the window. Returning `ok: false` must never read as "free". */
+
+  /**
+   * Busy periods within the window. Returning `ok: false` must never read as "free".
+   * Used by providers that expose a free/busy view, such as Microsoft Graph.
+   */
   getBusy(request: AvailabilityRequest): Promise<{ ok: boolean; busy: TimeSlot[]; error?: string; errorCode?: AvailabilityResult['errorCode'] }>;
+
+  /**
+   * Bookable slots the provider will actually accept, when the provider is the
+   * scheduling authority rather than a calendar mirror (Cal.com).
+   *
+   * When an adapter implements this, it is authoritative: the service offers only
+   * these times, filtered by YAD policy. It never adds a slot of its own, because a
+   * time the provider did not offer is imaginary availability.
+   */
+  getBookableSlots?(request: AvailabilityRequest): Promise<{
+    ok: boolean; slots: TimeSlot[]; error?: string; errorCode?: AvailabilityResult['errorCode'];
+  }>;
+
   createEvent(request: CreateEventRequest): Promise<CreateEventResult>;
   cancelEvent?(calendarUpn: string, providerEventId: string): Promise<{ ok: boolean; error?: string }>;
 }
