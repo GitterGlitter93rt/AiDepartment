@@ -246,3 +246,124 @@ test('an outbound service mounted with no prefix would still not answer inbound'
   assert.match(configured.paths.incoming, /^\/outbound\//,
     'the default must stay namespaced; an empty prefix is an explicit operator choice');
 });
+
+// --- deployment handoff: static checks on the tooling --------------------------
+
+test('the deploy script records a baseline before it changes anything', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  const baselineAt = script.indexOf('baseline: what is running before anything changes');
+  const firstChange = Math.min(
+    ...['useradd', 'install -m 0644', 'systemctl enable', 'systemctl reload nginx']
+      .map((marker) => { const at = script.indexOf(marker); return at === -1 ? Infinity : at; }));
+  assert.ok(baselineAt > 0, 'there is a baseline step');
+  assert.ok(baselineAt < firstChange,
+    'the baseline is captured before the first change, or it is not a baseline');
+  for (const captured of ['systemctl list-units', 'nginx -T', 'ss -ltnp',
+                          'rev-parse HEAD', 'cp -a /etc/nginx']) {
+    assert.ok(script.includes(captured), `the baseline does not capture ${captured}`);
+  }
+});
+
+test('the deploy script rolls nginx back if the configuration does not test', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  assert.match(script, /if nginx -t; then/, 'the configuration is tested before a reload');
+  assert.match(script, /restoring the site file/);
+  // The restore happens from the backup taken in the same run.
+  assert.match(script, /cp -a "\$BASELINE\/\$\(basename "\$SITE"\)\.before" "\$SITE"/);
+  assert.match(script, /rm -f \/etc\/nginx\/snippets\/yad-outbound-locations\.conf/,
+    'a failed reload removes the snippet it added');
+});
+
+test('the deploy script fails if the checkout is not the requested SHA', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  assert.match(script, /if \[ "\$ACTUAL" != "\$SHA" \]/);
+  assert.match(script, /Refusing to continue/);
+  assert.match(script, /checkout --detach "\$SHA"/,
+    'a detached checkout at an exact commit, not a branch that can move under it');
+});
+
+test('the deploy script fails loudly if inbound health breaks', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  assert.match(script, /inbound \/health does not answer/);
+  assert.match(script, /Investigate before going further/);
+  // And it compares the before and after state of the receptionist rather than
+  // assuming it was fine.
+  assert.match(script, /INBOUND_WAS_ACTIVE=/);
+  assert.match(script, /\[ "\$INBOUND_WAS_ACTIVE" = "active" \]/);
+});
+
+test('the deploy script is idempotent in every step that could duplicate', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  for (const guard of [
+    'if ! id -u "$SERVICE_USER"',            // the user is created once
+    'if [ ! -d "$TARGET/.git" ]',            // the clone happens once
+    'if [ ! -f "$ENV_FILE" ]',               // the env file is never overwritten
+    'if grep -q \'yad-outbound-locations.conf\' "$SITE"',  // the include is added once
+    'if [ ! -d "$TARGET/services/sales-voice/node_modules/ws" ]',
+  ]) {
+    assert.ok(script.includes(guard), `no guard for: ${guard}`);
+  }
+  assert.match(script, /set -euo pipefail/, 'it stops at the first failure');
+});
+
+test('the deploy script never overwrites the receptionist environment file', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  // It may tighten permissions; it may not write content.
+  const writes = [/>\s*\/etc\/yad-voice-agent\.env/, /install .*\/etc\/yad-voice-agent\.env/,
+                  /sed -i .*\/etc\/yad-voice-agent\.env/, /tee .*yad-voice-agent\.env/];
+  for (const pattern of writes) {
+    assert.equal(pattern.test(script), false, `deploy.sh writes the inbound env file: ${pattern}`);
+  }
+});
+
+test('the env file is created with permissions that exclude everyone else', () => {
+  const script = readFileSync(new URL('../deploy/deploy.sh', import.meta.url), 'utf8');
+  assert.match(script, /install -o root -g "\$SERVICE_USER" -m 0640/,
+    'root owns it, the service user may read it, nobody else may');
+});
+
+test('the verify script checks isolation and prints no secret', () => {
+  const script = readFileSync(new URL('../deploy/verify.sh', import.meta.url), 'utf8');
+  for (const check of [
+    'inbound /health status', 'agent profile', 'signature validation enforced',
+    'outbound process rejects', 'inbound process rejects',
+    'outbound cannot read the inbound env file',
+    'outbound has a lower CPU weight than inbound',
+  ]) {
+    assert.ok(script.includes(check), `verify.sh does not check: ${check}`);
+  }
+  // It must never echo an environment value.
+  assert.equal(/echo .*\$TWILIO_AUTH_TOKEN|echo .*\$\{TWILIO/.test(script), false);
+  assert.match(script, /no secret-shaped value present/);
+});
+
+test('the unit gives inbound priority on a contended host', () => {
+  const unit = readFileSync(new URL('../deploy/yad-sales-voice.service', import.meta.url), 'utf8');
+  const weight = Number(/CPUWeight=(\d+)/.exec(unit)?.[1] ?? '100');
+  assert.ok(weight < 100, `outbound CPUWeight is ${weight}; inbound must win contention`);
+  assert.match(unit, /MemoryMax=/);
+  assert.match(unit, /Restart=always/);
+  assert.match(unit, /StartLimitBurst=/, 'a crash loop stops rather than flapping');
+  assert.match(unit, /TimeoutStopSec=35/, 'long enough for a call in progress to finish');
+});
+
+test('the unit is hardened and cannot reach the rest of the filesystem', () => {
+  const unit = readFileSync(new URL('../deploy/yad-sales-voice.service', import.meta.url), 'utf8');
+  for (const directive of ['NoNewPrivileges=true', 'PrivateTmp=true', 'ProtectSystem=strict',
+                           'ProtectHome=true', 'RestrictAddressFamilies=',
+                           'ProtectKernelTunables=true']) {
+    assert.ok(unit.includes(directive), `the unit is missing ${directive}`);
+  }
+  assert.match(unit, /ReadWritePaths=\/opt\/yad-sales-voice/,
+    'writable only where the service lives');
+});
+
+test('the deploy tooling carries no credential of any kind', () => {
+  for (const file of ['deploy.sh', 'verify.sh', 'yad-sales-voice.service',
+                      'yad-sales-voice.env.example', 'nginx-outbound-locations.conf',
+                      'nginx-outbound-upstream.conf']) {
+    const text = readFileSync(new URL(`../deploy/${file}`, import.meta.url), 'utf8');
+    assert.equal(/AC[0-9a-f]{32}|SK[0-9a-f]{32}|sk-ant-|BEGIN (?:RSA |OPENSSH )?PRIVATE KEY/
+      .test(text), false, `${file} contains something credential-shaped`);
+  }
+});

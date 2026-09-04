@@ -310,3 +310,132 @@ test('a suppressed caller produces no sales follow-up', async () => {
   const { rows } = await query(`select count(*)::int as n from follow_ups`);
   assert.equal(rows[0]!.n, 0);
 });
+
+// --- the rest of the shared-number cases -------------------------------------
+
+test('a caller asking for Michael by name is routed, not pitched', async () => {
+  const accountId = await seedProspect();
+  await recordOutboundAttempt(accountId);
+  const decision = await routeInboundCall({ fromNumber: E164 });
+
+  // The decision itself never contains a pitch; what the receptionist may say is
+  // limited to the spoken context, which is one sentence about our own call.
+  assert.equal(/worth a proper look|would you be open|strategy call with Michael/i
+    .test(decision.spokenContext), false);
+  assert.equal(decision.agentProfileId, INBOUND_PROFILE);
+});
+
+test('a gatekeeper calling back is handled without a sales persona', async () => {
+  const accountId = await seedProspect();
+  await recordOutboundAttempt(accountId, { disposition: 'GATEKEEPER' });
+  const decision = await routeInboundCall({ fromNumber: E164 });
+  assert.equal(decision.agentProfileId, INBOUND_PROFILE);
+  assert.equal(decision.route, 'CAPTURE_CALLBACK_INTENT');
+  assert.equal(/hypothes|tier|score/i.test(decision.spokenContext), false);
+});
+
+test('a second location of the same company resolves to the same Account', async () => {
+  const accountId = await seedProspect();
+  await recordOutboundAttempt(accountId);
+  // A second location, with its own line, on the same Account.
+  await withTransaction(async (client) => {
+    const { rows } = await client.query<{ location_id: string }>(
+      `insert into locations (account_id, city, state_region, postal_code, is_headquarters)
+       values ($1, 'St. Augustine', 'FL', '32092', false) returning location_id`, [accountId]);
+    const { upsertEndpoint } = await import('../src/domain/accounts.js');
+    await upsertEndpoint(client, {
+      accountId, contactId: null, locationId: rows[0]!.location_id, type: 'PHONE',
+      rawValue: '904-555-0777', endpointRole: 'LOCATION_BUSINESS_LINE',
+      relationshipToPerson: 'UNVERIFIED', qualityState: 'PUBLIC_OBSERVED_CURRENT',
+      source: 'COMPANY_WEBSITE', sourceReference: null,
+    });
+  });
+
+  const fromSecondSite = await routeInboundCall({ fromNumber: '+19045550777' });
+  assert.equal(fromSecondSite.accountId, accountId,
+    'two locations are one company, and the callback belongs to the company');
+});
+
+test('two contacts at one Account do not create two relationships', async () => {
+  const accountId = await seedProspect();
+  await recordOutboundAttempt(accountId);
+  await query(
+    `insert into contacts (account_id, full_name, raw_title, role_category, currentness)
+     values ($1, 'Dana Fielder', 'Owner', 'owner', 'FRESH'),
+            ($1, 'Sam Reyes', 'Office Manager', 'office_manager', 'FRESH')`,
+    [accountId]);
+
+  const decision = await routeInboundCall({ fromNumber: E164 });
+  assert.equal(decision.accountId, accountId);
+  const voiceCallId = await recordInboundCall({
+    decision, fromNumber: E164, toNumber: '+19046829345' });
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from voice_calls where account_id = $1 and direction = 'INBOUND'`,
+    [accountId]);
+  assert.equal(rows[0]!.n, 1, 'one inbound call, whoever is on the Account');
+  assert.ok(voiceCallId);
+});
+
+test('a positive email reply followed by a callback is one relationship, not two', async () => {
+  const accountId = await seedProspect();
+  await recordOutboundAttempt(accountId);
+  await query(
+    `update accounts set relationship_state = 'POSITIVE_REPLY' where account_id = $1`,
+    [accountId]);
+
+  const decision = await routeInboundCall({ fromNumber: E164 });
+  // Not cold, and not treated as a fresh outbound attempt.
+  assert.notEqual(decision.route, 'ORDINARY_INTAKE');
+  assert.equal(decision.agentProfileId, INBOUND_PROFILE);
+
+  const voiceCallId = await recordInboundCall({
+    decision, fromNumber: E164, toNumber: '+19046829345' });
+  await captureCallbackIntent({
+    decision, voiceCallId, callerStatement: 'I replied to your email, then thought I would call.' });
+  const { rows } = await query<{ relationship_state: string }>(
+    `select relationship_state from accounts where account_id = $1`, [accountId]);
+  assert.notEqual(rows[0]!.relationship_state, 'NONE',
+    'the email relationship survives the phone call');
+});
+
+test('a do-not-contact callback is answered and produces no outreach', async () => {
+  const accountId = await seedProspect();
+  await recordOutboundAttempt(accountId);
+  await query(
+    `insert into suppressions (scope, account_id, suppression_type, source, reason)
+     values ('ACCOUNT', $1, 'DNC', 'test', 'they asked us to stop')`, [accountId]);
+  await query(
+    `update accounts set is_suppressed = true, ownership_state = 'SUPPRESSED',
+            current_owner_user_id = null where account_id = $1`, [accountId]);
+
+  const decision = await routeInboundCall({ fromNumber: E164 });
+  assert.equal(decision.route, 'SUPPRESSED_NO_PITCH');
+  assert.equal(decision.spokenContext, '');
+
+  const voiceCallId = await recordInboundCall({
+    decision, fromNumber: E164, toNumber: '+19046829345' });
+  const captured = await captureCallbackIntent({
+    decision, voiceCallId, callerStatement: 'Why do you keep calling?' });
+  assert.equal(captured.ok, false);
+  const followUps = await query<{ n: number }>(`select count(*)::int as n from follow_ups`);
+  assert.equal(followUps.rows[0]!.n, 0);
+});
+
+test('the receptionist is never handed the outbound sales persona', async () => {
+  // Whatever the situation, the only profile this router can produce is the
+  // receptionist's. Anything else would mean a cold script on an inbound call.
+  const accountId = await seedProspect();
+  const cases: (() => Promise<unknown>)[] = [
+    async () => recordOutboundAttempt(accountId),
+    async () => query(`update accounts set relationship_state = 'ENGAGED' where account_id = $1`,
+      [accountId]),
+    async () => query(`update accounts set is_suppressed = true, ownership_state = 'SUPPRESSED',
+      current_owner_user_id = null where account_id = $1`, [accountId]),
+  ];
+  for (const step of cases) {
+    await step();
+    const decision = await routeInboundCall({ fromNumber: E164 });
+    assert.equal(decision.agentProfileId, 'yad-receptionist-v1');
+    assert.notEqual(decision.agentProfileId as string, 'yad-sales-core-v1');
+  }
+});
