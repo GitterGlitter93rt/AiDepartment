@@ -42,6 +42,14 @@ const DNC_PATTERNS: RegExp[] = [
   /\bput\s+(?:me|us)\s+on\s+(?:your\s+)?(?:the\s+)?do[- ]?not[- ]?call\b/i,
   /\bdo[- ]?not[- ]?call\s+(?:list|registry)\b/i,
   /\bwe'?re\s+not\s+interested.{0,15}(?:ever|at all).{0,15}\b(?:call|contact)/i,
+  // How people actually say it. "Lose my number" and "get off my phone" are
+  // stop-contacting instructions, not timing objections and not merely hostile.
+  /\blose\s+(?:my|our|this)\s+number\b/i,
+  /\b(?:get|stay)\s+off\s+(?:my|our|this)\s+(?:phone|line|number)\b/i,
+  /\bquit\s+(?:calling|phoning|ringing)\b/i,
+  /\bdelete\s+(?:my|our|this)\s+(?:number|details|record)\b/i,
+  /\bdon'?t\s+want\s+(?:any\s+more|anymore)\s+calls\b/i,
+  /\bno\s+more\s+calls\b/i,
 ];
 
 /**
@@ -63,6 +71,11 @@ const WRONG_NUMBER_PATTERNS: RegExp[] = [
   /\bno\s*(?:one|body)\s+(?:here\s+)?(?:called|named|by the name|works here|with that name)\b/i,
   /\byou(?:'?ve|\s+have)?\s+(?:got\s+)?the\s+wrong\b/i,
   /\bthis\s+is\s+(?:a\s+)?(?:residence|residential|my\s+(?:cell|home|personal))\b/i,
+  // "There is no Dana here" names the person we asked for and says they are not
+  // here, which is the same fact as a wrong number.
+  /\bthere'?s?\s+no\s+[A-Z][a-z]+\s+(?:here|at this number|working here)\b/,
+  /\bno\s+[A-Z][a-z]+\s+(?:here|at this number)\b/,
+  /\bnever\s+heard\s+of\s+(?:them|him|her|that (?:person|company|name))\b/i,
   /\bwe'?re\s+not\s+(?:a|an)\s+\w+\s+(?:company|business|shop)\b/i,
   /\bthat'?s?\s+not\s+(?:us|our|this)\s+(?:company|business)\b/i,
 ];

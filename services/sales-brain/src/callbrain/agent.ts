@@ -796,8 +796,9 @@ function captureBusinessSuppliedFacts(memory: WorkingMemory, utterance: string):
     .exec(utterance);
   if (role) memory.routing.correctedRole = role[1]!;
 
-  const callback = /\bcall (?:me|him|her|them) (?:back )?(?:on )?(\w+day|tomorrow|next week)\b/i
-    .exec(utterance);
+  const callback =
+    /\b(?:call|try|ring|reach)\s+(?:me|him|her|them|back)?\s*(?:back\s+)?(?:on\s+|after\s+|before\s+|around\s+)?(\w+day|tomorrow|next week|this afternoon|the morning|lunch|\d{1,2}(?::\d{2})?\s*(?:am|pm)?|(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve))\b/i
+      .exec(utterance);
   if (callback) {
     memory.routing.bestCallbackTimeText = callback[0];
     memory.nextStep.callbackTimeText = callback[0];
