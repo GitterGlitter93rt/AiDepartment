@@ -164,3 +164,73 @@ not a permanent credential. An unverified payload never reaches ingestion.
 Twilio Lookup writes its answer onto the endpoint that channel eligibility actually
 reads, only on success. A failed lookup writes nothing rather than overwriting a type
 we had already established, because an outage must never become a line type.
+
+### PostgreSQL JIT is off for this application
+
+The read models join several lateral subqueries, which gives them a plan cost around
+four million, so every one trips the default jit_above_cost of 100,000 and gets
+LLVM-compiled before it runs. Measured at 25,000 accounts: 148 ms of compilation on a
+count that then executed in 154, and 183 ms on a page fetch that executed in 149. JIT
+earns its keep on analytic queries that run for seconds; nothing here does.
+
+### The page of ids first, then the projection
+
+`select * from prospect_inventory ... limit 50` evaluates seven lateral subqueries for
+every Account before the sort can pick fifty. Selecting the page of ids first lets
+Postgres prune the laterals no filter mentions, and the projection is then built for
+fifty rows. A single query with the page as a CTE is *worse* than the original,
+because the CTE is materialised and the view scanned again to join it.
+
+### Lock order is Account first, then anything else
+
+Every transaction that touches an Account and one of its children takes the Account
+row first: the rep's row for the claim ceiling, the follow-up, the opportunity, the
+endpoints. Two paths used to lock the child first and deadlocked against a
+do-not-contact, which locks the Account and then cancels its follow-ups. There is no
+exception to this rule; a new path that needs a child lock reads the account_id
+without a lock, takes the Account, and then takes the child.
+
+### Evidence and ownership are followed across a merge, never moved
+
+Both are append-only ledgers and rewriting a row's account_id is editing history —
+the triggers refuse it, correctly. A merged Account survives as a tombstone and the
+reads follow the chain. This is also why the tombstone exists rather than the row
+being deleted.
+
+### There is no unmerge
+
+Undoing a merge honestly would mean knowing which of the survivor's rows came from
+which original after both have been worked, and a call logged tomorrow belongs to
+neither. An unmerge would restore a fiction or silently drop the work done since.
+What is offered instead is the record: the tombstone with its own name, the counts of
+what moved, the reason a person gave, the actor and an audit row — enough to repair
+by hand, deliberately.
+
+### A contact route is checked for usability, not presence
+
+An import row is accepted only if a website, phone or email *normalises*. Testing
+presence let a column-shifted row through — an unquoted comma in a company name puts
+a URL in the phone cell and a phone number in the email cell — and produced an
+Account with a name and no way to reach it, counted as a success.
+
+### Spreadsheet formulas are neutralised at the sink, never on the way in
+
+A company can genuinely be called "+1 Plumbing", and a prospect's data is stored as
+they wrote it. The CSV writer prefixes a leading formula character; the importer
+does not touch it.
+
+### Synthetic data is unreachable by construction
+
+Every generated domain is under `.invalid`, which RFC 2606 reserves so it can never
+resolve; every generated phone uses the 555 exchange with directory assistance
+excluded; every provenance field says SYNTHETIC_FIXTURE or DEMO_FIXTURE. The
+generator refuses a database whose name does not say it is a scale target. A
+convincing demo company that nobody can tell from a real prospect is how a rep ends
+up calling one.
+
+### Commercial truth outranks doctrine, in the retriever
+
+A question about price or what we sell is answered from launch-decisions.md, and is
+scored against the company's own vocabulary for those things rather than only the
+words the asker used — otherwise "how much do we charge", which shares no word with
+that document, is answered from the manual's examples.

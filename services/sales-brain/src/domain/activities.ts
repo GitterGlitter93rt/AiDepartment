@@ -214,14 +214,26 @@ export async function completeFollowUp(
   followupId: number, actor: { userId: string; role: Role },
 ): Promise<{ ok: boolean; reason?: 'NOT_FOUND' | 'NOT_OWNER' }> {
   return withTransaction(async (client) => {
+    // Lock order is Account first, then the child row -- everywhere, without
+    // exception. Locking the follow-up first and the Account second was a cycle
+    // waiting for its other half: recording a do-not-contact locks the Account and
+    // then cancels its open follow-ups, so the two met head-on and Postgres killed
+    // one of them. The Account id is read without a lock, then taken in the right
+    // order.
+    const { rows: located } = await client.query<{ account_id: string }>(
+      'select account_id from follow_ups where followup_id = $1', [followupId],
+    );
+    if (!located[0]) return { ok: false, reason: 'NOT_FOUND' as const };
+
+    const permitted = await assertCanWorkAccount(client, located[0].account_id, actor);
+    if (!permitted.ok) return { ok: false, reason: 'NOT_OWNER' as const };
+
     const { rows } = await client.query<{ owner_user_id: string; account_id: string }>(
-      'select owner_user_id, account_id from follow_ups where followup_id = $1 for update', [followupId],
+      'select owner_user_id, account_id from follow_ups where followup_id = $1 for update',
+      [followupId],
     );
     const followUp = rows[0];
     if (!followUp) return { ok: false, reason: 'NOT_FOUND' as const };
-
-    const permitted = await assertCanWorkAccount(client, followUp.account_id, actor);
-    if (!permitted.ok) return { ok: false, reason: 'NOT_OWNER' as const };
 
     await client.query(
       `update follow_ups set status = 'COMPLETED', completed_at = now() where followup_id = $1`,

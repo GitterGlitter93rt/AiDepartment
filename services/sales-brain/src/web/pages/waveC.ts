@@ -7,6 +7,8 @@ import {
 import { formatDateTime, pluralize, relativeTime, titleCase } from '../format.js';
 import type { SessionUser } from '../../domain/auth.js';
 import type { ImportPreview, SessionSummary } from '../../import/session.js';
+import type { OperationalSnapshot } from '../../api/operations.js';
+import type { SemanticState } from '../components/primitives.js';
 
 /**
  * Wave C pages: Mining, Research Health, Imports, Sales AI Pilot, Call Review.
@@ -111,11 +113,13 @@ function describeJobResult(job: any): string {
 
 export function renderResearchHealthPage(input: {
   user: SessionUser; counts: NavCounts; metrics: any; exceptions: any[];
+  operations?: OperationalSnapshot | null;
 }): string {
   const { user, counts, metrics, exceptions } = input;
   const pct = (n: number, d: number): string => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
 
   const body = html`
+    ${operationsPanel(input.operations ?? null)}
     <div class="grid grid-kpi">
       ${kpiCard({ label: 'Inventory freshness', value: pct(metrics.fresh, metrics.total),
                   sub: `${metrics.fresh} of ${metrics.total} accounts`,
@@ -459,3 +463,44 @@ export function renderImportWizardPage(input: {
 }
 
 export { confirmDialog, errorState, tierBadge, timeline, formatDateTime };
+
+
+/**
+ * The operator's Monday morning.
+ *
+ * One panel that answers whether anything is broken, backing up, going stale or
+ * quietly armed, using the same tables every other page reads. Not a second
+ * monitoring product: a question with an answer next to it, and the reason the
+ * answer matters where it is not obvious.
+ */
+function operationsPanel(snapshot: OperationalSnapshot | null): RawHtml {
+  if (!snapshot) return raw('');
+  const tone: Record<string, SemanticState> = {
+    OK: 'success', ATTENTION: 'warning', BLOCKED: 'destructive', UNKNOWN: 'neutral',
+  };
+  const attention = snapshot.counts.ATTENTION + snapshot.counts.BLOCKED;
+
+  return html`
+    <div class="card">
+      <div class="card-head">
+        <h2>Operations</h2>
+        <span class="muted small">${attention === 0
+          ? 'Nothing needs attention.'
+          : `${attention} thing${attention === 1 ? '' : 's'} need attention.`}</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Question</th><th>Answer</th><th>State</th><th>Why it matters</th></tr></thead>
+          <tbody>
+            ${snapshot.checks.map((check) => html`<tr>
+              <td>${check.question}</td>
+              <td><strong>${check.value}</strong></td>
+              <td>${statusPill(check.state.toLowerCase(), tone[check.state] ?? 'neutral')}</td>
+              <td class="muted small">${check.detail ?? ''}</td>
+            </tr>`)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div style="height:18px"></div>`;
+}

@@ -138,6 +138,44 @@ A task should appear in only one status section. Dependencies may be referenced 
   bootstrap that never generates or prints a private key. **Gate:** 25 static tests on the tooling.
   Applying it is still blocked on SB-B8.
 
+## 🟢 Completed — Production scale and data integrity (2026-09-05)
+
+- [x] **SB-S1 — Deterministic synthetic dataset.** 25,000 and 100,000 accounts, 1.5M
+  rows, 72 seconds, unreachable by construction. **Gate:** 16 generator tests,
+  including that a low-probability draw holds its rate in every slice — the artefact
+  that made a three-percent case vanish entirely from the first two hundred accounts.
+- [x] **SB-S2 — CRM query benchmark.** 46 cases across every page. **Gate:** PASS at
+  both scales after the fixes; before/after in the commit and in migration 025.
+- [x] **SB-S3 — Concurrency war games.** 18 tests running genuinely parallel
+  transactions. **Gate:** exactly one owner from ten simultaneous claims, ledger
+  intact, suppression wins in either commit order, and no deadlock across mixed
+  operations.
+- [x] **SB-S4 — Import and dedupe torture.** 33 cases including a 10,000-row file
+  three times. **Gate:** re-running an import creates nothing; suppression, history,
+  opportunities and confirmed meetings all survive rediscovery.
+- [x] **SB-S5 — Worker crash recovery.** 14 tests. **Gate:** no lost work, no double
+  run, poison jobs do not block the queue, a failed provider call never marks
+  research fresh.
+- [x] **SB-S6 — Analytics truth.** 15 tests against answers known by construction.
+  **Gate:** every stage counted exactly; every rate carries its numerator,
+  denominator and sample size.
+- [x] **SB-S7 — Account merge.** Implemented with a tombstone that redirects.
+  **Gate:** 14 tests; suppression, ownership, opportunities, meetings and timeline all
+  survive; no unmerge, and a test asserts none is faked.
+- [x] **SB-S8 — Search quality.** 20 tests. **Gate:** wildcards escaped, ZIP
+  searchable, a rep's own book ranked first, suppressed companies findable and marked.
+- [x] **SB-S9 — Human-rep pilot flow.** 5 tests walking the hero proof through HTTP,
+  plus a demo fixture. **Gate:** a rep can answer why this company, who to ask for,
+  what is hypothesis, what to say first, what channel is allowed, and what to do next.
+- [x] **SB-S10 — Sales Manual retrieval.** Lexical index, 1,882 chunks. **Gate:**
+  precision@1 60%, recall@5 95%, zero forbidden modules, commercial truth precedence
+  enforced in the retriever.
+- [x] **SB-S11 — Backup and restore drill.** **Gate:** PASS against the live database
+  and against 100,000 accounts, comparing nine content checksums and the invariants.
+- [x] **SB-S12 — Operations panel.** 13 tests. **Gate:** fourteen operator questions
+  answered from the tables the product already keeps; the outbound-AI line cannot
+  read OK while a live call exists.
+
 ## 🚧 Blocked — Outbound Sales Brain (needs Michael)
 
 - [ ] **SB-B1 — Azure app registration** for michael@youraidepartment.ai: tenant ID, client ID,
@@ -168,13 +206,13 @@ A task should appear in only one status section. Dependencies may be referenced 
   plus the compliance gates in CLAUDE-CURRENT-TASK.md §5. `OUTBOUND_DIAL_ENABLED` and
   `OUTBOUND_EMAIL_ENABLED` are both false and `preflight.sh` fails if either changes.
 
-## Release classification (2026-09-04)
+## Release classification (2026-09-05)
 
-`npx tsx src/bin/release-report.ts` at b4ecdeb: **HUMAN_ASSIST_ONLY** —
-10 gates PASS, 6 BLOCKED_EXTERNAL, 4 NOT_TESTED. The four untested gates all require
-a real call, which needs SB-B8 first and SB-PILOT after it. Test totals at that
-commit: sales-brain 628/628, voice-core 31/31, sales-voice 101/101; the offline
-20-class dry-run matrix is PASS and the synthetic latency benchmark is PASS.
+**HUMAN_ASSIST_ONLY** — 10 gates PASS, 6 BLOCKED_EXTERNAL, 4 NOT_TESTED. The four
+untested gates all require a real call, which needs SB-B8 first and SB-PILOT after
+it. The offline 20-class dry-run matrix is PASS, the synthetic latency benchmark is
+PASS, the 46-case CRM benchmark is PASS at 25,000 and 100,000 accounts, and the
+backup/restore drill is PASS at both scales.
 
 ## Current blockers
 

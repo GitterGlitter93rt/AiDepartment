@@ -10,7 +10,7 @@ import {
   claimAccount, claimAccounts, releaseAccount, reassignAccount, assertCanWorkAccount,
 } from '../src/domain/ownership.js';
 import { createOpportunity } from '../src/domain/opportunities.js';
-import { recordDisposition, addNote } from '../src/domain/activities.js';
+import { recordDisposition, addNote, completeFollowUp } from '../src/domain/activities.js';
 
 /**
  * Ownership under real concurrency.
@@ -387,6 +387,21 @@ test('mixed concurrent operations on one Account do not deadlock', async () => {
       }, rep)),
       attempt('research', () => query(
         `update accounts set last_researched_at = now() where account_id = $1`, [accountId])),
+      // The two paths that lock a child row: completing a follow-up and moving an
+      // opportunity. Both used to lock the child first, which put them the wrong way
+      // round against a do-not-contact -- that locks the Account and then cancels its
+      // follow-ups -- and the pair deadlocked.
+      attempt('complete follow-up', async () => {
+        const { rows } = await query<{ followup_id: number }>(
+          `insert into follow_ups (account_id, owner_user_id, followup_type, due_at, status,
+                                   context)
+           values ($1, $2, 'CALLBACK', now() + interval '1 day', 'OPEN', 'round')
+           returning followup_id`, [accountId, rep.userId]);
+        await completeFollowUp(rows[0]!.followup_id, rep);
+      }),
+      attempt('cancel follow-ups via DNC-shaped update', () => query(
+        `update follow_ups set status = 'CANCELLED'
+          where account_id = $1 and status = 'OPEN'`, [accountId])),
     ]);
   }
 

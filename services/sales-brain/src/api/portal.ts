@@ -55,6 +55,7 @@ import {
 } from '../domain/pilot.js';
 import { listIntegrations, setIntegrationEnabled, testIntegration } from '../domain/settings.js';
 import { mergeAccounts, resolveAccountId } from '../domain/merge.js';
+import { operationalSnapshot } from './operations.js';
 import { compareHookVariants, promotionReadiness } from '../analytics/hookExperiments.js';
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -357,10 +358,12 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get('/research-health', async (request, reply) => {
     const user = requireOps(request, reply);
     if (!user) return;
-    const [counts, metrics, exceptions] = await Promise.all([
+    const [counts, metrics, exceptions, operations] = await Promise.all([
       navCountsFull(user.userId, user.role), researchHealthMetrics(), researchExceptions(),
+      operationalSnapshot(),
     ]);
-    return reply.type('text/html').send(renderResearchHealthPage({ user, counts, metrics, exceptions }));
+    return reply.type('text/html').send(
+      renderResearchHealthPage({ user, counts, metrics, exceptions, operations }));
   });
 
   app.get<{ Querystring: { flash?: string; error?: string } }>('/imports', async (request, reply) => {

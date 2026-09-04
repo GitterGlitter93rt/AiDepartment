@@ -196,6 +196,16 @@ export async function transitionOpportunity(input: {
   }
 
   return withTransaction(async (client) => {
+    // Account first, then the child row. Locking the opportunity first would put
+    // this transaction the wrong way round against anything that locks the Account
+    // and then touches its opportunity, which is how a deadlock is built.
+    const { rows: located } = await client.query<{ account_id: string }>(
+      'select account_id from opportunities where opportunity_id = $1', [input.opportunityId],
+    );
+    if (!located[0]) return { ok: false, reason: 'NOT_FOUND' as const };
+    await client.query('select account_id from accounts where account_id = $1 for update',
+      [located[0].account_id]);
+
     const { rows } = await client.query<{
       stage: Stage; owner_user_id: string; account_id: string;
     }>(

@@ -1,5 +1,73 @@
 # Operational Brain Changelog
 
+## 2026-09-05 — Production scale: eleven defects between 25,000 accounts and a rep's Monday morning
+
+A scale, concurrency and data-integrity pass. Nothing deployed, no call
+placed, no prospect contacted, no credential used.
+
+Built first: a deterministic synthetic generator (25,000 and 100,000
+accounts, 1.5M rows, 72 seconds), a query benchmark over the real read
+models, and a demo fixture a person can walk. Everything generated is
+unreachable by construction -- `.invalid` domains, 555 numbers,
+SYNTHETIC_FIXTURE provenance -- and the generator refuses to run against
+a database whose name does not say it is a scale target.
+
+Defects found and fixed:
+
+- **The claim ceiling did nothing under concurrency.** Eight
+  simultaneous claims against a ceiling of three each locked a different
+  Account row, each counted zero, and all eight succeeded. Bulk claim
+  runs one transaction per Account by design, so a rep selecting two
+  hundred rows took two hundred. Fixed by locking the rep's own row.
+- **A promised callback could be left with nobody to keep it.** Release
+  counts open callbacks in its transaction; recording one happens in
+  another; and the ownership check read the Account without locking it.
+  One race in twelve through the product path left an OPEN
+  prospect-requested callback on an Account with no owner.
+- **The analytics funnel could never report a connection.**
+  contact_attempts.disposition was never written, and the funnel counts
+  connections from that column. Fifty decision-makers reached, zero
+  reported.
+- **Contactable counted companies under DNC.** Account-scope suppression
+  does not flip the endpoint rows, so a suppressed company sat at the
+  top of the funnel.
+- **A misaligned CSV row created a phantom company.** An unquoted comma
+  shifts every column; the reject gate tested presence rather than
+  usability, so all three garbage values passed and then failed
+  normalisation. The Account landed with a name and no way to reach it,
+  counted as created.
+- **Confirming an import twice ran it twice.** The import runs inline in
+  the request and a ten-thousand row list takes longer than a proxy
+  timeout, so the rep presses again; the guard only checked CONFIRMED,
+  which is set at the end.
+- **A failed import blocked its own retry**, under a unique index on the
+  file hash that a failed batch still held.
+- **A `%` searched for everything.** LIKE metacharacters were unescaped:
+  `%%` matched every Account and took ten times as long as a real term.
+- **A ZIP found nothing.** postal_code was not searched at all.
+- **The merge lock I added created a deadlock.** Completing a follow-up
+  locked the child row first while a do-not-contact locked the Account
+  first; the pair met head-on. Found by the offline dry-run matrix, not
+  by a unit test.
+- **The operations panel's "waiting on a reply" counted discovery as a
+  reply**, because any activity satisfied it.
+
+Performance, measured before and after: Find Prospects 1781 ms -> 161 ms
+at 25k and 485 -> 65 at 100k; the audit page 505 -> 20 ms; the
+Overview's recently-claimed 133 -> 3.4 ms. PostgreSQL was JIT-compiling
+every page -- 148 ms of compilation on a query that then ran in 154 --
+so JIT is off as a startup option. Six indexes, each because a measured
+query was slow, each re-measured after.
+
+Built: account merge with a tombstone that redirects, no unmerge and an
+honest reason why; a lexical index over the Sales Manual scoring
+precision@1 60% and recall@5 95% against a 21-query evaluation set; a
+backup/restore drill that compares nine content checksums rather than
+row counts; a storage projection from measurement (737 MB at 100k
+accounts); and an operations panel answering the fourteen questions an
+operator has on a Monday morning.
+
+
 ## 2026-09-04 — Release hardening: eight defects found in finished code
 
 An adversarial pass over work that already had passing tests. Nothing was deployed,
