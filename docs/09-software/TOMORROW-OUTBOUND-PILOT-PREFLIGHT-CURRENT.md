@@ -72,10 +72,16 @@ Before implementation changes:
 
 Read:
 
+- `CLAUDE-CURRENT-TASK.md`
 - `CLAUDE-SALES-AI-PILOT-CURRENT.md`
 - `CLAUDE-DNC-RELEASE-ADDENDUM.md`
 - `outbound-sales-brain-phone-screening-provider-interface-spec.md`
+- `outbound-sales-brain-dnc-provider-selection-current.md`
+- `outbound-sales-brain-dnc-provider-benchmark-plan.md`
+- `outbound-sales-brain-ftc-dnc-ingestion-contract.v1.yaml`
 - `outbound-sales-brain-human-manual-call-v1-spec.md`
+- `outbound-sales-brain-tomorrow-hvac-pilot-gold-fixtures.v1.yaml`
+- `CLAUDE-TOMORROW-RELEASE-REPORT-TEMPLATE.md`
 
 ---
 
@@ -104,6 +110,12 @@ Hard fail:
 - stale ad claim represented as current;
 - guessed decision-maker/contact presented as confirmed.
 
+Before real data, run:
+
+`outbound-sales-brain-tomorrow-hvac-pilot-gold-fixtures.v1.yaml`
+
+as an end-to-end fictional regression pack.
+
 ---
 
 # 5. GATE 2 — CONTACT ROUTING
@@ -119,6 +131,15 @@ For pilot candidates, prefer strongest available path:
 Do not require Apollo if public routing is adequate.
 
 Do not fabricate direct numbers or guessed emails.
+
+The portal must distinguish:
+
+- direct business line;
+- company main line — ask for named person;
+- company main line — ask for target role;
+- generic company/location line;
+- phone research needed;
+- phone blocked/review.
 
 ---
 
@@ -158,6 +179,61 @@ Hard fail:
 
 If required external registry credentials/access are not available, report the exact blocker. Do not invent a successful screen.
 
+## 3A — provider source decision
+
+Use:
+
+- `outbound-sales-brain-dnc-provider-selection-current.md`
+- `outbound-sales-brain-dnc-provider-benchmark-plan.md`
+
+Claude must inspect whether YAD already has:
+
+- valid FTC Registry organization/SAN access;
+- subscribed pilot area codes;
+- Full/Change List access;
+- commercial DNC/compliance provider credentials.
+
+Then classify the screening path as one of:
+
+- DIRECT_FTC
+- COMMERCIAL_PROVIDER
+- HYBRID
+- NOT_READY
+
+Do not select from sales copy alone. Verify actual technical/credential readiness.
+
+## 3B — direct FTC path if available
+
+If direct FTC is selected, implement/test:
+
+`outbound-sales-brain-ftc-dnc-ingestion-contract.v1.yaml`
+
+At minimum prove:
+
+- protected Full List bootstrap;
+- idempotent Change List application;
+- snapshot freshness/age monitoring;
+- malformed/failed sync preserves last-known-good snapshot;
+- area-code scope miss does not become false no-match;
+- old backup does not resurrect an apparently-current screen;
+- internal YAD DNC remains higher priority;
+- National Registry no-match does not independently authorize AI voice.
+
+## 3C — commercial provider path if selected
+
+Benchmark actual production endpoint semantics for:
+
+- source/contract confidence;
+- applicable federal/state coverage;
+- timestamp/freshness;
+- latency;
+- error/timeout/rate-limit behavior;
+- audit/reference ID;
+- data/retention constraints;
+- current pricing/onboarding where available.
+
+If required screen is unavailable/unverified, `AUTONOMOUS_AI_VOICE` cannot become ALLOW merely because Twilio is technically reachable.
+
 ---
 
 # 7. GATE 4 — HUMAN MANUAL CALL PATH
@@ -177,6 +253,15 @@ Claim Account
 ```
 
 This is the fallback commercial path and must not be blocked by AI voice work.
+
+Acceptance includes:
+
+- no `tel:` action before current server ALLOW;
+- rep personal phone number not required in canonical prospect schema;
+- opening Phone app does not invent a connected/no-answer result;
+- unresolved attempt can be completed later;
+- DNC disposition propagates immediately to affected phone channels;
+- wrong-number disposition disables endpoint, not Account.
 
 ---
 
@@ -201,7 +286,7 @@ AI candidate needs immutable runtime Call Pack containing only what the realtime
 - eligibility decision ID/version
 - booking config/version.
 
-Do not feed raw crawler pages or provider payloads into realtime turn generation.
+Do not feed raw crawler pages, raw DNC data, or provider payloads into realtime turn generation.
 
 ---
 
@@ -215,14 +300,22 @@ Current primary HVAC release candidates remain:
 
 Before live prospect use:
 
-- run roleplay fixtures;
-- run hook backtest fixtures;
+- run `outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`;
+- run `outbound-sales-brain-hook-backtest-fixtures.v1.yaml`;
+- run `outbound-sales-brain-sales-ai-first-60-seconds-fixtures.v1.yaml`;
+- run `outbound-sales-brain-tomorrow-hvac-pilot-gold-fixtures.v1.yaml` through all applicable downstream logic;
 - verify selected hook can be supported by current Call Pack;
 - reject generic AI-product pitch as default opener;
 - reject unsupported spend/loss claims;
 - reject creepy over-researched wording.
 
 The first goal is to get the prospect answering a useful process question quickly.
+
+First-minute release behavior:
+
+`identity -> honest cold context -> one claim-safe reason -> one process question -> listen -> one intelligent follow-up`.
+
+By the first few substantive turns, the system should normally have a useful process fact, correct route, legitimate objection/next step, no-need result, wrong-number correction, or DNC.
 
 ---
 
@@ -248,6 +341,7 @@ Hard fail:
 - recurring 3–5 second dead air;
 - agent continues talking over prospect;
 - stale answer plays after interruption;
+- full opener restarts after interruption;
 - demo content leaks into sales call;
 - outbound crash affects inbound demo/receptionist.
 
@@ -259,18 +353,23 @@ Run actual outbound voice configuration against approved participants for at lea
 
 1. owner answers normally;
 2. prospect interrupts opener;
-3. `who is this?`;
-4. `are you AI?`;
-5. gatekeeper;
-6. busy / call later;
-7. send me an email;
-8. already has system / no need;
-9. strategy call accepted;
-10. booking failure;
-11. wrong number;
-12. do not call;
-13. silence / voicemail behavior as implemented;
-14. multiple rapid interruptions.
+3. repeated interruption;
+4. `who is this?`;
+5. `why are you calling?`;
+6. `are you AI?`;
+7. AI-curious prospect;
+8. gatekeeper;
+9. busy / call later;
+10. send me an email;
+11. answering service already exists;
+12. receptionist already exists;
+13. CRM already exists;
+14. strong system / no need;
+15. strategy call accepted;
+16. booking failure;
+17. wrong number;
+18. do not call;
+19. silence / voicemail behavior as implemented.
 
 Every DNC/wrong-number result must persist to canonical state.
 
@@ -299,7 +398,8 @@ Test:
 - invite appears on Michael's calendar through Cal.com integration;
 - attendee receives expected invite/notification;
 - booking failure creates alternate next step, not false confirmation;
-- booked Account exits generic cold outreach.
+- booked Account exits generic cold outreach;
+- StrategyCallPrepBrief generated from actual conversation/context.
 
 Do not create a second duplicate Outlook event when Cal.com owns calendar creation.
 
@@ -337,6 +437,7 @@ After every test/pilot call persist:
 - hook version;
 - Call Pack version;
 - policy decision/version;
+- phone eligibility/screening references where applicable;
 - start/end;
 - disposition;
 - useful process facts;
@@ -357,13 +458,14 @@ For first real pilot, require:
 
 - exact visible candidate cohort;
 - account/contact/hook preview;
-- current eligibility status;
+- current AI eligibility status;
 - concurrency = 1;
 - `Start Next Call`;
 - `Pause After Current`;
 - `STOP NEW OUTBOUND CALLS`;
 - active call status;
 - completed call review;
+- immutable version snapshot;
 - no hidden background dialing.
 
 Do not start with a 100-number unattended batch.
@@ -386,6 +488,8 @@ Prefer:
 - current AI ALLOW decision.
 
 Do not mix law, roofing, collision, real estate and HVAC into the first handful of calls.
+
+Before selecting real Accounts, all applicable fictional gold fixtures must pass.
 
 ---
 
@@ -426,9 +530,11 @@ Immediately pause new AI prospect calls for:
 - false booking confirmation;
 - repeated severe latency;
 - repeated barge-in failure;
+- stale replay after interruption;
 - demo context leak;
 - eligibility/policy bypass;
-- unexplained screening failure;
+- required screening error treated as allow/no-match;
+- Twilio request without current AI ALLOW decision;
 - repeated argumentative loop.
 
 Do not continue dialing simply to collect more examples after a severe control failure.
@@ -437,56 +543,35 @@ Do not continue dialing simply to collect more examples after a severe control f
 
 # 19. TOMORROW MORNING STATUS REPORT
 
-Claude should return one concise release report:
+Use:
 
-## Infrastructure
+`CLAUDE-TOMORROW-RELEASE-REPORT-TEMPLATE.md`
 
-- Sales Portal URL/status
-- voice service status
-- DB/queue status
-- Twilio mode separation
+as the required reporting format.
 
-## Prospect Factory
-
-- usable Jacksonville/St. Augustine HVAC inventory count
-- contact route fill
-- decision-maker/public vs paid enrichment breakdown if available
-
-## Human Assist
-
-- manual call preflight status
-- claim/disposition/callback/DNC status
-
-## AI Sales
-
-- runtime Call Pack status
-- selected hook/default
-- roleplay/backtest results
-- voice latency/barge-in results
-
-## Compliance/phone eligibility
-
-- screening provider/access status
-- human eligibility implemented?
-- AI eligibility implemented?
-- DNC durability tests
-
-## Booking
-
-- Cal.com/Outlook integration test
-- same-day booking behavior
-
-## Release classification
-
-Exactly one:
+The first line/section must make the release classification unambiguous:
 
 - `REAL_AI_PILOT_ELIGIBLE`
 - `INTERNAL_AI_TEST_ONLY`
 - `HUMAN_ASSIST_ONLY`
 
-## Blockers
+The report must include actual evidence/results for:
 
-Exact blockers and next action.
+- infrastructure;
+- Sales Portal;
+- prospect inventory;
+- Market Miner/research;
+- Human Assist/manual cell path;
+- DNC/provider screening;
+- Sales AI first 60 seconds;
+- realtime voice/latency/barge-in;
+- Cal.com/Outlook booking;
+- pilot control plane;
+- all HVAC gold fixtures;
+- unresolved stop conditions;
+- exact next action.
+
+Do not report `mostly ready` without choosing one of the three release states.
 
 ---
 
