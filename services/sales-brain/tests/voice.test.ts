@@ -282,3 +282,58 @@ test('a call cannot start without a researched Call Pack', async () => {
     /No Call Pack|not started/i,
     'without a researched basis the agent has nothing truthful to open with');
 });
+
+// ------------------------------------------- the relay producer adapter ------
+
+import { createSalesRelayProducer } from '../src/voice/relayProducer.js';
+
+test('the relay producer speaks the opener once and answers each turn', async () => {
+  setCalendarAdapter(calendar());
+  const { accountId } = await endpointFor('904-555-0142');
+  const voiceCallId = await liveCall(accountId);
+
+  const producer = await createSalesRelayProducer({ voiceCallId, accountId });
+  const opening = await producer.opening();
+  assert.match(opening, /Your AI Department/);
+  assert.match(opening, /cold call/, 'the call is disclosed as cold in the opener');
+
+  const controller = new AbortController();
+  const turn = await producer.respond('We miss calls when the crews are out.', controller.signal);
+  assert.ok(turn.say.length > 0);
+  assert.equal(turn.terminal, false);
+});
+
+test('a turn abandoned mid-production is never returned to be spoken', async () => {
+  setCalendarAdapter(calendar());
+  const { accountId } = await endpointFor('904-555-0142');
+  const voiceCallId = await liveCall(accountId);
+  const producer = await createSalesRelayProducer({ voiceCallId, accountId });
+
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    () => producer.respond('Go on then.', controller.signal),
+    /aborted/,
+    'the caller moved on; speaking this would be talking over them');
+});
+
+test('a call that ends twice keeps the outcome the conversation reached', async () => {
+  setCalendarAdapter(calendar());
+  const { accountId } = await endpointFor('904-555-0142');
+  const voiceCallId = await liveCall(accountId);
+  const producer = await createSalesRelayProducer({ voiceCallId, accountId });
+
+  await producer.respond('Take us off your list.', new AbortController().signal);
+  await producer.finish('completed');
+  await producer.finish('caller_hung_up');
+
+  const { rows } = await pool.query(
+    `select outcome from voice_calls where voice_call_id = $1`, [voiceCallId]);
+  assert.equal(rows[0]!.outcome, 'DNC',
+    'a hang-up after the call ended must not overwrite what happened on it');
+
+  const events = await pool.query(
+    `select count(*)::int as n from voice_call_events
+      where voice_call_id = $1 and label like 'Caller hung up%'`, [voiceCallId]);
+  assert.equal(events.rows[0]!.n, 0, 'and must not record a second ending');
+});
