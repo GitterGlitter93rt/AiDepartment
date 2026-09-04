@@ -31,13 +31,24 @@ The immediate objective is a controlled release candidate for 2026-09-04.
 
 Read these release-validation files **before** deciding the Sales AI is pilot-ready:
 
-1. `outbound-sales-brain-hook-backtest-framework.md`
-2. `outbound-sales-brain-hook-backtest-fixtures.v1.yaml`
-3. `outbound-sales-brain-hook-backtest-report-v1.md`
-4. `outbound-sales-brain-sales-ai-pilot-experiment-contract.v1.yaml`
-5. `outbound-sales-brain-tomorrow-release-candidate-plan.md`
+1. `TOMORROW-OUTBOUND-PILOT-PREFLIGHT-CURRENT.md`
+2. `CLAUDE-DNC-RELEASE-ADDENDUM.md`
+3. `outbound-sales-brain-hook-backtest-framework.md`
+4. `outbound-sales-brain-hook-backtest-fixtures.v1.yaml`
+5. `outbound-sales-brain-hook-backtest-report-v1.md`
+6. `outbound-sales-brain-sales-ai-first-60-seconds-fixtures.v1.yaml`
+7. `outbound-sales-brain-sales-ai-pilot-experiment-contract.v1.yaml`
+8. `outbound-sales-brain-tomorrow-release-candidate-plan.md`
 
 The first release goal is not high-volume autonomous dialing. It is proving the complete controlled chain from researched Account through natural conversation and correct next-step action.
+
+At the end of testing, report exactly one release classification:
+
+- `REAL_AI_PILOT_ELIGIBLE`
+- `INTERNAL_AI_TEST_ONLY`
+- `HUMAN_ASSIST_ONLY`
+
+Do not use ambiguous language such as `mostly ready`.
 
 ---
 
@@ -66,21 +77,63 @@ The core sales personality/process stays shared.
 # 4. READ ORDER — SALES CONVERSATION
 
 1. `outbound-sales-brain-yad-sales-ai-core-script-v1.md`
-2. `outbound-sales-brain-sales-ai-opener-selector-spec.md`
-3. `outbound-sales-brain-sales-ai-response-cards.v1.yaml`
-4. `outbound-sales-brain-yad-sales-ai-dialogue-policy.v1.yaml`
-5. `outbound-sales-brain-strategy-call-qualification-gate-spec.md`
-6. `outbound-sales-brain-sales-ai-next-step-ladder-spec.md`
-7. `outbound-sales-brain-sales-ai-gold-dialogues-v1.md`
-8. `outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
-9. `outbound-sales-brain-agent-persona-style-spec.md`
-10. `outbound-sales-brain-conversation-state-machine.md`
-11. `outbound-sales-brain-priority-intent-detector-spec.md`
-12. Sales Manual Modules 04A, 05 and 07.
+2. `outbound-sales-brain-sales-ai-first-60-seconds-playbook.md`
+3. `outbound-sales-brain-sales-ai-opener-selector-spec.md`
+4. `outbound-sales-brain-sales-ai-response-cards.v1.yaml`
+5. `outbound-sales-brain-yad-sales-ai-dialogue-policy.v1.yaml`
+6. `outbound-sales-brain-strategy-call-qualification-gate-spec.md`
+7. `outbound-sales-brain-sales-ai-next-step-ladder-spec.md`
+8. `outbound-sales-brain-sales-ai-gold-dialogues-v1.md`
+9. `outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`
+10. `outbound-sales-brain-sales-ai-first-60-seconds-fixtures.v1.yaml`
+11. `outbound-sales-brain-agent-persona-style-spec.md`
+12. `outbound-sales-brain-conversation-state-machine.md`
+13. `outbound-sales-brain-priority-intent-detector-spec.md`
+14. Sales Manual Modules 04A, 05 and 07.
 
 ---
 
-# 5. CURRENT HOOK RELEASE CANDIDATES
+# 5. FIRST 60 SECONDS — RELEASE BEHAVIOR
+
+The first minute is not a product pitch.
+
+Target:
+
+```text
+identity
+-> honest cold context
+-> one claim-safe reason
+-> one process question
+-> listen
+-> one intelligent follow-up
+-> route / continue / stop
+```
+
+By approximately the first three substantive AI turns, the conversation should normally produce at least one of:
+
+- useful process fact;
+- correct decision-maker route;
+- requested callback/email;
+- legitimate objection;
+- clear no-need/no-interest;
+- DNC/wrong-number correction.
+
+Hard first-minute failures include:
+
+- feature dump before first useful fact;
+- meeting ask before relevance;
+- stacked opening questions;
+- repeated opener after interruption;
+- more than one save attempt after busy/not-interested;
+- gatekeeper manipulation;
+- stale current-ad statement;
+- DNC delayed while selling continues.
+
+Use `outbound-sales-brain-sales-ai-first-60-seconds-playbook.md` as current behavior authority.
+
+---
+
+# 6. CURRENT HOOK RELEASE CANDIDATES
 
 Offline design review currently ranks:
 
@@ -127,7 +180,7 @@ These offline scores are design heuristics, **not conversion predictions**.
 
 ---
 
-# 6. READ ORDER — RUNTIME DATA / PROMPT
+# 7. READ ORDER — RUNTIME DATA / PROMPT
 
 1. `outbound-sales-brain-sales-ai-runtime-callpack-contract.v1.yaml`
 2. `outbound-sales-brain-sales-ai-working-memory-contract.v1.yaml`
@@ -142,7 +195,7 @@ Never feed raw crawler/provider payloads or the whole Sales Manual per turn.
 
 ---
 
-# 7. READ ORDER — BOOKING / MICHAEL HANDOFF
+# 8. READ ORDER — BOOKING / MICHAEL HANDOFF
 
 1. `outbound-sales-brain-calcom-strategy-call-booking-spec.md`
 2. `outbound-sales-brain-strategy-call-prep-brief-spec.md`
@@ -160,7 +213,33 @@ Do not create duplicate direct Outlook events when Cal.com owns the booking.
 
 ---
 
-# 8. READ ORDER — VOICE / PILOT
+# 9. READ ORDER — PHONE ELIGIBILITY / COMPLIANCE
+
+1. `CLAUDE-DNC-RELEASE-ADDENDUM.md`
+2. `outbound-sales-brain-global-phone-channel-eligibility-dnc-spec.md`
+3. `outbound-sales-brain-phone-screening-provider-interface-spec.md`
+4. `outbound-sales-brain-phone-channel-eligibility-fixtures.v1.yaml`
+5. `outbound-sales-brain-human-manual-call-v1-spec.md`
+6. `outbound-sales-brain-compliance-engine-spec.md`
+7. `outbound-sales-brain-contact-endpoint-quality-spec.md`
+8. `outbound-sales-brain-multichannel-coordination-spec.md`
+
+Required conceptual distinction:
+
+```text
+HUMAN_MANUAL_CALL = ALLOW | BLOCK | REVIEW_REQUIRED
+AUTONOMOUS_AI_VOICE = ALLOW | BLOCK | REVIEW_REQUIRED
+```
+
+Do not use one generic `CALL_READY` boolean as authorization.
+
+Twilio receives only current AI-ALLOWed attempts.
+
+A rep's personal cell is only transport for a human-ALLOWed manual call; it is not a bypass.
+
+---
+
+# 10. READ ORDER — VOICE / PILOT
 
 1. `outbound-sales-brain-demo-production-voice-mode-spec.md`
 2. `outbound-sales-brain-realtime-voice-policy.md`
@@ -169,7 +248,8 @@ Do not create duplicate direct Outlook events when Cal.com owns the booking.
 5. `outbound-sales-brain-ai-cold-call-pilot-scorecard.md`
 6. `outbound-sales-brain-sales-ai-conversation-optimization-spec.md`
 7. `outbound-sales-brain-sales-ai-pilot-experiment-contract.v1.yaml`
-8. `outbound-sales-brain-tomorrow-release-candidate-plan.md`
+8. `TOMORROW-OUTBOUND-PILOT-PREFLIGHT-CURRENT.md`
+9. `outbound-sales-brain-tomorrow-release-candidate-plan.md`
 
 Same approved Twilio number can support:
 
@@ -181,7 +261,7 @@ Processes/session namespaces/config remain separate.
 
 ---
 
-# 9. IMPLEMENTATION TARGET
+# 11. IMPLEMENTATION TARGET
 
 Build a stateful system:
 
@@ -202,7 +282,7 @@ Do not implement one giant static script prompt.
 
 ---
 
-# 10. REQUIRED PILOT STATES
+# 12. REQUIRED PILOT STATES
 
 At minimum:
 
@@ -231,7 +311,7 @@ Priority interrupts override ordinary selling:
 
 ---
 
-# 11. STRATEGY CALL READINESS
+# 13. STRATEGY CALL READINESS
 
 Explicit results:
 
@@ -248,7 +328,7 @@ No-sale is a valid success.
 
 ---
 
-# 12. NEXT-STEP LADDER
+# 14. NEXT-STEP LADDER
 
 When appropriate:
 
@@ -266,7 +346,7 @@ Assessment URL/config comes from current funnel authority, not stale hard-coded 
 
 ---
 
-# 13. RECEPTIONIST / DEMO RUNTIME REUSE
+# 15. RECEPTIONIST / DEMO RUNTIME REUSE
 
 Audit the actually deployed demo/receptionist runtime before rebuilding transport.
 
@@ -288,14 +368,15 @@ Outbound Sales AI is a separate service/process from production inbound receptio
 
 ---
 
-# 14. OFFLINE BACKTEST BEFORE VOICE
+# 16. OFFLINE BACKTEST BEFORE VOICE
 
-Build/run simulation against BOTH:
+Build/run simulation against ALL THREE:
 
 - `outbound-sales-brain-yad-sales-ai-roleplay-fixtures.v1.yaml`;
-- `outbound-sales-brain-hook-backtest-fixtures.v1.yaml`.
+- `outbound-sales-brain-hook-backtest-fixtures.v1.yaml`;
+- `outbound-sales-brain-sales-ai-first-60-seconds-fixtures.v1.yaml`.
 
-For hook tests capture:
+For hook/first-minute tests capture:
 
 - hook version;
 - persona;
@@ -304,6 +385,8 @@ For hook tests capture:
 - objection generated;
 - unsupported/creepy wording;
 - natural transition to discovery;
+- interruption handling;
+- repetition;
 - readiness decision;
 - hard fail.
 
@@ -313,17 +396,23 @@ Do not interpret offline simulations as real conversion evidence.
 
 ---
 
-# 15. INTERNAL / ALLOWLISTED VOICE GATE
+# 17. INTERNAL / ALLOWLISTED VOICE GATE
 
 Before a real prospect hears the release candidate, run actual production outbound voice configuration against internal/allowlisted participants for at least:
 
 - normal owner;
 - opener interruption;
+- repeated interruption;
 - `who is this?`;
+- `why are you calling?`;
 - `are you AI?`;
+- AI-curious prospect;
 - gatekeeper;
 - busy;
 - send email;
+- existing answering service;
+- existing receptionist;
+- existing CRM;
 - strong system/no sale;
 - Cal.com booking;
 - booking failure;
@@ -336,6 +425,7 @@ Required:
 - short natural turns;
 - immediate barge-in;
 - no stale replay;
+- no full-opener restart after interruption;
 - natural number/email/time speech;
 - correct fact boundaries;
 - durable DNC;
@@ -343,12 +433,13 @@ Required:
 
 ---
 
-# 16. PILOT CONTROL PLANE
+# 18. PILOT CONTROL PLANE
 
 Initial controlled pilot:
 
 - exact Account selection;
 - Call Pack/hook preview;
+- current phone eligibility decision preview;
 - deterministic pre-flight;
 - concurrency = 1 initially;
 - Start Next Call;
@@ -361,7 +452,7 @@ No unattended high-volume launch.
 
 ---
 
-# 17. EXPERIMENT VERSIONING
+# 19. EXPERIMENT VERSIONING
 
 Every call persists the fields in:
 
@@ -371,6 +462,7 @@ At minimum version-stamp:
 
 - hook;
 - core script;
+- first-60-second behavior version;
 - dialogue policy;
 - response cards;
 - prompt composer;
@@ -380,7 +472,8 @@ At minimum version-stamp:
 - Call Pack/research snapshot;
 - vertical profile;
 - booking config;
-- compliance policy.
+- compliance policy;
+- phone eligibility decision/screening references.
 
 Never hot-edit the live prompt/hook mid-call.
 
@@ -388,9 +481,9 @@ Preserve failures, not just booked meetings.
 
 ---
 
-# 18. LIVE HOOK TEST ORDER
+# 20. LIVE HOOK TEST ORDER
 
-After internal voice passes:
+After internal voice passes and exact endpoints are AI-ALLOWed:
 
 1. HVAC `HVAC_AH_A1`;
 2. HVAC `HVAC_OVERFLOW_A2` on comparable prospect quality;
@@ -404,7 +497,7 @@ Do not use deceptive/weak negative controls on real prospects.
 
 ---
 
-# 19. LIVE REVIEW METRICS
+# 21. LIVE REVIEW METRICS
 
 Per hook/version track:
 
@@ -428,17 +521,20 @@ Do not optimize booking rate without meeting quality.
 
 ---
 
-# 20. RELEASE STOP CONDITIONS
+# 22. RELEASE STOP CONDITIONS
 
 Stop/pause new outbound calls for:
 
 - repeated severe latency/dead air;
 - repeated barge-in failure;
+- stale audio/replayed opener after interruption;
 - wrong Account/Call Pack;
 - stale/unsupported ad statement;
 - invented spend/results/CRM/workflow;
 - DNC failure;
 - wrong-number reuse;
+- registry/screening error treated as allow;
+- Twilio call without current AI ALLOW decision;
 - repeated argument/rebuttal loop;
 - false booking confirmation;
 - demo context in production;
@@ -448,7 +544,30 @@ One severe truth/DNC/policy failure can stop the pilot immediately.
 
 ---
 
-# 21. POST-CALL / MICHAEL HANDOFF
+# 23. HUMAN ASSIST FALLBACK
+
+If the release classification is not `REAL_AI_PILOT_ELIGIBLE`, do not waste the day.
+
+Human Assist should still support:
+
+```text
+Search market
+-> Claim Account
+-> Open Account
+-> HUMAN_MANUAL_CALL preflight
+-> create ContactAttempt
+-> open rep device dialer
+-> disposition/callback/email/DNC
+-> canonical timeline
+```
+
+Use `outbound-sales-brain-human-manual-call-v1-spec.md`.
+
+The rep's phone is transport only. YAD remains the system of record.
+
+---
+
+# 24. POST-CALL / MICHAEL HANDOFF
 
 Every booked strategy call generates `StrategyCallPrepBrief`:
 
@@ -470,7 +589,7 @@ Target Michael prep time: under 60 seconds.
 
 ---
 
-# 22. QA / OPTIMIZATION
+# 25. QA / OPTIMIZATION
 
 Use the pilot scorecard and conversation optimization spec.
 
@@ -479,6 +598,7 @@ Classify actual root cause:
 - prospect fit;
 - contact data;
 - hook;
+- first-60-second behavior;
 - research/Call Pack;
 - dialogue/state;
 - objection;
@@ -488,6 +608,7 @@ Classify actual root cause:
 - TTS;
 - latency;
 - telephony;
+- phone eligibility/screening;
 - booking;
 - compliance/policy.
 
@@ -497,7 +618,7 @@ Keep last-known-good rollback package.
 
 ---
 
-# 23. HARD CONSTRAINTS
+# 26. HARD CONSTRAINTS
 
 Do not:
 
@@ -511,6 +632,8 @@ Do not:
 - let outbound crash inbound;
 - run Market Miner in realtime voice process;
 - use real prospects as implementation smoke tests;
+- bypass channel eligibility because a rep owns the Account;
+- treat a rep's cell phone as a compliance workaround;
 - re-enable automatic GitHub Actions;
 - merge `main`;
 - force-push over architecture work;
@@ -518,7 +641,7 @@ Do not:
 
 ---
 
-# 24. IMPLEMENTATION CHECKPOINT
+# 27. IMPLEMENTATION CHECKPOINT
 
 Report:
 
@@ -528,20 +651,27 @@ Report:
 4. runtime Call Pack;
 5. working memory;
 6. opener/hook selector;
-7. state machine;
-8. response-card/RAG composition;
-9. roleplay fixture results;
-10. hook backtest fixture results;
-11. negative-control comparison;
-12. Cal.com status;
-13. pilot control plane;
-14. voice/latency results;
-15. experiment version stamping;
-16. blockers;
-17. exact next controlled-release step.
+7. first-60-second behavior implementation;
+8. state machine;
+9. response-card/RAG composition;
+10. roleplay fixture results;
+11. hook backtest fixture results;
+12. first-60-second fixture results;
+13. negative-control comparison;
+14. phone screening/provider status;
+15. human vs AI eligibility status;
+16. manual rep-cell preflight status;
+17. DNC durability results;
+18. Cal.com status;
+19. pilot control plane;
+20. voice/latency/barge-in results;
+21. experiment version stamping;
+22. blockers;
+23. exact release classification;
+24. exact next controlled-release step.
 
 ---
 
-# 25. SUCCESS CONDITION
+# 28. SUCCESS CONDITION
 
-**One YAD Sales AI can call a researched prospect, choose the shortest truthful relevant hook, react to the prospect rather than reciting a script, extract a useful process fact quickly, correctly decide whether a 15-minute strategy call is warranted, execute the right next-step tool, and leave a fully versioned record that lets YAD improve the next batch scientifically instead of guessing.**
+**One YAD Sales AI can call an actually eligible researched prospect, choose the shortest truthful relevant hook, survive interruptions without restarting, extract a useful process fact quickly, correctly decide whether a 15-minute strategy call is warranted, execute the right next-step tool, and leave a fully versioned record that lets YAD improve the next batch scientifically instead of guessing. When AI eligibility is not available, the same Prospect Factory still lets human reps work eligible Accounts through a controlled manual-call workflow.**
