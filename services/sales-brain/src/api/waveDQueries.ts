@@ -363,6 +363,7 @@ export interface SearchHit {
   state: string | null;
   ownerName: string | null;
   isSuppressed: boolean;
+  relationshipState: string | null;
   matchedOn: string;
   matchedValue: string;
 }
@@ -377,44 +378,63 @@ export interface SearchHit {
 export async function globalSearch(term: string, limit = 25): Promise<SearchHit[]> {
   const trimmed = term.trim();
   if (trimmed.length < 2) return [];
-  const like = `%${trimmed.toLowerCase()}%`;
-  // Digits only, so "(904) 555-0142" finds a number stored as +19045550142.
+  const lower = trimmed.toLowerCase();
+  const like = `%${lower}%`;
+  const prefix = `${lower}%`;
+  // Digits only, so "(904) 555-0142" finds a number stored as +19045550142. Seven
+  // digits is the shortest that identifies a line rather than an area code.
   const digits = trimmed.replace(/\D+/g, '');
+  const phoneSearch = digits.length >= 7 ? digits : '';
 
   const { rows } = await query<any>(
     `with hits as (
-       select a.account_id, 'Company' as matched_on, a.canonical_name as matched_value
-         from accounts a where lower(a.canonical_name) like $1
+       select a.account_id, 'Company' as matched_on, a.canonical_name as matched_value,
+              case when lower(a.canonical_name) = $1 then 0
+                   when lower(a.canonical_name) like $4 then 1
+                   else 3 end as rank
+         from accounts a where lower(a.canonical_name) like $2
        union all
-       select d.account_id, 'Website', d.hostname
-         from account_domains d where lower(d.hostname) like $1
+       select d.account_id, 'Website', d.hostname,
+              case when lower(d.hostname) = $1 then 0
+                   when lower(d.hostname) like $4 then 2 else 4 end
+         from account_domains d where lower(d.hostname) like $2
        union all
-       select c.account_id, 'Person', c.full_name
-         from contacts c where lower(c.full_name) like $1
+       select c.account_id, 'Person', c.full_name,
+              case when lower(c.full_name) = $1 then 0
+                   when lower(c.full_name) like $4 then 1 else 3 end
+         from contacts c where lower(c.full_name) like $2
        union all
-       select e.account_id, 'Phone', e.display_value
+       select e.account_id, 'Phone', e.display_value, 0
          from contact_endpoints e
         where e.endpoint_type = 'PHONE' and $3 <> ''
           and regexp_replace(e.normalized_value, '\\D', '', 'g') like '%' || $3 || '%'
        union all
-       select e.account_id, 'Email', e.display_value
+       select e.account_id, 'Email', e.display_value,
+              case when lower(e.normalized_value) = $1 then 0 else 2 end
          from contact_endpoints e
-        where e.endpoint_type = 'EMAIL' and lower(e.normalized_value) like $1
+        where e.endpoint_type = 'EMAIL' and lower(e.normalized_value) like $2
        union all
-       select l.account_id, 'City', l.city
-         from locations l where lower(l.city) like $1
+       select l.account_id, 'City', l.city, 5
+         from locations l where lower(l.city) like $2
+     ),
+     best as (
+       select distinct on (h.account_id)
+              h.account_id, h.matched_on, h.matched_value, h.rank
+         from hits h
+        order by h.account_id, h.rank, h.matched_on
      )
-     select distinct on (h.account_id)
-            h.account_id, h.matched_on, h.matched_value,
+     select b.account_id, b.matched_on, b.matched_value, b.rank,
             a.canonical_name as company_name, a.is_suppressed,
-            l.city, l.state_region as state, u.display_name as owner_name
-       from hits h
-       join accounts a on a.account_id = h.account_id
-       left join locations l on l.account_id = a.account_id
+            a.relationship_state, l.city, l.state_region as state,
+            u.display_name as owner_name
+       from best b
+       join accounts a on a.account_id = b.account_id
+       left join locations l on l.account_id = a.account_id and l.is_headquarters
        left join users u on u.user_id = a.current_owner_user_id
-      order by h.account_id, h.matched_on
-      limit $2`,
-    [like, limit, digits],
+      -- Best match first, then the ones a rep can actually act on.
+      order by b.rank, a.is_suppressed, a.canonical_name
+      limit $5`,
+    [lower, like, phoneSearch, prefix, limit],
   );
 
   return rows.map((row) => ({
@@ -424,6 +444,7 @@ export async function globalSearch(term: string, limit = 25): Promise<SearchHit[
     state: row.state,
     ownerName: row.owner_name,
     isSuppressed: row.is_suppressed,
+    relationshipState: row.relationship_state,
     matchedOn: row.matched_on,
     matchedValue: row.matched_value,
   }));

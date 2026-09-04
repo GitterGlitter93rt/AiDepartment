@@ -545,6 +545,59 @@ test('search finds nothing it has not researched, and says so', async () => {
     'the empty state must not imply the company simply does not exist');
 });
 
+test('search ranks an exact company name above an incidental match', async () => {
+  const f = await fixture();
+  await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Palmetto', website: 'https://palmetto-exact.example.com',
+    phone: '904-555-0143', city: 'Jacksonville', state: 'FL', postalCode: '32256',
+  }, { discoverySource: 'test' }));
+
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  const exactAt = page.body.indexOf('>Palmetto<');
+  const partialAt = page.body.indexOf('Palmetto Plumbing');
+  assert.ok(exactAt > -1 && partialAt > -1, 'both accounts are found');
+  assert.ok(exactAt < partialAt, 'the exact name comes first');
+});
+
+test('a short digit string is not treated as a phone number', async () => {
+  const f = await fixture();
+  // "904" is an area code, not a line. Matching it against every number in the book
+  // would bury the result a rep actually wants.
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=904', headers: { cookie: f.rep } });
+  assert.equal(/Phone: /.test(page.body), false,
+    'three digits do not identify a line');
+});
+
+test('search shows the relationship so a rep sees an account already in play', async () => {
+  const f = await fixture();
+  await pool.query(
+    `update accounts set relationship_state = 'MEETING_SCHEDULED' where account_id = $1`,
+    [f.accountId]);
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  assert.match(page.body, /Meeting scheduled/i);
+});
+
+test('a suppressed account sorts below one that can be worked', async () => {
+  const f = await fixture();
+  const { accountId: workable } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Palmetto Roofing', website: 'https://palmetto-roofing.example.com',
+    phone: '904-555-0144', city: 'Jacksonville', state: 'FL', postalCode: '32256',
+  }, { discoverySource: 'test' }));
+  await pool.query(`update accounts set is_suppressed = true where account_id = $1`, [f.accountId]);
+
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  const workableAt = page.body.indexOf('Palmetto Roofing');
+  const suppressedAt = page.body.indexOf('Palmetto Plumbing');
+  assert.ok(workableAt > -1 && suppressedAt > -1);
+  assert.ok(workableAt < suppressedAt,
+    'a rep sees what they can work before what they cannot');
+  assert.ok(workable);
+});
+
 test('an anonymous caller cannot search', async () => {
   await fixture();
   const page = await app.inject({ method: 'GET', url: '/search?q=Palmetto' });

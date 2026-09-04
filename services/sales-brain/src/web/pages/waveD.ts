@@ -1061,7 +1061,8 @@ export function renderSearchPage(input: {
           : html`<div class="table-wrap">
               <table class="data">
                 <thead><tr>
-                  <th>Company</th><th>Matched</th><th>Location</th><th>Owner</th><th>Status</th>
+                  <th>Company</th><th>Matched</th><th>Location</th><th>Owner</th>
+                  <th>Relationship</th><th>Status</th>
                 </tr></thead>
                 <tbody>
                   ${hits.map((hit) => html`<tr>
@@ -1071,6 +1072,8 @@ export function renderSearchPage(input: {
                       ? html`${hit.city}${hit.state ? `, ${hit.state}` : ''}`
                       : html`<span class="muted">—</span>`}</td>
                     <td>${hit.ownerName ?? html`<span class="muted">Unclaimed</span>`}</td>
+                    <td class="muted small">${hit.relationshipState
+                      ? titleCase(hit.relationshipState.replace(/_/g, ' ')) : '—'}</td>
                     <td>${hit.isSuppressed
                       ? statusPill('Suppressed', 'blocked', 'This company must not be contacted.')
                       : statusPill('Available', 'neutral')}</td>

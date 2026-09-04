@@ -191,3 +191,49 @@ test('the degraded calendar is reported by the settings connection test', async 
     'configured-but-broken is reported as failing, not as not-configured');
   assert.equal(currentCalendarAdapter().name, 'unreachable');
 });
+
+// --- responsive behaviour ----------------------------------------------------
+
+test('every page is usable on a phone', async () => {
+  const who = await sessions();
+  const problems: string[] = [];
+
+  for (const page of PAGES) {
+    const response = await app.inject({
+      method: 'GET', url: page.path, headers: { cookie: who[page.role] } });
+    const body = response.body;
+
+    if (!/name="viewport"[^>]*width=device-width/.test(body)) {
+      problems.push(`${page.path} has no responsive viewport`);
+    }
+    // A table wider than a phone must scroll inside its own container rather than
+    // pushing the page sideways.
+    const tables = [...body.matchAll(/<table[^>]*class="data"/g)].length;
+    const wrapped = [...body.matchAll(/class="table-wrap"/g)].length;
+    if (tables > wrapped) {
+      problems.push(`${page.path} has ${tables} table(s) but ${wrapped} scroll container(s)`);
+    }
+    // A rep works from a phone, so the core nav has to be reachable there.
+    if (page.role === 'rep' && !/class="mobile-nav"|class="bottom-nav"/.test(body)) {
+      problems.push(`${page.path} has no mobile navigation`);
+    }
+  }
+  assert.deepEqual(problems, []);
+});
+
+test('the stylesheet collapses the wide layouts on a small screen', async () => {
+  const response = await app.inject({ method: 'GET', url: '/assets/portal.css' });
+  assert.equal(response.statusCode, 200);
+  const css = response.body;
+
+  for (const rule of ['.split-60-40', '.switch-row', '.grid-kpi', '.mapping-grid']) {
+    assert.ok(css.includes(rule), `${rule} is defined`);
+  }
+  // Each wide layout has a single-column form under a breakpoint.
+  const mobileBlocks = css.split('@media (max-width: 900px)').slice(1).join('\n');
+  for (const rule of ['.split-60-40', '.switch-row']) {
+    assert.ok(mobileBlocks.includes(rule), `${rule} has no small-screen rule`);
+  }
+  assert.match(css, /\.table-wrap\s*\{[^}]*overflow-x:\s*auto/,
+    'wide tables scroll inside their container');
+});
