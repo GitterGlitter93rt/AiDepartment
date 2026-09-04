@@ -3,6 +3,7 @@ import { query } from '../db/pool.js';
 import { config } from '../config.js';
 import { readPilotState } from '../domain/pilot.js';
 import { listIntegrations } from '../domain/settings.js';
+import { validateAllProviders } from '../providers/validation.js';
 
 /**
  * Machine-readable release gate evaluation.
@@ -35,6 +36,8 @@ export interface ReleaseReport {
   commit: string;
   branch: string;
   environment: string;
+  /** What each provider validator actually found. */
+  providers: { provider: string; status: string; missing: string[] }[];
   classification: ReleaseState;
   classificationReasons: string[];
   gates: GateEvidence[];
@@ -257,20 +260,29 @@ export async function evaluateReleaseGates(options: {
     'No real pilot has been approved, no batch selected and no caller number confirmed.',
     { blockerId: 'B-PILOT-APPROVAL' });
 
-  // Integration state is evidence too, and it is read rather than asserted.
+  // Integration state is evidence too, and it is read rather than asserted. The
+  // provider validators are the authority: they say whether a credential works and
+  // whether what it points at exists, which a set variable cannot.
   const integrations = await listIntegrations();
-  const missing = integrations.flatMap((integration) => integration.missing);
+  const validations = await validateAllProviders();
+  const missing = [
+    ...integrations.flatMap((integration) => integration.missing),
+    ...validations.flatMap((validation) => validation.missing),
+  ];
   void config;
 
   return classify({
     generatedAt: now.toISOString(), commit, branch, environment,
-    gates, missing,
+    gates, missing, validations: validations.map((validation) => ({
+      provider: validation.provider, status: validation.status, missing: validation.missing,
+    })),
   });
 }
 
 function classify(input: {
   generatedAt: string; commit: string; branch: string; environment: string;
   gates: GateEvidence[]; missing: string[];
+  validations: { provider: string; status: string; missing: string[] }[];
 }): ReleaseReport {
   const byId = new Map(input.gates.map((gate) => [gate.gateId, gate]));
   const status = (id: string): GateStatus => byId.get(id)?.status ?? 'NOT_TESTED';
@@ -318,7 +330,8 @@ function classify(input: {
 
   return {
     generatedAt: input.generatedAt, commit: input.commit, branch: input.branch,
-    environment: input.environment, classification, classificationReasons: reasons,
+    environment: input.environment, providers: input.validations,
+    classification, classificationReasons: reasons,
     gates: input.gates, counts, blockers,
   };
 }

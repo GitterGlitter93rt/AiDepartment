@@ -101,6 +101,14 @@ const REQUIREMENTS: Record<string, Omit<RequiredSetting, 'present'>[]> = {
   anthropic: [
     { name: 'ANTHROPIC_API_KEY', secret: true, purpose: 'Model access' },
   ],
+  dnc: [
+    { name: 'DNC_PROVIDER', secret: false,
+      purpose: "Which screening source, e.g. 'ftc_national_dnc'" },
+    { name: 'DNC_SUBSCRIPTION_CREDENTIAL_ENV', secret: false,
+      purpose: 'Name of the variable holding the subscription credential' },
+    { name: 'DNC_SUBSCRIPTION_CREDENTIAL', secret: true,
+      purpose: 'The registry subscription credential itself' },
+  ],
 };
 
 function requiredFor(key: string, env: NodeJS.ProcessEnv): RequiredSetting[] {
@@ -155,6 +163,12 @@ export async function testIntegration(input: {
 async function checkIntegration(key: string, env: NodeJS.ProcessEnv): Promise<{
   status: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED'; detail: string;
 }> {
+  // Where a provider validator exists it is the authority: it asks the provider
+  // whether the credential works *and* whether what it points at exists, which
+  // "is the variable set" cannot answer.
+  const validated = await validateOne(key, env);
+  if (validated) return validated;
+
   switch (key) {
     case 'calcom': {
       const { currentCalendarAdapter } = await import('../booking/service.js');
@@ -205,6 +219,40 @@ async function checkIntegration(key: string, env: NodeJS.ProcessEnv): Promise<{
     default:
       return { status: 'NOT_CONFIGURED', detail: 'This integration has no connection test.' };
   }
+}
+
+/** Maps a provider validation onto the operator-facing status the page shows. */
+async function validateOne(key: string, env: NodeJS.ProcessEnv): Promise<{
+  status: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED'; detail: string;
+} | null> {
+  const {
+    validateCalcom, validateDataForSeo, validateSmartlead, validateTwilio, validateDncProvider,
+  } = await import('../providers/validation.js');
+
+  const validator = {
+    calcom: validateCalcom,
+    dataforseo: validateDataForSeo,
+    smartlead: validateSmartlead,
+    twilio_voice: validateTwilio,
+    dnc: validateDncProvider,
+  }[key];
+  if (!validator) return null;
+
+  const result = await validator({ env });
+  // Every problem, not just the first. A missing password must not hide the fact that
+  // the governance review is also outstanding — the operator needs the whole list to
+  // fix it in one pass.
+  const problems = result.checks.filter((check) => check.status !== 'OK'
+    && check.status !== 'NOT_APPLICABLE');
+  const detail = problems.length > 0
+    ? problems.map((check) => check.detail).join(' ')
+    : result.checks.map((check) => check.detail).join(' ') || 'Validated.';
+
+  const status = result.status === 'OK' ? 'OK' as const
+    : result.status === 'AUTH_FAILED' || result.status === 'ENTITY_NOT_FOUND' ? 'FAILED' as const
+    : result.status === 'UNREACHABLE' ? 'DEGRADED' as const
+    : 'NOT_CONFIGURED' as const;
+  return { status, detail };
 }
 
 /**

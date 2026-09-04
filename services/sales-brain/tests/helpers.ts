@@ -20,7 +20,9 @@ export async function resetDatabase(): Promise<void> {
       account_market_membership, saved_markets, search_contexts, source_identities, account_merges,
       pilot_candidates, voice_call_turns, voice_call_events,
       audio_pilot_attempts, audio_pilot_batches, internal_test_numbers,
-      line_type_screen_results, voice_calls, voice_pilot_state_events,
+      line_type_screen_results, audio_scenario_runs, media_capture_consent,
+      dnc_screen_log, dnc_membership, dnc_snapshots, dnc_subscriptions,
+      voice_calls, voice_pilot_state_events,
       contact_endpoints, contacts, account_domains, locations, accounts, sessions, users
     restart identity cascade
   `);
@@ -37,7 +39,8 @@ export async function resetDatabase(): Promise<void> {
       ('dataforseo',   'DataForSEO research',  'DATAFORSEO_PASSWORD'),
       ('anthropic',    'Anthropic',            'ANTHROPIC_API_KEY'),
       ('crm',          'CRM export',           null),
-      ('notifications','Notifications',        null)
+      ('notifications','Notifications',        null),
+      ('dnc',          'National DNC screening','DNC_SUBSCRIPTION_CREDENTIAL')
     on conflict do nothing`);
 }
 
