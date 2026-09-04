@@ -39,7 +39,7 @@ function switchRow(input: {
       <input type="text" name="reason" placeholder="Reason" required
              aria-label="Reason for changing ${input.label}" class="input-inline">
       ${statusPill(input.on ? 'On' : 'Off', input.on ? 'success' : 'neutral')}
-      <button type="submit" class="btn ${input.on ? 'btn-quiet' : 'btn-primary'}"
+      <button type="submit" class="btn btn-sm ${input.on ? 'btn-secondary' : 'btn-primary'}"
               ${input.disabled ? 'disabled' : ''}>
         Turn ${input.on ? 'off' : 'on'}
       </button>
@@ -56,8 +56,8 @@ export function renderPilotPage(input: {
   const called = candidates.filter((row) => row.state === 'CALLED');
 
   const body = html`
-    ${input.flash ? html`<div class="flash" role="status">${input.flash}</div>` : ''}
-    ${input.error ? html`<div class="form-error" role="alert">${input.error}</div>` : ''}
+    ${input.flash ? html`<div class="coverage-note info" role="status" style="margin-bottom:16px">${input.flash}</div>` : ''}
+    ${input.error ? html`<div class="coverage-note warn" role="alert" style="margin-bottom:16px">${input.error}</div>` : ''}
 
     <div class="grid grid-kpi">
       ${kpiCard({ label: 'Candidates', value: candidates.filter((row) => row.state === 'CANDIDATE').length,
@@ -173,11 +173,11 @@ export function renderPilotPage(input: {
                   <td class="row" style="gap:6px">
                     <form method="post" action="/ai/pilot/preflight">
                       <input type="hidden" name="pilotCandidateId" value="${row.pilotCandidateId}">
-                      <button type="submit" class="btn btn-quiet">Run preflight</button>
+                      <button type="submit" class="btn btn-secondary btn-sm">Run preflight</button>
                     </form>
                     <form method="post" action="/ai/pilot/remove">
                       <input type="hidden" name="pilotCandidateId" value="${row.pilotCandidateId}">
-                      <button type="submit" class="btn btn-quiet">Remove</button>
+                      <button type="submit" class="btn btn-secondary btn-sm">Remove</button>
                     </form>
                   </td>
                 </tr>`)}
@@ -571,20 +571,23 @@ export function renderAnalyticsPage(input: {
 
     <div style="height:18px"></div>
 
-    <div class="grid grid-2">
+    <div class="grid grid-two">
       ${Object.entries(breakdowns).map(([dimension, rows]) => html`
         <div class="card">
           <div class="card-head"><h2>By ${titleCase(dimension)}</h2></div>
           ${rows.length === 0
             ? html`<p class="muted small">Nothing recorded for this breakdown yet.</p>`
-            : html`<div class="bar-list">
+            : html`<div>
                 ${rows.map((row: any) => {
                   const max = Math.max(...rows.map((other: any) => Number(other.accounts)));
                   const width = max > 0 ? Math.round((Number(row.accounts) / max) * 100) : 0;
-                  return html`<div class="bar-row">
-                    <div class="bar-label">${row.label}</div>
-                    <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
-                    <div class="bar-value">${row.accounts}</div>
+                  return html`<div class="metric-bar">
+                    <div class="metric-bar-head">
+                      <span>${row.label}</span><span class="muted">${row.accounts}</span>
+                    </div>
+                    <div class="metric-bar-track">
+                      <div class="metric-bar-fill fill-info" style="width:${width}%"></div>
+                    </div>
                   </div>`;
                 })}
               </div>`}
@@ -616,8 +619,8 @@ export function renderSettingsPage(input: {
   };
 
   const body = html`
-    ${input.flash ? html`<div class="flash" role="status">${input.flash}</div>` : ''}
-    ${input.error ? html`<div class="form-error" role="alert">${input.error}</div>` : ''}
+    ${input.flash ? html`<div class="coverage-note info" role="status" style="margin-bottom:16px">${input.flash}</div>` : ''}
+    ${input.error ? html`<div class="coverage-note warn" role="alert" style="margin-bottom:16px">${input.error}</div>` : ''}
 
     <div class="card">
       <div class="card-head">
@@ -654,7 +657,7 @@ export function renderSettingsPage(input: {
                       <input type="hidden" name="enabled" value="${row.enabled ? 'false' : 'true'}">
                       <input type="text" name="reason" placeholder="Reason" required
                              aria-label="Reason for changing ${row.displayName}" class="input-inline">
-                      <button type="submit" class="btn btn-quiet">
+                      <button type="submit" class="btn btn-secondary btn-sm">
                         ${row.enabled ? 'Disable' : 'Enable'}
                       </button>
                     </form>`

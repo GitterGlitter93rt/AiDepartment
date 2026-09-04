@@ -776,3 +776,58 @@ input[type='file']:hover { border-color: var(--electric-blue); }
 @media (max-width: 900px) {
   .mapping-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------- operator switches (Sales AI Pilot) */
+.switch-list { display: flex; flex-direction: column; }
+.switch-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px;
+  padding: 14px 0; border-bottom: 1px solid var(--border-light);
+}
+.switch-row:last-child { border-bottom: 0; }
+.switch-row > div:first-child { max-width: 46ch; }
+.switch-label { font-weight: 600; font-size: 0.92rem; }
+.switch-row p { margin: 3px 0 0; }
+.input-inline {
+  padding: 7px 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  font: inherit; font-size: 0.85rem; background: var(--pure-white); min-width: 150px;
+}
+.input-inline:focus-visible { outline: 2px solid var(--electric-blue); outline-offset: 1px; }
+
+/* ------------------------------------------------------- call review layout */
+.split-60-40 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+.transcript { list-style: none; margin: 14px 0 0; padding: 0; }
+.transcript .turn {
+  padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 8px;
+  background: #F8FAFC; border-left: 3px solid var(--border-light);
+}
+.transcript .turn-agent { border-left-color: var(--electric-blue); }
+.transcript .turn-prospect { background: var(--pure-white); border-left-color: var(--slate-gray); }
+.transcript .turn-system { background: #FFFBEB; border-left-color: var(--amber); }
+.turn-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.turn-speaker { font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.transcript .turn p { margin: 0; }
+
+/* ------------------------------------------------------------------- forms */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.form-grid .field-wide { grid-column: 1 / -1; }
+.form-grid textarea, .form-grid input, .form-grid select { width: 100%; }
+.checkbox { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+.checkbox input { margin-top: 3px; }
+
+.card-attention { border-color: rgba(245,158,11,0.5); background: #FFFDF7; }
+
+/* Visible to a screen reader, not on screen. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 900px) {
+  .split-60-40 { grid-template-columns: 1fr; }
+  .switch-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .switch-row form { flex-wrap: wrap; }
+  .switch-row .btn { min-height: 42px; flex: 1; }
+  .input-inline { flex: 1; min-width: 0; }
+}
