@@ -858,3 +858,125 @@ truthful rather than convenient.
 ### Next gate
 
 T8 — AI cold-call brain.
+
+---
+
+## Gate T8 — AI cold-call brain
+
+**Date:** 2026-09-03
+**Status:** COMPLETE as text roleplay. **No real prospect call is authorized** — the pilot gate in
+`CLAUDE-CURRENT-TASK.md` §5 has not been reached. 138/138 tests pass.
+
+### Built from the manual, not invented
+
+Doctrine is quoted from `module-04a-cold-calling-and-prospecting.md` rather than reimagined:
+the OPEN → QUESTION → LISTEN → PROBE → QUANTIFY → POSITION → NEXT STEP shape (§7), the honest
+opener (§3), the 30-second explanation (§9), the gatekeeper line (§12), the busy-owner response
+(§13), the five standard brush-off answers (§15–§19), and the voicemail (§20). Vertical and
+hypothesis language comes from the Call Pack, so two calls in different verticals are not one
+script with the nouns swapped.
+
+```
+src/callbrain/
+  intent.ts          deterministic priority intents, independent of the model
+  stateMachine.ts    17 states, terminal reasons, orchestration authority
+  callPack.ts        what the agent may know and may say
+  prompt.ts          runtime prompt composed from doctrine + this call
+  simulate.ts        text roleplay harness
+src/bin/roleplay.ts  npm run roleplay -- --account <id> --scenario <name>
+```
+
+### The division of labour
+
+From the state machine spec §36: *the model proposes language and reads intent; orchestration owns
+terminal, action and safety transitions.* A model that decides to keep pitching after someone says
+"take me off your list" is unable to. Every override is recorded on the call context, so a QA
+reviewer can see where orchestration stopped the model rather than guessing.
+
+### Priority intents are deterministic, not model-judged
+
+Some intents are too important to leave to generation. The asymmetry is deliberate: a false
+positive costs one conversation, a false negative means calling someone who told us to stop.
+
+The hardest case is distinguishing **"don't call me again"** from **"don't call me right now, call
+Friday"**. The first suppresses the account permanently; the second is a callback. The timing check
+runs first, and a stop request still wins when both appear ("don't call me right now — actually,
+don't call me again, ever"). Both directions are tested.
+
+### Ceilings that stop a call becoming a fishing expedition
+
+- **One backup hypothesis, then stop.** When a prospect demonstrates the process is handled, the
+  hypothesis is marked contradicted and exactly one backup is tried. A third product hunt is
+  impossible (spec §31).
+- **Discovery depth 3.** No meaningful problem within it means a professional disqualification, not
+  more questions.
+- **Three gatekeeper turns.** Then a follow-up and a polite exit — persisting past that stops being
+  professional.
+
+### Tool authority
+
+The agent can only offer what the runtime can actually do (spec §28). With no calendar configured,
+the prompt says *"You CANNOT book anything on this call… Do not offer a specific time"*, and an
+agreement produces a human follow-up rather than a promised meeting. A failed booking is
+dispositioned `CALLBACK_REQUESTED`, **never** `MEETING_SCHEDULED` (spec §34), and the agent is given
+tentative wording — asserted in tests not to match `you're confirmed|all set`.
+
+### Transition tests from the spec, implemented
+
+| Spec | Behaviour | Result |
+|---|---|---|
+| §31 | strong process → one backup → disqualify, no third hunt | pass |
+| §32 | busy owner → one question → callback, no forced discovery | pass |
+| §33 | DNC during positioning → suppress, terminal, nothing after | pass |
+| §34 | booking failure → callback disposition, tentative wording | pass |
+| §35 | wrong person, right company → productive routing | pass |
+
+Plus: no booking offered without a booking tool; no transfer promised without a destination;
+numbers captured only when volunteered; systems captured only when named; the prompt carries the
+prohibitions and stays under 6 KB (this call, not the manual); the opener never uses fake
+familiarity and invents no name; the gatekeeper line contains no pitch; voicemail stays short.
+
+### Four real defects found — three by tests, one only by running a roleplay
+
+1. **The answer to the hook question was never checked for problem language.** It arrives while the
+   state is still `hook`, and the check lived only in the discovery branch — so the single most
+   important sentence in the call was ignored.
+2. **The backup hypothesis was never marked tested**, because `activeHypothesis` was null by then.
+   The call would have hunted indefinitely — the exact failure §31 forbids.
+3. **"You have the wrong number" and "there's nobody here by that name" did not match.** The two
+   most common ways a receptionist says it. `nobody` is one word; the pattern required `no body`.
+4. **`"Can I take a message?"` recorded Sage as their accounting system** — substring matching read
+   `sage` out of `message`. Found by running the gatekeeper roleplay and reading the output, not by
+   a test. Inferring a system the prospect never named is precisely the invented fact the doctrine
+   forbids, and it would have reached a live prompt as a stated fact.
+
+Also fixed: an agreement offered *during* positioning was thrown away and asked for again, and the
+opener wrapped a wh-question inside "I had a quick question about…", producing a sentence no person
+would say.
+
+### Roleplay output, live against a real Call Pack
+
+```
+$ npm run roleplay -- --account <id> --scenario dnc
+
+  AGENT     Hey Morgan, this is Alex with Your AI Department. This is a cold call,
+            so I'll be brief. Quick question — when a web request comes in
+            mid-afternoon, how long before someone actually calls them back?
+  PROSPECT  They go to voicemail, honestly.
+  -> listen               question asked; listening to the answer
+  PROSPECT  Take me off your list, please.
+  -> terminal             do-not-contact requested
+     AGENT MUST SAY: Understood — I'll take this number off our list right now and
+                     you won't hear from us again. Sorry to have bothered you.
+     ACTIONS: stop_audio, suppress, record_disposition
+  orchestration overrode the model:
+     - DNC detected in "Take me off your list" — sales flow terminated
+```
+
+Six scenarios ship: `opportunity`, `busy`, `dnc`, `strong`, `gatekeeper`, `chatgpt`.
+
+### Not done, deliberately
+
+No Twilio wiring, no realtime audio, no dialling. The state machine is exercised entirely through
+text, which is what the spec asks for before any live call. Connecting it to voice belongs after the
+compliance and pilot gates, on `voice.youraidepartment.ai`, not on this host.

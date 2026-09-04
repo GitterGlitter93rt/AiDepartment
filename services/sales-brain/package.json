@@ -20,7 +20,8 @@
     "demo:research": "tsx src/bin/demo-research.ts",
     "start:api": "node dist/bin/api.js",
     "start:worker": "node dist/bin/worker.js",
-    "migrate:prod": "node dist/bin/migrate.js"
+    "migrate:prod": "node dist/bin/migrate.js",
+    "roleplay": "tsx src/bin/roleplay.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
