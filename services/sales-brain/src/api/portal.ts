@@ -20,6 +20,17 @@ import {
   activeReps, dueFollowUpsFor, findUser, followUpsFor, marketCards, marketOptions, navCountsFor,
   overviewKpis, recentlyClaimedFor, teamRows, topMarketsFor, STALE_CLAIM_THRESHOLD_DAYS,
 } from './queries.js';
+import {
+  getMarket, getMeeting, listMeetings, listReplies, marketResearchActivity, navCountsFull,
+} from './readModels.js';
+import {
+  createOpportunity, getOpportunity, listOpportunities, transitionOpportunity, type Stage,
+} from '../domain/opportunities.js';
+import { buildPrepBrief } from '../booking/brief.js';
+import {
+  renderMarketDetailPage, renderMeetingDetailPage, renderMeetingsPage,
+  renderOpportunitiesPage, renderOpportunityDetailPage, renderRepliesPage,
+} from '../web/pages/waveB.js';
 
 /** Server-rendered portal routes. Every one of them re-checks the session. */
 
@@ -72,7 +83,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     if (!user) return;
 
     const [counts, kpis, recentlyClaimed, dueFollowUps, markets] = await Promise.all([
-      navCountsFor(user.userId),
+      navCountsFull(user.userId, user.role),
       overviewKpis(user.userId),
       recentlyClaimedFor(user.userId),
       dueFollowUpsFor(user.userId),
@@ -102,7 +113,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const hasQuery = Boolean(searchRequest.geography?.value || searchRequest.marketId || searchRequest.verticalProfileId);
 
     const [counts, verticals, markets] = await Promise.all([
-      navCountsFor(user.userId), listVerticals(), marketOptions(),
+      navCountsFull(user.userId, user.role), listVerticals(), marketOptions(),
     ]);
 
     const response = hasQuery ? await searchProspects(searchRequest, user) : null;
@@ -116,7 +127,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get('/markets', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const [counts, markets] = await Promise.all([navCountsFor(user.userId), marketCards()]);
+    const [counts, markets] = await Promise.all([navCountsFull(user.userId, user.role), marketCards()]);
     return reply.type('text/html').send(renderMarketsPage({
       user, counts, markets, canManage: isManager(user.role) || user.role === 'RESEARCH_OPS',
     }));
@@ -134,7 +145,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const sort = (params.get('sort') as SortKey) || 'recommended_priority';
 
     const [counts, response] = await Promise.all([
-      navCountsFor(user.userId),
+      navCountsFull(user.userId, user.role),
       searchProspects(
         { myProspectsFilter: (filter || null) as MyProspectsFilter | null, ownership: 'MINE', sort, pageSize: 100 },
         user,
@@ -148,7 +159,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get('/follow-ups', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const [counts, followUps] = await Promise.all([navCountsFor(user.userId), followUpsFor(user.userId)]);
+    const [counts, followUps] = await Promise.all([navCountsFull(user.userId, user.role), followUpsFor(user.userId)]);
     return reply.type('text/html').send(renderFollowUpsPage({ user, counts, ...followUps }));
   });
 
@@ -167,7 +178,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       if (!user) return;
       const detail = await getAccountDetail(request.params.id, user);
       if (!detail) return reply.code(404).type('text/html').send('<p>Account not found.</p>');
-      const counts = await navCountsFor(user.userId);
+      const counts = await navCountsFull(user.userId, user.role);
       return reply.type('text/html').send(
         renderAccountPage(detail, user, counts, request.query.flash),
       );
@@ -247,7 +258,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const user = requireUser(request, reply);
     if (!user) return;
     if (!isManager(user.role)) return reply.code(403).type('text/html').send('<p>Managers only.</p>');
-    const [counts, team] = await Promise.all([navCountsFor(user.userId), teamRows()]);
+    const [counts, team] = await Promise.all([navCountsFull(user.userId, user.role), teamRows()]);
     return reply.type('text/html').send(renderTeamPage({
       user, counts, team, staleThresholdDays: STALE_CLAIM_THRESHOLD_DAYS,
     }));
@@ -261,7 +272,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const rep = await findUser(request.params.id);
     if (!rep) return reply.code(404).type('text/html').send('<p>Rep not found.</p>');
 
-    const [counts, reps] = await Promise.all([navCountsFor(user.userId), activeReps()]);
+    const [counts, reps] = await Promise.all([navCountsFull(user.userId, user.role), activeReps()]);
     // A manager viewing a rep's book searches as that rep.
     const response = await searchProspects(
       { ownership: 'MINE', pageSize: 200 },
@@ -288,6 +299,122 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       return reply.redirect(`/team/${request.params.id}`);
     },
   );
+
+  // ------------------------------------------------------------- wave B pages --
+
+  app.get<{ Params: { id: string } }>('/markets/:id', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const market = await getMarket(request.params.id);
+    if (!market) return reply.code(404).type('text/html').send('<p>Market not found.</p>');
+
+    const [counts, jobs, results] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      marketResearchActivity(request.params.id),
+      searchProspects({ marketId: request.params.id, ownership: 'ANY_VISIBLE', pageSize: 50 }, user),
+    ]);
+    return reply.type('text/html').send(renderMarketDetailPage({
+      user, counts, market, rows: results.results, jobs,
+      canManage: isManager(user.role) || user.role === 'RESEARCH_OPS',
+    }));
+  });
+
+  app.get('/replies', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
+    const tab = params.get('tab') ?? 'needs_response';
+    const [counts, replies] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      listReplies(user, tab as never),
+    ]);
+    return reply.type('text/html').send(renderRepliesPage({
+      user, counts, replies, activeTab: tab,
+    }));
+  });
+
+  app.get('/opportunities', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
+    const view = params.get('view') === 'table' ? 'table' : 'pipeline';
+    const stage = params.get('stage') as Stage | null;
+    const [counts, opportunities] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      listOpportunities(user, { stage }),
+    ]);
+    return reply.type('text/html').send(renderOpportunitiesPage({
+      user, counts, opportunities, view, stageFilter: stage,
+    }));
+  });
+
+  app.get<{ Params: { id: string } }>('/opportunities/:id', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const detail = await getOpportunity(request.params.id, user);
+    if (!detail) return reply.code(404).type('text/html').send('<p>Opportunity not found.</p>');
+    const counts = await navCountsFull(user.userId, user.role);
+    return reply.type('text/html').send(renderOpportunityDetailPage({ user, counts, ...detail }));
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: { targetStage?: string; reason?: string; closeReason?: string };
+  }>('/opportunities/:id/transition', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const result = await transitionOpportunity({
+      opportunityId: request.params.id,
+      targetStage: (request.body?.targetStage ?? '') as Stage,
+      reason: request.body?.reason ?? '',
+      closeReason: request.body?.closeReason ?? null,
+    }, user);
+    const flash = result.ok ? 'Stage updated.' : (result.message ?? 'Could not change the stage.');
+    return reply.redirect(`/opportunities/${request.params.id}?flash=${encodeURIComponent(flash)}`);
+  });
+
+  /** Opening an opportunity from an Account. */
+  app.post<{ Params: { id: string }; Body: { problemSummary?: string; desiredOutcome?: string } }>(
+    '/accounts/:id/opportunity', async (request, reply) => {
+      const user = requireUser(request, reply);
+      if (!user) return;
+      const result = await createOpportunity({
+        accountId: request.params.id,
+        problemSummary: request.body?.problemSummary ?? '',
+        desiredOutcome: request.body?.desiredOutcome ?? null,
+        sourceChannel: 'portal',
+      }, user);
+      if (result.ok) return reply.redirect(`/opportunities/${result.opportunityId}`);
+      return reply.redirect(
+        `/accounts/${request.params.id}?flash=${encodeURIComponent(result.message ?? 'Could not open an opportunity.')}`);
+    },
+  );
+
+  app.get('/meetings', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
+    const tab = params.get('tab') ?? 'upcoming';
+    const [counts, meetings] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      listMeetings(user, tab as never),
+    ]);
+    return reply.type('text/html').send(renderMeetingsPage({
+      user, counts, meetings, activeTab: tab,
+    }));
+  });
+
+  app.get<{ Params: { id: string } }>('/meetings/:id', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const meeting = await getMeeting(request.params.id);
+    if (!meeting) return reply.code(404).type('text/html').send('<p>Meeting not found.</p>');
+    const [counts, brief] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      meeting.prep_brief ? Promise.resolve(meeting.prep_brief) : buildPrepBrief(request.params.id),
+    ]);
+    return reply.type('text/html').send(renderMeetingDetailPage({ user, counts, meeting, brief }));
+  });
 
   // ---------------------------------------------------------------- booking --
 
