@@ -8,7 +8,7 @@ import { formatDateTime, relativeTime, titleCase } from '../format.js';
 import type { SessionUser } from '../../domain/auth.js';
 import type { CallPackPreview, CandidateRow, PilotState } from '../../domain/pilot.js';
 import type { IntegrationView } from '../../domain/settings.js';
-import type { SearchHit } from '../../api/waveDQueries.js';
+import type { AnalyticsFilters, SearchHit } from '../../api/waveDQueries.js';
 
 /**
  * Sales AI Pilot, Call Review, Campaigns, Analytics, Settings.
@@ -520,7 +520,7 @@ export function renderCampaignsPage(input: {
               </tr></thead>
               <tbody>
                 ${campaigns.map((row: any) => html`<tr>
-                  <td>${row.name}
+                  <td><a href="/campaigns/${row.email_campaign_id}">${row.name}</a>
                     ${row.hook_family
                       ? html`<div class="muted small">${titleCase(String(row.hook_family).replace(/_/g, ' '))}</div>`
                       : ''}</td>
@@ -546,6 +546,181 @@ export function renderCampaignsPage(input: {
   });
 }
 
+export function renderCampaignDetailPage(input: {
+  user: SessionUser; counts: NavCounts; detail: any;
+}): string {
+  const { user, counts, detail } = input;
+  const { campaign, outcomes, sources, members, conflicts, outbox } = detail;
+
+  const total = outcomes.reduce((sum: number, row: any) => sum + Number(row.n), 0);
+  const failedOutbox = outbox.filter((row: any) => row.status === 'ABANDONED' || row.last_error);
+
+  const body = html`
+    ${conflicts.length > 0 ? html`
+      <div class="card card-attention">
+        <div class="card-head">
+          <h2>${conflicts.length} member${conflicts.length === 1 ? '' : 's'} no longer cold</h2>
+          <span class="muted small">
+            Relationship state outranks campaign membership. These are shown before a send,
+            not discovered after one.
+          </span>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Company</th><th>Relationship</th><th>Enrollment</th></tr></thead>
+            <tbody>
+              ${conflicts.map((row: any) => html`<tr>
+                <td><a href="/accounts/${row.account_id}">${row.company_name}</a></td>
+                <td>${statusPill(titleCase(String(row.relationship_state).replace(/_/g, ' ')), 'warning')}</td>
+                <td class="muted small">${titleCase(String(row.enrollment_status).replace(/_/g, ' '))}</td>
+              </tr>`)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style="height:18px"></div>` : ''}
+
+    ${failedOutbox.length > 0 ? html`
+      <div class="card card-attention">
+        <div class="card-head">
+          <h2>Sends waiting or stuck</h2>
+          <span class="muted small">A queued send is not a send. These have not reached the provider.</span>
+        </div>
+        <ul class="plain-list">
+          ${failedOutbox.map((row: any) => html`<li>
+            ${row.n} ${titleCase(row.operation)} · ${titleCase(row.status)}
+            ${row.last_error ? html`<span class="muted small"> — ${row.last_error}</span>` : ''}
+          </li>`)}
+        </ul>
+      </div>
+      <div style="height:18px"></div>` : ''}
+
+    <div class="grid grid-two">
+      <div class="card">
+        <div class="card-head"><h2>Audience</h2></div>
+        <dl class="detail-list">
+          <dt>Vertical</dt>
+          <dd>${campaign.vertical_name ?? html`<span class="muted">All verticals</span>`}</dd>
+          <dt>Hook family</dt>
+          <dd>${campaign.hook_family
+            ? titleCase(String(campaign.hook_family).replace(/_/g, ' '))
+            : html`<span class="muted">Not set</span>`}</dd>
+          <dt>Minimum email quality</dt>
+          <dd>${titleCase(String(campaign.minimum_email_quality).replace(/_/g, ' '))}
+            <div class="muted small">
+              A shortfall against this standard is reported, never filled with weaker addresses.
+            </div></dd>
+          <dt>Members</dt>
+          <dd>${total}</dd>
+        </dl>
+
+        <h3 class="pack-section">Where the audience came from</h3>
+        ${sources.length === 0
+          ? html`<p class="muted small">No members yet.</p>`
+          : html`<ul class="plain-list">
+              ${sources.map((row: any) => html`<li>
+                ${titleCase(String(row.source).replace(/_/g, ' '))} — ${row.n}
+              </li>`)}
+            </ul>`}
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Execution</h2>
+          <span class="muted small">Smartlead sends; the Account keeps the relationship.</span>
+        </div>
+        <dl class="detail-list">
+          <dt>Provider</dt>
+          <dd>${titleCase(campaign.provider)}</dd>
+          <dt>Provider campaign</dt>
+          <dd>${campaign.provider_campaign_id
+            ? html`<code>${campaign.provider_campaign_id}</code>`
+            : statusPill('Not linked', 'review',
+                'Nothing can be sent until this campaign is linked to a provider campaign.')}</dd>
+          <dt>Status</dt>
+          <dd>${statusPill(titleCase(campaign.status),
+            campaign.status === 'ACTIVE' ? 'success'
+              : campaign.status === 'PAUSED' ? 'warning' : 'neutral')}</dd>
+          <dt>Created</dt>
+          <dd>${formatDateTime(campaign.created_at)}${
+            campaign.created_by_name ? ` by ${campaign.created_by_name}` : ''}</dd>
+        </dl>
+
+        <h3 class="pack-section">Outcomes</h3>
+        ${outcomes.length === 0
+          ? html`<p class="muted small">Nothing has happened on this campaign yet.</p>`
+          : html`<div>
+              ${outcomes.map((row: any) => {
+                const max = Math.max(...outcomes.map((other: any) => Number(other.n)));
+                const width = max > 0 ? Math.round((Number(row.n) / max) * 100) : 0;
+                return html`<div class="metric-bar">
+                  <div class="metric-bar-head">
+                    <span>${titleCase(String(row.status).replace(/_/g, ' '))}</span>
+                    <span class="muted">${row.n}</span>
+                  </div>
+                  <div class="metric-bar-track">
+                    <div class="metric-bar-fill fill-${
+                      row.status === 'REPLIED' ? 'success'
+                        : row.status === 'BOUNCED' || row.status === 'UNSUBSCRIBED' ? 'destructive'
+                        : 'info'}" style="width:${width}%"></div>
+                  </div>
+                </div>`;
+              })}
+            </div>`}
+      </div>
+    </div>
+
+    <div style="height:18px"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Members</h2>
+        <span class="muted small">Each row is the canonical Account, not a copy of it.</span>
+      </div>
+      ${members.length === 0
+        ? emptyState({
+            title: 'Nobody is enrolled yet',
+            explanation: 'Enrolling queues an export for review. It does not send anything.',
+          })
+        : html`<div class="table-wrap">
+            <table class="data">
+              <thead><tr>
+                <th>Company</th><th>Address</th><th>Owner</th><th>Relationship</th>
+                <th>Enrollment</th><th>Exported</th><th>Last event</th>
+              </tr></thead>
+              <tbody>
+                ${members.map((row: any) => html`<tr>
+                  <td><a href="/accounts/${row.account_id}">${row.company_name}</a>
+                    ${row.is_suppressed ? html` ${statusPill('Suppressed', 'blocked')}` : ''}</td>
+                  <td class="muted small">${row.normalized_email}</td>
+                  <td>${row.owner_name ?? html`<span class="muted">Unclaimed</span>`}</td>
+                  <td class="muted small">${titleCase(String(row.relationship_state).replace(/_/g, ' '))}</td>
+                  <td>${statusPill(titleCase(String(row.status).replace(/_/g, ' ')),
+                    row.status === 'REPLIED' ? 'success'
+                      : row.status === 'UNSUBSCRIBED' || row.status === 'BOUNCED' ? 'destructive'
+                      : row.status === 'PENDING_EXPORT' ? 'review' : 'neutral')}
+                    ${row.stop_reason
+                      ? html`<div class="muted small">${row.stop_reason}</div>` : ''}</td>
+                  <td class="muted small">${row.exported_at
+                    ? relativeTime(row.exported_at) : 'Not yet'}</td>
+                  <td class="muted small">${row.last_event_at
+                    ? relativeTime(row.last_event_at) : '—'}</td>
+                </tr>`)}
+              </tbody>
+            </table>
+          </div>`}
+    </div>`;
+
+  return renderPage({
+    title: campaign.name,
+    subtitle: 'One campaign, and everything the Account already knows about its members.',
+    status: statusPill(titleCase(campaign.status),
+      campaign.status === 'ACTIVE' ? 'success' : 'neutral'),
+    breadcrumbs: [{ href: '/campaigns', label: 'Campaigns' }, { href: '#', label: campaign.name }],
+    user, currentPath: '/campaigns', counts, body,
+  });
+}
+
 // ------------------------------------------------------------------ Analytics
 
 const FUNNEL_STAGES: { key: string; label: string; denominator: string }[] = [
@@ -558,16 +733,49 @@ const FUNNEL_STAGES: { key: string; label: string; denominator: string }[] = [
   { key: 'attended', label: 'Attended', denominator: 'of booked, marked attended' },
 ];
 
+interface FilterOption { id: string; label: string }
+
+interface AnalyticsOptions {
+  reps: FilterOption[]; markets: FilterOption[]; verticals: FilterOption[];
+  hooks: FilterOption[]; channels: FilterOption[]; outcomes: FilterOption[];
+}
+
+function selectFilter(input: {
+  name: string; label: string; options: FilterOption[]; selected: string | null;
+}): RawHtml {
+  return html`<label class="field">
+    <span>${input.label}</span>
+    <select name="${input.name}">
+      <option value="">Any</option>
+      ${input.options.map((option) => html`
+        <option value="${option.id}" ${option.id === input.selected ? 'selected' : ''}>
+          ${titleCase(option.label)}
+        </option>`)}
+    </select>
+  </label>`;
+}
+
 export function renderAnalyticsPage(input: {
   user: SessionUser; counts: NavCounts; funnel: any; breakdowns: Record<string, any[]>;
-  filters: { fromDate: string | null; toDate: string | null };
+  filters: AnalyticsFilters & { ignored?: string[] }; options: AnalyticsOptions;
 }): string {
-  const { user, counts, funnel, breakdowns, filters } = input;
+  const { user, counts, funnel, breakdowns, filters, options } = input;
   const researched = Number(funnel?.researched ?? 0);
+
+  const active = [
+    filters.fromDate && `from ${filters.fromDate}`,
+    filters.toDate && `to ${filters.toDate}`,
+    filters.ownerUserId && labelFor(options.reps, filters.ownerUserId),
+    filters.marketId && labelFor(options.markets, filters.marketId),
+    filters.verticalProfileId && labelFor(options.verticals, filters.verticalProfileId),
+    filters.channel && labelFor(options.channels, filters.channel),
+    filters.hook && titleCase(filters.hook.replace(/_/g, ' ')),
+    filters.outcome && titleCase(filters.outcome.replace(/_/g, ' ')),
+  ].filter(Boolean) as string[];
 
   const body = html`
     <div class="card">
-      <form method="get" action="/analytics" class="row" style="gap:12px;flex-wrap:wrap">
+      <form method="get" action="/analytics" class="form-grid">
         <label class="field">
           <span>From</span>
           <input type="date" name="from" value="${filters.fromDate ?? ''}">
@@ -576,82 +784,127 @@ export function renderAnalyticsPage(input: {
           <span>To</span>
           <input type="date" name="to" value="${filters.toDate ?? ''}">
         </label>
-        <div class="field" style="justify-content:flex-end">
+        ${selectFilter({ name: 'rep', label: 'Rep', options: options.reps,
+                         selected: filters.ownerUserId })}
+        ${selectFilter({ name: 'market', label: 'Market', options: options.markets,
+                         selected: filters.marketId })}
+        ${selectFilter({ name: 'vertical', label: 'Vertical', options: options.verticals,
+                         selected: filters.verticalProfileId })}
+        ${selectFilter({ name: 'channel', label: 'Channel', options: options.channels,
+                         selected: filters.channel })}
+        ${selectFilter({ name: 'hook', label: 'Hook', options: options.hooks,
+                         selected: filters.hook })}
+        ${selectFilter({ name: 'outcome', label: 'Outcome', options: options.outcomes,
+                         selected: filters.outcome })}
+        <div class="field-wide row" style="gap:10px">
           <button type="submit" class="btn btn-primary">Apply</button>
+          ${active.length > 0
+            ? html`<a class="btn btn-secondary" href="/analytics">Clear filters</a>` : ''}
         </div>
       </form>
+      ${(filters.ignored ?? []).length > 0
+        ? html`<p class="form-error" role="alert" style="margin-top:10px">
+            Ignored ${filters.ignored!.join(' and ')}: the value in the link was not usable, so
+            the numbers below are wider than the link suggests.
+          </p>`
+        : ''}
+      ${active.length > 0
+        ? html`<p class="muted small" style="margin-top:10px">
+            Showing: ${active.join(' · ')}. Every stage below counts accounts inside this scope.
+          </p>`
+        : html`<p class="muted small" style="margin-top:10px">
+            Showing everything researched. Narrow the scope to compare like with like.
+          </p>`}
     </div>
 
     <div style="height:18px"></div>
 
-    <div class="grid grid-kpi">
-      ${kpiCard({ label: 'Researched accounts', value: researched })}
-      ${kpiCard({ label: 'Decision-makers reached', value: Number(funnel?.connected ?? 0) })}
-      ${kpiCard({ label: 'Meetings booked', value: Number(funnel?.booked ?? 0),
-                  sub: 'provider-confirmed only' })}
-      ${kpiCard({ label: 'Attended', value: Number(funnel?.attended ?? 0),
-                  sub: 'booked is not attended' })}
-      ${kpiCard({ label: 'Suppressed / DNC', value: Number(funnel?.suppressed ?? 0),
-                  tone: Number(funnel?.suppressed ?? 0) > 0 ? 'attention' : 'default',
-                  sub: 'never hidden' })}
-    </div>
+    ${researched === 0
+      ? emptyState({
+          title: active.length > 0 ? 'Nothing matches these filters' : 'Nothing researched yet',
+          explanation: active.length > 0
+            ? 'No account falls inside this scope, so every stage below would be zero out of '
+              + 'zero. Widen the filters rather than reading a rate off an empty denominator.'
+            : 'Counts appear once a market has been researched.',
+          ...(active.length > 0
+            ? { action: { href: '/analytics', label: 'Clear filters' } }
+            : { action: { href: '/markets', label: 'Browse markets' } }),
+        })
+      : html`
+        <div class="grid grid-kpi">
+          ${kpiCard({ label: 'Researched accounts', value: researched })}
+          ${kpiCard({ label: 'Decision-makers reached', value: Number(funnel?.connected ?? 0) })}
+          ${kpiCard({ label: 'Meetings booked', value: Number(funnel?.booked ?? 0),
+                      sub: 'provider-confirmed only' })}
+          ${kpiCard({ label: 'Attended', value: Number(funnel?.attended ?? 0),
+                      sub: 'booked is not attended' })}
+          ${kpiCard({ label: 'Suppressed / DNC', value: Number(funnel?.suppressed ?? 0),
+                      tone: Number(funnel?.suppressed ?? 0) > 0 ? 'attention' : 'default',
+                      sub: 'never hidden' })}
+        </div>
 
-    <div style="height:18px"></div>
+        <div style="height:18px"></div>
 
-    <div class="card">
-      <div class="card-head">
-        <h2>Funnel</h2>
-        <span class="muted small">Every stage states what it counts.</span>
-      </div>
-      <div class="table-wrap">
-        <table class="data">
-          <thead><tr><th>Stage</th><th>Count</th><th>Share of researched</th><th>Denominator</th></tr></thead>
-          <tbody>
-            ${FUNNEL_STAGES.map((stage) => {
-              const value = Number(funnel?.[stage.key] ?? 0);
-              const share = researched > 0 ? `${((value / researched) * 100).toFixed(1)}%` : '—';
-              return html`<tr>
-                <td>${stage.label}</td>
-                <td>${value}</td>
-                <td>${share}</td>
-                <td class="muted small">${stage.denominator}</td>
-              </tr>`;
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div style="height:18px"></div>
-
-    <div class="grid grid-two">
-      ${Object.entries(breakdowns).map(([dimension, rows]) => html`
         <div class="card">
-          <div class="card-head"><h2>By ${titleCase(dimension)}</h2></div>
-          ${rows.length === 0
-            ? html`<p class="muted small">Nothing recorded for this breakdown yet.</p>`
-            : html`<div>
-                ${rows.map((row: any) => {
-                  const max = Math.max(...rows.map((other: any) => Number(other.accounts)));
-                  const width = max > 0 ? Math.round((Number(row.accounts) / max) * 100) : 0;
-                  return html`<div class="metric-bar">
-                    <div class="metric-bar-head">
-                      <span>${row.label}</span><span class="muted">${row.accounts}</span>
-                    </div>
-                    <div class="metric-bar-track">
-                      <div class="metric-bar-fill fill-info" style="width:${width}%"></div>
-                    </div>
-                  </div>`;
+          <div class="card-head">
+            <h2>Funnel</h2>
+            <span class="muted small">Every stage states what it counts.</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr>
+                <th>Stage</th><th>Count</th><th>Share of researched</th><th>Denominator</th>
+              </tr></thead>
+              <tbody>
+                ${FUNNEL_STAGES.map((stage) => {
+                  const value = Number(funnel?.[stage.key] ?? 0);
+                  const share = researched > 0 ? `${((value / researched) * 100).toFixed(1)}%` : '—';
+                  return html`<tr>
+                    <td>${stage.label}</td>
+                    <td>${value}</td>
+                    <td>${share}</td>
+                    <td class="muted small">${stage.denominator}</td>
+                  </tr>`;
                 })}
-              </div>`}
-        </div>`)}
-    </div>`;
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="height:18px"></div>
+
+        <div class="grid grid-two">
+          ${Object.entries(breakdowns).map(([dimension, rows]) => html`
+            <div class="card">
+              <div class="card-head"><h2>By ${titleCase(dimension)}</h2></div>
+              ${rows.length === 0
+                ? html`<p class="muted small">Nothing recorded for this breakdown yet.</p>`
+                : html`<div>
+                    ${rows.map((row: any) => {
+                      const max = Math.max(...rows.map((other: any) => Number(other.accounts)));
+                      const width = max > 0 ? Math.round((Number(row.accounts) / max) * 100) : 0;
+                      return html`<div class="metric-bar">
+                        <div class="metric-bar-head">
+                          <span>${row.label}</span><span class="muted">${row.accounts}</span>
+                        </div>
+                        <div class="metric-bar-track">
+                          <div class="metric-bar-fill fill-info" style="width:${width}%"></div>
+                        </div>
+                      </div>`;
+                    })}
+                  </div>`}
+            </div>`)}
+        </div>`}`;
 
   return renderPage({
     title: 'Analytics',
     subtitle: 'Booked and attended are separate numbers, and negative outcomes are shown.',
     user, currentPath: '/analytics', counts, body,
   });
+}
+
+function labelFor(options: FilterOption[], id: string): string {
+  return options.find((option) => option.id === id)?.label ?? id;
 }
 
 // ------------------------------------------------------------------- Settings

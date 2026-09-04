@@ -233,6 +233,100 @@ test('an integration change by an administrator is audited with its reason', asy
   assert.equal(audit.rows[0]!.reason, 'Cal.com account connected');
 });
 
+test('analytics filters narrow the scope, and an empty scope says so', async () => {
+  const f = await fixture();
+
+  const unfiltered = await app.inject({
+    method: 'GET', url: '/analytics', headers: { cookie: f.manager } });
+  assert.match(unfiltered.body, /Showing everything researched/);
+  assert.match(unfiltered.body, /Researched accounts/);
+
+  // A channel nothing was ever attempted on empties the scope. The page must say the
+  // denominator is zero rather than render rates off nothing.
+  const filtered = await app.inject({
+    method: 'GET', url: '/analytics?channel=AUTONOMOUS_AI_VOICE', headers: { cookie: f.manager } });
+  assert.match(filtered.body, /Nothing matches these filters/);
+  assert.match(filtered.body, /zero out of\s+zero|empty denominator/,
+    'an empty scope is explained, not shown as 0%');
+  assert.match(filtered.body, /Clear filters/);
+});
+
+test('every analytics filter is accepted and reflected back', async () => {
+  const f = await fixture();
+  const url = '/analytics?from=2026-01-01&to=2026-12-31&channel=EMAIL'
+    + '&outcome=DECISION_MAKER_REACHED&hook=missed_call_recovery';
+  const page = await app.inject({ method: 'GET', url, headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Showing: from 2026-01-01/);
+  assert.match(page.body, /value="2026-01-01"/, 'the form keeps what was chosen');
+  assert.match(page.body, /Decision maker reached/i);
+});
+
+test('an unknown filter value cannot break the page or the query', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET',
+    url: "/analytics?rep=not-a-uuid&market=%27%3B+drop+table+accounts%3B--&channel=NOPE",
+    headers: { cookie: f.manager },
+  });
+  assert.equal(page.statusCode, 200, 'a bad filter value is not a server error');
+  assert.match(page.body, /Ignored rep and market/,
+    'the page says the scope is wider than the link suggests');
+  const survived = await pool.query(`select count(*)::int as n from accounts`);
+  assert.ok(survived.rows[0]!.n >= 1, 'the accounts table is still there');
+});
+
+test('a campaign detail page shows members, sources and stuck sends', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ email_campaign_id: string }>(
+    `insert into email_campaigns (name, status, hook_family)
+     values ('Jacksonville HVAC after-hours', 'ACTIVE', 'after_hours_response')
+     returning email_campaign_id`);
+  const campaignId = rows[0]!.email_campaign_id;
+
+  const page = await app.inject({
+    method: 'GET', url: `/campaigns/${campaignId}`, headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Jacksonville HVAC after-hours/);
+  assert.match(page.body, /Where the audience came from/);
+  assert.match(page.body, /Not linked/,
+    'a campaign with no provider campaign says so rather than looking ready to send');
+  assert.match(page.body, /Nobody is enrolled yet/);
+  assert.match(page.body, /Enrolling queues an export for review/);
+});
+
+test('a campaign member who is no longer cold is surfaced before any send', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ email_campaign_id: string }>(
+    `insert into email_campaigns (name, status) values ('Cold sequence', 'ACTIVE')
+     returning email_campaign_id`);
+  const campaignId = rows[0]!.email_campaign_id;
+
+  await pool.query(
+    `update accounts set relationship_state = 'ACTIVE_OPPORTUNITY' where account_id = $1`,
+    [f.accountId]);
+  await pool.query(
+    `insert into email_enrollments (email_campaign_id, account_id, normalized_email, status)
+     values ($1, $2, 'owner@palmetto.example.com', 'PENDING_EXPORT')`,
+    [campaignId, f.accountId]);
+
+  const page = await app.inject({
+    method: 'GET', url: `/campaigns/${campaignId}`, headers: { cookie: f.manager } });
+  assert.match(page.body, /no longer cold/);
+  assert.match(page.body, /Relationship state outranks campaign membership/);
+  assert.match(page.body, /Active opportunity/i);
+});
+
+test('a rep cannot open a campaign detail page', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ email_campaign_id: string }>(
+    `insert into email_campaigns (name, status) values ('Cold sequence', 'ACTIVE')
+     returning email_campaign_id`);
+  const page = await app.inject({
+    method: 'GET', url: `/campaigns/${rows[0]!.email_campaign_id}`, headers: { cookie: f.rep } });
+  assert.equal(page.statusCode, 403);
+});
+
 test('a connection test reports what is actually usable, not what is merely set', async () => {
   const f = await fixture();
   const response = await app.inject({

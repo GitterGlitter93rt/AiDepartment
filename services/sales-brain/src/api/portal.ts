@@ -40,12 +40,13 @@ import {
   buildPreview, confirmSession, createSession, getSession, listImportHistory, setColumnMap,
 } from '../import/session.js';
 import {
-  renderAnalyticsPage, renderCallListPage, renderCallReviewPage, renderCampaignsPage,
-  renderPilotPage, renderSearchPage, renderSettingsPage,
+  renderAnalyticsPage, renderCallListPage, renderCallReviewPage, renderCampaignDetailPage,
+  renderCampaignsPage, renderPilotPage, renderSearchPage, renderSettingsPage,
 } from '../web/pages/waveD.js';
 import {
-  analyticsBreakdown, analyticsFunnel, campaignRelationshipConflicts, globalSearch,
-  listCampaigns, listVoiceCalls, voiceCallDetail,
+  analyticsBreakdown, analyticsFilterOptions, analyticsFunnel, campaignDetail,
+  campaignRelationshipConflicts, globalSearch, listCampaigns, listVoiceCalls,
+  parseAnalyticsFilters, voiceCallDetail,
 } from './waveDQueries.js';
 import {
   addCandidate, callPackPreview, listCandidates, readPilotState, removeCandidate,
@@ -814,24 +815,31 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     return reply.type('text/html').send(renderCampaignsPage({ user, counts, campaigns, conflicts }));
   });
 
-  app.get<{ Querystring: { from?: string; to?: string } }>('/analytics', async (request, reply) => {
+  app.get<{ Params: { id: string } }>('/campaigns/:id', async (request, reply) => {
     const user = requireManager(request, reply);
     if (!user) return;
-    const filters = {
-      fromDate: request.query.from || null,
-      toDate: request.query.to || null,
-      ownerUserId: null, verticalProfileId: null,
-    };
-    const [counts, funnel, byVertical, byOwner, byMarket, byHypothesis] = await Promise.all([
+    const detail = await campaignDetail(request.params.id);
+    if (!detail) return reply.code(404).type('text/html').send('<p>Campaign not found.</p>');
+    const counts = await navCountsFull(user.userId, user.role);
+    return reply.type('text/html').send(renderCampaignDetailPage({ user, counts, detail }));
+  });
+
+  app.get('/analytics', async (request, reply) => {
+    const user = requireManager(request, reply);
+    if (!user) return;
+    const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
+    const filters = parseAnalyticsFilters(params);
+
+    const [counts, options, funnel, byVertical, byOwner, byMarket, byHypothesis] = await Promise.all([
       navCountsFull(user.userId, user.role),
+      analyticsFilterOptions(),
       analyticsFunnel(filters),
       analyticsBreakdown('vertical'), analyticsBreakdown('owner'),
       analyticsBreakdown('market'), analyticsBreakdown('hypothesis'),
     ]);
     return reply.type('text/html').send(renderAnalyticsPage({
-      user, counts, funnel,
+      user, counts, funnel, filters, options,
       breakdowns: { vertical: byVertical, rep: byOwner, market: byMarket, hypothesis: byHypothesis },
-      filters: { fromDate: filters.fromDate, toDate: filters.toDate },
     }));
   });
 

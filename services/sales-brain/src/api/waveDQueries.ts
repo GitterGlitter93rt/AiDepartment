@@ -51,31 +51,199 @@ export async function campaignRelationshipConflicts() {
   return rows;
 }
 
+/**
+ * One campaign in full: who is in it, where they came from, what has happened, and
+ * what else is touching the same accounts.
+ */
+export async function campaignDetail(campaignId: string) {
+  const { rows } = await query<any>(
+    `select c.*, v.display_name as vertical_name, u.display_name as created_by_name
+       from email_campaigns c
+       left join vertical_profiles v on v.vertical_profile_id = c.vertical_profile_id
+       left join users u on u.user_id = c.created_by
+      where c.email_campaign_id = $1`,
+    [campaignId],
+  );
+  const campaign = rows[0];
+  if (!campaign) return null;
+
+  const [outcomes, sources, members, conflicts, pending] = await Promise.all([
+    query<any>(
+      `select e.status, count(*)::int as n
+         from email_enrollments e where e.email_campaign_id = $1
+        group by e.status order by n desc`, [campaignId]),
+    // Where the audience came from. A campaign that cannot say where its list came
+    // from is not auditable.
+    query<any>(
+      `select coalesce(e.discovery_source, 'unrecorded') as source, count(*)::int as n
+         from email_enrollments e where e.email_campaign_id = $1
+        group by 1 order by n desc`, [campaignId]),
+    query<any>(
+      `select e.enrollment_id, e.status, e.normalized_email, e.exported_at, e.last_event_at,
+              e.stop_reason, e.subject_variant, e.provider_lead_id,
+              a.account_id, a.canonical_name as company_name, a.relationship_state,
+              a.is_suppressed, u.display_name as owner_name
+         from email_enrollments e
+         join accounts a on a.account_id = e.account_id
+         left join users u on u.user_id = a.current_owner_user_id
+        where e.email_campaign_id = $1
+        order by e.created_at desc limit 200`, [campaignId]),
+    // Relationship state outranks campaign membership, so a member who is no longer
+    // cold is shown first rather than left to be discovered by a send.
+    query<any>(
+      `select a.account_id, a.canonical_name as company_name, a.relationship_state,
+              e.status as enrollment_status
+         from email_enrollments e
+         join accounts a on a.account_id = e.account_id
+        where e.email_campaign_id = $1
+          and e.status not in ('PAUSED','STOPPED','UNSUBSCRIBED')
+          and (a.is_suppressed or a.relationship_state in
+               ('ENGAGED','CALLBACK_REQUESTED','ACTIVE_OPPORTUNITY','MEETING_SCHEDULED','CUSTOMER'))
+        order by a.canonical_name`, [campaignId]),
+    query<any>(
+      `select o.operation, o.status, count(*)::int as n, max(o.last_error) as last_error
+         from email_outbox o
+         join email_enrollments e on e.enrollment_id = o.enrollment_id
+        where e.email_campaign_id = $1
+        group by o.operation, o.status`, [campaignId]),
+  ]);
+
+  return {
+    campaign,
+    outcomes: outcomes.rows,
+    sources: sources.rows,
+    members: members.rows,
+    conflicts: conflicts.rows,
+    outbox: pending.rows,
+  };
+}
+
 // ------------------------------------------------------------------ analytics
 
 export interface AnalyticsFilters {
-  fromDate: string | null; toDate: string | null;
-  ownerUserId: string | null; verticalProfileId: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+  ownerUserId: string | null;
+  verticalProfileId: string | null;
+  marketId: string | null;
+  /** Which outreach channel the attempt used. */
+  channel: string | null;
+  /** The offer hypothesis family the account was approached on. */
+  hook: string | null;
+  /** A specific call/email outcome, for drilling into one disposition. */
+  outcome: string | null;
+}
+
+export function emptyFilters(): AnalyticsFilters {
+  return {
+    fromDate: null, toDate: null, ownerUserId: null, verticalProfileId: null,
+    marketId: null, channel: null, hook: null, outcome: null,
+  };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Parses the query string into filters.
+ *
+ * A value that cannot be a filter — a malformed id, a date that is not a date — is
+ * dropped and named in `ignored`, so the page can say the scope is wider than the URL
+ * suggests. Silently showing unfiltered numbers under a filtered URL is worse than
+ * showing none.
+ */
+export function parseAnalyticsFilters(
+  params: URLSearchParams,
+): AnalyticsFilters & { ignored: string[] } {
+  const ignored: string[] = [];
+  const text = (name: string) => {
+    const raw = (params.get(name) ?? '').trim();
+    return raw.length > 0 ? raw.slice(0, 100) : null;
+  };
+  const shaped = (name: string, pattern: RegExp, label: string) => {
+    const raw = text(name);
+    if (raw === null) return null;
+    if (pattern.test(raw)) return raw;
+    ignored.push(label);
+    return null;
+  };
+
+  return {
+    fromDate: shaped('from', ISO_DATE, 'from date'),
+    toDate: shaped('to', ISO_DATE, 'to date'),
+    ownerUserId: shaped('rep', UUID, 'rep'),
+    verticalProfileId: text('vertical'),
+    marketId: shaped('market', UUID, 'market'),
+    channel: text('channel'),
+    hook: text('hook'),
+    outcome: text('outcome'),
+    ignored,
+  };
+}
+
+/** Filter options, read from what the data actually contains. */
+export async function analyticsFilterOptions() {
+  const [reps, markets, verticals, hooks] = await Promise.all([
+    query<any>(`select u.user_id as id, u.display_name as label
+                  from users u where u.is_active order by u.display_name`),
+    query<any>(`select m.market_id as id, m.name as label
+                  from saved_markets m order by m.name limit 100`),
+    query<any>(`select v.vertical_profile_id as id, v.display_name as label
+                  from vertical_profiles v where v.is_active order by v.display_name`),
+    query<any>(`select distinct h.offer_family as id, h.offer_family as label
+                  from offer_hypotheses h where h.is_current and h.offer_family is not null
+                  order by 1 limit 50`),
+  ]);
+  return {
+    reps: reps.rows, markets: markets.rows, verticals: verticals.rows, hooks: hooks.rows,
+    channels: [
+      { id: 'HUMAN_MANUAL_CALL', label: 'Human call' },
+      { id: 'AUTONOMOUS_AI_VOICE', label: 'AI voice' },
+      { id: 'EMAIL', label: 'Email' },
+      { id: 'SMS', label: 'SMS' },
+      { id: 'FIELD', label: 'Field' },
+    ],
+    outcomes: [
+      'NO_ANSWER', 'VOICEMAIL', 'GATEKEEPER', 'DECISION_MAKER_REACHED', 'SEND_INFORMATION',
+      'CALLBACK_REQUESTED', 'POSSIBLE_OPPORTUNITY', 'MEETING_SCHEDULED', 'NOT_A_FIT',
+      'WRONG_NUMBER', 'DO_NOT_CONTACT',
+    ].map((id) => ({ id, label: id.replace(/_/g, ' ').toLowerCase() })),
+  };
 }
 
 /**
- * Funnel counts with defined denominators. Every stage states what it counts, and
- * booked meetings are never reported as attended meetings.
+ * Funnel counts with defined denominators.
+ *
+ * Every stage counts distinct Accounts inside one scope, so the stages are directly
+ * comparable and a share is meaningful. Booked and attended are separate counts and
+ * are never collapsed: a booking is not an attendance, and reporting it as one is
+ * how a pipeline flatters itself.
+ *
+ * The channel, hook and outcome filters narrow the *scope*, so a funnel filtered to
+ * AI voice counts only accounts approached that way at every stage rather than
+ * mixing a phone-attempt denominator with an email numerator.
  */
 export async function analyticsFunnel(filters: AnalyticsFilters) {
-  const from = filters.fromDate ?? null;
-  const to = filters.toDate ?? null;
-  const owner = filters.ownerUserId ?? null;
-  const vertical = filters.verticalProfileId ?? null;
-
   const { rows } = await query<any>(
     `with scoped as (
-       select a.account_id
+       select distinct a.account_id
          from accounts a
+         left join account_market_membership am on am.account_id = a.account_id
         where ($1::date is null or a.created_at >= $1::date)
           and ($2::date is null or a.created_at < ($2::date + interval '1 day'))
           and ($3::uuid is null or a.current_owner_user_id = $3::uuid)
           and ($4::text is null or a.primary_vertical_profile_id = $4::text)
+          and ($5::uuid is null or am.market_id = $5::uuid)
+          and ($6::text is null or exists (
+                select 1 from contact_attempts at
+                 where at.account_id = a.account_id and at.channel = $6::text))
+          and ($7::text is null or exists (
+                select 1 from offer_hypotheses h
+                 where h.account_id = a.account_id and h.is_current
+                   and h.offer_family = $7::text))
+          and ($8::text is null or exists (
+                select 1 from contact_attempts at
+                 where at.account_id = a.account_id and at.disposition = $8::text))
      )
      select
        (select count(*)::int from scoped) as researched,
@@ -83,10 +251,12 @@ export async function analyticsFunnel(filters: AnalyticsFilters) {
           join scoped s on s.account_id = e.account_id
          where e.is_active and not e.is_suppressed) as contactable,
        (select count(distinct at.account_id)::int from contact_attempts at
-          join scoped s on s.account_id = at.account_id) as attempted,
+          join scoped s on s.account_id = at.account_id
+         where ($6::text is null or at.channel = $6::text)) as attempted,
        (select count(distinct at.account_id)::int from contact_attempts at
           join scoped s on s.account_id = at.account_id
-         where at.disposition in ('DECISION_MAKER_REACHED','GATEKEEPER','SEND_INFORMATION',
+         where ($6::text is null or at.channel = $6::text)
+           and at.disposition in ('DECISION_MAKER_REACHED','GATEKEEPER','SEND_INFORMATION',
                                   'CALLBACK_REQUESTED','POSSIBLE_OPPORTUNITY',
                                   'MEETING_SCHEDULED','NOT_A_FIT')) as connected,
        (select count(distinct o.account_id)::int from opportunities o
@@ -100,7 +270,8 @@ export async function analyticsFunnel(filters: AnalyticsFilters) {
        (select count(distinct sp.account_id)::int from suppressions sp
           join scoped s on s.account_id = sp.account_id
          where sp.is_active) as suppressed`,
-    [from, to, owner, vertical],
+    [filters.fromDate, filters.toDate, filters.ownerUserId, filters.verticalProfileId,
+     filters.marketId, filters.channel, filters.hook, filters.outcome],
   );
   return rows[0];
 }
