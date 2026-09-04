@@ -28,6 +28,8 @@ export interface SalesRelayState {
   utteranceOpen: boolean;
   lastPartialText: string;
   turns: number;
+  /** Set once the call has ended, so a late frame cannot end it again. */
+  ended: boolean;
 }
 
 export interface Socket {
@@ -41,7 +43,30 @@ export function createSalesRelaySession(input: {
   now?: () => number;
 }) {
   const sessions = new SessionStore<SalesRelayState>(
-    () => ({ utteranceOpen: false, lastPartialText: '', turns: 0 }));
+    () => ({ utteranceOpen: false, lastPartialText: '', turns: 0, ended: false }));
+
+  /**
+   * Ends the call once.
+   *
+   * Twilio can deliver a status callback, an error frame and a hang-up after the
+   * conversation has already finished. Letting any of those run the producer's
+   * `finish` again overwrites how the call actually ended — a call that reached DNC
+   * would be recorded as a hang-up.
+   */
+  async function endOnce(
+    callSid: string, reason: 'completed' | 'caller_hung_up' | 'error',
+    socket?: Socket,
+  ): Promise<boolean> {
+    const session = sessions.get(callSid);
+    if (!session || session.state.ended) return false;
+    sessions.patchState(callSid, { ended: true });
+    inFlight.get(callSid)?.abort();
+    await input.producer.finish(reason);
+    timelines.get(callSid)?.mark('CALL_ENDED');
+    sessions.end(callSid);
+    socket?.close();
+    return true;
+  }
   const timelines = new Map<string, Timeline>();
   const inFlight = new Map<string, AbortController>();
 
@@ -79,6 +104,8 @@ export function createSalesRelaySession(input: {
     if (message.type === 'prompt') {
       const utterance = String((message as { voicePrompt?: string }).voicePrompt ?? '').trim();
       if (!utterance) return;
+      // A transcript arriving after the call ended is not a turn.
+      if (session.state.ended) return;
 
       // An interim transcript. Twilio is still listening, so this is not a turn —
       // acting on it would answer half a sentence.
@@ -131,12 +158,7 @@ export function createSalesRelaySession(input: {
       timeline.mark('TURN_COMPLETE');
       sessions.patchState(callSid, { turns: session.state.turns + 1 });
 
-      if (produced.terminal) {
-        await input.producer.finish('completed');
-        timeline.mark('CALL_ENDED');
-        sessions.end(callSid);
-        socket.close();
-      }
+      if (produced.terminal) await endOnce(callSid, 'completed', socket);
       return;
     }
 
@@ -155,8 +177,7 @@ export function createSalesRelaySession(input: {
     }
 
     if (message.type === 'error') {
-      await input.producer.finish('error');
-      sessions.end(callSid);
+      await endOnce(callSid, 'error');
     }
   }
 
@@ -164,10 +185,9 @@ export function createSalesRelaySession(input: {
     handle,
     sessions,
     timelineFor: (callSid: string) => timelines.get(callSid),
-    async hangUp(callSid: string): Promise<void> {
-      inFlight.get(callSid)?.abort();
-      await input.producer.finish('caller_hung_up');
-      sessions.end(callSid);
+    /** Idempotent: a hang-up after the call ended changes nothing. */
+    async hangUp(callSid: string): Promise<boolean> {
+      return endOnce(callSid, 'caller_hung_up');
     },
   };
 }

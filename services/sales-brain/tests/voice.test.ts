@@ -337,3 +337,49 @@ test('a call that ends twice keeps the outcome the conversation reached', async 
       where voice_call_id = $1 and label like 'Caller hung up%'`, [voiceCallId]);
   assert.equal(events.rows[0]!.n, 0, 'and must not record a second ending');
 });
+
+test('a DNC stays terminal through the relay producer, not only in the brain', async () => {
+  setCalendarAdapter(calendar());
+  const { accountId } = await endpointFor('904-555-0142');
+  const voiceCallId = await liveCall(accountId);
+  const producer = await createSalesRelayProducer({ voiceCallId, accountId });
+
+  const turn = await producer.respond('Take us off your list.', new AbortController().signal);
+  assert.equal(turn.terminal, true, 'the transport is told to end the call');
+  assert.equal(/but|before you go|just one|can i ask/i.test(turn.say), false,
+    'nothing follows a do-not-contact request, at any layer');
+
+  await producer.finish('completed');
+  const { rows } = await pool.query(
+    `select outcome, disposition from voice_calls where voice_call_id = $1`, [voiceCallId]);
+  assert.equal(rows[0]!.outcome, 'DNC');
+  assert.equal(rows[0]!.disposition, 'DO_NOT_CONTACT');
+});
+
+test('a booking is never spoken as confirmed through the relay producer either', async () => {
+  setCalendarAdapter(calendar({
+    createResult: { ok: false, error: 'calendar rejected the event', errorCode: 'PROVIDER_ERROR' },
+  }));
+  const { accountId } = await endpointFor('904-555-0142');
+  const voiceCallId = await liveCall(accountId);
+  const producer = await createSalesRelayProducer({ voiceCallId, accountId });
+  const signal = new AbortController().signal;
+
+  const said: string[] = [];
+  for (const utterance of [
+    'We miss calls when the crews are out.',
+    'Nobody picks them up until the next morning.',
+    'Yeah, that is probably worth looking at.',
+    'Sure, that works.',
+  ]) said.push((await producer.respond(utterance, signal)).say);
+
+  const slot = producer.session.state.offeredSlots[0];
+  assert.ok(slot, 'the calendar offered a real slot');
+  said.push((await producer.respond(`${slot!.spoken} works.`, signal)).say);
+  said.push((await producer.respond('dana@example.com', signal)).say);
+
+  const everything = said.join(' ');
+  assert.equal(/you'?re (?:confirmed|booked|all set)|it'?s in the calendar/i.test(everything), false);
+  assert.match(everything, /tentative|have it confirmed/i);
+  assert.notEqual(producer.session.state.memory.booking.providerStatus, 'confirmed');
+});
