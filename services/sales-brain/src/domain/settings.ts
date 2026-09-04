@@ -163,10 +163,18 @@ export async function testIntegration(input: {
 async function checkIntegration(key: string, env: NodeJS.ProcessEnv): Promise<{
   status: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED'; detail: string;
 }> {
-  // Where a provider validator exists it is the authority: it asks the provider
-  // whether the credential works *and* whether what it points at exists, which
-  // "is the variable set" cannot answer.
+  // A live adapter probe comes first where one exists, because it reflects the
+  // running system — a configured-but-unreachable provider must read as failing
+  // rather than as not configured. The validator then adds what is missing.
+  const probe = await probeRunningAdapter(key, env);
   const validated = await validateOne(key, env);
+  if (probe && validated) {
+    return probe.status === 'OK' ? validated
+      : { status: probe.status,
+          detail: validated.status === 'OK' ? probe.detail
+            : `${probe.detail} ${validated.detail}` };
+  }
+  if (probe) return probe;
   if (validated) return validated;
 
   switch (key) {
@@ -219,6 +227,31 @@ async function checkIntegration(key: string, env: NodeJS.ProcessEnv): Promise<{
     default:
       return { status: 'NOT_CONFIGURED', detail: 'This integration has no connection test.' };
   }
+}
+
+/**
+ * Probes the adapter the service would actually use.
+ *
+ * This is what makes a degraded provider visible: the validator can only report
+ * configuration, while the adapter in the running process is the thing that will be
+ * asked for availability on a live call.
+ */
+async function probeRunningAdapter(key: string, env: NodeJS.ProcessEnv): Promise<{
+  status: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED'; detail: string;
+} | null> {
+  if (key !== 'calcom') return null;
+  const { currentCalendarAdapter } = await import('../booking/service.js');
+  const adapter = currentCalendarAdapter();
+  if (!adapter.isConfigured()) return null;
+
+  const busy = await adapter.getBusy({
+    calendarUpn: env['BOOKING_CALENDAR_UPN'] ?? '',
+    from: new Date(), to: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    durationMinutes: 15, timezone: env['BOOKING_TIMEZONE'] ?? 'America/New_York',
+  });
+  return busy.ok
+    ? { status: 'OK', detail: 'The calendar answered a real availability request.' }
+    : { status: 'FAILED', detail: 'The calendar is configured but did not answer.' };
 }
 
 /** Maps a provider validation onto the operator-facing status the page shows. */
