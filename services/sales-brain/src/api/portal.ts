@@ -31,6 +31,13 @@ import {
   renderMarketDetailPage, renderMeetingDetailPage, renderMeetingsPage,
   renderOpportunitiesPage, renderOpportunityDetailPage, renderRepliesPage,
 } from '../web/pages/waveB.js';
+import {
+  renderImportsPage, renderImportWizardPage, renderMiningPage, renderResearchHealthPage,
+} from '../web/pages/waveC.js';
+import { miningJobs, miningKpis, researchExceptions, researchHealthMetrics } from './waveCQueries.js';
+import {
+  buildPreview, confirmSession, createSession, getSession, listImportHistory, setColumnMap,
+} from '../import/session.js';
 
 /** Server-rendered portal routes. Every one of them re-checks the session. */
 
@@ -250,6 +257,139 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       ? 'Contact research queued. It runs in the background.'
       : 'Contact research is already queued for this account.';
     return reply.redirect(`/accounts/${request.params.id}?flash=${encodeURIComponent(flash)}`);
+  });
+
+  // ------------------------------------------------------- wave C operations --
+
+  /** Manager/research-ops gate used by the operations pages. */
+  const requireOps = (request: FastifyRequest, reply: FastifyReply) => {
+    const user = requireUser(request, reply);
+    if (!user) return null;
+    if (!isManager(user.role) && user.role !== 'RESEARCH_OPS') {
+      reply.code(403).type('text/html').send('<p>Managers and research operations only.</p>');
+      return null;
+    }
+    return user;
+  };
+
+  app.get('/mining', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+    const [counts, kpis, jobs] = await Promise.all([
+      navCountsFull(user.userId, user.role), miningKpis(), miningJobs(),
+    ]);
+    return reply.type('text/html').send(renderMiningPage({ user, counts, kpis, jobs }));
+  });
+
+  app.get('/research-health', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+    const [counts, metrics, exceptions] = await Promise.all([
+      navCountsFull(user.userId, user.role), researchHealthMetrics(), researchExceptions(),
+    ]);
+    return reply.type('text/html').send(renderResearchHealthPage({ user, counts, metrics, exceptions }));
+  });
+
+  app.get<{ Querystring: { flash?: string; error?: string } }>('/imports', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+    const [counts, history] = await Promise.all([
+      navCountsFull(user.userId, user.role), listImportHistory(),
+    ]);
+    return reply.type('text/html').send(renderImportsPage({
+      user, counts, history, flash: request.query.flash ?? null, error: request.query.error ?? null,
+    }));
+  });
+
+  /** Browser upload, so a prospect list no longer needs an SSH session. */
+  app.post('/imports/upload', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+
+    try {
+      const parts = request.parts();
+      let content = '';
+      let fileName = '';
+      const fields: Record<string, string> = {};
+
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          fileName = part.filename ?? 'upload.csv';
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) chunks.push(chunk as Buffer);
+          if (part.file.truncated) throw new Error('That file is larger than the 20 MB upload limit.');
+          content = Buffer.concat(chunks).toString('utf8');
+        } else {
+          fields[part.fieldname] = String(part.value);
+        }
+      }
+
+      if (!content.trim()) throw new Error('That file appears to be empty.');
+
+      const session = await createSession({
+        content, fileName,
+        sourceName: fields['sourceName']?.trim() || fileName,
+        sourceKind: fields['sourceKind'] || 'csv',
+        createdBy: user.userId,
+      });
+      return reply.redirect(`/imports/${session.importSessionId}`);
+    } catch (error) {
+      return reply.redirect(`/imports?error=${encodeURIComponent((error as Error).message)}`);
+    }
+  });
+
+  app.get<{ Params: { id: string } }>('/imports/:id', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+    const loaded = await getSession(request.params.id, user.userId);
+    if (!loaded) return reply.code(404).type('text/html').send('<p>Import session not found.</p>');
+    const [counts, verticals] = await Promise.all([
+      navCountsFull(user.userId, user.role), listVerticals(),
+    ]);
+    return reply.type('text/html').send(renderImportWizardPage({
+      user, counts, session: loaded.summary, preview: loaded.summary.preview, verticals,
+    }));
+  });
+
+  app.post<{ Params: { id: string }; Body: Record<string, string> }>(
+    '/imports/:id/map', async (request, reply) => {
+      const user = requireOps(request, reply);
+      if (!user) return;
+
+      const columnMap: Record<string, string> = {};
+      for (const [key, value] of Object.entries(request.body ?? {})) {
+        if (key.startsWith('map_') && value) columnMap[key.slice(4)] = value;
+      }
+      await setColumnMap(
+        request.params.id, user.userId, columnMap as never,
+        request.body?.['defaultVertical'] || null,
+      );
+      await buildPreview(request.params.id, user.userId);
+      return reply.redirect(`/imports/${request.params.id}`);
+    },
+  );
+
+  app.post<{ Params: { id: string } }>('/imports/:id/confirm', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+    const result = await confirmSession(request.params.id, user.userId);
+    if (!result.ok) {
+      return reply.redirect(`/imports?error=${encodeURIComponent(result.message ?? 'Import failed.')}`);
+    }
+    const report = result.report!;
+    const flash = `${report.created} accounts created, ${report.matched} merged, `
+      + `${report.rejected} skipped, ${report.suppressed} suppressed. No outreach was scheduled.`;
+    return reply.redirect(`/imports?flash=${encodeURIComponent(flash)}`);
+  });
+
+  app.post<{ Params: { id: string } }>('/imports/:id/cancel', async (request, reply) => {
+    const user = requireOps(request, reply);
+    if (!user) return;
+    await import('../db/pool.js').then((m) => m.query(
+      `update import_sessions set status = 'CANCELLED', raw_rows = null
+        where import_session_id = $1 and created_by = $2`,
+      [request.params.id, user.userId]));
+    return reply.redirect('/imports?flash=Upload+discarded.');
   });
 
   // ------------------------------------------------------------------- team --

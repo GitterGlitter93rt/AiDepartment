@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import cookie from '@fastify/cookie';
 import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
+import multipart from '@fastify/multipart';
 import { config } from '../config.js';
 import { pool } from '../db/pool.js';
 import {
@@ -46,6 +47,10 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await app.register(cookie, { secret: config.portal.sessionSecret });
   await app.register(formbody);
+  // Prospect-list uploads. Capped so a large file cannot exhaust memory.
+  await app.register(multipart, {
+    limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 20 },
+  });
   await app.register(fastifyStatic, {
     root: assetsDir,
     prefix: '/assets/',

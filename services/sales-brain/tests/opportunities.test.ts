@@ -61,7 +61,7 @@ test('positive sentiment alone is not an opportunity', async () => {
   assert.match(result.message ?? '', /not qualification/i);
 
   const { rows } = await query('select count(*)::int as n from opportunities');
-  assert.equal(rows[0].n, 0);
+  assert.equal(rows[0]!.n, 0);
 });
 
 test('an opportunity needs a stated problem, not a placeholder', async () => {

@@ -728,3 +728,51 @@ input[type='checkbox'] { width: 15px; height: 15px; accent-color: var(--electric
   .detail-list > div { grid-template-columns: 1fr; gap: 2px; }
   .pipeline { grid-auto-columns: minmax(220px, 85vw); }
 }
+
+/* -------------------------------------------------------------- wave C --- */
+
+.metric-bar { margin-bottom: 14px; }
+.metric-bar-head {
+  display: flex; justify-content: space-between; font-size: 0.83rem; margin-bottom: 5px;
+}
+.metric-bar-track { height: 8px; background: #F1F5F9; border-radius: 4px; overflow: hidden; }
+.metric-bar-fill { height: 100%; border-radius: 4px; transition: width var(--transition-base); }
+.fill-success { background: var(--emerald); }
+.fill-warning { background: var(--amber); }
+.fill-stale { background: #CBD5E1; }
+.fill-neutral { background: #E2E8F0; }
+.fill-destructive { background: var(--crimson); }
+.fill-info { background: var(--electric-blue); }
+
+.job-error-row td { padding-top: 0 !important; border-bottom: 1px solid #F1F5F9; }
+
+.import-source h3 { font-family: var(--font-heading); font-size: 1rem; margin-bottom: 6px; }
+input[type='file'] {
+  font-family: var(--font-body); font-size: 0.86rem; padding: 9px 11px;
+  border: 1px dashed var(--border-light); border-radius: var(--radius-button);
+  width: 100%; background: #F8FAFC; cursor: pointer;
+}
+input[type='file']:hover { border-color: var(--electric-blue); }
+
+.wizard-steps { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.wizard-step {
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  border-radius: var(--radius-pill); font-size: 0.83rem; font-weight: 600;
+  background: var(--pure-white); border: 1px solid var(--border-light); color: var(--slate-gray);
+}
+.wizard-num {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 0.72rem; background: #F1F5F9; color: var(--slate-gray);
+}
+.wizard-active { border-color: var(--electric-blue); color: #1D4ED8; }
+.wizard-active .wizard-num { background: var(--electric-blue); color: #fff; }
+.wizard-done { color: #047857; border-color: rgba(16,185,129,0.4); }
+.wizard-done .wizard-num { background: var(--emerald); color: #fff; }
+
+.mapping-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .mapping-grid { grid-template-columns: 1fr; }
+}
