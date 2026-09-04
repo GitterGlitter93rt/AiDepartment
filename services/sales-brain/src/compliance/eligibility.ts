@@ -76,8 +76,21 @@ const CALLING_WINDOW = { startHour: 9, endHour: 19 };
 const ATTEMPT_COOLDOWN_HOURS = 24;
 const MAX_ATTEMPTS_PER_WEEK = 3;
 
-/** Endpoint roles that clearly represent a business, not a person's private line. */
-const BUSINESS_ROLES = new Set([
+/**
+ * Roles the business itself publishes as a way to reach it. `MOBILE_ASSERTED_BUSINESS`
+ * belongs here: the company put that mobile on its own site as a business contact.
+ */
+const PUBLISHED_BUSINESS_ROLES = new Set([
+  'MAIN_BUSINESS_LINE', 'DIRECT_BUSINESS_LINE', 'LOCATION_BUSINESS_LINE',
+  'EXTENSION', 'TOLL_FREE_BUSINESS', 'CALL_TRACKING_NUMBER', 'MOBILE_ASSERTED_BUSINESS',
+]);
+
+/**
+ * Roles that are a fixed business line rather than a mobile. Autonomous AI voice is
+ * held to this stricter bar: a mobile carries different rules even when the business
+ * published it, so an approved pilot still gets REVIEW_REQUIRED rather than ALLOW.
+ */
+const FIXED_BUSINESS_LINE_ROLES = new Set([
   'MAIN_BUSINESS_LINE', 'DIRECT_BUSINESS_LINE', 'LOCATION_BUSINESS_LINE',
   'EXTENSION', 'TOLL_FREE_BUSINESS', 'CALL_TRACKING_NUMBER',
 ]);
@@ -114,7 +127,20 @@ function nextWindowOpen(timezone: string | null, now: Date): Date | null {
  * Order is deliberate: absolute blocks first, then channel-specific policy, then
  * timing. A timing restriction produces `next_eligible_at`, not a permanent block.
  */
-export function decide(state: EndpointState, now: Date = new Date()): EligibilityResult {
+export interface PolicyInputs {
+  /** True only when the controlled outbound pilot has been explicitly approved. */
+  aiVoicePilotApproved: boolean;
+  /** Channels this campaign is authorized to use at all. */
+  authorizedChannels?: Channel[];
+}
+
+function defaultPolicy(): PolicyInputs {
+  return { aiVoicePilotApproved: config.outbound.dialEnabled };
+}
+
+export function decide(
+  state: EndpointState, now: Date = new Date(), policy: PolicyInputs = defaultPolicy(),
+): EligibilityResult {
   const reasons: ReasonCode[] = [];
   let human: Decision = 'ALLOW';
   let ai: Decision = 'ALLOW';
@@ -135,7 +161,11 @@ export function decide(state: EndpointState, now: Date = new Date()): Eligibilit
 
   // --- registry screening ----------------------------------------------------
   // A screening failure is never silently treated as a clean result (§19).
-  const isBusinessLine = BUSINESS_ROLES.has(state.endpoint_role)
+  // Two separate questions. "Did the business publish this as a way to reach it?"
+  // governs whether a human may dial. "Is it a fixed business line?" governs whether
+  // an approved AI pilot may auto-dial without review.
+  const isBusinessLine = PUBLISHED_BUSINESS_ROLES.has(state.endpoint_role);
+  const isFixedBusinessLine = FIXED_BUSINESS_LINE_ROLES.has(state.endpoint_role)
     && state.line_type !== 'mobile';
 
   if (state.registry_result === 'MATCH') {
@@ -171,22 +201,32 @@ export function decide(state: EndpointState, now: Date = new Date()): Eligibilit
     reasons.push('LINE_TYPE_UNKNOWN');
     ai = 'BLOCK';
   }
-  if (state.line_type === 'mobile' && !BUSINESS_ROLES.has(state.endpoint_role)) {
-    // A personal mobile carries stricter rules than a published business line.
+  if (state.line_type === 'mobile' && !PUBLISHED_BUSINESS_ROLES.has(state.endpoint_role)) {
+    // A mobile the business never published is treated as personal.
     if (human === 'ALLOW') human = 'REVIEW_REQUIRED';
     reasons.push('PERSONAL_MOBILE');
     ai = 'BLOCK';
   }
 
   // --- AI voice authorization ------------------------------------------------
-  // The pilot gate has not been reached. AI voice stays blocked regardless of how
-  // clean the endpoint is (CLAUDE-CURRENT-TASK.md §5).
-  if (!config.outbound.dialEnabled) {
+  // Until the controlled pilot is explicitly approved, AI voice stays blocked
+  // regardless of how clean the endpoint is (CLAUDE-CURRENT-TASK.md §5).
+  if (!policy.aiVoicePilotApproved) {
     ai = 'BLOCK';
     if (!reasons.includes('AI_VOICE_PILOT_DISABLED')) reasons.push('AI_VOICE_PILOT_DISABLED');
-  } else if (ai === 'ALLOW' && !isBusinessLine) {
+  } else if (ai === 'ALLOW' && !isFixedBusinessLine) {
+    // Approved pilot, but this is a mobile or an unclassified line. A human may
+    // still dial it; an AI must be reviewed first.
     ai = 'REVIEW_REQUIRED';
     reasons.push('AI_VOICE_NOT_APPROVED');
+  }
+
+  // A campaign may authorize fewer channels than policy permits, never more.
+  if (policy.authorizedChannels) {
+    if (!policy.authorizedChannels.includes('HUMAN_MANUAL_CALL')) human = 'NOT_APPLICABLE';
+    if (!policy.authorizedChannels.includes('AUTONOMOUS_AI_VOICE') && ai !== 'BLOCK') {
+      ai = 'NOT_APPLICABLE';
+    }
   }
 
   // --- timing ----------------------------------------------------------------
@@ -241,7 +281,7 @@ function finish(
 }
 
 /** Loads the state one endpoint's decision depends on. */
-async function loadEndpointState(
+export async function loadEndpointState(
   client: Queryable, endpointId: string,
 ): Promise<EndpointState | null> {
   const { rows } = await client.query<EndpointState>(
@@ -283,13 +323,13 @@ async function loadEndpointState(
  * call action (§11 screening moments).
  */
 export async function evaluateAndStore(
-  endpointId: string, now: Date = new Date(),
+  endpointId: string, now: Date = new Date(), policy?: PolicyInputs,
 ): Promise<EligibilityResult | null> {
   return withTransaction(async (client) => {
     const state = await loadEndpointState(client, endpointId);
     if (!state) return null;
 
-    const result = decide(state, now);
+    const result = decide(state, now, policy ?? defaultPolicy());
 
     await client.query(
       `update contact_endpoints
@@ -341,9 +381,9 @@ export interface PreflightResult {
  */
 export async function preflightCall(
   endpointId: string, channel: 'HUMAN_MANUAL_CALL' | 'AUTONOMOUS_AI_VOICE',
-  now: Date = new Date(),
+  now: Date = new Date(), policy?: PolicyInputs,
 ): Promise<PreflightResult> {
-  const result = await evaluateAndStore(endpointId, now);
+  const result = await evaluateAndStore(endpointId, now, policy);
   if (!result) {
     return {
       allowed: false, decision: 'BLOCK', decisionId: null, reasonCodes: [],
@@ -415,11 +455,13 @@ export function explain(
 }
 
 /** Re-evaluates every phone endpoint on an Account. Used after a claim. */
-export async function evaluateAccount(accountId: string, now: Date = new Date()): Promise<number> {
+export async function evaluateAccount(
+  accountId: string, now: Date = new Date(), policy?: PolicyInputs,
+): Promise<number> {
   const { rows } = await query<{ endpoint_id: string }>(
     `select endpoint_id from contact_endpoints where account_id = $1 and endpoint_type = 'PHONE'`,
     [accountId],
   );
-  for (const row of rows) await evaluateAndStore(row.endpoint_id, now);
+  for (const row of rows) await evaluateAndStore(row.endpoint_id, now, policy);
   return rows.length;
 }

@@ -300,3 +300,201 @@ test('the API refuses to start a call on a blocked endpoint', async () => {
     await app.close();
   }
 });
+
+// --- the five required decision combinations ---------------------------------
+// Authority: the eligibility split must produce genuinely independent decisions,
+// so every combination is exercised explicitly rather than inferred.
+
+const PILOT_APPROVED = { aiVoicePilotApproved: true };
+const PILOT_CLOSED = { aiVoicePilotApproved: false };
+
+test('COMBINATION human=ALLOW / ai=ALLOW — clean business line, pilot approved', async () => {
+  const { endpointId } = await seedEndpoint({ role: 'MAIN_BUSINESS_LINE', lineType: 'landline' });
+  await screen(endpointId, 'NO_MATCH');
+  const result = await evaluateAndStore(endpointId, DURING_HOURS, PILOT_APPROVED);
+
+  assert.equal(result!.humanManualCall, 'ALLOW');
+  assert.equal(result!.autonomousAiVoice, 'ALLOW');
+  assert.ok(result!.reasonCodes.includes('BUSINESS_LINE_VERIFIED'));
+
+  const ai = await preflightCall(endpointId, 'AUTONOMOUS_AI_VOICE', DURING_HOURS, PILOT_APPROVED);
+  assert.equal(ai.allowed, true, 'an approved pilot can dial a screened business line');
+});
+
+test('COMBINATION human=ALLOW / ai=BLOCK — the pilot gate is closed', async () => {
+  const { endpointId } = await seedEndpoint({ role: 'MAIN_BUSINESS_LINE', lineType: 'landline' });
+  await screen(endpointId, 'NO_MATCH');
+  const result = await evaluateAndStore(endpointId, DURING_HOURS, PILOT_CLOSED);
+
+  assert.equal(result!.humanManualCall, 'ALLOW');
+  assert.equal(result!.autonomousAiVoice, 'BLOCK');
+  assert.ok(result!.reasonCodes.includes('AI_VOICE_PILOT_DISABLED'));
+
+  // This is the production default: the same endpoint a rep may dial, an AI may not.
+  const shipped = await evaluateAndStore(endpointId, DURING_HOURS);
+  assert.equal(shipped!.humanManualCall, 'ALLOW');
+  assert.equal(shipped!.autonomousAiVoice, 'BLOCK');
+});
+
+test('COMBINATION human=ALLOW / ai=REVIEW_REQUIRED — approved pilot, non-business line', async () => {
+  // A published mobile that a human may call, but which an approved AI pilot still
+  // must not auto-dial without review.
+  const { endpointId } = await seedEndpoint({
+    role: 'MOBILE_ASSERTED_BUSINESS', lineType: 'landline',
+  });
+  await screen(endpointId, 'NO_MATCH');
+  await query(`update contact_endpoints set line_type = 'mobile' where endpoint_id = $1`, [endpointId]);
+
+  const result = await evaluateAndStore(endpointId, DURING_HOURS, PILOT_APPROVED);
+  assert.equal(result!.humanManualCall, 'ALLOW', 'a business-asserted mobile is human-callable');
+  assert.equal(result!.autonomousAiVoice, 'REVIEW_REQUIRED');
+  assert.ok(result!.reasonCodes.includes('AI_VOICE_NOT_APPROVED'));
+
+  const ai = await preflightCall(endpointId, 'AUTONOMOUS_AI_VOICE', DURING_HOURS, PILOT_APPROVED);
+  assert.equal(ai.allowed, false, 'REVIEW_REQUIRED is not permission to dial');
+});
+
+test('COMBINATION human=BLOCK / ai=BLOCK — suppression overrides an approved pilot', async () => {
+  const rep = await makeUser('Rep A');
+  const { accountId, endpointId } = await seedEndpoint({ lineType: 'landline' });
+  await screen(endpointId, 'NO_MATCH');
+  await claimAccount(accountId, rep);
+  await recordDisposition({ accountId, disposition: 'DO_NOT_CONTACT', endpointId }, rep);
+
+  // Even with the pilot fully approved, suppression wins.
+  const result = await evaluateAndStore(endpointId, DURING_HOURS, PILOT_APPROVED);
+  assert.equal(result!.humanManualCall, 'BLOCK');
+  assert.equal(result!.autonomousAiVoice, 'BLOCK');
+  assert.ok(result!.reasonCodes.some((code) => code === 'YAD_DNC' || code === 'ACCOUNT_SUPPRESSED'));
+});
+
+test('COMBINATION closed calling window — both channels held, with reopen times', async () => {
+  const { endpointId } = await seedEndpoint({ lineType: 'landline', timezone: 'America/New_York' });
+  await screen(endpointId, 'NO_MATCH');
+  const middleOfTheNight = new Date('2026-09-08T07:00:00Z');   // 03:00 New York
+
+  const result = await evaluateAndStore(endpointId, middleOfTheNight, PILOT_APPROVED);
+  assert.equal(result!.humanManualCall, 'REVIEW_REQUIRED');
+  assert.equal(result!.autonomousAiVoice, 'BLOCK');
+  assert.ok(result!.reasonCodes.includes('OUTSIDE_CALLING_WINDOW'));
+  assert.ok(result!.nextHumanEligibleAt, 'human gets a reopen time');
+  assert.ok(result!.nextAiEligibleAt, 'AI gets a reopen time');
+  assert.ok(result!.nextHumanEligibleAt! > middleOfTheNight);
+
+  // The window is a timing hold, not a permanent state: the same endpoint clears
+  // during business hours.
+  const daytime = await evaluateAndStore(endpointId, DURING_HOURS, PILOT_APPROVED);
+  assert.equal(daytime!.humanManualCall, 'ALLOW');
+  assert.equal(daytime!.autonomousAiVoice, 'ALLOW');
+});
+
+test('a campaign may authorize fewer channels than policy permits, never more', async () => {
+  const { endpointId } = await seedEndpoint({ role: 'MAIN_BUSINESS_LINE', lineType: 'landline' });
+  await screen(endpointId, 'NO_MATCH');
+
+  const humanOnly = await evaluateAndStore(endpointId, DURING_HOURS, {
+    aiVoicePilotApproved: true, authorizedChannels: ['HUMAN_MANUAL_CALL'],
+  });
+  assert.equal(humanOnly!.humanManualCall, 'ALLOW');
+  assert.equal(humanOnly!.autonomousAiVoice, 'NOT_APPLICABLE',
+    'a human-only campaign cannot dial with AI even when policy would allow it');
+
+  // And a campaign cannot grant AI voice that policy denies.
+  const cannotGrant = await evaluateAndStore(endpointId, DURING_HOURS, {
+    aiVoicePilotApproved: false, authorizedChannels: ['HUMAN_MANUAL_CALL', 'AUTONOMOUS_AI_VOICE'],
+  });
+  assert.equal(cannotGrant!.autonomousAiVoice, 'BLOCK',
+    'campaign authorization cannot override the closed pilot gate');
+});
+
+test('the AI queue can never consume a human-only endpoint', async () => {
+  // §19 hard fail: "AI queue can use an endpoint marked human-only".
+  const { endpointId } = await seedEndpoint({ role: 'MAIN_BUSINESS_LINE', lineType: 'landline' });
+  await screen(endpointId, 'NO_MATCH');
+  await evaluateAndStore(endpointId, DURING_HOURS, PILOT_CLOSED);
+
+  const aiEligible = await query<{ n: number }>(
+    `select count(*)::int as n from contact_endpoints
+      where endpoint_id = $1 and autonomous_ai_voice = 'ALLOW'`, [endpointId]);
+  assert.equal(aiEligible.rows[0]!.n, 0, 'the AI queue query returns nothing for this endpoint');
+
+  const humanEligible = await query<{ n: number }>(
+    `select count(*)::int as n from contact_endpoints
+      where endpoint_id = $1 and human_manual_call = 'ALLOW'`, [endpointId]);
+  assert.equal(humanEligible.rows[0]!.n, 1, 'while the human queue still sees it');
+});
+
+test('the portal exposes no usable call action for a not-cleared endpoint', async () => {
+  const { buildServer } = await import('../src/api/server.js');
+  const { createUser } = await import('../src/domain/auth.js');
+  const app = await buildServer();
+  try {
+    const userId = await createUser({
+      email: 'uiuser@test.local', displayName: 'UI Rep', role: 'SALES_REP', password: 'ui-test-pw',
+    });
+    const login = await app.inject({
+      method: 'POST', url: '/login', payload: { email: 'uiuser@test.local', password: 'ui-test-pw' },
+    });
+    const cookie = `yad_sales_session=${login.cookies.find((c) => c.name === 'yad_sales_session')!.value}`;
+    const rep = { userId, role: 'SALES_REP' as const, activeClaimTarget: null };
+
+    const { accountId, endpointId } = await seedEndpoint({ lineType: 'landline' });
+    await claimAccount(accountId, rep);
+    // A failed screen is the genuinely not-cleared case: REVIEW_REQUIRED, not BLOCK.
+    // (An *unscreened* published business line is deliberately human-ALLOW.)
+    await screen(endpointId, 'SCREEN_FAILED');
+    const notCleared = await evaluateAndStore(endpointId, DURING_HOURS);
+    assert.equal(notCleared!.humanManualCall, 'REVIEW_REQUIRED');
+
+    const page = await app.inject({
+      method: 'GET', url: `/accounts/${accountId}`, headers: { cookie },
+    });
+    assert.equal(page.statusCode, 200);
+
+    // No tel: link and no copy affordance for a number that is not cleared.
+    assert.doesNotMatch(page.body, /href="tel:/, 'no dialable link is rendered');
+    assert.match(page.body, /Review required/, 'the decision is shown plainly');
+    assert.match(page.body, /Screening did not complete|Screening pending|Not cleared/, 'with a reason');
+
+    // And the server refuses even if the client fabricates the request.
+    const bypass = await app.inject({
+      method: 'POST', url: `/api/accounts/${accountId}/start-call`,
+      headers: { cookie }, payload: { endpointId },
+    });
+    assert.equal(bypass.statusCode, 403);
+  } finally {
+    await app.close();
+  }
+});
+
+test('a cleared endpoint does render a call action', async () => {
+  const { buildServer } = await import('../src/api/server.js');
+  const { createUser } = await import('../src/domain/auth.js');
+  const app = await buildServer();
+  try {
+    const userId = await createUser({
+      email: 'ok@test.local', displayName: 'OK Rep', role: 'SALES_REP', password: 'ok-test-pw',
+    });
+    const login = await app.inject({
+      method: 'POST', url: '/login', payload: { email: 'ok@test.local', password: 'ok-test-pw' },
+    });
+    const cookie = `yad_sales_session=${login.cookies.find((c) => c.name === 'yad_sales_session')!.value}`;
+    const rep = { userId, role: 'SALES_REP' as const, activeClaimTarget: null };
+
+    const { accountId, endpointId } = await seedEndpoint({ lineType: 'landline' });
+    await claimAccount(accountId, rep);
+    await screen(endpointId, 'NO_MATCH');
+    const result = await evaluateAndStore(endpointId, DURING_HOURS);
+    assert.equal(result!.humanManualCall, 'ALLOW');
+
+    const page = await app.inject({
+      method: 'GET', url: `/accounts/${accountId}`, headers: { cookie },
+    });
+    assert.match(page.body, /Human call allowed/);
+    assert.match(page.body, /href="tel:/, 'a cleared number is dialable');
+    // AI voice is still off, and the page says so rather than implying it is available.
+    assert.match(page.body, /AI voice off/);
+  } finally {
+    await app.close();
+  }
+});
