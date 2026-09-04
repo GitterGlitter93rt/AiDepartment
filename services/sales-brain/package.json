@@ -15,7 +15,8 @@
     "import": "tsx src/bin/import.ts",
     "test": "LOG_LEVEL=silent tsx --test --test-concurrency=1 tests/*.test.ts",
     "check": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "sync-verticals": "tsx src/bin/sync-verticals.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

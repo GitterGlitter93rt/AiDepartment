@@ -422,3 +422,105 @@ tests/portal.test.ts
 ### Next gate
 
 T3 — seed inventory import.
+
+---
+
+## Gate T3 — Seed inventory import
+
+**Date:** 2026-09-03
+**Status:** COMPLETE for the pipeline. Loading the real YAD lists is blocked on **B-2** — none are on
+this machine. 45/45 tests pass.
+
+### What was built
+
+`normalize → identity resolve → suppression check → Account/Contact upsert → ownership check →
+inventory`, exactly as `CLAUDE-CURRENT-TASK.md` §T3 specifies, with no second lead table.
+
+- **`src/import/csv.ts`** — RFC 4180 parser handling BOM, CRLF, quoted commas, escaped quotes,
+  embedded newlines and blank lines, plus tab/semicolon delimiter detection. Written rather than
+  pulled in: a list import must not silently mangle a row, and it reports the real source line
+  number on every rejection.
+- **`src/import/mapping.ts`** — header inference across 16 canonical fields. Each field binds to at
+  most one column and each column to at most one field, ordered by specificity so `Direct Phone` is
+  never swallowed by the generic phone matcher. Split first/last name columns combine. Unmapped
+  headers stay in the raw payload; no database columns are invented from spreadsheet headers.
+- **`src/import/importer.ts`** — batch + per-row provenance, dedupe through the canonical resolver,
+  suppression check, and the list-quality report from spec §15.
+- **`src/bin/import.ts`** — `npm run import -- --file <csv> --source <name> [--vertical hvac] [--dry-run]`.
+
+### Honesty rules enforced at import
+
+- An imported **title** becomes an evidence record with `confidence = unknown` and
+  `can_state_as_fact = false`; the Contact keeps `UNKNOWN_ROLE` / `UNCERTAIN`. A spreadsheet saying
+  someone is the Owner does not make it a fact YAD may state.
+- An imported **direct phone** is stored `PROVIDER_ASSERTED_CURRENT` / `DIRECT_PROVIDER_ASSERTED`,
+  never `CONFIRMED`.
+- **Source industry is a hint.** It sets a vertical only when that profile is loaded and active;
+  otherwise the raw label is kept and the report says how many hints were dropped. A coarse
+  taxonomy neither rejects a good prospect nor silently mislabels one.
+- The **raw row is preserved verbatim** alongside the normalized form, so a bad mapping can be
+  re-examined without re-uploading the file.
+- Re-uploading a byte-identical file is refused by SHA-256 rather than double-imported.
+
+### Verified against a deliberately messy synthetic list
+
+9 data rows containing: a legal-suffix name variant, the same company twice with one shared Apollo
+ID, quoted fields with commas and escaped quotes, a `Florida` vs `FL` state spelling, a ZIP+4, a
+missing website, a missing phone, a 7-digit phone, an entirely empty row and a one-character name.
+
+```
+rows 9 · new accounts 5 · matched 2 · rejected 2 · unique accounts 6 · duplicate rate 14.3%
+match rules: created 5 · source_identity 1 · phone_and_name 1
+rejected: line 7 "(no company) — no company name or website"
+          line 10 "X — company name too short to identify a business"
+```
+
+The most useful result: **row 1 matched an Account the miner had already discovered**
+(`discovered_via = seed:synthetic`) on `phone_and_name`, and the duplicate row matched the same
+Account on its Apollo ID. The list did not fork a company the system already knew. Afterwards that
+Account carries two phone endpoints with different, honest labels rather than one conflated number:
+
+```
+(904) 555-0101  MAIN_BUSINESS_LINE      PUBLIC_OBSERVED_UNVERIFIED   (from discovery)
+(904) 555-9101  DIRECT_BUSINESS_LINE    PROVIDER_ASSERTED_CURRENT    (from the list)
+```
+
+### Tests added (`tests/import.test.ts`, 12)
+
+CSV shapes real exports have; delimiter detection; one-to-one column binding with unknown headers
+left unmapped; industry hints returning null rather than guessing; duplicates resolving to one
+Account; a list merging into a previously-discovered Account with endpoint labels preserved;
+imported titles never stated as fact; **a new list cannot resurrect a DNC** (rows flagged
+`SUPPRESSED`, account stays suppressed, never re-enters claimable inventory); an import not
+resetting ownership or contact history; identical-file re-upload refused; dry run writing nothing;
+and import never starting outreach — asserted both by the absence of contact activities and by the
+schema CHECK rejecting `outreach_on_import = true`.
+
+### Three real defects found and fixed
+
+1. **`client.query` was detached from its `this`** in the row recorder (`client?.query ?? query`),
+   so every real import threw inside the transaction after creating the batch. Only the dry run
+   worked, which is exactly the shape of bug that ships unnoticed.
+2. **A failed batch was left stuck in `RUNNING`** with zero counts. It now records `FAILED`, the
+   rows it did commit, and the error.
+3. **An unknown vertical crashed the import on a foreign key.** Found by the tests, and a genuine
+   production risk: any list whose industry mapped to an unloaded profile would have aborted. The
+   importer now validates against loaded profiles and degrades to the raw label.
+
+### Blocker
+
+**B-2 stands.** The real Jacksonville / St. Augustine lists, prior CSVs, the Airtable export and any
+Apollo exports are not on this machine. When Michael drops them anywhere on the EdgeXpert:
+
+```
+cd services/sales-brain
+npm run import -- --file /path/to/list.csv --source "airtable-brent-2026-08" --dry-run
+npm run import -- --file /path/to/list.csv --source "airtable-brent-2026-08"
+```
+
+Run the dry run first: it prints the inferred column mapping and the rejection reasons without
+writing, which is the moment to catch a mis-mapped header.
+
+### Next gate
+
+T4 — public decision-maker resolver.
