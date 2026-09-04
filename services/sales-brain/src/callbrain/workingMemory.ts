@@ -37,7 +37,8 @@ export type Readiness =
 /** Things the agent may say once. Repeating them is what makes a call feel robotic. */
 export type SemanticUnit =
   | 'company_identity' | 'cold_call_context' | 'yad_explanation' | 'primary_reason_for_call'
-  | 'ai_identity_disclosure' | 'strategy_call_offer' | 'assessment_offer' | 'booking_confirmation';
+  | 'ai_identity_disclosure' | 'strategy_call_offer' | 'assessment_offer' | 'booking_confirmation'
+  | 'email_topic_asked';
 
 export interface ProspectNumber {
   label: string;

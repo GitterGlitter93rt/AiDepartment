@@ -247,7 +247,22 @@ async function respondToUtterance(state: AgentState, utterance: string): Promise
     const { mayRespond } = recordObjection(memory, card.id, card.id, maxCycles);
 
     if (card.id === 'not_interested') memory.prospectIntent = { current: 'not_interested', confidence: 'medium' };
-    if (card.id === 'send_email') { memory.nextStep.emailRequested = true; memory.prospectIntent = { current: 'wants_email', confidence: 'high' }; }
+    if (card.id === 'send_email') {
+      // Asked twice, the answer is not the same question again. They have said what
+      // they want; the only thing still missing is where to send it.
+      if (memory.nextStep.emailRequested || hasStated(memory, 'email_topic_asked')) {
+        return {
+          say: memory.routing.businessSuppliedEmail
+            ? 'Understood — I have the address, and I will keep it short. Thanks for your time.'
+            : 'Understood. What is the best business address for it? I will keep it short.',
+          source: 'card', componentId: 'send_email', terminal: false,
+          reasonCodes: ['email_request_repeated', 'stopped_qualifying_the_topic'],
+        };
+      }
+      memory.nextStep.emailRequested = true;
+      markStated(memory, 'email_topic_asked');
+      memory.prospectIntent = { current: 'wants_email', confidence: 'high' };
+    }
     if (card.id === 'call_me_back') memory.prospectIntent = { current: 'wants_callback', confidence: 'high' };
     if (card.id === 'busy') memory.prospectIntent = { current: 'busy', confidence: 'high' };
     if (card.id === 'asks_if_ai') markStated(memory, 'ai_identity_disclosure');
@@ -436,13 +451,28 @@ async function respondToUtterance(state: AgentState, utterance: string): Promise
         say: noSaleExit(), source: 'exit', componentId: 'no_need', terminal: true,
         reasonCodes: readiness.reasonCodes,
       };
-    case 'SEND_TARGETED_INFO':
+    case 'SEND_TARGETED_INFO': {
+      // Asked once, the question is what it should be about. Asked again, the topic
+      // question has been answered by their asking again: they want it sent.
+      if (hasStated(memory, 'email_topic_asked')) {
+        return {
+          // Not terminal: giving an address is not ending the conversation, and
+          // hanging up on someone mid-sentence to be tidy is its own rudeness.
+          say: memory.routing.businessSuppliedEmail
+            ? 'Understood — I have that address, and I will keep it short.'
+            : 'Understood. What is the best business address for it? I will keep it short.',
+          source: 'card', componentId: 'send_email', terminal: false,
+          reasonCodes: [...readiness.reasonCodes, 'stopped_qualifying_the_topic'],
+        };
+      }
+      markStated(memory, 'email_topic_asked');
       return {
         say: cardLine(cardFor('send me an email')?.card ?? {}, {})
           ?? 'Sure — what should I make it about so it is actually useful?',
         source: 'card', componentId: 'send_email', terminal: false,
         reasonCodes: readiness.reasonCodes,
       };
+    }
     case 'CALLBACK':
       return {
         say: memory.nextStep.callbackTimeText
@@ -674,6 +704,17 @@ function behaviouralCardAnswer(cardId: string, state: AgentState): string | null
   }
 }
 
+/**
+ * Capitalised words that are an organisation rather than a person.
+ *
+ * "Corporate handles that" names a department, and answering "is Corporate the right
+ * person to ask?" makes the agent sound like it is not listening.
+ */
+const ORGANISATION_WORDS = new Set([
+  'corporate', 'headquarters', 'head', 'management', 'accounts', 'operations',
+  'hr', 'legal', 'marketing', 'sales', 'dispatch', 'reception', 'admin', 'finance',
+]);
+
 /** The prospect asking us something, which a card may need to answer. */
 const PROSPECT_ASKED_SOMETHING =
   /\?\s*$|^\s*(?:who|what|why|how|when|where|are you|is this|can you|could you|do you|would you|will you|am i|does it)\b/i;
@@ -740,12 +781,13 @@ function captureBusinessSuppliedFacts(memory: WorkingMemory, utterance: string):
     memory.booking.attendeeEmail ??= email;
   }
 
-  // "You'd want Dave, our GM."
-  // Case-insensitive on the lead-in, case-sensitive on the name. "You'd want Dave"
-  // starts a sentence, so a lowercase-only pattern never matched it.
-  const named = /(?:[Yy]ou'?d want|[Yy]ou want|[Tt]alk to|[Aa]sk for|[Tt]hat would be|[Ss]peak to)\s+([A-Z][a-z]+)\b/
-    .exec(utterance);
-  if (named) {
+  // "You'd want Dave, our GM." — and the same sentence written out in full.
+  // Case-insensitive on the lead-in, case-sensitive on the name, because a lowercase
+  // pattern never matched a name that starts a sentence.
+  const named =
+    /(?:[Yy]ou'?d want|[Yy]ou would want|[Yy]ou want|[Tt]alk to|[Aa]sk for|[Tt]hat would be|[Tt]hat'?d be|[Ss]peak to|[Tt]ry)\s+([A-Z][a-z]+)\b/
+      .exec(utterance);
+  if (named && !ORGANISATION_WORDS.has(named[1]!.toLowerCase())) {
     memory.routing.correctedPersonName = named[1]!;
     memory.routing.gatekeeperDetected = true;
     if (memory.stakeholder.relevance === 'unknown') memory.stakeholder.relevance = 'routing_only';

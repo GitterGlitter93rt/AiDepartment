@@ -178,7 +178,10 @@ export function detectPriorityIntent(utterance: string): PriorityIntent | null {
   for (const pattern of CORRECTION_PATTERNS) {
     const match = pattern.exec(text);
     if (match) {
-      const name = match.groups?.['name'] ?? match.groups?.['name2'] ?? match.groups?.['name3'];
+      const raw = match.groups?.['name'] ?? match.groups?.['name2'] ?? match.groups?.['name3'];
+      // A department is not a person. "Corporate handles that" must not become
+      // "is Corporate the right person to ask?".
+      const name = raw && !NOT_A_PERSON.has(raw.toLowerCase()) ? raw : undefined;
       return {
         type: 'IDENTITY_CORRECTION', confidence: 'medium', matchedText: match[0],
         requiresImmediateAudioStop: false, deterministicAction: 'capture_correction',
@@ -189,6 +192,13 @@ export function detectPriorityIntent(utterance: string): PriorityIntent | null {
 
   return null;
 }
+
+/** Words that name a department or a place, never a person. */
+const NOT_A_PERSON = new Set([
+  'corporate', 'headquarters', 'head office', 'management', 'accounts', 'operations',
+  'hr', 'legal', 'marketing', 'sales', 'dispatch', 'reception', 'admin', 'finance',
+  'the office', 'upstairs',
+]);
 
 /** The short, non-salesy things the agent says when a priority intent fires. */
 export const PRIORITY_RESPONSES: Record<PriorityIntentType, string> = {
