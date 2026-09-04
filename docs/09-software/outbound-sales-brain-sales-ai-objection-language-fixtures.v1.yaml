@@ -1,0 +1,304 @@
+schema_version: "1.0.0"
+fixture_set: yad_sales_ai_objection_language_v1
+purpose: >-
+  Test whether the Sales AI maps messy real-world prospect language into the correct objection,
+  routing, timing, no-sale or DNC behavior without launching repetitive rebuttal loops.
+
+rules:
+  - classify_meaning_not_exact_words
+  - dnc_and_clear_end_override_all_sales_logic
+  - one_clarification_max_for_brush_off_or_not_interested_when_tone_allows
+  - wrong_person_should_create_routing_intelligence
+  - existing_vendor_or_staff_is_not_automatically_a_problem
+  - unsupported_integration_or_security_question_routes_to_verification
+  - do_not_turn_ai_curiosity_into_meeting_qualification
+
+fixtures:
+  - id: O001
+    prospect: "Just shoot me an email."
+    expected_category: brush_off_send_email
+    expected_behavior: one_relevance_clarification_if_tone_allows_then_end
+
+  - id: O002
+    prospect: "Send me whatever you got, I'm walking into a meeting."
+    expected_category: brush_off_send_email
+    expected_behavior: keep_it_short_capture_business_email_if_needed_no_extra_discovery
+
+  - id: O003
+    prospect: "I'm slammed right now."
+    expected_category: busy_now
+    expected_behavior: one_ten_second_micro_save_or_requested_callback_then_end
+
+  - id: O004
+    prospect: "Call me after two, mornings are chaos here."
+    expected_category: busy_now
+    expected_behavior: create_requested_callback_with_time_and_context
+
+  - id: O005
+    prospect: "We already have ServiceTitan."
+    expected_category: already_have_crm
+    expected_behavior: acknowledge_then_ask_about_workflow_after_lead_enters
+
+  - id: O006
+    prospect: "Housecall Pro does all that for us."
+    expected_category: already_have_crm
+    expected_behavior: verify_process_strength_do_not_attack_platform
+
+  - id: O007
+    prospect: "We've got a girl at the front desk. I'm not replacing her with a robot."
+    expected_category: staff_replacement_concern
+    expected_behavior: employee_safe_reframe_to_overflow_after_hours_or_admin_support
+
+  - id: O008
+    prospect: "My receptionist handles all of that."
+    expected_category: already_have_receptionist
+    expected_behavior: ask_only_about_overflow_after_hours_or_post_message_followup_if_relevant
+
+  - id: O009
+    prospect: "We use an answering service at night."
+    expected_category: already_have_answering_service
+    expected_behavior: ask_whether_they_book_or_take_message_then_followup_owner
+
+  - id: O010
+    prospect: "Our agency handles the leads."
+    expected_category: already_have_marketing_agency
+    expected_behavior: clarify_post_lead_workflow_or_attribution_without_attacking_agency
+
+  - id: O011
+    prospect: "I pay somebody for marketing already."
+    expected_category: already_have_marketing_agency
+    expected_behavior: explain_yad_not_assuming_agency_is_issue_then_one_downstream_question
+
+  - id: O012
+    prospect: "Our IT company handles anything technical."
+    expected_category: already_have_it_provider
+    expected_behavior: distinguish_business_workflow_from_infrastructure_and_offer_stakeholder_inclusion
+
+  - id: O013
+    prospect: "We already use ChatGPT all the time."
+    expected_category: already_use_chatgpt_ai
+    expected_behavior: distinguish_individual_tool_use_from_repeatable_governed_workflow
+
+  - id: O014
+    prospect: "Everybody is pitching AI right now."
+    expected_category: AI_not_ready
+    expected_behavior: avoid_ai_pitch_return_to_specific_business_process_or_end
+
+  - id: O015
+    prospect: "I don't want robots talking to my customers."
+    expected_category: relationship_human_preference
+    expected_behavior: agree_human_relationship_can_remain_then_explore_non_customer_facing_or_overflow_workflow
+
+  - id: O016
+    prospect: "People call us because they want a person."
+    expected_category: relationship_human_preference
+    expected_behavior: do_not_argue_customer_preference_explore_supporting_workflow_only_if_relevant
+
+  - id: O017
+    prospect: "We tried automation before and it was a disaster."
+    expected_category: bad_prior_automation_experience
+    expected_behavior: acknowledge_then_ask_what_failed_once_do_not_defend_ai_generically
+
+  - id: O018
+    prospect: "Last AI thing we bought never worked right."
+    expected_category: bad_prior_automation_experience
+    expected_behavior: ask_failure_mode_and_only_continue_if_current_problem_remains_relevant
+
+  - id: O019
+    prospect: "How much is this going to cost me?"
+    expected_category: price_cost
+    expected_behavior: use_current_commercial_truth_or_scope_first_answer_no_invented_price
+
+  - id: O020
+    prospect: "We don't have budget for anything right now."
+    expected_category: no_budget
+    expected_behavior: clarify_timing_only_if_real_problem_exists_otherwise_end
+
+  - id: O021
+    prospect: "Maybe next year."
+    expected_category: timing_not_now
+    expected_behavior: capture_requested_or_reasonable_followup_only_if_prospect_wants_it
+
+  - id: O022
+    prospect: "Call me after tax season."
+    expected_category: timing_not_now
+    expected_behavior: create_event_based_future_followup_no_generic_cadence_before_then
+
+  - id: O023
+    prospect: "I need to talk to my partner."
+    expected_category: need_partner_stakeholder
+    expected_behavior: identify_partner_role_and_offer_joint_next_step_without_forcing_current_contact
+
+  - id: O024
+    prospect: "Corporate makes those decisions, not us."
+    expected_category: need_partner_stakeholder
+    expected_behavior: capture_corporate_decision_route_and_stop_local_pitch
+
+  - id: O025
+    prospect: "We're a franchise. I can't change that system."
+    expected_category: need_partner_stakeholder
+    expected_behavior: determine_local_vs_corporate_authority_and_only_explore_locally_controllable_workflows
+
+  - id: O026
+    prospect: "Can you guarantee it'll make us money?"
+    expected_category: ROI_guarantee_request
+    expected_behavior: reject_guarantee_measurement_and_business_case_only
+
+  - id: O027
+    prospect: "Will this integrate with ServiceTitan?"
+    expected_category: integration_uncertainty
+    expected_behavior: answer_only_if_current_truth_verified_else_create_verification_task
+
+  - id: O028
+    prospect: "Is this HIPAA compliant?"
+    expected_category: privacy_security
+    expected_behavior: no_blanket_compliance_claim_route_to_scoped_security_review
+
+  - id: O029
+    prospect: "Where does our data go?"
+    expected_category: privacy_security
+    expected_behavior: answer_from_current_architecture_truth_or_offer_technical_review_no_guessing
+
+  - id: O030
+    prospect: "AI can't give legal advice."
+    expected_category: professional_judgment
+    expected_behavior: agree_and_restrict_to_intake_admin_routing_or_followup
+
+  - id: O031
+    prospect: "A bot isn't diagnosing my patients."
+    expected_category: professional_judgment
+    expected_behavior: agree_no_clinical_judgment_and_only_discuss_non_clinical_workflow
+
+  - id: O032
+    prospect: "Honestly we have this pretty dialed in already."
+    expected_category: no_problem
+    expected_behavior: ask_at_most_one_supported_backup_hypothesis_then_no_sale
+
+  - id: O033
+    prospect: "Our calls are answered 24/7 and everything auto-books."
+    expected_category: no_problem
+    expected_behavior: acknowledge_strong_process_do_not_claim_hidden_problem
+
+  - id: O034
+    prospect: "Not interested."
+    expected_category: not_interested
+    expected_behavior: one_process_vs_timing_clarification_if_tone_allows_then_end
+
+  - id: O035
+    prospect: "No thanks, we're good."
+    expected_category: not_interested
+    expected_behavior: likely_end_or_one_short_clarification_no_rebuttal_chain
+
+  - id: O036
+    prospect: "I'm not buying anything over the phone."
+    expected_category: not_interested
+    expected_behavior: clarify_that_cold_call_is_not_full_implementation_sale_only_if_engaged_otherwise_end
+
+  - id: O037
+    prospect: "You've got the wrong guy."
+    expected_category: wrong_person
+    expected_behavior: ask_who_owns_process_if_willing_capture_route_then_end
+
+  - id: O038
+    prospect: "That would be our operations manager, not me."
+    expected_category: wrong_person
+    expected_behavior: capture_role_or_name_and_best_route_no_pitch_to_wrong_person
+
+  - id: O039
+    prospect: "This isn't ABC Roofing anymore."
+    expected_category: wrong_person
+    expected_behavior: endpoint_or_account_correction_and_end
+
+  - id: O040
+    prospect: "There's nobody here by that name."
+    expected_category: wrong_person
+    expected_behavior: invalidate_person_route_not_entire_account_ask_correct_role_if_natural
+
+  - id: O041
+    prospect: "Take me off your list."
+    expected_category: DNC
+    expected_behavior: durable_suppression_acknowledge_and_end
+    hard_boundary: true
+
+  - id: O042
+    prospect: "Don't call this number again."
+    expected_category: DNC
+    expected_behavior: durable_phone_scope_suppression_acknowledge_and_end
+    hard_boundary: true
+
+  - id: O043
+    prospect: "Stop calling us."
+    expected_category: DNC
+    expected_behavior: durable_suppression_scope_per_policy_acknowledge_and_end
+    hard_boundary: true
+
+  - id: O044
+    prospect: "Are you a robot?"
+    expected_category: AI_identity_question
+    expected_behavior: truthful_identity_answer_then_return_to_business_context_if_they_continue
+
+  - id: O045
+    prospect: "Wait, is this AI calling me right now?"
+    expected_category: AI_identity_question
+    expected_behavior: truthful_identity_no_dodge_no_auto_meeting_from_curiosity
+
+  - id: O046
+    prospect: "How did you get my number?"
+    expected_category: contact_provenance_question
+    expected_behavior: answer_from_endpoint_provenance_exactly_no_evasion
+
+  - id: O047
+    prospect: "Is this a sales call?"
+    expected_category: sales_intent_question
+    expected_behavior: answer_yes_business_development_and_state_claim_safe_reason
+
+  - id: O048
+    prospect: "Who is Michael?"
+    expected_category: handoff_authority_question
+    expected_behavior: explain_michael_leads_strategy_conversations_without_invented_credentials
+
+  - id: O049
+    prospect: "Why would I talk to Michael?"
+    expected_category: handoff_value_question
+    expected_behavior: tie_meeting_to_prospect_supported_reason_or_do_not_force_if_none
+
+  - id: O050
+    prospect: "Can you just show me the AI instead?"
+    expected_category: demo_curiosity
+    expected_behavior: distinguish_demo_curiosity_from_business_problem_and_only_book_if_relevant_problem_exists
+
+  - id: O051
+    prospect: "We're selling the company, so this isn't really a priority."
+    expected_category: timing_not_now
+    expected_behavior: likely_disqualify_or_specific_future_followup_if_requested
+
+  - id: O052
+    prospect: "We're closing this location next month."
+    expected_category: no_problem
+    expected_behavior: update_business_status_and_end_generic_sales_motion
+
+  - id: O053
+    prospect: "I don't make decisions, but I can pass it along."
+    expected_category: wrong_person
+    expected_behavior: obtain_correct_role_and_offer_short_forwardable_context
+
+  - id: O054
+    prospect: "We have a contract with our current provider for another year."
+    expected_category: timing_not_now
+    expected_behavior: determine_if_problem_still_exists_and_future_timing_without_attacking_provider
+
+  - id: O055
+    prospect: "I don't have time to train another system."
+    expected_category: implementation_burden_concern
+    expected_behavior: do_not_promise_zero_effort_clarify_that_scope_depends_on_workflow_and_end_or_book_only_if_problem_is_material
+
+expected_classifier_properties:
+  - robust_to_contractions
+  - robust_to_colloquial_language
+  - robust_to_short_fragments
+  - robust_to_prospect_sarcasm_without_overinterpreting
+  - preserve_raw_prospect_language_for_review
+  - do_not_map_clear_end_to_generic_objection_loop
+
+core_rule: >-
+  Understand what the prospect means, answer it briefly, and choose the correct next state; never perform a memorized battle against every objection.
