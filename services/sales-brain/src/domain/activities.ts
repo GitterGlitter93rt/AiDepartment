@@ -107,6 +107,31 @@ export async function recordDisposition(
       );
     }
 
+    // Close the attempt this outcome belongs to.
+    //
+    // contact_attempts records that a number was dialled -- written when the rep
+    // presses Call, after the eligibility check. The outcome was only ever written to
+    // activities, so contact_attempts.disposition stayed null for every call ever
+    // made. Analytics counts connections from that column, which meant the funnel
+    // reported zero connections however many decision-makers a rep reached, and the
+    // outcome filter matched nothing at all.
+    //
+    // The most recent open attempt by this actor on this Account is the one being
+    // reported on; when an endpoint is named it has to match, so a call to the main
+    // line is not closed by an outcome logged against a mobile.
+    await client.query(
+      `update contact_attempts
+          set disposition = $3, completed_at = now(), activity_id = $4, notes = $5
+        where attempt_id = (
+          select attempt_id from contact_attempts
+           where account_id = $1 and actor_user_id = $2 and completed_at is null
+             and ($6::uuid is null or endpoint_id = $6::uuid)
+           order by started_at desc limit 1
+        )`,
+      [input.accountId, actor.userId, input.disposition, activityId, input.notes ?? null,
+       input.endpointId ?? null],
+    );
+
     const nextState = RELATIONSHIP_TRANSITIONS[input.disposition];
     if (nextState) {
       // Never walk a relationship backwards: a DISQUALIFIED note should not

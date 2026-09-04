@@ -247,9 +247,15 @@ export async function analyticsFunnel(filters: AnalyticsFilters) {
      )
      select
        (select count(*)::int from scoped) as researched,
+       -- Contactable means we could contact them. An Account under a DNC could not,
+       -- and account-scope suppression does not flip the endpoint rows -- the trigger
+       -- only does that for endpoint-scope suppressions -- so the endpoint test alone
+       -- counted suppressed companies as reachable. They are reported separately in
+       -- the suppressed stage, never hidden, but they are not the top of a funnel.
        (select count(distinct e.account_id)::int from contact_endpoints e
           join scoped s on s.account_id = e.account_id
-         where e.is_active and not e.is_suppressed) as contactable,
+          join accounts sa on sa.account_id = e.account_id
+         where e.is_active and not e.is_suppressed and not sa.is_suppressed) as contactable,
        (select count(distinct at.account_id)::int from contact_attempts at
           join scoped s on s.account_id = at.account_id
          where ($6::text is null or at.channel = $6::text)) as attempted,
