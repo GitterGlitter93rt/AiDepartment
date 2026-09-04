@@ -22,6 +22,15 @@ export interface TurnProducer {
   respond(utterance: string, signal: AbortSignal): Promise<{ say: string; terminal: boolean }>;
   /** Called once when the call ends, however it ended. */
   finish(reason: 'completed' | 'caller_hung_up' | 'error'): Promise<void> | void;
+  /**
+   * A truthful status phrase for a genuinely slow tool.
+   *
+   * Spoken only when a turn overruns the latency budget, and only if the producer
+   * supplies one — the words are the producer's, because the transport must not
+   * write anything a caller hears. It states no outcome: "let me check the calendar"
+   * is permitted, "you're booked" is not (realtime-voice-policy §10).
+   */
+  holdingLine?(utterance: string): string | null;
 }
 
 export interface SalesRelayState {
@@ -55,10 +64,21 @@ function trySend(socket: Socket, data: string): boolean {
   }
 }
 
+/**
+ * How long a turn may run before a holding phrase is spoken.
+ *
+ * Chosen from the policy's turn-response target: p95 under 1.5s. Speaking at 1.2s
+ * leaves room to be useful before the caller experiences the gap as dead air, and
+ * filler is deliberately not used on ordinary turns — if it fires often, the
+ * architecture is failing the target rather than covering for it.
+ */
+export const HOLDING_LINE_AFTER_MS = 1_200;
+
 export function createSalesRelaySession(input: {
   producer: TurnProducer;
   sink: TimelineSink;
   now?: () => number;
+  holdingLineAfterMs?: number;
 }) {
   const sessions = new SessionStore<SalesRelayState>(
     () => ({ utteranceOpen: false, lastPartialText: '', turns: 0, ended: false, setUp: false }));
@@ -168,12 +188,31 @@ export function createSalesRelaySession(input: {
       inFlight.set(callSid, controller);
 
       timeline.mark('TURN_HANDLER_START');
+
+      // A genuinely slow tool gets a truthful status phrase rather than dead air.
+      // It is preemptible and does not close the turn, so the real answer can follow
+      // and the caller can talk over it.
+      const holding = input.producer.holdingLine?.(utterance) ?? null;
+      let holdingTimer: ReturnType<typeof setTimeout> | undefined;
+      if (holding) {
+        holdingTimer = setTimeout(() => {
+          if (controller.signal.aborted || sessions.get(callSid)?.state.ended) return;
+          if (trySend(socket, textResponse(holding, false, { preemptible: true }))) {
+            timeline.mark('PRE_TOOL_ACK_SENT', { chars: holding.length });
+          }
+        }, input.holdingLineAfterMs ?? HOLDING_LINE_AFTER_MS);
+        holdingTimer.unref?.();
+      }
+
       let produced: { say: string; terminal: boolean };
       try {
         produced = await input.producer.respond(utterance, controller.signal);
       } catch {
+        clearTimeout(holdingTimer);
         timeline.mark('CLAUDE_ABORTED');
         return;
+      } finally {
+        clearTimeout(holdingTimer);
       }
       if (controller.signal.aborted) {
         timeline.mark('CLAUDE_ABORTED');

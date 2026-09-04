@@ -111,15 +111,21 @@ test('the env template carries no value, and forbids arming from a file', () => 
 test('the outbound service decides no sales dialogue of its own', () => {
   // Everything spoken has to arrive from the canonical sales brain. A greeting or a
   // reply written into this package would be a second, untested salesperson.
+  // Only the files that can put words on a call. The benchmark's scenario data is
+  // full of sentences, but they are things a *prospect* says in a fixture — the rule
+  // is about lines the agent speaks.
+  const speechCapable = ['server.ts', 'relaySession.ts', 'config.ts'];
   const files: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) walk(full);
-      else if (full.endsWith('.ts')) files.push(full);
+      else if (speechCapable.some((name) => full.endsWith(name))) files.push(full);
     }
   };
   walk(new URL('../src', import.meta.url).pathname);
+  assert.equal(files.length, speechCapable.length,
+    'every speech-capable file is covered; add a new one to the list deliberately');
 
   const sentenceLike = /['"`][A-Z][a-z]+(?:[ ,][a-z']+){4,}[.?!]['"`]/;
   const offenders: string[] = [];
