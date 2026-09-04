@@ -196,3 +196,162 @@ test('an unreviewed adapter is not offered to the orchestrator', () => {
   assert.equal(availableDiscoveryAdapters().length, before,
     'registering an adapter must not be the same as enabling it');
 });
+
+// --- the first-benchmark harness ---------------------------------------------
+
+import {
+  runBenchmark, yieldTable, providerSpendUsd, firstHvacBenchmarkCells,
+  BENCHMARK_CEILINGS, type BenchmarkCell,
+} from '../src/miner/benchmark.js';
+import type { DiscoveryAdapter } from '../src/workers/marketMiner.js';
+
+/** An adapter that always answers, and reports what each task cost. */
+function countingAdapter(options: { costPerTask?: number; results?: number } = {}): {
+  adapter: DiscoveryAdapter; calls: number; cost: () => Promise<number>;
+} {
+  const state = { calls: 0 };
+  return {
+    get calls() { return state.calls; },
+    cost: async () => options.costPerTask ?? 0.01,
+    adapter: {
+      name: 'counting', requiresCredential: false, governanceReviewed: true,
+      isConfigured: () => true,
+      async discover() {
+        state.calls += 1;
+        return Array.from({ length: options.results ?? 2 }, (_, index) => ({
+          name: `Result ${index}`, website: 'https://example.com',
+          resultType: index === 0 ? 'PAID_SEARCH_TEXT' : 'ORGANIC',
+        }));
+      },
+    },
+  };
+}
+
+function cells(count: number, phase: BenchmarkCell['phase'] = 'phase_2_zcta'): BenchmarkCell[] {
+  return Array.from({ length: count }, (_, index) => ({
+    phase, label: `cell ${index}`,
+    query: {
+      verticalProfileId: 'hvac', geographyType: 'zcta', geographyValue: `3225${index % 10}`,
+      miningMode: 'emergency ac repair', queryBudget: 1,
+    },
+  }));
+}
+
+test('the dollar ceiling stops the benchmark before the money is spent, not after', async () => {
+  const counting = countingAdapter({ costPerTask: 0.40 });
+  const result = await runBenchmark({
+    adapter: counting.adapter,
+    cells: cells(20),
+    worstCaseTaskCostUsd: 0.40,
+    maxProviderCostUsd: 2.00,
+    spentSoFarUsd: 0,
+    costOfLastTaskUsd: counting.cost,
+  });
+
+  assert.equal(result.stopReason, 'COST_CEILING');
+  assert.ok(result.costUsd <= 2.00, `spent ${result.costUsd}`);
+  assert.ok(result.tasksSkipped > 0, 'the remaining cells are refused, not attempted');
+  // The worst case for the next task would have crossed the ceiling, so it never ran.
+  assert.ok(result.costUsd + 0.40 > 2.00);
+});
+
+test('spend already recorded counts against the same ceiling', async () => {
+  const counting = countingAdapter({ costPerTask: 0.10 });
+  const result = await runBenchmark({
+    adapter: counting.adapter,
+    cells: cells(20),
+    worstCaseTaskCostUsd: 0.10,
+    maxProviderCostUsd: 2.00,
+    // A benchmark resumed after a crash must not spend the ceiling a second time.
+    spentSoFarUsd: 1.95,
+    costOfLastTaskUsd: counting.cost,
+  });
+  assert.equal(result.stopReason, 'COST_CEILING');
+  assert.equal(counting.calls, 0, 'nothing runs when the ceiling is already reached');
+});
+
+test('a phase task ceiling stops that phase without ending the run', async () => {
+  const counting = countingAdapter({ costPerTask: 0.0001 });
+  const result = await runBenchmark({
+    adapter: counting.adapter,
+    cells: cells(BENCHMARK_CEILINGS.phase0SmokeMax + 4, 'phase_0_smoke'),
+    worstCaseTaskCostUsd: 0.0001,
+    spentSoFarUsd: 0,
+    costOfLastTaskUsd: counting.cost,
+  });
+  assert.equal(result.tasksRun, BENCHMARK_CEILINGS.phase0SmokeMax);
+  assert.equal(result.tasksSkipped, 4);
+  assert.equal(result.stopReason, 'PHASE_TASK_CEILING');
+});
+
+test('an unconfigured provider runs nothing and says why', async () => {
+  const result = await runBenchmark({
+    adapter: {
+      name: 'x', requiresCredential: true, governanceReviewed: false,
+      isConfigured: () => false,
+      discover: async () => { throw new Error('must not be called'); },
+    },
+    cells: cells(5),
+    spentSoFarUsd: 0,
+  });
+  assert.equal(result.stopReason, 'PROVIDER_NOT_AVAILABLE');
+  assert.equal(result.tasksRun, 0);
+  assert.equal(result.tasksSkipped, 5);
+});
+
+test('a failing task still counts against both ceilings', async () => {
+  let calls = 0;
+  const result = await runBenchmark({
+    adapter: {
+      name: 'failing', requiresCredential: false, governanceReviewed: true,
+      isConfigured: () => true,
+      async discover() { calls += 1; throw new Error('provider exploded'); },
+    },
+    cells: cells(3, 'phase_0_smoke'),
+    worstCaseTaskCostUsd: 0.01,
+    spentSoFarUsd: 0,
+    costOfLastTaskUsd: async () => 0.01,
+  });
+  assert.equal(calls, 3);
+  assert.equal(result.tasksRun, 3, 'a task that failed is still a task that was sent');
+  assert.ok(result.costUsd > 0, 'and still cost money');
+});
+
+test('the yield table reports counts and a stop reason, and invents no rate', () => {
+  const table = yieldTable({
+    tasksRun: 2, tasksSkipped: 0, costUsd: 0.02, stopReason: 'PHASE_COMPLETE',
+    rows: [
+      { phase: 'phase_0_smoke', label: 'a', returned: 5, paidResults: 2, withDomain: 4, costUsd: 0.01 },
+      { phase: 'phase_0_smoke', label: 'b', returned: 3, paidResults: 0, withDomain: 3, costUsd: 0.01 },
+    ],
+  });
+  assert.match(table, /TOTAL \| 2 task\(s\) \| 8 \| 2 \| 7 \| 0\.0200/);
+  assert.match(table, /stopped: PHASE_COMPLETE/);
+  assert.equal(/%|pass|fail|good|excellent/i.test(table), false,
+    'the verdict is a person\'s, from the counts');
+});
+
+test('the first benchmark cells stay inside the plan ceilings', () => {
+  const plan = firstHvacBenchmarkCells();
+  const smoke = plan.filter((cell) => cell.phase === 'phase_0_smoke').length;
+  const city = plan.filter((cell) => cell.phase === 'phase_1_city').length;
+  assert.ok(smoke <= BENCHMARK_CEILINGS.phase0SmokeMax, `${smoke} smoke cells`);
+  assert.ok(city <= BENCHMARK_CEILINGS.phase1City, `${city} city cells`);
+  assert.ok(plan.every((cell) => /Jacksonville|St\. Augustine/.test(cell.label)),
+    'the first benchmark is the two markets the plan names');
+});
+
+test('recorded spend is read back from usage, not held in memory', async () => {
+  await resetDatabase();
+  const before = await providerSpendUsd('dataforseo');
+  assert.equal(before, 0);
+
+  const adapter = createDataForSeoAdapter({
+    config: READY, transport: transportReturning(RESPONSE) });
+  await adapter.discover({
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    miningMode: 'advertisers_first', queryBudget: 1,
+  });
+  assert.equal(await providerSpendUsd('dataforseo'), 0.0031,
+    'the ceiling is checked against what was actually charged');
+});

@@ -205,6 +205,36 @@ test('settings shows that a credential is set without showing the credential', a
     'naming the variable is how an operator knows where to set it');
 });
 
+test('settings names exactly what is still missing, not just "not configured"', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: '/settings', headers: { cookie: f.admin } });
+
+  // A Cal.com key with no event type id is still not a working calendar.
+  assert.match(page.body, /CALCOM_API_KEY/);
+  assert.match(page.body, /CALCOM_EVENT_TYPE_ID/);
+  assert.match(page.body, /BOOKING_CALENDAR_UPN/);
+  assert.match(page.body, /Still needed:/);
+  assert.match(page.body, /The YAD 15-Minute AI Strategy Call event type/,
+    'each setting says what it is for');
+  assert.match(page.body, /settings missing/, 'the count is on the status, not buried');
+});
+
+test('a setting that is present reads as set, and its value never appears', async () => {
+  const secret = 'sk-live-never-render-this-0000';
+  const integrations = await listIntegrations({
+    CALCOM_API_KEY: secret, CALCOM_EVENT_TYPE_ID: '1234',
+  } as NodeJS.ProcessEnv);
+  const calcom = integrations.find((row) => row.key === 'calcom')!;
+
+  const apiKey = calcom.required.find((setting) => setting.name === 'CALCOM_API_KEY')!;
+  const eventType = calcom.required.find((setting) => setting.name === 'CALCOM_EVENT_TYPE_ID')!;
+  assert.equal(apiKey.present, true);
+  assert.equal(eventType.present, true);
+  assert.deepEqual(calcom.missing, ['BOOKING_CALENDAR_UPN', 'BOOKING_PROVIDER']);
+  assert.equal(JSON.stringify(integrations).includes(secret), false);
+});
+
 test('a manager may read settings but not change them', async () => {
   const f = await fixture();
   const read = await app.inject({ method: 'GET', url: '/settings', headers: { cookie: f.manager } });

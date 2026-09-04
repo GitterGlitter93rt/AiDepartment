@@ -183,8 +183,14 @@ test('§20.2 a positive reply pauses the sequence and creates a human task', asy
   });
 
   assert.equal(result.replyClass, 'POSITIVE_INTEREST');
-  assert.ok(result.actions.includes('sequence_stop_queued'));
+  // Paused, not opted out: a person replying is a conversation to take over, and it
+  // may resume. Only an opt-out is permanent.
+  assert.ok(result.actions.includes('sequence_pause_queued'));
   assert.ok(result.actions.includes('human_follow_up_created'));
+
+  const queued = await query<{ operation: string }>(
+    'select operation from email_outbox where enrollment_id = $1', [enrollmentId]);
+  assert.equal(queued.rows[0]!.operation, 'PAUSE');
 
   const enrollment = await query<{ status: string }>(
     'select status from email_enrollments where enrollment_id = $1', [enrollmentId]);
@@ -498,4 +504,63 @@ test('a suppressed account is not enrolled, and its shortfall is reported', asyn
   assert.equal(report.shortfall, 1);
   assert.ok(Object.keys(report.rejections).length > 0,
     'the shortfall says why, rather than being padded');
+});
+
+test('an opt-out reaches the provider, not only our own suppression list', async () => {
+  await makeUser('Manager Two', 'SALES_MANAGER');
+  const campaignId = await makeCampaign();
+  await linkProvider(campaignId);
+  const accountId = await seedAccount({
+    name: 'Northgate Air', email: 'dana@northgate.example.com' });
+  const enrollmentId = await enroll(campaignId, accountId, 'dana@northgate.example.com');
+
+  const result = await ingestEvent({
+    provider: 'smartlead', providerEventId: 'evt-optout', eventType: 'UNSUBSCRIBED',
+    enrollmentId, email: 'dana@northgate.example.com',
+  });
+  assert.ok(result.actions.includes('provider_optout_queued'),
+    'suppressing on our side while the provider still holds an active lead is how an '
+    + 'unsubscribed prospect keeps getting email');
+
+  const queued = await query<{ operation: string }>(
+    'select operation from email_outbox where enrollment_id = $1', [enrollmentId]);
+  assert.equal(queued.rows[0]!.operation, 'STOP');
+});
+
+test('a pause and an opt-out call different provider endpoints', async () => {
+  const called: string[] = [];
+  const client = createSmartleadClient({
+    config: SMARTLEAD_READY,
+    transport: smartleadTransport({ onCall: (url) => { called.push(url); } }),
+  });
+
+  await client.pauseLead('prov-1', 'lead-1');
+  await client.unsubscribeLead('prov-1', 'lead-1');
+
+  assert.match(called[0]!, /\/pause\?/);
+  assert.match(called[1]!, /\/unsubscribe\?/,
+    'pausing an opted-out lead leaves it resumable, and a resumed opt-out is a complaint');
+});
+
+test('the drain routes STOP to unsubscribe and PAUSE to pause', async () => {
+  const campaignId = await makeCampaign();
+  await linkProvider(campaignId);
+  const accountId = await seedAccount({
+    name: 'Northgate Air', email: 'dana@northgate.example.com' });
+  const enrollmentId = await enroll(campaignId, accountId, 'dana@northgate.example.com');
+
+  await query(
+    `insert into email_outbox (enrollment_id, operation, payload)
+     values ($1, 'PAUSE', '{}'::jsonb), ($1, 'STOP', '{}'::jsonb)`, [enrollmentId]);
+
+  const called: string[] = [];
+  const client = createSmartleadClient({
+    config: SMARTLEAD_READY,
+    transport: smartleadTransport({ onCall: (url) => { called.push(url); } }),
+  });
+  const report = await drainEmailOutbox({ client });
+
+  assert.equal(report.sent, 2);
+  assert.equal(called.filter((url) => url.includes('/pause?')).length, 1);
+  assert.equal(called.filter((url) => url.includes('/unsubscribe?')).length, 1);
 });

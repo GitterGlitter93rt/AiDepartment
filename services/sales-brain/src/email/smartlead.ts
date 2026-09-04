@@ -39,7 +39,11 @@ export interface SmartleadClient {
   /** Adds leads to a provider campaign. Returns provider ids keyed by our enrollment id. */
   addLeads(providerCampaignId: string, leads: ExportPayload[]):
     Promise<{ ok: boolean; providerIds: Record<string, string>; error?: string }>;
+  /** Recoverable: a human has taken the conversation over. */
   pauseLead(providerCampaignId: string, providerLeadId: string):
+    Promise<{ ok: boolean; error?: string }>;
+  /** Permanent: the prospect opted out and must never be sent to again. */
+  unsubscribeLead(providerCampaignId: string, providerLeadId: string):
     Promise<{ ok: boolean; error?: string }>;
 }
 
@@ -52,6 +56,17 @@ export function createSmartleadClient(options: {
 
   const headers = () => ({ 'content-type': 'application/json' });
   const withKey = (path: string) => `${config.baseUrl}${path}api_key=${config.apiKey}`;
+
+  const call = async (path: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!(config.enabled && config.apiKey)) return { ok: false, error: 'NOT_CONFIGURED' };
+    try {
+      const response = await transport(withKey(path),
+        { method: 'POST', headers: headers(), body: '{}' });
+      return response.ok ? { ok: true } : { ok: false, error: `HTTP_${response.status}` };
+    } catch (error) {
+      return { ok: false, error: (error as Error).name || 'TRANSPORT_ERROR' };
+    }
+  };
 
   return {
     isConfigured: () => Boolean(config.enabled && config.apiKey),
@@ -96,16 +111,13 @@ export function createSmartleadClient(options: {
     },
 
     async pauseLead(providerCampaignId, providerLeadId) {
-      if (!this.isConfigured()) return { ok: false, error: 'NOT_CONFIGURED' };
-      try {
-        const response = await transport(
-          withKey(`/campaigns/${providerCampaignId}/leads/${providerLeadId}/pause?`),
-          { method: 'POST', headers: headers(), body: '{}' },
-        );
-        return response.ok ? { ok: true } : { ok: false, error: `HTTP_${response.status}` };
-      } catch (error) {
-        return { ok: false, error: (error as Error).name || 'TRANSPORT_ERROR' };
-      }
+      return call(`/campaigns/${providerCampaignId}/leads/${providerLeadId}/pause?`);
+    },
+
+    async unsubscribeLead(providerCampaignId, providerLeadId) {
+      // A different endpoint on purpose: pausing an opted-out lead leaves it
+      // resumable, and a resumed opt-out is a complaint.
+      return call(`/campaigns/${providerCampaignId}/leads/${providerLeadId}/unsubscribe?`);
     },
   };
 }
@@ -230,9 +242,11 @@ export async function drainEmailOutbox(input: {
     const result: { ok: boolean; providerIds?: Record<string, string>; error?: string } =
       row.operation === 'EXPORT'
         ? await input.client.addLeads(row.provider_campaign_id, [row.payload])
-        : row.provider_lead_id
-          ? await input.client.pauseLead(row.provider_campaign_id, row.provider_lead_id)
-          : { ok: false, error: 'NO_PROVIDER_LEAD_ID' };
+        : !row.provider_lead_id
+          ? { ok: false, error: 'NO_PROVIDER_LEAD_ID' }
+          : row.operation === 'STOP'
+            ? await input.client.unsubscribeLead(row.provider_campaign_id, row.provider_lead_id)
+            : await input.client.pauseLead(row.provider_campaign_id, row.provider_lead_id);
 
     if (!result.ok) {
       const attempts = row.attempts + 1;

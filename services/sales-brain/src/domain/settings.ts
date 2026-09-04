@@ -9,6 +9,14 @@ import { query } from '../db/pool.js';
  * process environment at read time and reported as a boolean.
  */
 
+export interface RequiredSetting {
+  name: string;
+  present: boolean;
+  /** Whether the value itself may ever be displayed. */
+  secret: boolean;
+  purpose: string;
+}
+
 export interface IntegrationView {
   key: string;
   displayName: string;
@@ -16,6 +24,10 @@ export interface IntegrationView {
   config: Record<string, unknown>;
   secretEnvVar: string | null;
   secretPresent: boolean;
+  /** Every value this integration needs, and whether this server has it. */
+  required: RequiredSetting[];
+  /** Just the names of the missing ones, for the operator's to-do list. */
+  missing: string[];
   lastCheckAt: Date | null;
   lastCheckStatus: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED' | null;
   lastCheckDetail: string | null;
@@ -40,11 +52,61 @@ export async function listIntegrations(env: NodeJS.ProcessEnv = process.env): Pr
     secretEnvVar: row.secret_env_var,
     // Presence only. The value is never read into a response.
     secretPresent: Boolean(row.secret_env_var && (env[row.secret_env_var] ?? '').trim().length > 0),
+    required: requiredFor(row.integration_key, env),
+    missing: requiredFor(row.integration_key, env)
+      .filter((setting) => !setting.present).map((setting) => setting.name),
     lastCheckAt: row.last_check_at,
     lastCheckStatus: row.last_check_status,
     lastCheckDetail: row.last_check_detail,
     updatedAt: row.updated_at,
     updatedByName: row.updated_by_name,
+  }));
+}
+
+/**
+ * Everything an integration needs before it can work, named exactly.
+ *
+ * An operator adding a credential should not have to read the source to find out
+ * what else is missing — a Cal.com key with no event type id is still not a working
+ * calendar, and saying "not configured" for both is not help.
+ */
+const REQUIREMENTS: Record<string, Omit<RequiredSetting, 'present'>[]> = {
+  calcom: [
+    { name: 'CALCOM_API_KEY', secret: true, purpose: 'Server API key from the Cal.com account' },
+    { name: 'CALCOM_EVENT_TYPE_ID', secret: false,
+      purpose: 'The YAD 15-Minute AI Strategy Call event type' },
+    { name: 'BOOKING_CALENDAR_UPN', secret: false,
+      purpose: "The calendar bookings land on, e.g. michael@youraidepartment.ai" },
+    { name: 'BOOKING_PROVIDER', secret: false, purpose: "Set to 'calcom' to make it the authority" },
+  ],
+  smartlead: [
+    { name: 'SMARTLEAD_API_KEY', secret: true, purpose: 'Server API key' },
+    { name: 'SMARTLEAD_ENABLED', secret: false, purpose: "Set to 'true' to allow exports to send" },
+  ],
+  twilio_voice: [
+    { name: 'TWILIO_ACCOUNT_SID', secret: false, purpose: 'Account the number belongs to' },
+    { name: 'TWILIO_AUTH_TOKEN', secret: true, purpose: 'Validates inbound webhook signatures' },
+    { name: 'OUTBOUND_APPROVED_CALLER_IDS', secret: false,
+      purpose: 'YAD numbers that may be presented as caller ID' },
+    { name: 'TWILIO_LOOKUP_ENABLED', secret: false,
+      purpose: "Set to 'true' to allow paid line-type screening" },
+  ],
+  dataforseo: [
+    { name: 'DATAFORSEO_LOGIN', secret: false, purpose: 'Provider login' },
+    { name: 'DATAFORSEO_PASSWORD', secret: true, purpose: 'Provider password' },
+    { name: 'DATAFORSEO_GOVERNANCE_REVIEWED', secret: false,
+      purpose: "Set to 'true' only once the source governance review is signed off" },
+    { name: 'DATAFORSEO_ENABLED', secret: false, purpose: "Set to 'true' to allow discovery" },
+  ],
+  anthropic: [
+    { name: 'ANTHROPIC_API_KEY', secret: true, purpose: 'Model access' },
+  ],
+};
+
+function requiredFor(key: string, env: NodeJS.ProcessEnv): RequiredSetting[] {
+  return (REQUIREMENTS[key] ?? []).map((setting) => ({
+    ...setting,
+    present: (env[setting.name] ?? '').trim().length > 0,
   }));
 }
 

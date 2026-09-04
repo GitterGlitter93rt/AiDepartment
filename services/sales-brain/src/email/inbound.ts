@@ -178,7 +178,15 @@ export async function ingestEvent(event: InboundEvent): Promise<IngestResult> {
                 stop_reason = 'unsubscribed' where enrollment_id = $1`,
         [enrollment.enrollment_id],
       );
-      actions.push('email_suppression_created', 'enrollment_stopped');
+      // The opt-out has to reach the provider too. Suppressing on our side while
+      // Smartlead still holds an active lead is how an unsubscribed prospect keeps
+      // getting email from us (§8).
+      await client.query(
+        `insert into email_outbox (enrollment_id, operation, payload)
+         values ($1, 'STOP', $2)`,
+        [enrollment.enrollment_id, JSON.stringify({ reason: 'unsubscribed' })],
+      );
+      actions.push('email_suppression_created', 'enrollment_stopped', 'provider_optout_queued');
     }
 
     if (replyClass && STOPS_SEQUENCE.has(replyClass) && replyClass !== 'UNSUBSCRIBE_OPT_OUT') {
@@ -188,12 +196,15 @@ export async function ingestEvent(event: InboundEvent): Promise<IngestResult> {
                 stop_reason = $2 where enrollment_id = $1 and status not in ('UNSUBSCRIBED','BOUNCED')`,
         [enrollment.enrollment_id, `reply: ${replyClass}`],
       );
+      // PAUSE, not STOP. A person replying is a conversation to be taken over by a
+      // human, and it may resume later; an opt-out is the permanent one. Sending both
+      // as the same provider operation loses a distinction we cannot get back.
       await client.query(
         `insert into email_outbox (enrollment_id, operation, payload)
-         values ($1, 'STOP', $2)`,
+         values ($1, 'PAUSE', $2)`,
         [enrollment.enrollment_id, JSON.stringify({ reason: replyClass })],
       );
-      actions.push('sequence_stop_queued');
+      actions.push('sequence_pause_queued');
     }
 
     if (event.eventType === 'REPLIED') {

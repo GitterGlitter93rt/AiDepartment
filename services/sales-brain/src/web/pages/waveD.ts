@@ -916,8 +916,13 @@ export function renderSettingsPage(input: {
   const { user, counts, integrations, pilot, canEdit } = input;
 
   const statusFor = (row: IntegrationView) => {
-    if (!row.secretEnvVar) return statusPill('No credential needed', 'neutral');
-    if (!row.secretPresent) return statusPill('Credential not set', 'review');
+    if (!row.secretEnvVar && row.required.length === 0) {
+      return statusPill('No credential needed', 'neutral');
+    }
+    if (row.missing.length > 0) {
+      return statusPill(`${row.missing.length} setting${row.missing.length === 1 ? '' : 's'} missing`,
+        'review', row.missing.join(', '));
+    }
     if (row.lastCheckStatus === 'OK') return statusPill('Connected', 'success');
     if (row.lastCheckStatus === 'FAILED') return statusPill('Failing', 'destructive');
     if (row.lastCheckStatus === 'DEGRADED') return statusPill('Degraded', 'warning');
@@ -939,7 +944,7 @@ export function renderSettingsPage(input: {
       <div class="table-wrap">
         <table class="data">
           <thead><tr>
-            <th>Integration</th><th>Status</th><th>Credential</th><th>Configuration</th>
+            <th>Integration</th><th>Status</th><th>What it needs</th><th>Configuration</th>
             <th>Last checked</th><th>Enabled</th>
           </tr></thead>
           <tbody>
@@ -948,9 +953,24 @@ export function renderSettingsPage(input: {
               <td>${statusFor(row)}
                 ${row.lastCheckDetail
                   ? html`<div class="muted small">${row.lastCheckDetail}</div>` : ''}</td>
-              <td class="muted small">${row.secretEnvVar
-                ? html`${row.secretEnvVar}<br>${row.secretPresent ? 'set on this server' : 'not set'}`
-                : '—'}</td>
+              <td class="muted small">
+                ${row.required.length === 0
+                  ? '—'
+                  : html`<ul class="plain-list">
+                      ${row.required.map((setting) => html`<li>
+                        <code>${setting.name}</code>
+                        ${setting.present
+                          ? statusPill('set', 'success')
+                          : statusPill('missing', 'review', setting.purpose)}
+                        <div class="muted small">${setting.purpose}</div>
+                      </li>`)}
+                    </ul>`}
+                ${row.missing.length > 0
+                  ? html`<div class="muted small" style="margin-top:6px">
+                      Still needed: ${row.missing.join(', ')}
+                    </div>`
+                  : ''}
+              </td>
               <td class="muted small">${Object.keys(row.config).length === 0
                 ? 'None'
                 : Object.entries(row.config).map(([key, value]) => html`
