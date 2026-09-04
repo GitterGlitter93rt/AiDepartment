@@ -28,6 +28,7 @@ Near-term flow:
 -> `rep searches market / ZIP / vertical`
 -> `rep browses researched prospects`
 -> `rep claims Accounts to self`
+-> `channel-specific contact eligibility`
 -> `rep calls/emails/follows up`
 -> `shared Account memory`
 -> `Cal.com 15-minute strategy-call booking`
@@ -39,7 +40,16 @@ The rep experience is **browse/search/claim**, not a forced black-box queue.
 
 The outbound voice design uses **one core YAD Sales AI**, not 30+ independent industry sales agents.
 
-Industry-specific research changes the CallPack, hypothesis, terminology, first question and safety boundaries. It does not create a different salesperson persona.
+Industry-specific research changes the CallPack, hypothesis, terminology, first question and professional boundaries. It does not create a different salesperson persona.
+
+Phone-channel authorization is also no longer represented by one generic `CALL_READY` flag.
+
+At minimum distinguish:
+
+```text
+HUMAN_MANUAL_CALL = ALLOW | BLOCK | REVIEW_REQUIRED
+AUTONOMOUS_AI_VOICE = ALLOW | BLOCK | REVIEW_REQUIRED
+```
 
 ---
 
@@ -52,18 +62,28 @@ Read these before implementing relevant gates:
 3. `brain/TODO.md`
 4. `docs/09-software/SALES-TEAM-ACCESS-CURRENT.md`
 5. `docs/09-software/CLAUDE-SALES-PORTAL-START-PROMPT.md`
-6. `docs/09-software/outbound-sales-brain-public-decision-maker-resolver-spec.md`
-7. `docs/09-software/outbound-sales-brain-public-decision-maker-fixtures.v1.yaml`
-8. `docs/09-software/outbound-sales-brain-public-contact-research-worker-contract.md`
-9. `docs/09-software/outbound-sales-brain-contact-waterfall-spec.md`
-10. `docs/09-software/outbound-sales-brain-contact-endpoint-quality-spec.md`
-11. `docs/09-software/outbound-sales-brain-decision-maker-routing-spec.md`
-12. `docs/09-software/outbound-sales-brain-calcom-strategy-call-booking-spec.md`
-13. `docs/09-software/outbound-sales-brain-single-sales-agent-operating-model.md`
-14. `docs/09-software/outbound-sales-brain-shared-twilio-number-dual-service-spec.md`
-15. `docs/09-software/outbound-sales-brain-demo-production-voice-mode-spec.md`
-16. `docs/09-software/OUTBOUND-SALES-BRAIN-V1-CURRENT.md`
-17. relevant referenced data/RBAC/ownership/import/Market Miner/voice specs.
+6. `docs/09-software/CLAUDE-SALES-AI-PILOT-CURRENT.md`
+7. `docs/09-software/CLAUDE-DNC-RELEASE-ADDENDUM.md`
+8. `docs/09-software/TOMORROW-OUTBOUND-PILOT-PREFLIGHT-CURRENT.md`
+9. `docs/09-software/outbound-sales-brain-public-decision-maker-resolution-spec.md`
+10. `docs/09-software/outbound-sales-brain-public-decision-maker-fixtures.v1.yaml`
+11. `docs/09-software/outbound-sales-brain-public-contact-research-worker-contract.md`
+12. `docs/09-software/outbound-sales-brain-contact-waterfall-spec.md`
+13. `docs/09-software/outbound-sales-brain-contact-endpoint-quality-spec.md`
+14. `docs/09-software/outbound-sales-brain-decision-maker-routing-spec.md`
+15. `docs/09-software/outbound-sales-brain-phone-action-ui-spec.md`
+16. `docs/09-software/outbound-sales-brain-human-manual-call-v1-spec.md`
+17. `docs/09-software/outbound-sales-brain-global-phone-channel-eligibility-dnc-spec.md`
+18. `docs/09-software/outbound-sales-brain-phone-screening-provider-interface-spec.md`
+19. `docs/09-software/outbound-sales-brain-phone-channel-eligibility-fixtures.v1.yaml`
+20. `docs/09-software/outbound-sales-brain-calcom-strategy-call-booking-spec.md`
+21. `docs/09-software/outbound-sales-brain-single-sales-agent-operating-model.md`
+22. `docs/09-software/outbound-sales-brain-sales-ai-first-60-seconds-playbook.md`
+23. `docs/09-software/outbound-sales-brain-sales-ai-first-60-seconds-fixtures.v1.yaml`
+24. `docs/09-software/outbound-sales-brain-shared-twilio-number-dual-service-spec.md`
+25. `docs/09-software/outbound-sales-brain-demo-production-voice-mode-spec.md`
+26. `docs/09-software/OUTBOUND-SALES-BRAIN-V1-CURRENT.md`
+27. relevant referenced data/RBAC/ownership/import/Market Miner/voice specs.
 
 Do not reread every architecture file if the gate-specific documents are sufficient.
 
@@ -98,6 +118,15 @@ Never label a main/front-desk number as a person's direct number without evidenc
 
 Never fabricate a person, title, mobile number, extension or email.
 
+The Sales Portal must visually distinguish:
+
+- Direct business line
+- Main line — ask for named person
+- Main line — ask for role
+- Generic company/location line
+- Phone research needed
+- Do Not Call
+
 ---
 
 # 4. GATE T0 — AUDIT CURRENT ENVIRONMENTS
@@ -116,7 +145,10 @@ Audit:
 - auth options;
 - migration state;
 - secrets handling;
-- current prospect CSV/list assets if locally accessible.
+- current prospect CSV/list assets if locally accessible;
+- current contact/phone schema;
+- existing suppression/DNC implementation;
+- provider credentials/config references for research/contact/phone screening.
 
 ## Voice VPS
 
@@ -160,9 +192,14 @@ Implement/reconcile one durable data model for:
 - research job state;
 - Booking;
 - CallPack;
-- CallSession / CallAttempt.
+- ContactAttempt / CallSession / CallAttempt;
+- RegistryScreenResult;
+- ChannelEligibilityDecision;
+- policy/version references.
 
 Do not create a second parallel lead database.
+
+A new source/import must not reset Account ownership, prior relationship, wrong-number state, DNC or screening history.
 
 ---
 
@@ -190,6 +227,25 @@ Use existing YAD brand primitives. Do not ship a generic admin table/Airtable cl
 
 Claim ownership must be server-enforced and atomic.
 
+Account phone/contact UI must follow:
+
+`outbound-sales-brain-phone-action-ui-spec.md`
+
+For V1 manual human calling:
+
+```text
+Open owned Account
+-> Start Human Call
+-> server-side HUMAN_MANUAL_CALL preflight
+-> ALLOW: create ContactAttempt
+-> return active tel: action
+-> rep calls from device
+-> return to persistent disposition UI
+-> callback/email/opportunity/DNC
+```
+
+The rep's cell phone is transport only. YAD remains the system of record.
+
 ---
 
 # 7. GATE T3 — SEED INVENTORY
@@ -210,6 +266,8 @@ Import flow:
 
 No automatic outreach on import.
 
+Imported unknowns remain unknown. Do not relabel imported records as current advertisers, verified DMs or direct numbers without supporting evidence.
+
 ---
 
 # 8. GATE T4 — PUBLIC DECISION-MAKER RESOLVER
@@ -226,6 +284,8 @@ For each sales-ready Account answer:
 
 Keep role confidence and endpoint confidence separate.
 
+A correct named-person/main-line route is better than a fabricated direct phone.
+
 ---
 
 # 9. GATE T5 — MARKET MINER INVENTORY CONNECTION
@@ -241,6 +301,8 @@ Rep ZIP search must:
 5. dedupe into canonical Accounts.
 
 Heavy mining/crawling stays on EdgeXpert/research workers, never the realtime voice process.
+
+Do not DNC-screen every raw discovered company at full cost by default. Promote promising Accounts through staged phone screening when they become operationally relevant.
 
 ---
 
@@ -340,7 +402,13 @@ Do not fabricate spend, ROI, CRM usage, missed-call rate, decision-maker identit
 
 Do not position AI as firing/replacing employees.
 
-Create text-roleplay/test fixtures before a real pilot.
+Use:
+
+- `outbound-sales-brain-yad-sales-ai-core-script-v1.md`
+- `outbound-sales-brain-sales-ai-first-60-seconds-playbook.md`
+- `outbound-sales-brain-sales-ai-first-60-seconds-fixtures.v1.yaml`
+
+The first minute should earn one useful process fact or correct route, not deliver a service pitch.
 
 ---
 
@@ -414,7 +482,46 @@ A crash in outbound Sales AI should not automatically take down production inbou
 
 ---
 
-# 15. DEFAULT SALES CONVERSATION SHAPE
+# 15. GATE T11 — PHONE SCREENING / DNC / CHANNEL ELIGIBILITY
+
+Implement the global phone-channel architecture before any real autonomous prospect call.
+
+Read:
+
+- `CLAUDE-DNC-RELEASE-ADDENDUM.md`
+- `outbound-sales-brain-global-phone-channel-eligibility-dnc-spec.md`
+- `outbound-sales-brain-phone-screening-provider-interface-spec.md`
+- `outbound-sales-brain-phone-channel-eligibility-fixtures.v1.yaml`
+- `outbound-sales-brain-human-manual-call-v1-spec.md`
+
+Architecture:
+
+```text
+PhoneEndpoint
+-> YAD internal suppression first
+-> required applicable screening adapters
+-> normalized RegistryScreenResult(s)
+-> deterministic ChannelEligibilityDecision
+-> human action OR Twilio action
+```
+
+Rules:
+
+- one canonical suppression history;
+- new YAD DNC invalidates prior positive eligibility immediately;
+- `ERROR`/`UNKNOWN` never becomes registry `NO_MATCH`;
+- screening provider is abstracted behind normalized interface;
+- screen operationally relevant endpoints rather than every raw scraped phone by default;
+- rep ownership does not grant phone permission;
+- Twilio must not receive an outbound request without current `AUTONOMOUS_AI_VOICE = ALLOW` for that exact endpoint/campaign/technology;
+- human reps may use manual cell transport only when `HUMAN_MANUAL_CALL = ALLOW`;
+- a rep cell cannot be used to bypass a YAD DNC or other human-channel restriction.
+
+If required external registry/provider credentials are missing, report the exact blocker rather than inventing a successful screen.
+
+---
+
+# 16. DEFAULT SALES CONVERSATION SHAPE
 
 The Sales AI should sound like a concise researched business-development person, not an AI demo.
 
@@ -424,17 +531,19 @@ Universal pattern:
 
 Example structure, not universal verbatim copy:
 
-> Hey [Name], this is [Agent] with Your AI Department. This is a cold call, so I'll be brief. I had a quick question about how you handle [specific researched business process].
+> Hey [Name], this is [Agent] with Your AI Department. Quick cold call — I'll keep it short. I came across you guys while looking at [claim-safe business context]. [one process question]
 
 If a current paid-ad observation is relevant:
 
-> I came across you while looking at companies advertising [service] in [market]. I had one quick question about what happens after that lead comes in.
+> I came across you while looking at companies advertising [service] in [market]. [one process question]
 
 Do not infer ad spend, profitability, lead volume, or broken workflows from observing an ad.
 
 If prospect is busy:
 
-> Completely understand. Give me ten seconds and you can tell me whether I should disappear.
+> Fair. Give me ten seconds and you can tell me whether I should disappear.
+
+Only one save attempt. If they remain busy, ask for a better time or close.
 
 If a real opportunity emerges:
 
@@ -444,14 +553,19 @@ If yes, check Cal.com and offer two real slots.
 
 ---
 
-# 16. TOMORROW AI COLD-CALL MICRO-PILOT
+# 17. TOMORROW AI COLD-CALL MICRO-PILOT
+
+Use:
+
+`TOMORROW-OUTBOUND-PILOT-PREFLIGHT-CURRENT.md`
+
+as the operational release gate.
 
 Implementation readiness alone does not authorize arbitrary autonomous dialing.
 
 Before a real prospect pilot require:
 
-- explicit Michael approval for that pilot;
-- deterministic eligibility/compliance decision for each endpoint/campaign;
+- deterministic current `AUTONOMOUS_AI_VOICE = ALLOW` for every endpoint actually dialed;
 - durable suppression/DNC;
 - approved YAD caller ID;
 - controlled campaign size;
@@ -461,15 +575,23 @@ Before a real prospect pilot require:
 - kill switch available;
 - no unresolved critical roleplay/voice failures.
 
-If a real-prospect gate is not ready, run the exact Sales AI + Cal.com path on internal/allowlisted participants first.
+If a real-prospect gate is not ready, run the exact Sales AI + Cal.com path on internal/allowlisted participants first and keep human reps working separately eligible Accounts.
 
 No model may override the deterministic eligibility decision.
 
-Initial outbound concurrency should be very low.
+Initial outbound concurrency should be 1.
+
+For the first real pilot, use a very small reviewed HVAC Jacksonville/St. Augustine cohort rather than mixing many verticals.
+
+After testing, report exactly one:
+
+- `REAL_AI_PILOT_ELIGIBLE`
+- `INTERNAL_AI_TEST_ONLY`
+- `HUMAN_ASSIST_ONLY`
 
 ---
 
-# 17. PILOT OUTCOMES
+# 18. PILOT OUTCOMES
 
 Successful outcomes include:
 
@@ -487,7 +609,7 @@ Record exact prospect wording, relevant numbers they supply, current systems the
 
 ---
 
-# 18. HARD CONSTRAINTS
+# 19. HARD CONSTRAINTS
 
 - Do not merge `main` without Michael's explicit approval.
 - Do not re-enable automatic GitHub Actions.
@@ -503,10 +625,13 @@ Record exact prospect wording, relevant numbers they supply, current systems the
 - Do not share one mutable global prompt between demo, inbound and outbound services.
 - Do not let demo interactions pollute production Account data.
 - Do not spoof/rotate uncontrolled caller IDs.
+- Do not expose registry/provider internals to ordinary reps.
+- Do not let a rep's cell phone bypass a blocked human-call decision.
+- Do not let Twilio bypass a missing/stale AI-voice eligibility decision.
 
 ---
 
-# 19. REPORTING
+# 20. REPORTING
 
 After each meaningful gate, report:
 
@@ -518,18 +643,26 @@ After each meaningful gate, report:
 - UI/manual verification where useful;
 - security checks;
 - credentials/config readiness;
+- decision-maker/contact fill status;
+- human manual-call preflight status;
+- phone screening/provider status;
+- AI eligibility status;
+- DNC durability status;
+- Cal.com status;
+- voice latency/barge-in status;
 - blockers requiring Michael;
+- exact tomorrow release classification when applicable;
 - next exact gate.
 
 Do not ask Michael questions that a repo/server audit can answer.
 
 ---
 
-# 20. CURRENT SUCCESS CONDITION
+# 21. CURRENT SUCCESS CONDITION
 
 Near-term:
 
-**EdgeXpert maintains a shared researched prospect pool; sales reps can securely browse/search a market, claim Accounts, see trustworthy decision-maker/contact paths, call/email/follow up, and book qualified prospects through Cal.com onto Michael's Outlook calendar with a Cal Video meeting link.**
+**EdgeXpert maintains a shared researched prospect pool; sales reps can securely browse/search a market, claim Accounts, see trustworthy decision-maker/contact paths, see the exact human/AI phone state, call/email/follow up, and book qualified prospects through Cal.com onto Michael's Outlook calendar with a Cal Video meeting link.**
 
 Voice:
 
@@ -537,4 +670,4 @@ Voice:
 
 Pilot:
 
-**The single Sales AI can use a researched CallPack, carry a natural business conversation, and convert a legitimate opportunity into a confirmed 15-minute Cal.com strategy call with Michael.**
+**The single Sales AI can use a researched CallPack, survive normal interruptions, carry a natural business conversation, and convert a legitimate opportunity into a confirmed 15-minute Cal.com strategy call with Michael — but only when the exact phone endpoint is currently eligible for that AI-voice action.**
