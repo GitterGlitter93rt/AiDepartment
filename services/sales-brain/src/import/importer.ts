@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { query, withTransaction, type Queryable } from '../db/pool.js';
+import type pg from 'pg';
+import { BatchedWriter, query, withTransaction, type Queryable } from '../db/pool.js';
 import { upsertAccount, upsertEndpoint, recordEvidence, roleCategoryFromTitle } from '../domain/accounts.js';
-import { normalizeEmail, normalizePhone, classifyEmail } from '../domain/normalize.js';
+import { normalizeEmail, normalizePhone, normalizeHostname, classifyEmail } from '../domain/normalize.js';
 import { parseCsv, detectDelimiter } from './csv.js';
 import { applyColumnMap, inferColumnMap, verticalHintFor, type ColumnMap, type MappedRow } from './mapping.js';
 
@@ -50,14 +51,40 @@ export interface ImportReport {
   rejections: { line: number; reason: string; company: string | null }[];
 }
 
-/** A row is usable if it identifies a business at all. */
+/**
+ * A row is usable if it identifies a business at all.
+ *
+ * The check is on values that *normalise*, not on values that are merely present.
+ * Testing presence let a misaligned row through: an unquoted comma in a company name
+ * shifts every column right, so the website cell holds "llc", the phone cell holds a
+ * URL and the email cell holds a phone number. All three are truthy, so the row was
+ * accepted, and then every one of them failed normalisation and was dropped -- the
+ * import created an Account with a name and no way to reach it, and counted it as a
+ * success. An unquoted comma is one of the commonest defects in a real prospect
+ * list, so at list scale that is thousands of phantom companies in inventory.
+ */
 function rejectReason(row: MappedRow): string | null {
   if (!row.company && !row.domain) return 'no company name or website';
   if (row.company && row.company.length < 2) return 'company name too short to identify a business';
-  if (!row.phone && !row.directPhone && !row.email && !row.domain) {
-    return 'no website, phone or email — nothing to research or contact';
+
+  const hasAnyRawRoute = Boolean(row.domain || row.phone || row.directPhone || row.email);
+  const usable = {
+    domain: normalizeHostname(row.domain),
+    phone: normalizePhone(row.phone),
+    directPhone: normalizePhone(row.directPhone),
+    email: normalizeEmail(row.email),
+  };
+  const hasUsableRoute = Boolean(usable.domain || usable.phone || usable.directPhone
+    || usable.email);
+  if (hasUsableRoute) return null;
+
+  // Present but unusable is a different problem from absent, and the operator needs
+  // to be told which: one is a thin list, the other is a broken file.
+  if (hasAnyRawRoute) {
+    return 'the website, phone and email columns are all unusable — the columns may be '
+      + 'misaligned, often an unquoted comma in an earlier field';
   }
-  return null;
+  return 'no website, phone or email — nothing to research or contact';
 }
 
 export async function importCsvFile(path: string, options: ImportOptions): Promise<ImportReport> {
@@ -96,12 +123,33 @@ export async function importCsvContent(
 
   if (parsed.rows.length === 0) return report;
 
+  // Options are validated before a batch row exists. Creating the batch first and
+  // then throwing left the batch in RUNNING with the file's hash recorded, which
+  // then refused the operator's own retry.
+  const knownVerticals = new Set(
+    (await query<{ vertical_profile_id: string }>(
+      'select vertical_profile_id from vertical_profiles where is_active',
+    )).rows.map((row) => row.vertical_profile_id),
+  );
+  if (options.defaultVerticalProfileId && !knownVerticals.has(options.defaultVerticalProfileId)) {
+    throw new Error(
+      `Unknown vertical profile "${options.defaultVerticalProfileId}". ` +
+      'Run `npm run sync-verticals` or pass one that exists.',
+    );
+  }
+
   let batchId: string | null = null;
   if (!options.dryRun) {
-    // A re-uploaded identical file is refused rather than double-imported.
+    // A re-uploaded identical file is refused rather than double-imported -- unless
+    // the run that claimed the hash failed. A batch row is written before the rows
+    // are processed, so a run that threw halfway left its hash behind and then
+    // refused its own retry: the operator fixes whatever broke and is told the file
+    // was already imported, by a batch marked FAILED. A failed batch is a reason to
+    // try again, not a reason to refuse.
     if (file.sha256) {
       const existing = await query<{ import_batch_id: string; source_name: string }>(
-        'select import_batch_id, source_name from import_batches where file_sha256 = $1', [file.sha256],
+        `select import_batch_id, source_name from import_batches
+          where file_sha256 = $1 and status <> 'FAILED'`, [file.sha256],
       );
       if (existing.rows[0]) {
         throw new Error(
@@ -127,19 +175,8 @@ export async function importCsvContent(
   // source taxonomy must not reject a good prospect (import spec §10) and must not
   // blow up the import on a foreign key either — the raw industry label is kept
   // either way, and research can classify the account later.
-  const knownVerticals = new Set(
-    (await query<{ vertical_profile_id: string }>(
-      'select vertical_profile_id from vertical_profiles where is_active',
-    )).rows.map((row) => row.vertical_profile_id),
-  );
-  if (options.defaultVerticalProfileId && !knownVerticals.has(options.defaultVerticalProfileId)) {
-    throw new Error(
-      `Unknown vertical profile "${options.defaultVerticalProfileId}". ` +
-      'Run `npm run sync-verticals` or pass one that exists.',
-    );
-  }
-
   const seenAccounts = new Set<string>();
+  const writer = new BatchedWriter(Number(process.env.IMPORT_BATCH_ROWS ?? '100'));
 
   try {
   for (let index = 0; index < parsed.rows.length; index += 1) {
@@ -171,7 +208,7 @@ export async function importCsvContent(
       continue;
     }
 
-    const outcome = await withTransaction(async (client) => {
+    const importOneRow = async (client: pg.PoolClient) => {
       const result = await upsertAccount(
         client,
         {
@@ -254,7 +291,11 @@ export async function importCsvContent(
       );
 
       return { ...result, isSuppressed };
-    });
+    };
+
+    // One commit per batch of rows, with each row inside its own savepoint, so a
+    // malformed row still costs only itself. See BatchedWriter.
+    const outcome = await writer.run(importOneRow);
 
     seenAccounts.add(outcome.accountId);
     report.matchRules[outcome.matchRule] = (report.matchRules[outcome.matchRule] ?? 0) + 1;
@@ -263,7 +304,11 @@ export async function importCsvContent(
     else report.matched += 1;
   }
 
+    await writer.finish();
   } catch (error) {
+    // Whatever is uncommitted is abandoned; whatever was committed stays, attributed
+    // to this batch, so a partial import is visible rather than invisible.
+    await writer.abort();
     // Never leave a batch stuck in RUNNING: a partial import must be visible as failed,
     // with the rows it did commit still attributed to it.
     if (batchId) {

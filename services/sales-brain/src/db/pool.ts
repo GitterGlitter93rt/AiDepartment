@@ -56,6 +56,79 @@ pool.on('error', (error) => {
 
 export type Queryable = Pick<pg.PoolClient, 'query'>;
 
+/**
+ * Runs many small units of work with one commit per batch instead of one per unit.
+ *
+ * A commit costs a WAL flush, so a ten-thousand row import that committed per row
+ * spent almost all of its 208 seconds waiting on fsync. Batching alone would trade
+ * that for a worse property -- one bad row rolling back a hundred good ones -- so
+ * each unit runs inside a savepoint. A unit that throws is rolled back to its own
+ * savepoint and the rest of the batch is unaffected, which is the isolation the
+ * per-row transaction was providing, at a fraction of the cost.
+ *
+ * Every batch is committed on `finish`, and the client is always released.
+ */
+export class BatchedWriter {
+  private client: pg.PoolClient | null = null;
+  private inBatch = 0;
+  private savepoint = 0;
+
+  constructor(private readonly batchSize = 100) {}
+
+  /** Runs one unit inside the current batch, opening or committing one as needed. */
+  async run<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+    if (!this.client) {
+      this.client = await pool.connect();
+      await this.client.query('begin');
+      this.inBatch = 0;
+    }
+    const client = this.client;
+    this.savepoint += 1;
+    const name = `import_row_${this.savepoint}`;
+    await client.query(`savepoint ${name}`);
+    try {
+      const result = await fn(client);
+      await client.query(`release savepoint ${name}`);
+      this.inBatch += 1;
+      if (this.inBatch >= this.batchSize) {
+        await client.query('commit');
+        await client.query('begin');
+        this.inBatch = 0;
+      }
+      return result;
+    } catch (error) {
+      await client.query(`rollback to savepoint ${name}`);
+      throw error;
+    }
+  }
+
+  /** Commits whatever is open and hands the connection back. */
+  async finish(): Promise<void> {
+    if (!this.client) return;
+    try {
+      await this.client.query('commit');
+    } finally {
+      this.client.release();
+      this.client = null;
+      this.inBatch = 0;
+    }
+  }
+
+  /** Abandons whatever is open. Used when the caller is already failing. */
+  async abort(): Promise<void> {
+    if (!this.client) return;
+    try {
+      await this.client.query('rollback');
+    } catch {
+      // The connection may already be unusable; releasing it is what matters.
+    } finally {
+      this.client.release();
+      this.client = null;
+      this.inBatch = 0;
+    }
+  }
+}
+
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
   text: string,
   values: unknown[] = [],

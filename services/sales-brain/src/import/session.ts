@@ -292,20 +292,51 @@ export async function confirmSession(
   if (session.status === 'CONFIRMED') return { ok: false, message: 'This import has already been confirmed.' };
   if (!session.raw_rows) return { ok: false, message: 'The uploaded rows are no longer available.' };
 
+  // Claim the session before doing any work.
+  //
+  // The import runs inline in the request. A ten-thousand row list takes about a
+  // hundred seconds, which outlives a default reverse-proxy read timeout, so the rep
+  // sees a gateway error while the import is still going. Checking CONFIRMED was not
+  // enough of a guard, because CONFIRMED is not set until the run finishes: pressing
+  // the button again started a second import of the same file. This claim is atomic,
+  // so the second press is refused whatever the first one is doing.
+  const { rowCount: claimed } = await query(
+    `update import_sessions set status = 'RUNNING', confirm_started_at = now()
+      where import_session_id = $1 and status not in ('RUNNING','CONFIRMED','CANCELLED','EXPIRED')`,
+    [sessionId],
+  );
+  if (!claimed) {
+    return {
+      ok: false,
+      message: 'This import is already being confirmed. Wait for it to finish rather than '
+        + 'starting it again — the page will show the result when it does.',
+    };
+  }
+
   // Rebuild a CSV from the stored rows so the confirm path is the same importer the
   // CLI uses — one code path, one set of guarantees.
   const csv = toCsv(session.headers, session.raw_rows);
-  const report = await importCsvContent(
-    csv,
-    {
-      sourceName: session.source_name,
-      sourceKind: session.source_kind as never,
-      defaultVerticalProfileId: session.default_vertical_profile_id,
-      importedBy: userId,
-      columnMap: session.column_map,
-    },
-    { fileName: session.file_name ?? undefined, sha256: session.file_sha256 },
-  );
+  let report;
+  try {
+    report = await importCsvContent(
+      csv,
+      {
+        sourceName: session.source_name,
+        sourceKind: session.source_kind as never,
+        defaultVerticalProfileId: session.default_vertical_profile_id,
+        importedBy: userId,
+        columnMap: session.column_map,
+      },
+      { fileName: session.file_name ?? undefined, sha256: session.file_sha256 },
+    );
+  } catch (error) {
+    // A failed run must not leave the session wedged in RUNNING for ever: it goes
+    // back to where it was so the operator can look at the batch and try again.
+    await query(
+      `update import_sessions set status = 'PREVIEWED' where import_session_id = $1`,
+      [sessionId]);
+    throw error;
+  }
 
   await query(
     `update import_sessions set status = 'CONFIRMED', import_batch_id = $2, raw_rows = null
