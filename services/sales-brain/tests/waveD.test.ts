@@ -288,6 +288,50 @@ test('campaigns surface an account whose relationship outranks its campaign memb
     'Smartlead is the execution provider, not the CRM');
 });
 
+test('the Call Pack preview is the snapshot, not whatever research says now', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/candidates', headers: { cookie: f.manager },
+    payload: { accountId: f.accountId },
+  });
+  const { rows } = await pool.query(
+    `select pilot_candidate_id, call_pack_id from pilot_candidates where account_id = $1`,
+    [f.accountId]);
+  assert.ok(rows[0]!.call_pack_id, 'a Call Pack is snapshotted when the candidate is added');
+
+  const page = await app.inject({
+    method: 'GET', url: `/ai/pilot?preview=${rows[0]!.pilot_candidate_id}`,
+    headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /What the agent would open with/);
+  assert.match(page.body, /This snapshot does not change when\s+research does/,
+    'the operator is told the preview is fixed');
+  assert.match(page.body, /must never claim/,
+    'the prohibitions are part of what is approved');
+
+  // Renaming the account afterwards must not rewrite the approved snapshot.
+  const before = await pool.query(
+    `select company_summary from call_packs where call_pack_id = $1`, [rows[0]!.call_pack_id]);
+  await pool.query(`update accounts set canonical_name = 'Renamed Co' where account_id = $1`,
+    [f.accountId]);
+  const after = await pool.query(
+    `select company_summary from call_packs where call_pack_id = $1`, [rows[0]!.call_pack_id]);
+  assert.equal(after.rows[0]!.company_summary, before.rows[0]!.company_summary);
+});
+
+test('a manager can queue a prospect from the account page without dialling', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: `/accounts/${f.accountId}`, headers: { cookie: f.manager } });
+  assert.match(page.body, /Add to the pilot list/);
+  assert.match(page.body, /It does not dial/);
+
+  const rep = await app.inject({
+    method: 'GET', url: `/accounts/${f.accountId}`, headers: { cookie: f.rep } });
+  assert.equal(/Add to the pilot list/.test(rep.body), false,
+    'a rep has no route into the outbound control plane');
+});
+
 test('global search resolves a phone number to its canonical account', async () => {
   const f = await fixture();
   const page = await app.inject({

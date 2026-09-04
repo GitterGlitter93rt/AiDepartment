@@ -196,6 +196,19 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </div>` : ''}
   </div>
 
+  ${isManager(user.role) ? html`
+  <div class="section">
+    <h3>Sales AI pilot</h3>
+    <p class="muted small">
+      Adding this company queues it for operator review on the
+      <a href="/ai/pilot">pilot page</a>. It does not dial, and it does not schedule anything.
+    </p>
+    <form method="post" action="/ai/pilot/candidates">
+      <input type="hidden" name="accountId" value="${account.account_id}">
+      <button type="submit" class="btn btn-secondary btn-sm">Add to the pilot list</button>
+    </form>
+  </div>` : ''}
+
   <div class="section">
     <h3>Do not claim</h3>
     <div class="callout callout-warn">

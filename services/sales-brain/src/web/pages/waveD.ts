@@ -6,7 +6,7 @@ import {
 } from '../components/primitives.js';
 import { formatDateTime, relativeTime, titleCase } from '../format.js';
 import type { SessionUser } from '../../domain/auth.js';
-import type { CandidateRow, PilotState } from '../../domain/pilot.js';
+import type { CallPackPreview, CandidateRow, PilotState } from '../../domain/pilot.js';
 import type { IntegrationView } from '../../domain/settings.js';
 import type { SearchHit } from '../../api/waveDQueries.js';
 
@@ -49,9 +49,9 @@ function switchRow(input: {
 
 export function renderPilotPage(input: {
   user: SessionUser; counts: NavCounts; state: PilotState; candidates: CandidateRow[];
-  flash?: string | null; error?: string | null;
+  preview?: CallPackPreview | null; flash?: string | null; error?: string | null;
 }): string {
-  const { user, counts, state, candidates } = input;
+  const { user, counts, state, candidates, preview } = input;
   const live = candidates.filter((row) => row.state === 'QUEUED' || row.state === 'PREFLIGHT_PASSED');
   const called = candidates.filter((row) => row.state === 'CALLED');
 
@@ -171,6 +171,8 @@ export function renderPilotPage(input: {
                   <td class="muted small">${relativeTime(row.addedAt)}${
                     row.addedByName ? html`<br>${row.addedByName}` : ''}</td>
                   <td class="row" style="gap:6px">
+                    <a class="btn btn-secondary btn-sm"
+                       href="/ai/pilot?preview=${row.pilotCandidateId}">Call Pack</a>
                     <form method="post" action="/ai/pilot/preflight">
                       <input type="hidden" name="pilotCandidateId" value="${row.pilotCandidateId}">
                       <button type="submit" class="btn btn-secondary btn-sm">Run preflight</button>
@@ -184,7 +186,58 @@ export function renderPilotPage(input: {
               </tbody>
             </table>
           </div>`}
-    </div>`;
+    </div>
+
+    ${preview ? html`
+      <div style="height:18px"></div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Call Pack — ${preview.companyName}</h2>
+          <span class="muted small">
+            Captured ${formatDateTime(preview.capturedAt)}. This snapshot does not change when
+            research does, so what is approved here is what would be spoken.
+          </span>
+        </div>
+
+        <h3 class="pack-section">What the agent would open with</h3>
+        <blockquote class="pack-quote">${preview.openingLine}</blockquote>
+        <p class="muted small">Chosen on: ${preview.openerBasis}</p>
+
+        <h3 class="pack-section">Hypothesis and first question</h3>
+        <dl class="detail-list">
+          <dt>Primary hypothesis</dt>
+          <dd>${preview.primaryHypothesis ?? html`<span class="muted">None recorded</span>`}</dd>
+          <dt>First question</dt>
+          <dd>${preview.firstQuestion ?? html`<span class="muted">None recorded</span>`}</dd>
+        </dl>
+
+        <h3 class="pack-section">Facts it may state out loud</h3>
+        ${preview.confirmedFacts.length === 0
+          ? html`<p class="muted small">
+              Nothing is confirmed, so the agent may state nothing about this company as fact.
+            </p>`
+          : html`<ul class="plain-list">
+              ${preview.confirmedFacts.map((fact) => html`<li>
+                ${fact.statement}
+                ${fact.source ? html`<span class="muted small"> — ${fact.source}</span>` : ''}
+              </li>`)}
+            </ul>`}
+
+        <h3 class="pack-section">What it must not assume</h3>
+        ${preview.importantUnknowns.length === 0
+          ? html`<p class="muted small">Nothing recorded.</p>`
+          : html`<ul class="plain-list">
+              ${preview.importantUnknowns.map((unknown) => html`<li>${unknown}</li>`)}
+            </ul>`}
+
+        <h3 class="pack-section">What it must never claim</h3>
+        <ul class="plain-list">
+          ${preview.prohibitedClaims.map((claim) => html`<li>${claim}</li>`)}
+        </ul>
+
+        <h3 class="pack-section">Where the call may go</h3>
+        <p>${preview.allowedNextSteps.join(', ') || 'No next step is permitted.'}</p>
+      </div>` : ''}`;
 
   return renderPage({
     title: 'Sales AI Pilot',

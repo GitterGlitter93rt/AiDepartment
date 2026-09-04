@@ -48,8 +48,8 @@ import {
   listCampaigns, listVoiceCalls, voiceCallDetail,
 } from './waveDQueries.js';
 import {
-  addCandidate, listCandidates, readPilotState, removeCandidate, runPreflight,
-  setPilotSwitch, stopNewOutboundCalls,
+  addCandidate, callPackPreview, listCandidates, readPilotState, removeCandidate,
+  runPreflight, setPilotSwitch, stopNewOutboundCalls,
 } from '../domain/pilot.js';
 import { listIntegrations, setIntegrationEnabled } from '../domain/settings.js';
 
@@ -679,17 +679,19 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     return user;
   };
 
-  app.get<{ Querystring: { flash?: string; error?: string } }>('/ai/pilot', async (request, reply) => {
-    const user = requireManager(request, reply);
-    if (!user) return;
-    const [counts, state, candidates] = await Promise.all([
-      navCountsFull(user.userId, user.role), readPilotState(), listCandidates(),
-    ]);
-    return reply.type('text/html').send(renderPilotPage({
-      user, counts, state, candidates,
-      flash: request.query.flash ?? null, error: request.query.error ?? null,
-    }));
-  });
+  app.get<{ Querystring: { flash?: string; error?: string; preview?: string } }>(
+    '/ai/pilot', async (request, reply) => {
+      const user = requireManager(request, reply);
+      if (!user) return;
+      const [counts, state, candidates, preview] = await Promise.all([
+        navCountsFull(user.userId, user.role), readPilotState(), listCandidates(),
+        request.query.preview ? callPackPreview(request.query.preview) : Promise.resolve(null),
+      ]);
+      return reply.type('text/html').send(renderPilotPage({
+        user, counts, state, candidates, preview,
+        flash: request.query.flash ?? null, error: request.query.error ?? null,
+      }));
+    });
 
   app.post<{ Body: { field?: string; value?: string; reason?: string } }>(
     '/ai/pilot/switch', async (request, reply) => {
@@ -715,16 +717,17 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       + 'A call already in progress is unaffected.')}`);
   });
 
-  app.post<{ Body: { accountId?: string } }>('/ai/pilot/candidates', async (request, reply) => {
-    const user = requireManager(request, reply);
-    if (!user) return;
-    const result = await addCandidate({
-      accountId: request.body.accountId ?? '', actorUserId: user.userId,
+  app.post<{ Body: { accountId?: string; returnTo?: string } }>(
+    '/ai/pilot/candidates', async (request, reply) => {
+      const user = requireManager(request, reply);
+      if (!user) return;
+      const result = await addCandidate({
+        accountId: request.body.accountId ?? '', actorUserId: user.userId,
+      });
+      return reply.redirect(result.ok
+        ? '/ai/pilot?flash=Added+to+the+pilot+list.+Nothing+was+dialled.'
+        : `/ai/pilot?error=${encodeURIComponent(result.message ?? 'Could not add that account.')}`);
     });
-    return reply.redirect(result.ok
-      ? '/ai/pilot?flash=Added+to+the+pilot+list.+Nothing+was+dialled.'
-      : `/ai/pilot?error=${encodeURIComponent(result.message ?? 'Could not add that account.')}`);
-  });
 
   app.post<{ Body: { pilotCandidateId?: string } }>('/ai/pilot/remove', async (request, reply) => {
     const user = requireManager(request, reply);

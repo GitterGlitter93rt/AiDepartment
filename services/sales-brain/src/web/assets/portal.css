@@ -831,3 +831,15 @@ input[type='file']:hover { border-color: var(--electric-blue); }
   .switch-row .btn { min-height: 42px; flex: 1; }
   .input-inline { flex: 1; min-width: 0; }
 }
+
+/* ------------------------------------------------- Call Pack preview panel */
+.pack-section {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--slate-gray); margin: 20px 0 8px;
+}
+.pack-section:first-of-type { margin-top: 14px; }
+.pack-quote {
+  margin: 0; padding: 12px 14px; background: #F8FAFC;
+  border-left: 3px solid var(--electric-blue); border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+}

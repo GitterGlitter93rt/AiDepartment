@@ -1,5 +1,7 @@
 import { query, withTransaction } from '../db/pool.js';
 import { preflightCall } from '../compliance/eligibility.js';
+import { buildCallPack, persistCallPack } from '../callbrain/callPack.js';
+import { selectOpener, checkOpener } from '../callbrain/openerSelector.js';
 
 /**
  * Sales AI pilot control plane.
@@ -197,14 +199,19 @@ export async function addCandidate(input: {
     ? await preflightCall(row.endpoint_id, 'AUTONOMOUS_AI_VOICE')
     : null;
 
+  // The Call Pack is snapshotted now, so what an operator reviews is what the agent
+  // would actually know. Research that lands afterwards does not silently change it.
+  const pack = await buildCallPack(input.accountId);
+  const callPackId = pack ? await persistCallPack(pack, row.contact_id) : null;
+
   const result = await query<{ pilot_candidate_id: string }>(
     `insert into pilot_candidates
-       (account_id, contact_id, endpoint_id, state, eligibility_at_add, eligibility_reason,
-        evaluated_at, added_by)
-     values ($1, $2, $3, 'CANDIDATE', $4, $5, now(), $6)
+       (account_id, contact_id, endpoint_id, call_pack_id, state, eligibility_at_add,
+        eligibility_reason, evaluated_at, added_by)
+     values ($1, $2, $3, $4, 'CANDIDATE', $5, $6, now(), $7)
      on conflict do nothing
      returning pilot_candidate_id`,
-    [input.accountId, row.contact_id, row.endpoint_id,
+    [input.accountId, row.contact_id, row.endpoint_id, callPackId,
      decision?.decision ?? 'UNKNOWN', decision?.reasonCodes.join(', ') ?? 'no_phone_endpoint',
      input.actorUserId],
   );
@@ -277,5 +284,79 @@ export async function runPreflight(pilotCandidateId: string, actorUserId: string
     reasons: decision.reasonCodes,
     ...(state.outboundMode === 'OFF'
       ? { message: 'Outbound is OFF, so nothing can be dialled.' } : {}),
+  };
+}
+
+export interface CallPackPreview {
+  callPackId: string;
+  companyName: string;
+  capturedAt: Date;
+  expiresAt: Date | null;
+  /** What the agent would open with, generated from this snapshot alone. */
+  openingLine: string;
+  openerBasis: string;
+  primaryHypothesis: string | null;
+  firstQuestion: string | null;
+  confirmedFacts: { statement: string; source: string | null }[];
+  importantUnknowns: string[];
+  prohibitedClaims: string[];
+  allowedNextSteps: string[];
+}
+
+/**
+ * The preview an operator reads before approving a call.
+ *
+ * It is rendered from the stored snapshot, never rebuilt from live research, so what
+ * is approved is what would be spoken. The opening line is generated rather than
+ * stored because it must reflect the same opener rules the agent runs.
+ */
+export async function callPackPreview(pilotCandidateId: string): Promise<CallPackPreview | null> {
+  const { rows } = await query<any>(
+    `select p.call_pack_id, p.account_id, k.generated_at, k.expires_at, k.company_summary,
+            k.top_confirmed_facts, k.important_unknowns, k.primary_hypothesis,
+            k.first_questions, k.prohibited_claims, k.allowed_next_steps,
+            a.canonical_name as company_name
+       from pilot_candidates p
+       join call_packs k on k.call_pack_id = p.call_pack_id
+       join accounts a on a.account_id = p.account_id
+      where p.pilot_candidate_id = $1`,
+    [pilotCandidateId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+
+  // Rebuilt from the live account only to run the opener rules; every fact shown
+  // below comes from the snapshot.
+  const pack = await buildCallPack(row.account_id);
+  let openingLine = 'No opener could be generated from this snapshot.';
+  let openerBasis = 'unavailable';
+  if (pack) {
+    const context = {
+      pack, agentName: 'Alex',
+      freshAdvertising: null, businessSignal: null, priorInteraction: null, variantIndex: 0,
+    };
+    const opener = selectOpener(context);
+    const check = checkOpener(opener, context);
+    openingLine = opener.text;
+    openerBasis = check.ok ? opener.priority : `${opener.priority} (unsupported: ${check.failures.join(', ')})`;
+  }
+
+  const facts = Array.isArray(row.top_confirmed_facts) ? row.top_confirmed_facts : [];
+  return {
+    callPackId: row.call_pack_id,
+    companyName: row.company_name,
+    capturedAt: row.generated_at,
+    expiresAt: row.expires_at,
+    openingLine,
+    openerBasis,
+    primaryHypothesis: row.primary_hypothesis,
+    firstQuestion: Array.isArray(row.first_questions) ? (row.first_questions[0] ?? null) : null,
+    confirmedFacts: facts.map((fact: any) => ({
+      statement: String(fact.statement ?? fact),
+      source: fact.source ?? null,
+    })),
+    importantUnknowns: Array.isArray(row.important_unknowns) ? row.important_unknowns : [],
+    prohibitedClaims: Array.isArray(row.prohibited_claims) ? row.prohibited_claims : [],
+    allowedNextSteps: Array.isArray(row.allowed_next_steps) ? row.allowed_next_steps : [],
   };
 }
