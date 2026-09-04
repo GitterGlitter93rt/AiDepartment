@@ -1,0 +1,7 @@
+[Unit]
+Description=YAD Sales Brain PostgreSQL backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/roothecks/AiDepartment/services/sales-brain
+ExecStart=/home/roothecks/AiDepartment/services/sales-brain/deploy/backup.sh

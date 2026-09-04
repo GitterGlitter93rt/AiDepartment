@@ -648,3 +648,109 @@ the resolver without them, which was the point of the public-first design.
 ### Next gate
 
 T5 — Market Miner inventory connection.
+
+---
+
+## Gate T5 — Market Miner inventory connection
+
+**Date:** 2026-09-03
+**Status:** COMPLETE for the half that needs no credential. Discovery of *new* businesses is
+defined as an adapter interface and disabled pending **B-3**. 94/94 tests pass.
+
+### The split that matters
+
+**Refresh** — re-research Accounts we already have — needs no provider and runs today. It is what
+stops yesterday's ad evidence from masquerading as current, which is the failure that makes a rep
+say something untrue on a call.
+
+**Discovery** — find Accounts we do not have — needs an approved SERP/search provider and a signed
+source-governance review. `DiscoveryAdapter` defines the contract; `availableDiscoveryAdapters()`
+returns only adapters that are **both** credentialed **and** governance-reviewed, so a configured
+but unreviewed source cannot run by accident. Tested both ways.
+
+### Behaviour
+
+- A ZIP search reads the database and returns immediately (measured **< 500 ms**, asserted in the
+  test), never blocking on mining.
+- Coverage is reported honestly: `NOT_YET_MINED` / `FRESH` / `STALE` / `REFRESHING`, and the UI
+  never implies complete market coverage.
+- `Research More` is idempotent — three clicks produce one job, so repeated clicking cannot
+  multiply provider spend.
+- Refresh queues by tier (A first) and by staleness, and **skips suppressed accounts entirely**:
+  researching a company we may not contact is wasted work and a privacy liability.
+- Fresh inventory is not re-researched; the plan says so rather than queueing no-ops.
+- Discovered businesses go through the same canonical resolver, so a rediscovered company keeps its
+  owner. Each sighting is a `search_observation`, distinct from durable evidence.
+- The worker runs a freshness sweep every 15 minutes so a Saved Market cannot drift stale unnoticed.
+
+---
+
+## Gate T6 — Secure internal deployment
+
+**Date:** 2026-09-03
+**Status:** COMPLETE except the HTTPS hostname, which needs two Michael actions (**B-4**).
+
+### Running under supervision
+
+Three systemd **user** units with linger enabled — so they survive logout and reboot without root,
+which matters because this box has no passwordless sudo:
+
+| Unit | Notes |
+|---|---|
+| `yad-sales-api` | brings Postgres up and applies migrations before serving; `Restart=always` |
+| `yad-sales-worker` | `Nice=10`, `IOSchedulingClass=idle` so crawling can never starve the portal |
+| `yad-sales-backup.timer` | nightly 02:30, persistent |
+
+All three run `dist/`, built by `npm run build`, which compiles with a build-only tsconfig and then
+**copies `web/assets` and `migrations`** — tsc does not copy `.css`/`.js`, and without that step the
+portal would serve a 404 for its own stylesheet in production only.
+
+Hardening on both services: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`,
+`ProtectHome=read-only`, with `logs/` as the only writable path.
+
+### Verified, not assumed
+
+**Cold-stop recovery.** Stopped both units *and* the Postgres container, then started as boot does.
+The API unit brought Postgres back itself, health returned `ok`, and state was intact:
+`53 accounts, 4 owned, 1 suppressions, 1 open follow-ups`.
+
+**Backup and restore, for real.** `backup.sh` produced a 104K archive; `restore.sh` restored it into
+a scratch database showing `accounts 53, contacts 39, contact_endpoints 97, suppressions 1,
+ownership_events 6, follow_ups 1, activities 62` — and the live database was untouched. The backup
+script verifies its own output (gzip integrity plus the presence of every critical table) before
+rotating anything out, and `restore.sh` refuses to overwrite production without `--force-live` and
+typing the database name.
+
+**`deploy/preflight.sh`** — 19 checks read from the running system: services, boot-enablement,
+linger, health, **that outbound dialling is off**, that the portal is not on `0.0.0.0`, that
+Postgres is not publicly exposed, that `.env` is gitignored and mode 600, that health leaks nothing,
+backup freshness, and two data-integrity invariants (no suppressed account claimable, no claimed
+account without an owner). Current result: **18 passed, 1 warning, 0 failures**.
+
+The one warning is honest: the session cookie is not `Secure`, because there is no HTTPS in front
+of it yet.
+
+### Blocker B-4 — refined into two exact actions
+
+`tailscale serve` produced no config, and the reason is now known precisely:
+
+1. `tailscale status --json` reports `CertDomains: None` — HTTPS certificates are **not enabled**
+   for the tailnet. Admin console → DNS → HTTPS Certificates → Enable.
+2. `tailscale cert` returns `Access denied: cert access denied` — needs
+   `sudo tailscale set --operator=$USER` once.
+
+Both are one-liners, neither is available to this implementation (no passwordless sudo, no admin
+console access). `docs/09-software/SALES-PORTAL-RUNBOOK.md` §3 documents all three exposure options
+including one that works today with no Michael action (tailnet-bound HTTP, WireGuard-encrypted).
+
+### Also delivered
+
+`docs/09-software/SALES-PORTAL-RUNBOOK.md` — what is running, everyday commands, the three exposure
+options, backups, a failure-behaviour table, how to add a user, and what is deliberately switched
+off. It calls out two things that are **not** done: backups still live on the same disk as the
+database, and the seeded development users share a known password and must be removed before
+rollout.
+
+### Next gate
+
+T7 — Outlook strategy-call booking.

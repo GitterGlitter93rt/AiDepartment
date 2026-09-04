@@ -1,0 +1,29 @@
+[Unit]
+Description=YAD Sales Brain API and rep portal
+Documentation=file:///home/roothecks/AiDepartment/docs/09-software/outbound-sales-brain-edge-xpert-sales-portal-deployment-spec.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/roothecks/AiDepartment/services/sales-brain
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=info
+# The database must be reachable before the API claims to be healthy.
+ExecStartPre=/usr/bin/docker compose --env-file /home/roothecks/AiDepartment/services/sales-brain/.env -f /home/roothecks/AiDepartment/services/sales-brain/deploy/docker-compose.yml up -d
+ExecStartPre=/usr/bin/env node dist/bin/migrate.js
+ExecStart=/usr/bin/env node dist/bin/api.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/roothecks/AiDepartment/services/sales-brain/logs/api.log
+StandardError=append:/home/roothecks/AiDepartment/services/sales-brain/logs/api.err.log
+
+# The portal holds prospect data; keep its blast radius small.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/roothecks/AiDepartment/services/sales-brain/logs
+
+[Install]
+WantedBy=default.target
