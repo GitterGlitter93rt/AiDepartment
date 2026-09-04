@@ -18,7 +18,7 @@ export async function resetDatabase(): Promise<void> {
       opportunity_hypotheses, offer_hypotheses, call_packs, meeting_bookings,
       import_rows, import_batches, jobs, mining_jobs, provider_usage,
       account_market_membership, saved_markets, search_contexts, source_identities, account_merges,
-      pilot_candidates, voice_call_turns, voice_call_events,
+      hook_attempts, pilot_candidates, voice_call_turns, voice_call_events,
       audio_pilot_attempts, audio_pilot_batches, internal_test_numbers,
       line_type_screen_results, audio_scenario_runs, media_capture_consent,
       dnc_screen_log, dnc_membership, dnc_snapshots, dnc_subscriptions,
