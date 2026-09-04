@@ -39,3 +39,69 @@ When a newer approved decision in this log changes an older canonical document�
 - Production deployment workflow and deployed commit.
 
 Do not turn any item in this section into production behavior without approval and documentation.
+
+## 2026-09-03 — Outbound Sales Brain implementation decisions
+
+Decisions taken during gates T0–T8 that a future agent should not silently reverse. Each follows
+from an approved specification; where a specification left a choice open, the reasoning is recorded.
+
+### The sales portal is a separate package, not part of the Astro site
+
+`services/sales-brain` is its own Node package. The marketing site is static-first and deploys to
+SiteGround; the portal needs a long-running authenticated process, a database and background workers
+on the EdgeXpert. Fusing them would break the marketing site's deployment model and put an internal
+application behind a public build.
+**Authority:** `CLAUDE.md` static-first principle; `CLAUDE-SALES-PORTAL-START-PROMPT.md` §8.2.
+
+### PostgreSQL runs in Docker, not from apt
+
+The EdgeXpert has no passwordless sudo, but the user is in the `docker` group. Postgres 16 runs as a
+container bound to `127.0.0.1:5432` with a named volume and `restart: unless-stopped`. This was a
+constraint of the machine, not a preference.
+
+### Server-rendered HTML, not a SPA
+
+The portal is dense but barely stateful. A React/Vite chain would add dependency surface on an
+internal box for no user-visible gain. One 296-line vanilla file adds selection, claiming and the
+drawer; every page and primary action works without it.
+
+### Invariants live in the database, not only in application code
+
+Ownership consistency, suppression propagation, evidence and ownership-history immutability, Call
+Pack immutability, and the rule that a booking cannot be `CONFIRMED` without a provider event id are
+all enforced by constraints and triggers. The hard-fail lists in the specs describe outcomes too
+serious to depend on a code path staying correct.
+
+### Systemd *user* services with linger, not system units
+
+No passwordless sudo means no system units. User services with linger survive logout and reboot.
+Revisit only if root access becomes routinely available.
+
+### A discovery adapter must be BOTH credentialed AND governance-reviewed
+
+`availableDiscoveryAdapters()` requires both. A configured but unreviewed source cannot run by
+accident. This is stricter than "has an API key" on purpose.
+**Authority:** `market-miner-source-governance-review-template.yaml`.
+
+### An unreadable calendar offers zero slots
+
+When availability cannot be read, the booking service returns no times and honest words, rather than
+falling back to a default schedule. An offered time that has not been verified becomes a broken
+promise made on a live call.
+
+### An email unsubscribe is email-scoped by default
+
+It does not silently become an account-wide phone DNC. Widening the scope is an explicit policy
+decision, not a model's reading of a reply.
+**Authority:** `outbound-sales-brain-smartlead-sync-spec.md` §8.
+
+### `phone-agent/` was left intact and unreferenced
+
+Its Twilio relay belongs to `voice.youraidepartment.ai`. Its flat `leads` schema and in-memory store
+are superseded by the canonical model rather than forked into a second lead database. Nothing was
+deleted; the voice track will be repointed at the canonical database when it resumes.
+
+### Repository fix: `hvac.v1.yaml` did not parse
+
+`primary_hook_template` contained an unquoted `": "`, which YAML read as a nested mapping. Quoting
+the scalar changed no semantics. Every other `docs/**/*.yaml` was swept for the same shape.

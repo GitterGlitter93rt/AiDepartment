@@ -1,7 +1,7 @@
 # Your AI Department — Master TODO / Roadmap
 
 **Status:** Active source of truth for execution  
-**Last triaged:** 2026-08-30  
+**Last triaged:** 2026-09-03  
 **Owner:** Michael Chanata
 
 Task states:
@@ -68,6 +68,58 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [x] **ARCH-001 — Lock the V1 custom-coded website direction.** Astro, TypeScript, static-first output, portable SiteGround deployment, performance, SEO, and accessibility are established.
 - [x] **ASM-BASE-001 — Build the first deterministic assessment implementation.** Typed question configuration, branching, scoring, opportunity flags, recommendations, results, persistence adapters, and automated tests exist.
 - [x] **CONTENT-001 — Build the initial website/content foundation through Sprint 8.** Core solution/service/industry routes and launch resources exist.
+
+## 🟢 Completed — Outbound Sales Brain / Sales Portal (2026-09-03)
+
+- [x] **SB-T0 — EdgeXpert and repository audit.** Canonical database stood up as Docker
+  PostgreSQL 16 on loopback. **Gate:** findings, blockers and structure recorded in
+  docs/09-software/IMPLEMENTATION-LOG.md.
+- [x] **SB-T1 — Canonical Account data foundation.** 35 tables and one search projection;
+  ownership, suppression, evidence immutability and booking-confirmation invariants enforced in the
+  database rather than in application code. **Gate:** all six acceptance data tests from
+  rep-ownership-data-model.md §20 pass, plus the mandatory concurrency test.
+- [x] **SB-T2 — Rep portal.** Overview, Find Prospects, Markets, My Prospects, Account detail,
+  Follow-Ups, manager Team. **Gate:** hero workflow verified end to end; every hard-fail case
+  refused server-side; 12 HTTP-level tests.
+- [x] **SB-T3 — List import pipeline.** normalize → identity resolve → suppression → upsert.
+  **Gate:** verified against a messy synthetic list; an imported row merged into an
+  already-discovered Account rather than forking it. Real lists still needed (blocker B-2).
+- [x] **SB-T4 — PUBLIC_ONLY decision-maker resolver.** Stage A first-party research, no Apollo.
+  **Gate:** all 13 canonical fixtures pass with every hard_fail_if asserted; live crawl resolves
+  Operations ahead of Owner for an after-hours hypothesis.
+- [x] **SB-T5 — Market Miner inventory connection.** Refresh runs today; discovery is an adapter
+  interface gated on credential *and* governance review. **Gate:** cached ZIP search returns in
+  under 500 ms; Research More is idempotent.
+- [x] **SB-T6 — Secure internal deployment.** systemd user services with linger, verified backup
+  and restore, 19-check preflight. **Gate:** cold stop of both services and the database recovered
+  with ownership, suppressions and follow-ups intact. HTTPS hostname still blocked (B-4).
+- [x] **SB-T7 — Strategy-call booking.** Provider-neutral with a Microsoft Graph adapter.
+  **Gate:** a booking cannot be spoken as confirmed without a provider event id — enforced in code,
+  in the schema, and in 21 tests. Real calendar blocked on B-1.
+- [x] **SB-T8 — Cold-call brain.** Built from Module 4A doctrine; orchestration owns terminal and
+  safety transitions. **Gate:** all five transition tests from the state machine spec pass; six
+  roleplay scenarios run as text. No dialling.
+- [x] **SB-EMAIL — Smartlead preparation.** Canonical email state, eligibility gate, reply
+  classification and idempotent event ingestion. **Gate:** spec §20 acceptance tests pass. No email
+  sent; provider credential still needed (B-5).
+
+## 🚧 Blocked — Outbound Sales Brain (needs Michael)
+
+- [ ] **SB-B1 — Azure app registration** for michael@youraidepartment.ai: tenant ID, client ID,
+  client secret, `Calendars.ReadWrite` *application* permission with admin consent. Blocks real
+  calendar booking. Everything else in that path is built and tested.
+- [ ] **SB-B2 — The real YAD prospect lists.** Jacksonville / St. Augustine, prior CSVs, the
+  Airtable export, any Apollo exports. None are on the EdgeXpert. Drop them anywhere on the box and
+  run `npm run import -- --file <csv> --source <name> --dry-run` first.
+- [ ] **SB-B3 — Source governance sign-off + a search provider** for resolver stages B–D and for
+  new-business discovery. Stage A carries the resolver without it.
+- [ ] **SB-B4 — HTTPS for sales.youraidepartment.ai.** Two one-liners: enable HTTPS certificates in
+  the Tailscale admin console, and `sudo tailscale set --operator=$USER`. See
+  docs/09-software/SALES-PORTAL-RUNBOOK.md §3 for the option that works today without either.
+- [ ] **SB-B5 — Smartlead API key and webhook secret.**
+- [ ] **SB-PILOT — Controlled outbound pilot approval.** Not authorized. Requires explicit approval
+  plus the compliance gates in CLAUDE-CURRENT-TASK.md §5. `OUTBOUND_DIAL_ENABLED` and
+  `OUTBOUND_EMAIL_ENABLED` are both false and `preflight.sh` fails if either changes.
 
 ## Current blockers
 

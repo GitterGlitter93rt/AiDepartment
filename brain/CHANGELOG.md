@@ -25,3 +25,30 @@
 - Seeded launch priorities for assessment reconciliation, funnel routing, GTM, GA4, Meta Pixel, event design, attribution, creative, and campaign planning.
 - Added EdgeXpert, AI Ad Brain, and cross-agent working context.
 - Added start/end update protocols so Claude Code, GLM/OX, Codex, and humans maintain the same state.
+
+## 2026-09-03 — Outbound Sales Brain / internal sales portal
+
+Built the canonical prospect foundation and the internal sales portal on the EdgeXpert, working
+through gates T0–T8 of `docs/09-software/CLAUDE-CURRENT-TASK.md`. Full detail, including every
+defect found and how each gate was verified, is in `docs/09-software/IMPLEMENTATION-LOG.md`.
+
+- **One canonical Account model** in `services/sales-brain` — 36 tables, not a second lead database
+  beside `phone-agent/`. Ownership, suppression, evidence immutability and booking confirmation are
+  enforced by database constraints and triggers, so a later application bug cannot route around them.
+- **Rep portal** at Overview / Find Prospects / Markets / My Prospects / Account detail / Follow-Ups
+  / Team, server-rendered on the existing YAD design tokens. Claim is atomic: eight simultaneous
+  claimers produce one owner and one audit event.
+- **Public-first decision-maker resolver** — Apollo is not required. All 13 canonical fixtures pass,
+  and routing follows problem ownership rather than seniority.
+- **Strategy-call booking** that cannot claim a meeting is confirmed without a provider event id.
+- **Cold-call brain** built from Module 4A doctrine, exercised entirely as text roleplay. No dialling.
+- **Smartlead preparation** so email replies land in the same Account memory as phone and field.
+
+152 automated tests pass. `deploy/preflight.sh` reports 18 passed, 1 warning, 0 failures.
+
+Nothing has contacted a real prospect. `OUTBOUND_DIAL_ENABLED` and `OUTBOUND_EMAIL_ENABLED` are
+both false, and the preflight check fails if either changes.
+
+Five things now need Michael, tracked as SB-B1 to SB-B5 in `brain/TODO.md`: an Azure app
+registration for calendar booking, the real prospect lists, source-governance sign-off plus a search
+provider, HTTPS for `sales.youraidepartment.ai`, and a Smartlead key.

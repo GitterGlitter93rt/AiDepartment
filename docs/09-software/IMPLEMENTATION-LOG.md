@@ -980,3 +980,43 @@ Six scenarios ship: `opportunity`, `busy`, `dnc`, `strong`, `gatekeeper`, `chatg
 No Twilio wiring, no realtime audio, no dialling. The state machine is exercised entirely through
 text, which is what the spec asks for before any live call. Connecting it to voice belongs after the
 compliance and pilot gates, on `voice.youraidepartment.ai`, not on this host.
+
+---
+
+## Email channel preparation (Smartlead)
+
+**Date:** 2026-09-03
+**Status:** Canonical state and the sync contract are complete and tested. **No email is sent** —
+`OUTBOUND_EMAIL_ENABLED=false` and no Smartlead credential exists. 152/152 tests pass.
+
+Migration `009_email_sync.sql` adds `email_campaigns`, `email_enrollments`, `email_events` and a
+durable `email_outbox`. Smartlead executes YAD's email strategy; it never becomes a second sales
+organization keeping its own books.
+
+- **Correlation, not addresses.** Every enrollment carries `yad_account_id`, `yad_contact_id` and
+  `yad_enrollment_id`, so a reply resolves without relying on the email address as identity.
+- **Eligibility is a gate, not a suggestion.** Suppressed, client, active-opportunity,
+  meeting-scheduled and already-enrolled accounts are refused. A guessed address is refused
+  outright. A campaign asking for 100 verified addresses and finding 41 **gets 41 plus a shortfall
+  breakdown** — it is never padded.
+- **Export carries the minimum.** Asserted in test that no DNC reasoning, transcript, prompt or
+  financial content appears in the payload.
+- **Replies feed the same memory.** A positive reply stops the sequence, sets `POSITIVE_REPLY`,
+  writes the timeline and creates a follow-up **for the account owner** — and immediately shows up
+  in that rep's My Prospects under the Positive Reply filter, which is the point.
+- **An unsubscribe is email-scoped by default.** It never silently becomes an account-wide phone
+  DNC; widening the scope is an explicit policy decision, not a model's reading of a reply.
+- **A hard bounce kills the address, not the company.** The endpoint goes `HARD_BOUNCE` and
+  inactive; the Account stays a prospect.
+- **A referral invents nothing.** "You should talk to Sarah" creates a human task and captures the
+  referral; no address is manufactured for Sarah, asserted by endpoint count before and after.
+- **Duplicate webhooks change state once**, by unique index on the provider event id.
+- Ambiguous replies classify as `OTHER_REVIEW` and go to a person. Nothing auto-books or auto-answers.
+
+All ten acceptance tests from `outbound-sales-brain-smartlead-sync-spec.md` §20 that do not require
+a live provider are implemented. One defect fixed: `"Dana no longer works at the company"` — the
+commonest way a reply says this — classified as `OTHER_REVIEW` instead of `WRONG_PERSON`, because
+the pattern did not allow a verb between "no longer" and "at".
+
+**Blocker B-5 (new):** a Smartlead API key and webhook secret are needed to connect the provider
+adapter. The eligibility gate, correlation model, event ingestion and outbox all work without it.
