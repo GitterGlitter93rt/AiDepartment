@@ -220,7 +220,7 @@ const CARD_TRIGGERS: [string, RegExp][] = [
   ['asks_if_ai', /\b(?:are you|is this)\b.{0,20}\b(?:a )?(?:robot|bot|ai|a\.?i\.?|recording|automated|machine|real person|human)\b/i],
   ['is_this_a_sales_call', /is this a sales call|are you selling|what are you selling/i],
   ['why_are_you_calling_me', /why (?:are you|did you) call(?:ing)? me|why me\b/i],
-  ['who_are_you_again', /who (?:are you|is this) again|say that again|who'?s this/i],
+  ['who_are_you_again', /\bwho (?:are you|is this|was this)\b|\bwho'?s (?:this|calling)\b|say that again|what was your name|which company (?:are you|is this)/i],
   ['what_do_you_do', /what (?:exactly )?do you (?:guys )?do|what is (?:this|your company)/i],
   ['who_have_you_worked_with', /who (?:have|do) you work(?:ed)? with|any (?:clients|customers|references)/i],
   ['can_you_guarantee_results', /guarantee|what (?:kind of )?results|roi\b/i],
