@@ -1,0 +1,153 @@
+schema_version: "1.0.0"
+contract: yad_strategy_call_outcome_v1
+purpose: >-
+  Capture attended-meeting quality and link it back to the cold-call research, hook, qualification and booking decisions.
+
+required_identity_fields:
+  - strategy_call_outcome_id
+  - meeting_booking_id
+  - account_id
+  - host_user_id
+  - attendee_status
+  - qualification_quality
+  - problem_confirmation
+  - stakeholder_fit
+  - business_case_path
+  - next_step
+  - created_at
+
+optional_linkage_fields:
+  - contact_id
+  - opportunity_id
+  - source_call_id
+  - campaign_id
+  - pilot_batch_id
+  - runtime_callpack_id
+  - hook_family
+  - hook_version
+  - frame_version
+  - primary_hypothesis
+  - target_role
+  - agent_profile_version
+  - voice_config_version
+
+attendee_status:
+  values:
+    - ATTENDED
+    - NO_SHOW_CONFIRMED
+    - CANCELLED
+    - RESCHEDULED
+    - ATTENDANCE_UNKNOWN
+
+qualification_quality:
+  type: integer
+  min: 1
+  max: 5
+  rubric:
+    5: excellent_handoff_correct_problem_and_person_meeting_clearly_worth_taking
+    4: good_handoff_relevant_problem_and_person_minor_context_missing
+    3: borderline_useful_but_qualification_should_be_stronger
+    2: weak_problem_or_stakeholder_meeting_probably_should_not_have_been_booked_yet
+    1: bad_booking_no_legitimate_reason_or_material_context_failure
+
+problem_confirmation:
+  values:
+    - CONFIRMED
+    - PARTIALLY_CONFIRMED
+    - CONTRADICTED
+    - NOT_EVALUATED
+
+problem_materiality:
+  values:
+    - HIGH
+    - MEDIUM
+    - LOW
+    - UNKNOWN
+
+stakeholder_fit:
+  values:
+    - DECISION_MAKER
+    - PROCESS_OWNER
+    - INFLUENCER
+    - WRONG_STAKEHOLDER
+    - UNKNOWN
+
+business_case_path:
+  values:
+    - CLEAR_BUSINESS_CASE
+    - MEASUREMENT_FIRST
+    - TECHNICAL_VALIDATION_FIRST
+    - TIMING_FOLLOWUP
+    - NO_MEANINGFUL_CASE
+    - OUT_OF_SCOPE
+    - UNKNOWN
+
+next_step:
+  values:
+    - SECOND_STRATEGY_MEETING
+    - TECHNICAL_MEETING
+    - REQUEST_SMALL_DATA_SET
+    - EXECUTIVE_AI_STRATEGY
+    - IMPLEMENTATION_DISCOVERY
+    - MANAGED_AI_DEPARTMENT_DISCUSSION
+    - MARKETING_DISCUSSION
+    - ASSESSMENT
+    - PROPOSAL_READINESS
+    - SCHEDULED_FOLLOWUP
+    - NO_SALE
+    - DISQUALIFY
+    - OTHER
+
+bad_booking_root_causes:
+  - wrong_contact
+  - weak_prospect_fit
+  - unsupported_hypothesis
+  - hook_misframed
+  - agent_failed_to_listen
+  - agent_booked_too_early
+  - objection_misread_as_interest
+  - ai_curiosity_only
+  - prospect_misunderstood_meeting
+  - data_stale
+  - other
+
+qualified_attended_meeting_v1:
+  all:
+    - attendee_status_equals_ATTENDED
+    - qualification_quality_gte_4
+    - stakeholder_fit_not_WRONG_STAKEHOLDER
+    - problem_confirmation_in_CONFIRMED_or_PARTIALLY_CONFIRMED
+
+manager_review_ui:
+  required_questions:
+    - did_they_attend
+    - was_this_meeting_worth_taking_1_to_5
+    - was_original_problem_confirmed
+    - was_this_the_right_person
+    - what_happens_next
+  optional:
+    - concise_host_note
+  target_completion_seconds: 60
+
+analytics:
+  - booked_count
+  - attended_count
+  - attendance_rate
+  - qualified_attended_count
+  - average_qualification_quality
+  - problem_confirmation_rate
+  - correct_stakeholder_rate
+  - clear_business_case_rate
+  - opportunity_created_rate
+  - bad_booking_rate
+
+rules:
+  - do_not_infer_host_quality_rating_from_close_won
+  - no_sale_can_still_be_high_quality_meeting
+  - do_not_mark_no_show_without_confirmation
+  - bad_booking_root_cause_should_route_to_correct_component
+  - booking_rate_alone_cannot_promote_hook
+  - preserve_original_hypothesis_even_if_different_problem_found_later
+
+core_rule: >-
+  Optimize for the right person and a real business problem reaching Michael, not merely for filling the calendar.
