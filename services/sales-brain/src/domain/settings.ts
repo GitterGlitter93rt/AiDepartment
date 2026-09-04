@@ -67,6 +67,85 @@ export async function setIntegrationEnabled(input: {
 }
 
 /**
+ * Runs a connection check for one integration and records the result.
+ *
+ * The check asks each provider's own adapter whether it is actually usable, rather
+ * than only whether an environment variable is set — a credential that is present
+ * but rejected, or a provider still waiting on its source-governance review, must
+ * not show as connected.
+ *
+ * No provider response body reaches the operator: the detail is a business message.
+ */
+export async function testIntegration(input: {
+  key: string; actorUserId: string; env?: NodeJS.ProcessEnv;
+}): Promise<{ status: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED'; detail: string }> {
+  const env = input.env ?? process.env;
+  const result = await checkIntegration(input.key, env);
+  await recordIntegrationCheck({ key: input.key, status: result.status, detail: result.detail });
+  await query(
+    `insert into audit_log (actor_user_id, action, subject_type, subject_id, detail)
+     values ($1, 'settings.integration_test', 'integration', $2, $3::jsonb)`,
+    [input.actorUserId, input.key, JSON.stringify({ status: result.status })],
+  );
+  return result;
+}
+
+async function checkIntegration(key: string, env: NodeJS.ProcessEnv): Promise<{
+  status: 'OK' | 'DEGRADED' | 'FAILED' | 'NOT_CONFIGURED'; detail: string;
+}> {
+  switch (key) {
+    case 'calcom': {
+      const { currentCalendarAdapter } = await import('../booking/service.js');
+      const adapter = currentCalendarAdapter();
+      if (!adapter.isConfigured()) {
+        return { status: 'NOT_CONFIGURED',
+          detail: 'No scheduling credential is set, so no time can be offered or booked.' };
+      }
+      const busy = await adapter.getBusy({
+        calendarUpn: env['BOOKING_CALENDAR_UPN'] ?? '',
+        from: new Date(), to: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        durationMinutes: 15, timezone: env['BOOKING_TIMEZONE'] ?? 'America/New_York',
+      });
+      return busy.ok
+        ? { status: 'OK', detail: 'The calendar answered a real availability request.' }
+        : { status: 'FAILED', detail: 'The calendar is configured but did not answer.' };
+    }
+    case 'smartlead': {
+      const { createSmartleadClient } = await import('../email/smartlead.js');
+      return createSmartleadClient().isConfigured()
+        ? { status: 'OK', detail: 'A credential is set and email export is enabled.' }
+        : { status: 'NOT_CONFIGURED',
+            detail: 'Email export is off or has no credential, so the outbox will hold.' };
+    }
+    case 'dataforseo': {
+      const { createDataForSeoAdapter, dataForSeoConfig } = await import('../miner/dataForSeoAdapter.js');
+      const config = dataForSeoConfig(env);
+      if (!config.governanceReviewed) {
+        return { status: 'NOT_CONFIGURED',
+          detail: 'The source governance review is not recorded, so discovery may not run.' };
+      }
+      return createDataForSeoAdapter({ config }).isConfigured()
+        ? { status: 'OK', detail: 'Reviewed, credentialed and enabled.' }
+        : { status: 'NOT_CONFIGURED', detail: 'Reviewed, but no credential or not enabled.' };
+    }
+    case 'twilio_voice': {
+      const present = Boolean((env['TWILIO_AUTH_TOKEN'] ?? '').trim());
+      return present
+        ? { status: 'OK', detail: 'A credential is set. Outbound is still governed by the pilot switches.' }
+        : { status: 'NOT_CONFIGURED', detail: 'No voice credential is set on this server.' };
+    }
+    case 'anthropic': {
+      const present = Boolean((env['ANTHROPIC_API_KEY'] ?? '').trim());
+      return present
+        ? { status: 'OK', detail: 'A credential is set.' }
+        : { status: 'NOT_CONFIGURED', detail: 'No credential is set on this server.' };
+    }
+    default:
+      return { status: 'NOT_CONFIGURED', detail: 'This integration has no connection test.' };
+  }
+}
+
+/**
  * Record the outcome of a connection test. The detail column is operator-facing text,
  * so callers must pass a business message, never a provider response body.
  */

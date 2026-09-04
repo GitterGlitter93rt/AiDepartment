@@ -370,7 +370,7 @@ test('the same account is never enrolled twice in one campaign', async () => {
 
   assert.equal(second.enrolled, 0);
   assert.equal(second.eligible, 0, 'an already-enrolled account is not eligible again');
-  assert.ok(second.rejections['ALREADY_ENROLLED'] >= 1,
+  assert.ok((second.rejections['ALREADY_ENROLLED'] ?? 0) >= 1,
     'the report says why, rather than showing an unexplained shortfall');
   const rows = await query(`select count(*)::int as n from email_outbox`);
   assert.equal(rows.rows[0]!.n, 1, 'a second enqueue must not queue a second send');

@@ -51,7 +51,7 @@ import {
   addCandidate, callPackPreview, listCandidates, readPilotState, removeCandidate,
   runPreflight, setPilotSwitch, stopNewOutboundCalls,
 } from '../domain/pilot.js';
-import { listIntegrations, setIntegrationEnabled } from '../domain/settings.js';
+import { listIntegrations, setIntegrationEnabled, testIntegration } from '../domain/settings.js';
 
 /** Server-rendered portal routes. Every one of them re-checks the session. */
 
@@ -641,6 +641,15 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
         : result.spokenConfirmation || 'That booking could not be completed.';
 
     return reply.redirect(`/accounts/${request.params.id}?flash=${encodeURIComponent(flash)}`);
+  });
+
+  app.post<{ Body: { key?: string } }>('/settings/test', async (request, reply) => {
+    const user = requireAdmin(request, reply);
+    if (!user) return;
+    const result = await testIntegration({
+      key: request.body.key ?? '', actorUserId: user.userId });
+    return reply.redirect(
+      `/settings?flash=${encodeURIComponent(`${result.status}: ${result.detail}`)}`);
   });
 
   // Global search. Every hit resolves to a canonical Account, so a phone number or a

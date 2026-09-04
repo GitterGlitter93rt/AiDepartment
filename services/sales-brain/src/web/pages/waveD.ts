@@ -702,7 +702,13 @@ export function renderSettingsPage(input: {
                 ? 'None'
                 : Object.entries(row.config).map(([key, value]) => html`
                     ${key}: ${String(value)}<br>`)}</td>
-              <td class="muted small">${row.lastCheckAt ? relativeTime(row.lastCheckAt) : 'Never'}</td>
+              <td class="muted small">
+                ${row.lastCheckAt ? relativeTime(row.lastCheckAt) : 'Never'}
+                ${canEdit ? html`<form method="post" action="/settings/test" style="margin-top:4px">
+                    <input type="hidden" name="key" value="${row.key}">
+                    <button type="submit" class="btn btn-secondary btn-sm">Test</button>
+                  </form>` : ''}
+              </td>
               <td>
                 ${canEdit
                   ? html`<form method="post" action="/settings/integration" class="row" style="gap:6px">

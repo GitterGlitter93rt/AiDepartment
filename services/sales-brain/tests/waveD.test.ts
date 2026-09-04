@@ -233,6 +233,37 @@ test('an integration change by an administrator is audited with its reason', asy
   assert.equal(audit.rows[0]!.reason, 'Cal.com account connected');
 });
 
+test('a connection test reports what is actually usable, not what is merely set', async () => {
+  const f = await fixture();
+  const response = await app.inject({
+    method: 'POST', url: '/settings/test', headers: { cookie: f.admin },
+    payload: { key: 'dataforseo' },
+  });
+  assert.equal(response.statusCode, 302);
+  assert.match(response.headers.location as string, /NOT_CONFIGURED/);
+  assert.match(decodeURIComponent(response.headers.location as string),
+    /source governance review is not recorded/,
+    'the operator is told which gate is shut, not just that it failed');
+
+  const row = await pool.query(
+    `select last_check_status, last_check_detail from integration_settings
+      where integration_key = 'dataforseo'`);
+  assert.equal(row.rows[0]!.last_check_status, 'NOT_CONFIGURED');
+
+  const audit = await pool.query(
+    `select detail from audit_log where action = 'settings.integration_test'`);
+  assert.equal(audit.rows.length, 1);
+});
+
+test('a manager cannot run a connection test', async () => {
+  const f = await fixture();
+  const response = await app.inject({
+    method: 'POST', url: '/settings/test', headers: { cookie: f.manager },
+    payload: { key: 'calcom' },
+  });
+  assert.equal(response.statusCode, 403);
+});
+
 test('analytics reports booked and attended as separate numbers', async () => {
   const f = await fixture();
   const page = await app.inject({ method: 'GET', url: '/analytics', headers: { cookie: f.manager } });
