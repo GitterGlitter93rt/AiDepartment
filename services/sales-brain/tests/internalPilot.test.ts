@@ -8,7 +8,7 @@ import { setPilotSwitch } from '../src/domain/pilot.js';
 import {
   allowlistInternalNumber, revokeInternalNumber, listInternalNumbers,
   openAudioPilotBatch, stopAudioPilotBatch, prepareInternalCall,
-  recordInternalCallResult, reviewInternalCall, batchSummary,
+  recordInternalCallResult, reviewInternalCall, batchSummary, releaseInternalCall,
   INTERNAL_TEST_CLEARANCE,
 } from '../src/voice/internalPilot.js';
 import { mayPlaceCall, type DialControllerConfig } from '../src/voice/dialController.js';
@@ -415,4 +415,50 @@ test('latency and barge-in are recorded from the transport, and QA by a person',
   assert.equal(rows[0]!.barge_in_events[0].abortedMs, 40);
   assert.equal(rows[0]!.qa_result, 'PASS');
   assert.ok(rows[0]!.reviewed_by, 'the reviewer is named');
+});
+
+test('reviewing a plan without placing it costs neither the slot nor the batch', async () => {
+  const user = await operator();
+  const id = await allowlist(user);
+  const accountId = await seedAccount();
+  await armInternalTest(user.userId);
+  const batch = await openAudioPilotBatch({
+    internalTestNumberId: id, maxCalls: 1,
+    purpose: 'first audio check on our own handset', actorUserId: user.userId });
+
+  const planned = await prepareInternalCall({
+    batchId: batch.batchId!, accountId, actorUserId: user.userId });
+  assert.equal(planned.cleared, true);
+  assert.equal((await batchSummary(batch.batchId!)).calls_started, 1,
+    'the slot is reserved while the plan is live, so two operators cannot race into it');
+
+  const released = await releaseInternalCall({
+    attemptId: planned.attemptId!, reason: 'Plan reviewed; not placed.' });
+  assert.equal(released.ok, true);
+  assert.equal((await batchSummary(batch.batchId!)).calls_started, 0,
+    'looking at a plan must not cost you the call');
+
+  // And the next plan is cleared again.
+  const again = await prepareInternalCall({
+    batchId: batch.batchId!, accountId, actorUserId: user.userId });
+  assert.equal(again.cleared, true, again.detail.join(' '));
+});
+
+test('a release only ever applies to a clearance that was never used', async () => {
+  const user = await operator();
+  const id = await allowlist(user);
+  const accountId = await seedAccount();
+  await armInternalTest(user.userId);
+  const batch = await openAudioPilotBatch({
+    internalTestNumberId: id, maxCalls: 2,
+    purpose: 'first audio check on our own handset', actorUserId: user.userId });
+
+  const placed = await prepareInternalCall({
+    batchId: batch.batchId!, accountId, actorUserId: user.userId });
+  await recordInternalCallResult({ attemptId: placed.attemptId!, outcome: 'CONNECTED' });
+
+  const released = await releaseInternalCall({
+    attemptId: placed.attemptId!, reason: 'trying to undo a real call' });
+  assert.equal(released.ok, false, 'a call that happened cannot be released');
+  assert.equal((await batchSummary(batch.batchId!)).calls_started, 1);
 });

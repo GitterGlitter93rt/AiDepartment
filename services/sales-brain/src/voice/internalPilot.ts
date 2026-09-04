@@ -416,3 +416,33 @@ export async function batchSummary(batchId: string) {
     [batchId]);
   return rows[0] ?? null;
 }
+
+/**
+ * Releases a clearance that was never used.
+ *
+ * A clearance reserves the one-at-a-time slot and consumes a place in the batch,
+ * because both have to be held before a call is created or two operators could race
+ * into the same slot. A plan that is reviewed and not placed has to give both back —
+ * otherwise looking at a plan costs you the call.
+ */
+export async function releaseInternalCall(input: {
+  attemptId: string; reason: string;
+}): Promise<{ ok: boolean }> {
+  return withTransaction(async (client) => {
+    const { rows } = await client.query<{ audio_pilot_batch_id: string }>(
+      `update audio_pilot_attempts
+          set outcome = 'NOT_PLACED', qa_notes = coalesce(qa_notes, $2)
+        where audio_pilot_attempt_id = $1
+          and clearance = 'INTERNAL_TEST_ALLOW' and outcome is null
+        returning audio_pilot_batch_id`,
+      [input.attemptId, input.reason]);
+    const batchId = rows[0]?.audio_pilot_batch_id;
+    if (!batchId) return { ok: false };
+
+    await client.query(
+      `update audio_pilot_batches
+          set calls_started = greatest(0, calls_started - 1)
+        where audio_pilot_batch_id = $1`, [batchId]);
+    return { ok: true };
+  });
+}
