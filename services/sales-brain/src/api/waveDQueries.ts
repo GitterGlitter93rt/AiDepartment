@@ -182,3 +182,78 @@ export async function voiceCallDetail(voiceCallId: string) {
   ]);
   return { call, turns: turns.rows, events: events.rows };
 }
+
+// --------------------------------------------------------------- global search
+
+export interface SearchHit {
+  accountId: string;
+  companyName: string;
+  city: string | null;
+  state: string | null;
+  ownerName: string | null;
+  isSuppressed: boolean;
+  matchedOn: string;
+  matchedValue: string;
+}
+
+/**
+ * Global search across company, person, phone, email, city and known alias.
+ *
+ * Every hit resolves to a canonical Account, so a person or a phone number found
+ * here opens the same record the rest of the product uses. Suppression travels with
+ * the hit rather than being discovered later.
+ */
+export async function globalSearch(term: string, limit = 25): Promise<SearchHit[]> {
+  const trimmed = term.trim();
+  if (trimmed.length < 2) return [];
+  const like = `%${trimmed.toLowerCase()}%`;
+  // Digits only, so "(904) 555-0142" finds a number stored as +19045550142.
+  const digits = trimmed.replace(/\D+/g, '');
+
+  const { rows } = await query<any>(
+    `with hits as (
+       select a.account_id, 'Company' as matched_on, a.canonical_name as matched_value
+         from accounts a where lower(a.canonical_name) like $1
+       union all
+       select d.account_id, 'Website', d.hostname
+         from account_domains d where lower(d.hostname) like $1
+       union all
+       select c.account_id, 'Person', c.full_name
+         from contacts c where lower(c.full_name) like $1
+       union all
+       select e.account_id, 'Phone', e.display_value
+         from contact_endpoints e
+        where e.endpoint_type = 'PHONE' and $3 <> ''
+          and regexp_replace(e.normalized_value, '\\D', '', 'g') like '%' || $3 || '%'
+       union all
+       select e.account_id, 'Email', e.display_value
+         from contact_endpoints e
+        where e.endpoint_type = 'EMAIL' and lower(e.normalized_value) like $1
+       union all
+       select l.account_id, 'City', l.city
+         from locations l where lower(l.city) like $1
+     )
+     select distinct on (h.account_id)
+            h.account_id, h.matched_on, h.matched_value,
+            a.canonical_name as company_name, a.is_suppressed,
+            l.city, l.state_region as state, u.display_name as owner_name
+       from hits h
+       join accounts a on a.account_id = h.account_id
+       left join locations l on l.account_id = a.account_id
+       left join users u on u.user_id = a.current_owner_user_id
+      order by h.account_id, h.matched_on
+      limit $2`,
+    [like, limit, digits],
+  );
+
+  return rows.map((row) => ({
+    accountId: row.account_id,
+    companyName: row.company_name,
+    city: row.city,
+    state: row.state,
+    ownerName: row.owner_name,
+    isSuppressed: row.is_suppressed,
+    matchedOn: row.matched_on,
+    matchedValue: row.matched_value,
+  }));
+}

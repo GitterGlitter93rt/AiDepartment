@@ -41,11 +41,11 @@ import {
 } from '../import/session.js';
 import {
   renderAnalyticsPage, renderCallListPage, renderCallReviewPage, renderCampaignsPage,
-  renderPilotPage, renderSettingsPage,
+  renderPilotPage, renderSearchPage, renderSettingsPage,
 } from '../web/pages/waveD.js';
 import {
-  analyticsBreakdown, analyticsFunnel, campaignRelationshipConflicts, listCampaigns,
-  listVoiceCalls, voiceCallDetail,
+  analyticsBreakdown, analyticsFunnel, campaignRelationshipConflicts, globalSearch,
+  listCampaigns, listVoiceCalls, voiceCallDetail,
 } from './waveDQueries.js';
 import {
   addCandidate, listCandidates, readPilotState, removeCandidate, runPreflight,
@@ -641,6 +641,19 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
         : result.spokenConfirmation || 'That booking could not be completed.';
 
     return reply.redirect(`/accounts/${request.params.id}?flash=${encodeURIComponent(flash)}`);
+  });
+
+  // Global search. Every hit resolves to a canonical Account, so a phone number or a
+  // person found here opens the record the rest of the product already uses.
+  app.get<{ Querystring: { q?: string } }>('/search', async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const term = (request.query.q ?? '').slice(0, 120);
+    const [counts, hits] = await Promise.all([
+      navCountsFull(user.userId, user.role),
+      term.trim().length >= 2 ? globalSearch(term) : Promise.resolve([]),
+    ]);
+    return reply.type('text/html').send(renderSearchPage({ user, counts, term, hits }));
   });
 
   // -------------------------------------------------- wave C/D: pilot & review --

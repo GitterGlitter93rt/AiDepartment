@@ -8,6 +8,7 @@ import { formatDateTime, relativeTime, titleCase } from '../format.js';
 import type { SessionUser } from '../../domain/auth.js';
 import type { CandidateRow, PilotState } from '../../domain/pilot.js';
 import type { IntegrationView } from '../../domain/settings.js';
+import type { SearchHit } from '../../api/waveDQueries.js';
 
 /**
  * Sales AI Pilot, Call Review, Campaigns, Analytics, Settings.
@@ -699,5 +700,74 @@ export function renderSettingsPage(input: {
       ? 'Organisation, integrations and operating modes.'
       : 'Integration health. Changing these requires an administrator.',
     user, currentPath: '/settings', counts, body,
+  });
+}
+
+// -------------------------------------------------------------- global search
+
+export function renderSearchPage(input: {
+  user: SessionUser; counts: NavCounts; term: string; hits: SearchHit[];
+}): string {
+  const { user, counts, term, hits } = input;
+
+  const body = html`
+    <div class="card">
+      <form method="get" action="/search" class="row" style="gap:10px">
+        <label class="field" style="flex:1">
+          <span class="sr-only">Search</span>
+          <input type="search" name="q" value="${term}" autofocus
+                 placeholder="Company, person, phone, email, city or website">
+        </label>
+        <div class="field" style="justify-content:flex-end">
+          <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+      </form>
+    </div>
+
+    <div style="height:18px"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>${hits.length === 0 ? 'Results' : `${hits.length} ${hits.length === 1 ? 'result' : 'results'}`}</h2>
+        <span class="muted small">Every result opens the same canonical account record.</span>
+      </div>
+      ${term.trim().length < 2
+        ? emptyState({
+            title: 'Search the whole book',
+            explanation: 'A company, a person, a phone number, an email address, a city or a website.',
+          })
+        : hits.length === 0
+          ? emptyState({
+              title: `Nothing matches “${term}”`,
+              explanation: 'Nothing in the researched inventory matches that. Searching does not '
+                + 'create a record, so a company that has not been researched will not appear here.',
+              action: { href: '/find', label: 'Find prospects' },
+            })
+          : html`<div class="table-wrap">
+              <table class="data">
+                <thead><tr>
+                  <th>Company</th><th>Matched</th><th>Location</th><th>Owner</th><th>Status</th>
+                </tr></thead>
+                <tbody>
+                  ${hits.map((hit) => html`<tr>
+                    <td><a href="/accounts/${hit.accountId}">${hit.companyName}</a></td>
+                    <td class="muted small">${hit.matchedOn}: ${hit.matchedValue}</td>
+                    <td>${hit.city
+                      ? html`${hit.city}${hit.state ? `, ${hit.state}` : ''}`
+                      : html`<span class="muted">—</span>`}</td>
+                    <td>${hit.ownerName ?? html`<span class="muted">Unclaimed</span>`}</td>
+                    <td>${hit.isSuppressed
+                      ? statusPill('Suppressed', 'blocked', 'This company must not be contacted.')
+                      : statusPill('Available', 'neutral')}</td>
+                  </tr>`)}
+                </tbody>
+              </table>
+            </div>`}
+    </div>`;
+
+  return renderPage({
+    title: 'Search',
+    subtitle: term.trim() ? `Results for “${term}”` : 'Company, person, phone, email, city or website.',
+    user, currentPath: '/search', counts, body,
   });
 }

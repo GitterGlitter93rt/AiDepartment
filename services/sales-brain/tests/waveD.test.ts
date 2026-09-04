@@ -287,3 +287,39 @@ test('campaigns surface an account whose relationship outranks its campaign memb
   assert.match(page.body, /Smartlead executes sending/,
     'Smartlead is the execution provider, not the CRM');
 });
+
+test('global search resolves a phone number to its canonical account', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=904-555-0142', headers: { cookie: f.rep } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Palmetto Plumbing/,
+    'a number typed the way a person writes it must find the account it belongs to');
+  assert.match(page.body, new RegExp(`/accounts/${f.accountId}`),
+    'the hit opens the canonical account, not a search-only view');
+});
+
+test('global search shows suppression on the result rather than after the click', async () => {
+  const f = await fixture();
+  await pool.query(`update accounts set is_suppressed = true where account_id = $1`, [f.accountId]);
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  assert.match(page.body, /Suppressed/,
+    'a rep must see that a company cannot be contacted before opening it');
+});
+
+test('search finds nothing it has not researched, and says so', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Acme%20Unresearched%20Co', headers: { cookie: f.rep } });
+  assert.match(page.body, /Nothing matches/);
+  assert.match(page.body, /Searching does not create a record|has not been researched/,
+    'the empty state must not imply the company simply does not exist');
+});
+
+test('an anonymous caller cannot search', async () => {
+  await fixture();
+  const page = await app.inject({ method: 'GET', url: '/search?q=Palmetto' });
+  assert.equal(page.statusCode, 302);
+  assert.equal(page.headers.location, '/login');
+});
