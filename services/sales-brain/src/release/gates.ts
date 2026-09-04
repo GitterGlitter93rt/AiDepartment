@@ -95,13 +95,25 @@ export async function evaluateReleaseGates(options: {
 
   // --- G01 branch and runtime integrity ---------------------------------------
   const dirty = git('status --porcelain');
-  const mainMerged = git('log --oneline -20 --merges').includes('main');
-  add('G01_branch_runtime_integrity',
-    dirty === '' && !mainMerged ? 'PASS' : dirty !== '' ? 'FAIL' : 'FAIL',
-    dirty !== '' ? `Uncommitted changes: ${dirty.split('\n').length} file(s).`
-      : mainMerged ? 'A merge from main appears in recent history.'
-      : `Clean tree on ${branch}; no merge from main; secrets are gitignored.`,
-    { testNameOrCommandReference: 'git status --porcelain' });
+  // The real question is whether *this branch* merged main, not whether the word
+  // appears somewhere in history: a feature branch cut from main has main as an
+  // ancestor by construction, and reading that as a merge would fail every branch.
+  const mergesSinceDiverged = git('log --oneline --merges origin/main..HEAD');
+  const envTracked = git('ls-files .env services/sales-brain/.env');
+  const secretsCommitted = envTracked !== '';
+  const g01Pass = dirty === '' && mergesSinceDiverged === '' && !secretsCommitted;
+  add('G01_branch_runtime_integrity', g01Pass ? 'PASS' : 'FAIL',
+    !g01Pass
+      ? [
+          dirty !== '' ? `${dirty.split('\n').length} uncommitted file(s).` : '',
+          mergesSinceDiverged !== ''
+            ? `${mergesSinceDiverged.split('\n').length} merge commit(s) since diverging from main.`
+            : '',
+          secretsCommitted ? 'An environment file is tracked in git.' : '',
+        ].filter(Boolean).join(' ')
+      : `Clean tree on ${branch}. No merge commit since diverging from main. `
+        + 'No environment file is tracked.',
+    { testNameOrCommandReference: 'git status --porcelain; git log --merges origin/main..HEAD' });
 
   // --- G02 canonical account identity -----------------------------------------
   const accounts = await query<{ total: number; with_geo: number; with_vertical: number }>(
