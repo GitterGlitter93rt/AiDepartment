@@ -175,7 +175,8 @@ export type Permission =
   | 'create_disposition' | 'create_callback' | 'create_dnc' | 'remove_dnc'
   | 'assign_accounts' | 'reassign_accounts' | 'release_any_account'
   | 'configure_markets' | 'request_market_refresh' | 'request_contact_research'
-  | 'view_team_ownership' | 'export_inventory' | 'manage_users' | 'run_imports';
+  | 'view_team_ownership' | 'export_inventory' | 'manage_users' | 'run_imports'
+  | 'rescreen_channel_eligibility';
 
 const REP_PERMISSIONS: Permission[] = [
   'search_inventory', 'browse_markets', 'claim_accounts', 'work_owned_accounts',
@@ -186,11 +187,12 @@ const MANAGER_PERMISSIONS: Permission[] = [
   ...REP_PERMISSIONS,
   'assign_accounts', 'reassign_accounts', 'release_any_account', 'configure_markets',
   'request_market_refresh', 'view_team_ownership', 'export_inventory', 'run_imports',
+  'rescreen_channel_eligibility',
 ];
 
 const RESEARCH_OPS_PERMISSIONS: Permission[] = [
   'search_inventory', 'browse_markets', 'configure_markets', 'request_market_refresh',
-  'request_contact_research', 'run_imports',
+  'request_contact_research', 'run_imports', 'rescreen_channel_eligibility',
 ];
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {

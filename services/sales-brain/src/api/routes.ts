@@ -278,7 +278,9 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   /** Re-screens every phone endpoint on an Account. */
   app.post<{ Params: { id: string } }>(
     '/api/accounts/:id/rescreen', async (request, reply) => {
-      const user = requireApiUser(request, reply);
+      // Re-screening writes channel eligibility decisions and spends screening quota,
+      // so it is a compliance action rather than ordinary rep work.
+      const user = requirePermission(request, reply, 'rescreen_channel_eligibility');
       if (!user) return;
       return { ok: true, evaluated: await evaluateAccount(request.params.id) };
     },
