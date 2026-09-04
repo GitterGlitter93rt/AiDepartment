@@ -13,7 +13,7 @@
     "worker": "tsx src/bin/worker.ts",
     "seed": "tsx src/bin/seed.ts",
     "import": "tsx src/bin/import.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "LOG_LEVEL=silent tsx --test --test-concurrency=1 tests/*.test.ts",
     "check": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json"
   },

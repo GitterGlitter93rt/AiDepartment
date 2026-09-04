@@ -82,6 +82,7 @@ export interface ProspectRow {
   research_completeness: string | null;
   last_researched_at: Date | null;
   ownership_state: string;
+  is_suppressed: boolean;
   current_owner_user_id: string | null;
   owner_display_name: string | null;
   relationship_state: string;

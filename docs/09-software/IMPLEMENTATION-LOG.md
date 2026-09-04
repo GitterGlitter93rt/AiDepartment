@@ -306,3 +306,119 @@ None new. B-1 through B-4 from Gate T0 stand.
 ### Next gate
 
 T2 — rep portal.
+
+---
+
+## Gate T2 — Rep portal
+
+**Date:** 2026-09-03
+**Status:** COMPLETE — the hero workflow runs end to end and every hard-fail case is refused
+server-side. 33/33 tests pass.
+
+### What was built
+
+A server-rendered portal and JSON API in one Fastify process, styled with the YAD design tokens
+mirrored from `src/styles/tokens.css`. No React, no build step, no external CDN: the whole client
+bundle is one 296-line vanilla file that only adds selection, in-place claiming and the drawer.
+Every page and every primary action works without it.
+
+| Route | Purpose |
+|---|---|
+| `/login`, `/logout` | scrypt + database-backed sessions; cookie holds a token, database stores only its SHA-256 |
+| `/` | Overview — KPIs, follow-ups due, recently claimed, markets |
+| `/find` | **Find Prospects** — search hero, filter chips, table + mobile cards, bulk claim |
+| `/markets` | Saved Market cards with derived counts |
+| `/my-prospects` | the rep's book, 9 filters, 5 sorts |
+| `/accounts/:id` + `/accounts/:id/panel` | Account detail as a full page and as the drawer body |
+| `/follow-ups` | overdue and upcoming, with one-click complete |
+| `/team`, `/team/:id` | manager ownership view and audited reassignment |
+| `/healthz` | 3 fields, no data |
+| `/api/*` | the contract in `rep-portal-api-contract.v1.md` |
+
+### Judgement calls worth recording
+
+**Server-rendered, not a SPA.** The portal is dense but barely stateful. A build chain would add
+dependency surface on an internal box for no user-visible gain, and the repo's stated philosophy is
+minimal JS and portable output. The drawer fetches an HTML fragment rather than JSON + a client
+renderer, so account detail has exactly one implementation shared by the page and the drawer.
+
+**Claim is never optimistic.** `portal.js` disables the button and waits for the server. A lost
+race immediately renders the real owner. Phantom ownership is impossible because the client is
+never the source of truth.
+
+**Absence renders as absence.** `adBadges` emits nothing when no advertising evidence exists — not
+a "No ads" chip. Stale evidence gets a visibly different dashed badge and, on the account page, an
+extra explicit prohibition line.
+
+**A main line is never dressed up as a direct line.** When the best route to a named person is the
+company's main number, the contact block renders `Main line — ask for Dana Fielder` in amber
+instead of implying a direct line. A role-only target renders as `Target role: Operations` with
+`Named person not verified`.
+
+### Verification
+
+**Manual, against the running server on `127.0.0.1:8080`:**
+
+| Check | Result |
+|---|---|
+| Anonymous `/`, `/my-prospects` | 302 → `/login` |
+| Anonymous `/api/me`, `/api/accounts/:id/claim` | 401 JSON |
+| Three sign-ins (rep1, rep2, manager) | 302 + `auth.login` audit rows |
+| `Find Prospects: HVAC + 32256` | 200, 2 researched prospects, tier badges rendered |
+| **rep1 + rep2 claim the same account simultaneously over HTTP** | rep2 won; rep1 got `ALREADY_CLAIMED` naming "Rep Two"; DB shows one owner, one CLAIMED event |
+| rep1 posts a disposition at rep2's account | 403 `NOT_OWNER`, no activity written |
+| rep1 attempts release / reassign of rep2's account | refused; reassign 403 |
+| Prospect-requested callback | persisted; verbatim statement stored as `prospect_verified` |
+| Release with a callback open | refused, `PROTECTED_RELATIONSHIP: CALLBACK_REQUESTED` |
+| DNC | account `SUPPRESSED`, owner cleared, follow-ups cancelled, **0 rows in unclaimed inventory**, rep2's claim refused `SUPPRESSED` |
+| Manager reassign | succeeded; ownership history shows CLAIMED → REASSIGNED with prior owner and reason |
+| Ad evidence expired | current badge count 1 → 0, stale badge appears, extra prohibition line added, projection stops reporting a current advertiser |
+| All 7 pages, both roles | 200; `/team` is 403 for a rep |
+
+**Automated (`tests/portal.test.ts`, 12 new tests, HTTP level via `app.inject`):**
+anonymous refusal on every surface; sign-in does not reveal whether an address exists (unknown
+address, wrong password and disabled account all produce a byte-identical error); revoked session
+dies immediately; HTTP claim race; ownership bypass refused with no activity written; manager-only
+reassign, and reassign without a reason refused so the audit trail stays meaningful; DNC removes
+the account from everyone's inventory; the Find page shows another rep's account but renders no
+claim affordance for it; an injected sort key falls back instead of reaching SQL; bulk claim
+reports per-account results; health exposes exactly 3 fields; security headers present and no
+secret appears in any response body.
+
+```
+$ npm test
+# tests 33   # pass 33   # fail 0
+```
+
+Two real defects surfaced during this gate and were fixed: the `auth.login` audit insert reused one
+parameter for a `uuid` and a `text` column, which made every sign-in 500 after setting the cookie;
+and running the test files concurrently let them truncate each other's database, so the suite now
+runs `--test-concurrency=1`.
+
+### Not verified
+
+**Screenshots could not be produced on this box.** Headless Firefox fails with
+`RenderCompositorSWGL failed mapping default framebuffer` — the NVIDIA DGX graphics stack offers no
+usable framebuffer and Xvfb is not installed. Software-rendering flags did not help. UI verification
+was therefore structural (composition, no external resource references, no hard-coded hex outside
+the token layer, mobile card fallback present) plus reading the rendered HTML. Michael can view the
+real thing directly once Gate T6 exposes it; installing `xvfb` would restore screenshot capability
+but needs the sudo password.
+
+### Files added
+
+```
+services/sales-brain/src/
+  api/{server.ts,portal.ts,routes.ts,queries.ts}
+  web/{html.ts,format.ts,layout.ts,components.ts}
+  web/pages/{overview.ts,find.ts,account.ts,lists.ts}
+  web/assets/{portal.css,portal.js}
+  domain/accountDetail.ts
+  workers/enqueue.ts
+  bin/api.ts
+tests/portal.test.ts
+```
+
+### Next gate
+
+T3 — seed inventory import.
