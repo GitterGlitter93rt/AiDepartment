@@ -6,6 +6,7 @@ import {
 } from './policy.js';
 import type { CalendarAdapter, TimeSlot } from './types.js';
 import { microsoftGraphAdapter } from './graphAdapter.js';
+import { calDotComAdapter } from './calcomAdapter.js';
 
 /**
  * Strategy-call booking.
@@ -20,7 +21,11 @@ import { microsoftGraphAdapter } from './graphAdapter.js';
  * follow-up plus an explicit "not confirmed" message for the caller to say.
  */
 
-let adapter: CalendarAdapter = microsoftGraphAdapter;
+// Cal.com owns the booking lifecycle and syncs to Outlook. Graph remains available
+// for a deployment that deliberately opts out, but the two must never both create an
+// event for the same meeting.
+let adapter: CalendarAdapter =
+  config.booking.provider === 'microsoft_graph' ? microsoftGraphAdapter : calDotComAdapter;
 
 /** Swaps the calendar provider. Tests use this; production uses Graph. */
 export function setCalendarAdapter(next: CalendarAdapter): void {

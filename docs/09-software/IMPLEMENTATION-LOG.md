@@ -1020,3 +1020,91 @@ the pattern did not allow a verb between "no longer" and "at".
 
 **Blocker B-5 (new):** a Smartlead API key and webhook secret are needed to connect the provider
 adapter. The eligibility gate, correlation model, event ingestion and outbox all work without it.
+
+---
+
+## Task-authority change mid-implementation, and what it required
+
+**Date:** 2026-09-03
+
+While gates T0–T8 were being built, the architecture owner pushed **72 documentation commits** to
+this branch, including a rewritten `CLAUDE-CURRENT-TASK.md`. My nine commits were rebased on top —
+no overlapping files, no force-push, and the full suite re-run after the rebase.
+
+Two changes were material to code already written.
+
+### 1. Cal.com is now the booking authority, not direct Outlook
+
+`CLAUDE-CURRENT-TASK.md` §11 and `outbound-sales-brain-calcom-strategy-call-booking-spec.md` §1 now
+specify Cal.com as the scheduling authority, connected to Michael's Outlook, with Cal Video as the
+meeting location — and explicitly forbid creating a direct Outlook event alongside a Cal.com
+booking, because two sources of truth produce duplicates and inconsistent cancellation state.
+
+Gate T7 was built provider-neutral, so this was an adapter, not a rewrite. Added
+`src/booking/calcomAdapter.ts` and made it the default via `BOOKING_PROVIDER=calcom`; the Graph
+adapter remains selectable but is no longer the default path.
+
+Cal.com returns *free* slots where the `CalendarAdapter` contract reports *busy* periods, so the
+adapter inverts them — the rest of the system keeps one model. Slot **selection** stays in
+`policy.ts`: Cal.com says what is possible, YAD decides which two to offer. Three tests were added,
+including one asserting structurally that **exactly one provider creates the event**.
+
+### 2. `CALL_READY` is now a release hard fail
+
+The new `outbound-sales-brain-global-phone-channel-eligibility-dnc-spec.md` requires every phone
+endpoint to carry **independent** decisions for `HUMAN_MANUAL_CALL` and `AUTONOMOUS_AI_VOICE`, each
+`ALLOW | BLOCK | REVIEW_REQUIRED | NOT_APPLICABLE`. One ambiguous flag hiding the difference is
+listed as a hard fail (§19). My earlier `channel_state` did exactly that.
+
+Migration `010_channel_eligibility.sql` adds per-channel decisions on the endpoint, an append-only
+`channel_eligibility_decisions` history carrying its policy version, `registry_screen_results`, and
+`contact_attempts` — with a CHECK that **a phone attempt cannot exist without the decision that
+authorized it**.
+
+`src/compliance/eligibility.ts` is a pure, deterministic policy engine. No model participates
+(§5: "No LLM decides these rules"), and the clock is injectable so the rules are testable rather
+than dependent on when the suite runs.
+
+Rules that matter:
+
+- A **YAD DNC governs a rep's cell call**, not just Twilio — the first hard fail on the list.
+- A **screening failure never becomes `NO_MATCH`.** `SCREEN_FAILED` is a distinct stored outcome and
+  produces `REVIEW_REQUIRED`, never an allow.
+- **Unscreened is not clear.** A human may proceed on a verified business line; AI may not proceed
+  on anything unscreened.
+- **AI voice is blocked outright** while `OUTBOUND_DIAL_ENABLED=false`, however clean the endpoint.
+- **Registry membership never reaches a rep's screen.** It is purpose-limited to gating a call, so
+  the UI says *"Calling restrictions apply — manager review needed"* and never names a list. Asserted
+  by a test that the message does not match `/registry|do not call list|dnc list|national/i`.
+- **Timing produces a reopen time, not a permanent block** — the account keeps its identity and
+  becomes callable again on its own.
+- **The preflight recomputes** rather than trusting a stored decision, because suppression can
+  arrive seconds after the page rendered. Tested.
+
+In the portal, a non-`ALLOW` phone endpoint renders with no `tel:` link and no copy button, shows
+its decision and a plain reason, and `POST /api/accounts/:id/start-call` returns **403** — a rep
+cannot self-override. Email actions stay available on a phone-blocked account, which is §20
+Example C behaviour.
+
+Live on current inventory after backfilling 54 endpoints across 51 accounts:
+
+```
+human            ai      count  reasons
+REVIEW_REQUIRED  BLOCK     159  AI_VOICE_PILOT_DISABLED, OUTSIDE_CALLING_WINDOW, REGISTRY_NOT_SCREENED
+BLOCK            BLOCK       2  ACCOUNT_SUPPRESSED, YAD_DNC
+```
+
+Nothing is currently `ALLOW`, and that is correct: no registry screening provider is configured, so
+nothing has been cleared. The portal says so honestly instead of showing a green call button.
+
+**Blocker B-6 (new):** a DNC screening provider is needed before any phone endpoint can reach
+`ALLOW` on merit. `docs/09-software/outbound-sales-brain-dnc-provider-selection-current.md` and the
+FTC ingestion contract on this branch describe the options. Until one is connected, human calling
+is `REVIEW_REQUIRED` and a manager must clear each number.
+
+### Still outstanding from the updated authority
+
+The architecture owner's new documents also specify work not yet built: the CRM UI page manifest,
+the first-60-seconds playbook and its fixtures, hook backtesting, the operator console, the pilot
+cohort selection contract, hot transfer, and the shared-Twilio dual-service voice architecture.
+None of it is started, and none of it is required before the two-rep human pilot.

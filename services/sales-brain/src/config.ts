@@ -70,12 +70,24 @@ export const config = {
   apolloApiKey: optional('APOLLO_API_KEY'),
 
   booking: {
+    /**
+     * Cal.com is the booking authority (calcom-strategy-call-booking-spec §1). It
+     * owns availability, invites, reminders and cancellation, and syncs the event to
+     * Michael's Outlook. The Graph adapter below stays available as a fallback but
+     * must never create a second event for the same meeting.
+     */
+    provider: optional('BOOKING_PROVIDER', 'calcom'),
+    calcomApiKey: optional('CALCOM_API_KEY'),
+    calcomEventTypeId: optional('CALCOM_EVENT_TYPE_ID'),
     tenantId: optional('MS_GRAPH_TENANT_ID'),
     clientId: optional('MS_GRAPH_CLIENT_ID'),
     clientSecret: optional('MS_GRAPH_CLIENT_SECRET'),
     calendarUpn: optional('BOOKING_CALENDAR_UPN', 'michael@youraidepartment.ai'),
     timezone: optional('BOOKING_TIMEZONE', 'America/New_York'),
     get isConfigured(): boolean {
+      if (optional('BOOKING_PROVIDER', 'calcom') === 'calcom') {
+        return Boolean(optional('CALCOM_API_KEY') && optional('CALCOM_EVENT_TYPE_ID'));
+      }
       return Boolean(
         optional('MS_GRAPH_TENANT_ID') && optional('MS_GRAPH_CLIENT_ID') && optional('MS_GRAPH_CLIENT_SECRET'),
       );

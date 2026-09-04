@@ -16,6 +16,32 @@ import {
  * then evidence, then history. A rep should understand a company in under a minute.
  */
 
+/** Rep-facing reason text. Never names a registry (purpose limitation, spec §6). */
+function explainEligibility(reasons: string[], nextEligibleAt: Date | null): string {
+  if (reasons.includes('YAD_DNC') || reasons.includes('ACCOUNT_SUPPRESSED')) {
+    return 'This company asked not to be contacted.';
+  }
+  if (reasons.includes('ENDPOINT_SUPPRESSED')) return 'This number is suppressed.';
+  if (reasons.includes('WRONG_NUMBER')) return 'Marked wrong number.';
+  if (reasons.includes('REGISTRY_RESTRICTED')) return 'Calling restrictions apply — manager review needed.';
+  if (reasons.includes('REGISTRY_SCREEN_FAILED')) return 'Screening did not complete. Try again shortly.';
+  if (reasons.includes('OUTSIDE_CALLING_WINDOW')) {
+    return nextEligibleAt
+      ? `Outside local calling hours — callable from ${formatDateTime(nextEligibleAt)}.`
+      : 'Outside local calling hours.';
+  }
+  if (reasons.includes('ATTEMPT_COOLDOWN')) {
+    return nextEligibleAt
+      ? `Attempted recently — next attempt from ${formatDateTime(nextEligibleAt)}.`
+      : 'Attempted too recently.';
+  }
+  if (reasons.includes('PERSONAL_MOBILE')) return 'Looks like a personal mobile — review before calling.';
+  if (reasons.includes('REGISTRY_NOT_SCREENED') || reasons.includes('LINE_TYPE_UNKNOWN')) {
+    return 'Screening pending — not cleared to call yet.';
+  }
+  return 'Not cleared to call.';
+}
+
 const ROLE_CONFIDENCE_LABEL: Record<string, { text: string; tone: string }> = {
   CONFIRMED_CURRENT_ROLE: { text: 'Role confirmed current', tone: 'badge-good' },
   LIKELY_CURRENT_ROLE: { text: 'Role likely current', tone: '' },
@@ -38,10 +64,35 @@ function endpointRow(endpoint: DetailEndpoint, contactName: string | null): RawH
       ? html`<div class="micro" style="color:#B45309;margin-top:2px">Main line — ask for ${contactName}</div>`
       : '';
 
+  // Phone eligibility is a separate axis from endpoint quality. A perfectly good
+  // number may still be blocked, and a rep must not be able to tap or copy it
+  // (global-phone-channel-eligibility-dnc-spec §19 hard fail).
+  const humanDecision = isPhone ? (endpoint.human_manual_call ?? 'REVIEW_REQUIRED') : 'ALLOW';
+  const aiDecision = isPhone ? (endpoint.autonomous_ai_voice ?? 'BLOCK') : 'NOT_APPLICABLE';
+  const callable = !dead && (!isPhone || humanDecision === 'ALLOW');
+
+  const eligibilityBadge = isPhone ? html`
+    <span class="badge ${
+      humanDecision === 'ALLOW' ? 'badge-good'
+      : humanDecision === 'BLOCK' ? 'badge-bad' : 'badge-warn'
+    }">${
+      humanDecision === 'ALLOW' ? 'Human call allowed'
+      : humanDecision === 'BLOCK' ? 'Do not call' : 'Review required'
+    }</span>
+    ${aiDecision === 'ALLOW'
+      ? html`<span class="badge badge-good">AI voice allowed</span>`
+      : html`<span class="badge">AI voice off</span>`}` : '';
+
+  const eligibilityNote = isPhone && humanDecision !== 'ALLOW'
+    ? html`<div class="micro" style="color:var(--crimson);margin-top:3px">${
+        explainEligibility(endpoint.eligibility_reason_codes ?? [], endpoint.next_human_eligible_at)
+      }</div>`
+    : '';
+
   return html`
   <div class="endpoint">
     <div style="flex:1;min-width:0">
-      <div class="endpoint-value" style="${raw(dead ? 'text-decoration:line-through;color:var(--slate-gray)' : '')}">
+      <div class="endpoint-value" style="${raw(dead || !callable ? 'text-decoration:line-through;color:var(--slate-gray)' : '')}">
         ${endpoint.display_value}${endpoint.extension ? html` <span class="muted small">ext. ${endpoint.extension}</span>` : ''}
       </div>
       <div class="endpoint-meta">
@@ -49,12 +100,15 @@ function endpointRow(endpoint: DetailEndpoint, contactName: string | null): RawH
         <span> ${label}</span>
         ${endpoint.observed_at ? html`<span> · seen ${relativeTime(endpoint.observed_at)}</span>` : ''}
       </div>
+      <div class="row" style="gap:5px;margin-top:4px">${eligibilityBadge}</div>
+      ${eligibilityNote}
       ${routeNote}
     </div>
-    ${dead ? '' : html`
+    ${!callable ? '' : html`
     <div class="row" style="gap:6px">
       ${isPhone
-        ? html`<a class="btn btn-secondary btn-sm" href="tel:${endpoint.normalized_value}">Call</a>`
+        ? html`<a class="btn btn-secondary btn-sm js-start-call" href="tel:${endpoint.normalized_value}"
+                  data-endpoint="${endpoint.endpoint_id}">Call</a>`
         : html`<a class="btn btn-secondary btn-sm" href="mailto:${endpoint.normalized_value}">Email</a>`}
       <button class="btn btn-ghost btn-sm js-copy" type="button" data-value="${endpoint.display_value}">Copy</button>
     </div>`}

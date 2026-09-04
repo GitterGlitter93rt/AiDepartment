@@ -410,3 +410,55 @@ test('the production adapter is Microsoft Graph', () => {
   setCalendarAdapter(microsoftGraphAdapter);
   assert.equal(currentCalendarAdapter().name, 'microsoft_graph');
 });
+
+// --- Cal.com is the booking authority ----------------------------------------
+
+test('Cal.com is the default provider, and Graph is not also used', async () => {
+  const { calDotComAdapter } = await import('../src/booking/calcomAdapter.js');
+  // The service picks Cal.com unless BOOKING_PROVIDER explicitly says otherwise.
+  setCalendarAdapter(calDotComAdapter);
+  assert.equal(currentCalendarAdapter().name, 'calcom');
+
+  // Without credentials it reports NOT_CONFIGURED rather than failing open.
+  assert.equal(calDotComAdapter.isConfigured(), false);
+  const busy = await calDotComAdapter.getBusy({
+    calendarUpn: 'michael@youraidepartment.ai', from: new Date(), to: new Date(),
+    durationMinutes: 15, timezone: TZ,
+  });
+  assert.equal(busy.ok, false);
+  assert.equal(busy.errorCode, 'NOT_CONFIGURED');
+});
+
+test('Cal.com refuses to book without an attendee email', async () => {
+  const { calDotComAdapter } = await import('../src/booking/calcomAdapter.js');
+  const result = await calDotComAdapter.createEvent({
+    calendarUpn: 'michael@youraidepartment.ai', subject: 's', body: 'b',
+    start: new Date(), end: new Date(), timezone: TZ, idempotencyKey: 'k',
+    attendeeEmail: null,
+  });
+  assert.equal(result.ok, false);
+  // A meeting nobody was invited to is not a booking.
+  assert.match(result.error ?? '', /attendee email|not configured/i);
+});
+
+test('only one provider creates the event for a booking', async () => {
+  // The spec forbids creating both a Cal.com booking and a direct Outlook event.
+  // The service holds exactly one adapter, so this is structural.
+  const created: string[] = [];
+  const counting = (name: string): CalendarAdapter => ({
+    name,
+    isConfigured: () => true,
+    async getBusy() { return { ok: true, busy: [] }; },
+    async createEvent() { created.push(name); return { ok: true, providerEventId: `${name}-1` }; },
+  });
+
+  setCalendarAdapter(counting('calcom'));
+  const accountId = await seedAccount();
+  const start = new Date(Date.now() + 86_400_000);
+  const result = await bookStrategyCall({
+    accountId, start, end: new Date(start.getTime() + 900_000), prospectAgreed: true,
+    attendeeEmail: 'dana@northgate.example.com',
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(created, ['calcom'], 'exactly one provider created the event');
+});

@@ -46,6 +46,11 @@ export interface DetailEndpoint {
   is_suppressed: boolean;
   is_active: boolean;
   contact_id: string | null;
+  line_type: string;
+  human_manual_call: string;
+  autonomous_ai_voice: string;
+  eligibility_reason_codes: string[];
+  next_human_eligible_at: Date | null;
 }
 
 export interface DetailEvidence {
@@ -168,7 +173,9 @@ export async function getAccountDetail(
     query<DetailEndpoint>(
       `select endpoint_id, endpoint_type, display_value, normalized_value, extension, endpoint_role,
               quality_state, relationship_to_person, endpoint_source, source_reference,
-              observed_at, verified_at, is_suppressed, is_active, contact_id
+              observed_at, verified_at, is_suppressed, is_active, contact_id,
+              line_type, human_manual_call, autonomous_ai_voice, eligibility_reason_codes,
+              next_human_eligible_at
          from contact_endpoints where account_id = $1
         order by
           case endpoint_role

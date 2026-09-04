@@ -6,6 +6,8 @@ import { searchProspects } from '../domain/search.js';
 import { permissionsFor } from '../domain/auth.js';
 import { enqueueContactResearch, enqueueMarketResearch } from '../workers/enqueue.js';
 import { requireApiUser, requirePermission } from './server.js';
+import { preflightCall, evaluateAccount } from '../compliance/eligibility.js';
+import { withTransaction } from '../db/pool.js';
 import { marketCards, navCountsFor } from './queries.js';
 
 /**
@@ -150,6 +152,70 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       const user = requirePermission(request, reply, 'request_contact_research');
       if (!user) return;
       return enqueueContactResearch(request.params.id, user.userId);
+    },
+  );
+
+  /**
+   * Server-side gate before a rep dials.
+   * The tel: link in the UI is a convenience; this is the control. It recomputes
+   * eligibility rather than trusting anything rendered earlier, and records the
+   * attempt against the decision that authorized it
+   * (global-phone-channel-eligibility-dnc-spec §11, §16).
+   */
+  app.post<{ Params: { id: string }; Body: { endpointId?: string; contactId?: string } }>(
+    '/api/accounts/:id/start-call', async (request, reply) => {
+      const user = requirePermission(request, reply, 'work_owned_accounts');
+      if (!user) return;
+
+      const endpointId = request.body?.endpointId;
+      if (!endpointId) return reply.code(400).send({ ok: false, message: 'An endpoint is required.' });
+
+      const preflight = await preflightCall(endpointId, 'HUMAN_MANUAL_CALL');
+      if (!preflight.allowed) {
+        // A rep may not self-override a block or a review.
+        return reply.code(403).send({
+          ok: false, decision: preflight.decision, message: preflight.message,
+          nextEligibleAt: preflight.nextEligibleAt,
+        });
+      }
+
+      const attemptId = await withTransaction(async (client) => {
+        const { rows } = await client.query<{ attempt_id: number }>(
+          `insert into contact_attempts (account_id, contact_id, endpoint_id, actor_user_id,
+                                         channel, eligibility_decision_id)
+           values ($1,$2,$3,$4,'HUMAN_MANUAL_CALL',$5) returning attempt_id`,
+          [
+            request.params.id, request.body?.contactId ?? null, endpointId,
+            user.userId, preflight.decisionId,
+          ],
+        );
+        await client.query(
+          'update channel_eligibility_decisions set used_for_attempt_id = $2 where decision_id = $1',
+          [preflight.decisionId, rows[0]!.attempt_id],
+        );
+        return rows[0]!.attempt_id;
+      });
+
+      const { rows: endpointRows } = await withTransaction((client) =>
+        client.query<{ normalized_value: string; display_value: string }>(
+          'select normalized_value, display_value from contact_endpoints where endpoint_id = $1',
+          [endpointId]));
+
+      return {
+        ok: true, attemptId,
+        decisionId: preflight.decisionId,
+        dial: endpointRows[0]?.normalized_value,
+        display: endpointRows[0]?.display_value,
+      };
+    },
+  );
+
+  /** Re-screens every phone endpoint on an Account. */
+  app.post<{ Params: { id: string } }>(
+    '/api/accounts/:id/rescreen', async (request, reply) => {
+      const user = requireApiUser(request, reply);
+      if (!user) return;
+      return { ok: true, evaluated: await evaluateAccount(request.params.id) };
     },
   );
 

@@ -113,6 +113,14 @@ async function claimOneInTransaction(
     [accountId, actor.userId, JSON.stringify({ search_context_id: searchContextId })],
   );
 
+  // Claiming is a screening moment: the rep is about to see call actions, so the
+  // eligibility decisions behind them must be current, not inherited from discovery.
+  await client.query(
+    `update contact_endpoints set eligibility_evaluated_at = null
+      where account_id = $1 and endpoint_type = 'PHONE'`,
+    [accountId],
+  );
+
   return { accountId, ok: true, ownerUserId: actor.userId };
 }
 
