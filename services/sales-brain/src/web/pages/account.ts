@@ -464,7 +464,7 @@ export function renderAccountPage(
       account.canonical_domain
         ? html` · <a href="https://${account.canonical_domain}" target="_blank" rel="noreferrer noopener">${account.canonical_domain}</a>`
         : ''}`,
-    user, currentPath: '/my-prospects', counts, body,
+    user, currentPath: '/prospects', counts, body,
     actions: html`${tierBadge(account.manual_tier, account.manual_score)} ${adBadges(account)} ${channelBadge(account.channel_state)}`,
     script: html`
 (function () {

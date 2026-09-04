@@ -122,7 +122,11 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     }));
   });
 
-  app.get('/my-prospects', async (request, reply) => {
+  // The page manifest routes this at /prospects; /my-prospects is kept as a
+  // permanent redirect so existing links and bookmarks keep working.
+  app.get('/my-prospects', async (request, reply) => reply.redirect('/prospects', 301));
+
+  app.get('/prospects', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');

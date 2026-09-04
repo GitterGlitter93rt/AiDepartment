@@ -79,7 +79,7 @@ beforeEach(async () => { await resetDatabase(); });
 
 test('every data surface refuses an anonymous caller', async () => {
   await fixture();
-  for (const url of ['/', '/find', '/my-prospects', '/markets', '/follow-ups', '/team']) {
+  for (const url of ['/', '/find', '/prospects', '/markets', '/follow-ups', '/team']) {
     const response = await app.inject({ method: 'GET', url });
     assert.equal(response.statusCode, 302, `${url} should redirect anonymous users`);
     assert.equal(response.headers.location, '/login');
@@ -108,7 +108,7 @@ test('sign-in does not reveal whether an email exists', async () => {
   // The form legitimately echoes back whatever address was typed, so compare the
   // part that could leak: the error message itself must be byte-identical.
   const errorOf = (body: string): string =>
-    body.match(/<div class="form-error">([^<]*)<\/div>/)?.[1] ?? '';
+    body.match(/<div class="form-error"[^>]*>([^<]*)<\/div>/)?.[1] ?? '';
   assert.ok(errorOf(unknown.body).length > 0, 'an error is shown');
   assert.equal(errorOf(unknown.body), errorOf(wrongPassword.body),
     'an unknown address and a wrong password must produce the same message');

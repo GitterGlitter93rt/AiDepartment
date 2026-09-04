@@ -99,7 +99,7 @@ export function renderOverviewPage(input: OverviewInput): string {
       <div class="card">
         <div class="card-head">
           <h2>Recently claimed</h2>
-          <a class="small" href="/my-prospects">My Prospects</a>
+          <a class="small" href="/prospects">My Prospects</a>
         </div>
         ${recentlyClaimed.length === 0
           ? html`<div class="card-pad">${emptyState(
@@ -147,6 +147,6 @@ export function renderOverviewPage(input: OverviewInput): string {
     subtitle: 'Your book of business and what the EdgeXpert has researched for you.',
     user, currentPath: '/', counts, body,
     actions: html`<a class="btn btn-primary" href="/find">Find Prospects</a>
-                  <a class="btn btn-secondary" href="/my-prospects">My Prospects</a>`,
+                  <a class="btn btn-secondary" href="/prospects">My Prospects</a>`,
   });
 }

@@ -28,7 +28,7 @@ export function renderMyProspectsPage(input: {
   const body = html`
     <div class="chips" style="margin-bottom:16px">
       ${MY_FILTERS.map((filter) => html`
-        <a class="chip" href="/my-prospects${filter.value ? `?filter=${filter.value}` : ''}"
+        <a class="chip" href="/prospects${filter.value ? `?filter=${filter.value}` : ''}"
            aria-pressed="${activeFilter === filter.value ? 'true' : 'false'}">${filter.label}</a>`)}
     </div>
     <div class="card">
@@ -56,7 +56,7 @@ export function renderMyProspectsPage(input: {
           activeFilter
             ? 'Try a different filter, or go back to All.'
             : 'Search a market and claim the companies you want to work.',
-          activeFilter ? { href: '/my-prospects', label: 'Show all' } : { href: '/find', label: 'Find Prospects' },
+          activeFilter ? { href: '/prospects', label: 'Show all' } : { href: '/find', label: 'Find Prospects' },
         ),
       })}
     </div>`;
@@ -64,7 +64,7 @@ export function renderMyProspectsPage(input: {
   return renderPage({
     title: 'My Prospects',
     subtitle: 'Your book of business. Ranking suggests what to work first; the choice stays yours.',
-    user, currentPath: '/my-prospects', counts, body,
+    user, currentPath: '/prospects', counts, body,
     actions: html`<a class="btn btn-primary" href="/find">Find more</a>`,
   });
 }
@@ -197,7 +197,7 @@ export function renderFollowUpsPage(input: {
 
   const body = overdue.length === 0 && upcoming.length === 0
     ? emptyState('Nothing to follow up', 'Callbacks and follow-ups you commit to will appear here.',
-        { href: '/my-prospects', label: 'My Prospects' })
+        { href: '/prospects', label: 'My Prospects' })
     : html`${section('Overdue', overdue, 'warn')}${section('Coming up', upcoming, 'plain')}`;
 
   return renderPage({
