@@ -8,6 +8,7 @@ import { enqueueContactResearch, enqueueMarketResearch } from '../workers/enqueu
 import { requireApiUser, requirePermission } from './server.js';
 import { preflightCall, evaluateAccount } from '../compliance/eligibility.js';
 import { ingestBookingWebhook, verifySignature } from '../booking/webhooks.js';
+import { handleSmartleadWebhook } from '../email/smartleadWebhook.js';
 import { rescheduleStrategyCall, cancelStrategyCall } from '../booking/service.js';
 import { buildPrepBrief } from '../booking/brief.js';
 import { config } from '../config.js';
@@ -126,6 +127,22 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       ok: result.ok, duplicate: result.duplicate, eventType: result.eventType,
       applied: result.applied,
     });
+  });
+
+  /**
+   * The email provider's webhook. Authenticated by signature over the raw bytes,
+   * never by a session, and never by the fact that the caller knew the URL.
+   */
+  app.post('/api/webhooks/smartlead', async (request, reply) => {
+    const rawBody = (request as { rawBody?: string }).rawBody ?? '';
+    const handled = await handleSmartleadWebhook({
+      rawBody, headers: request.headers as Record<string, string | string[] | undefined>,
+    });
+    if (!handled.body.ok && handled.status >= 400) {
+      request.log.warn({ ip: request.ip, outcome: handled.body.outcome },
+        'smartlead webhook rejected');
+    }
+    return reply.code(handled.status).send(handled.body);
   });
 
   app.post<{ Params: { id: string }; Body: { start?: string; end?: string; reason?: string } }>(

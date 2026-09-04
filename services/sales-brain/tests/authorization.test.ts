@@ -86,6 +86,7 @@ const ROUTES: RouteUnderTest[] = [
 
   // Authenticated by provider signature rather than by session.
   { method: 'POST', path: '/api/webhooks/calcom', minimum: 'signature_only' },
+  { method: 'POST', path: '/api/webhooks/smartlead', minimum: 'signature_only' },
 ];
 
 interface Fixture { rep: string; manager: string; admin: string; accountId: string }

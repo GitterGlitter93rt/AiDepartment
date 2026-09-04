@@ -35,7 +35,10 @@ export function statusPill(label: string, state: SemanticState = 'neutral', tool
 
 /** A tier is a fit signal. It implies nothing about permission to contact. */
 export function tierBadge(tier: string | null, score: number | null, maxScore = 15): RawHtml {
-  if (!tier) return html`<span class="pill pill-unscored">Unscored</span>`;
+  if (!tier) {
+    return html`<span class="pill pill-unscored"
+      title="Not researched yet. This is not a low score.">Unscored</span>`;
+  }
   const label = score === null || score === undefined ? tier : `${tier} · ${score}`;
   return html`<span class="pill pill-tier-${tier}" title="Fit score ${score ?? '?'} of ${maxScore}. Fit does not grant permission to contact.">${label}</span>`;
 }

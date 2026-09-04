@@ -21,7 +21,14 @@ beforeEach(async () => { await resetDatabase(); });
 const READY: DataForSeoConfig = {
   login: 'login', password: 'password', baseUrl: 'https://provider.test/v3',
   mode: 'standard', governanceReviewed: true, enabled: true, maxQueriesPerRun: 25,
+  resultDepth: 100, maxRetries: 2, maxPollAttempts: 3, pollIntervalMs: 1,
 };
+
+/** Live mode: one request, results in the response. */
+const LIVE: DataForSeoConfig = { ...READY, mode: 'live' };
+
+/** Sleep is injected everywhere so a retry or a poll costs no wall-clock time. */
+const noSleep = async () => {};
 
 /** A response shaped like the provider's, with one paid and one organic result. */
 const RESPONSE: ProviderResponse = {

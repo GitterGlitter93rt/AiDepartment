@@ -10,8 +10,17 @@ import type { ProspectRow } from '../domain/search.js';
  */
 
 export function tierBadge(tier: string | null, score: number | null): RawHtml {
-  if (!tier) return html`<span class="badge badge-tier-D">Unscored</span>`;
-  return html`<span class="badge badge-tier-${tier}">${tierLabel(tier, score)}</span>`;
+  // Unscored is not tier D. Styling it as the worst tier tells a rep scanning by
+  // colour that we judged the company and found it poor, when what actually happened
+  // is that nobody has researched it yet -- and an unresearched advertiser is the one
+  // you want to look at, not the one you skip (component contract: unknown stays
+  // unknown, and status is never colour alone).
+  if (!tier) {
+    return html`<span class="badge badge-unscored"
+      title="Not researched yet. This is not a low score.">Unscored</span>`;
+  }
+  return html`<span class="badge badge-tier-${tier}"
+    title="Fit score. Fit does not grant permission to contact.">${tierLabel(tier, score)}</span>`;
 }
 
 export function adBadges(row: {

@@ -500,20 +500,41 @@ export function parseAuditFilters(params: URLSearchParams): AuditFilters & { ign
  * for reading; the row itself keeps the id.
  */
 export async function listAuditEvents(filters: AuditFilters, limit = 200) {
+  // Ownership is recorded in its own append-only ledger rather than duplicated into
+  // audit_log, so a review that read only audit_log could not answer the question
+  // managers ask most often: who took this Account, and who gave it away. The two
+  // ledgers are unioned for reading; neither is written twice.
   const { rows } = await query<any>(
-    `select l.audit_id, l.action, l.subject_type, l.subject_id, l.reason, l.detail,
-            l.occurred_at, u.display_name as actor_name, l.actor_user_id,
+    `with entries as (
+       select l.audit_id, l.action, l.subject_type, l.subject_id, l.reason, l.detail,
+              l.occurred_at, l.actor_user_id
+         from audit_log l
+       union all
+       select -o.ownership_event_id as audit_id,
+              'ownership.' || lower(o.event_type) as action,
+              'account' as subject_type,
+              o.account_id::text as subject_id,
+              o.reason,
+              jsonb_strip_nulls(jsonb_build_object(
+                'previous_owner', p.display_name, 'new_owner', n.display_name)) as detail,
+              o.occurred_at, o.actor_user_id
+         from ownership_events o
+         left join users p on p.user_id = o.previous_owner_user_id
+         left join users n on n.user_id = o.new_owner_user_id
+     )
+     select e.audit_id, e.action, e.subject_type, e.subject_id, e.reason, e.detail,
+            e.occurred_at, u.display_name as actor_name, e.actor_user_id,
             a.canonical_name as subject_account_name
-       from audit_log l
-       left join users u on u.user_id = l.actor_user_id
-       left join accounts a on a.account_id::text = l.subject_id
-      where ($1::uuid is null or l.actor_user_id = $1::uuid)
-        and ($2::text is null or l.action = $2::text)
-        and ($3::text is null or l.subject_type = $3::text)
-        and ($4::uuid is null or l.subject_id = $4::text)
-        and ($5::date is null or l.occurred_at >= $5::date)
-        and ($6::date is null or l.occurred_at < ($6::date + interval '1 day'))
-      order by l.occurred_at desc, l.audit_id desc
+       from entries e
+       left join users u on u.user_id = e.actor_user_id
+       left join accounts a on a.account_id::text = e.subject_id
+      where ($1::uuid is null or e.actor_user_id = $1::uuid)
+        and ($2::text is null or e.action = $2::text)
+        and ($3::text is null or e.subject_type = $3::text)
+        and ($4::uuid is null or e.subject_id = $4::text)
+        and ($5::date is null or e.occurred_at >= $5::date)
+        and ($6::date is null or e.occurred_at < ($6::date + interval '1 day'))
+      order by e.occurred_at desc, e.audit_id desc
       limit $7`,
     [filters.actorUserId, filters.action, filters.subjectType, filters.subjectId,
      filters.fromDate, filters.toDate, limit],
@@ -524,11 +545,17 @@ export async function listAuditEvents(filters: AuditFilters, limit = 200) {
 /** The distinct actions and subject types actually recorded, for the filter menus. */
 export async function auditFilterOptions() {
   const [actions, subjects, actors] = await Promise.all([
-    query<any>(`select distinct action as id, action as label from audit_log order by 1 limit 100`),
-    query<any>(`select distinct subject_type as id, subject_type as label from audit_log
-                 where subject_type is not null order by 1 limit 50`),
+    query<any>(`select distinct action as id, action as label from (
+                  select action from audit_log
+                  union select 'ownership.' || lower(event_type) from ownership_events
+                ) t order by 1 limit 100`),
+    query<any>(`select distinct subject_type as id, subject_type as label from (
+                  select subject_type from audit_log where subject_type is not null
+                  union select 'account' from ownership_events limit 1
+                ) t order by 1 limit 50`),
     query<any>(`select u.user_id as id, u.display_name as label from users u
                  where exists (select 1 from audit_log l where l.actor_user_id = u.user_id)
+                    or exists (select 1 from ownership_events o where o.actor_user_id = u.user_id)
                  order by u.display_name`),
   ]);
   return { actions: actions.rows, subjects: subjects.rows, actors: actors.rows };
@@ -537,12 +564,24 @@ export async function auditFilterOptions() {
 /** Everything recorded against one Account, for the history tab on its page. */
 export async function accountAuditHistory(accountId: string, limit = 50) {
   const { rows } = await query<any>(
-    `select l.audit_id, l.action, l.reason, l.detail, l.occurred_at,
+    `select e.audit_id, e.action, e.reason, e.detail, e.occurred_at,
             u.display_name as actor_name
-       from audit_log l
-       left join users u on u.user_id = l.actor_user_id
-      where l.subject_id = $1
-      order by l.occurred_at desc
+       from (
+         select l.audit_id, l.action, l.reason, l.detail, l.occurred_at, l.actor_user_id,
+                l.subject_id
+           from audit_log l
+         union all
+         select -o.ownership_event_id, 'ownership.' || lower(o.event_type), o.reason,
+                jsonb_strip_nulls(jsonb_build_object(
+                  'previous_owner', p.display_name, 'new_owner', n.display_name)),
+                o.occurred_at, o.actor_user_id, o.account_id::text
+           from ownership_events o
+           left join users p on p.user_id = o.previous_owner_user_id
+           left join users n on n.user_id = o.new_owner_user_id
+       ) e
+       left join users u on u.user_id = e.actor_user_id
+      where e.subject_id = $1
+      order by e.occurred_at desc
       limit $2`,
     [accountId, limit],
   );

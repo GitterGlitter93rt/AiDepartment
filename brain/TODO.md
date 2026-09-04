@@ -103,6 +103,41 @@ A task should appear in only one status section. Dependencies may be referenced 
   classification and idempotent event ingestion. **Gate:** spec §20 acceptance tests pass. No email
   sent; provider credential still needed (B-5).
 
+## 🟢 Completed — Release hardening (2026-09-04)
+
+- [x] **SB-H1 — Outbound voice adversarial hardening.** Bounded transcripts, idempotent setup
+  frames, socket-error handling, a concurrency ceiling, graceful shutdown, and a holding line so a
+  slow tool call cannot produce dead air. **Gate:** 101 tests in services/sales-voice and 31 in
+  services/voice-core pass, including an oversized WebSocket frame that previously killed the
+  process and would have ended every call in progress.
+- [x] **SB-H2 — Synthetic latency and interruption benchmark.** Twelve credential-free scenarios on
+  a virtual clock, with machine-readable PASS/FAIL and named targets. **Gate:** verdict PASS. This
+  measures our own code paths on a synthetic transport; it is not evidence about real PSTN audio,
+  and the harness says so in its own output.
+- [x] **SB-H3 — Sales AI adversarial roleplay expansion.** 90 behavioural cases across
+  salesAi/salesAiHardening/salesAiAdversarial. **Gate:** every case graded on behaviour rather than
+  wording; DNC terminal, one question at a time, bare engagement is not meeting consent, and a call
+  may end with no need.
+- [x] **SB-H4 — Hook/opener experiment engine with attribution.** migrations/024, full experiment
+  dimensions, minimum-sample floors, and promotion readiness separate from comparison. Surfaced on
+  /analytics: below the floor there is no ranking, no leader and no ordering that reads as one.
+  **Gate:** 16 engine tests plus an analytics page test asserting six attempts produce no winner.
+- [x] **SB-H5 — CRM audit across all 21 pages with data in them.** 27 tests covering shared shell
+  composition, evidence classes, ownership consistency, direct API bypass, stale-page writes, audit
+  reviewability and responsive containment. **Gate:** several substantive defects found and fixed —
+  see brain/CHANGELOG.md 2026-09-04.
+- [x] **SB-H6 — Provider contract hardening.** DataForSEO Standard mode now collects the queued
+  task it posts (it previously treated the acknowledgement as a result set and would have found
+  nothing once the credential arrived), with bounded retries, Retry-After, depth and candidate
+  dedupe. Smartlead gained a signed webhook transport. Twilio Lookup results now reach channel
+  eligibility. **Gate:** 33 provider hardening tests.
+- [x] **SB-H7 — Offline release dry-run matrix.** 20 classes, each with its own assertions, proving
+  the chain from account evidence to CRM state without a credential or a call. **Gate:** 12 tests.
+- [x] **SB-H8 — Deployment handoff for the outbound voice service.** deploy.sh, verify.sh,
+  rollback.sh, the systemd unit, the nginx snippets, OPERATOR.md, and a Vultr-console key
+  bootstrap that never generates or prints a private key. **Gate:** 25 static tests on the tooling.
+  Applying it is still blocked on SB-B8.
+
 ## 🚧 Blocked — Outbound Sales Brain (needs Michael)
 
 - [ ] **SB-B1 — Azure app registration** for michael@youraidepartment.ai: tenant ID, client ID,
@@ -123,6 +158,12 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **SB-B7 — Cal.com event type + API key.** `YAD 15-Minute AI Strategy Call` on
   michael@youraidepartment.ai with Cal Video, then `CALCOM_API_KEY` and `CALCOM_EVENT_TYPE_ID`.
   Cal.com is now the booking authority; the Graph path is a fallback and must not run alongside it.
+- [ ] **SB-B8 — SSH access to the voice VPS.** There is no key pair on the EdgeXpert, no password,
+  the box is not on the tailnet and no cloud CLI is configured, so the outbound voice service
+  cannot be deployed. The way in needs no SSH: run
+  `bash services/sales-voice/deploy/edgexpert-keygen.sh` here, then follow
+  `services/sales-voice/deploy/vultr-console-authorize-key.sh` in the Vultr web console.
+  `services/sales-voice/deploy/OPERATOR.md` §1 is the whole procedure.
 - [ ] **SB-PILOT — Controlled outbound pilot approval.** Not authorized. Requires explicit approval
   plus the compliance gates in CLAUDE-CURRENT-TASK.md §5. `OUTBOUND_DIAL_ENABLED` and
   `OUTBOUND_EMAIL_ENABLED` are both false and `preflight.sh` fails if either changes.

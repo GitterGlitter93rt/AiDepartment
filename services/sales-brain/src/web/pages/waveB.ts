@@ -6,7 +6,7 @@ import {
   emptyState, evidenceFact, hypothesisCard, kpiCard, routeTypeFor, statusPill, tierBadge,
   timeline,
 } from '../components/primitives.js';
-import { formatDateTime, pluralize, relativeTime, titleCase } from '../format.js';
+import { formatDateTime, pluralize, relativeTime, timeZoneLabel, titleCase } from '../format.js';
 import type { SessionUser } from '../../domain/auth.js';
 import { isManager } from '../../domain/auth.js';
 import { STAGES, STAGE_LABEL, allowedTransitions, type OpportunityRow, type Stage } from '../../domain/opportunities.js';
@@ -511,7 +511,7 @@ const MEETING_TABS = [
   { key: 'upcoming', label: 'Upcoming' },
   { key: 'today', label: 'Today' },
   { key: 'completed', label: 'Completed' },
-  { key: 'needs_attention', label: 'No-show / needs reschedule' },
+  { key: 'needs_attention', label: 'Unconfirmed / no-show' },
 ];
 
 export function renderMeetingsPage(input: {
@@ -542,7 +542,8 @@ export function renderMeetingsPage(input: {
                 <div style="min-width:0">
                   <div class="meeting-time">${formatDateTime(meeting.requested_start,
                     meeting.prospect_timezone ?? 'America/New_York')}
-                    <span class="micro muted">${meeting.prospect_timezone ?? 'America/New_York'}</span>
+                    <span class="micro muted">${timeZoneLabel(
+                      meeting.prospect_timezone ?? 'America/New_York', meeting.requested_start)}</span>
                   </div>
                   <h3 style="margin:4px 0 2px">
                     <a href="/accounts/${meeting.account_id}">${meeting.company_name}</a>
@@ -588,7 +589,11 @@ function meetingStatusPill(meeting: MeetingRow): RawHtml {
   if (meeting.status === 'COMPLETED' || meeting.attended_state === 'ATTENDED') {
     return statusPill('Completed', 'success');
   }
-  if (meeting.status === 'PENDING') return statusPill('Awaiting confirmation', 'warning');
+  if (meeting.status === 'PENDING') {
+    return statusPill('Not confirmed by the calendar', 'warning',
+      'We asked the provider and it has not confirmed. Do not tell the prospect this '
+      + 'is booked until it does.');
+  }
   return statusPill('Confirmed', 'success');
 }
 
@@ -664,7 +669,9 @@ export function renderMeetingDetailPage(input: {
             <dl class="detail-list">
               <div><dt>When</dt><dd>${formatDateTime(meeting.requested_start,
                 meeting.prospect_timezone ?? 'America/New_York')}</dd></div>
-              <div><dt>Timezone</dt><dd>${meeting.prospect_timezone ?? 'America/New_York'}</dd></div>
+              <div><dt>Timezone</dt><dd>${timeZoneLabel(
+                meeting.prospect_timezone ?? 'America/New_York', meeting.requested_start)}
+                <span class="micro muted">${meeting.prospect_timezone ?? 'America/New_York'}</span></dd></div>
               <div><dt>Host</dt><dd>${meeting.calendar_upn}</dd></div>
               <div><dt>Attendee</dt><dd>${meeting.attendee_name ?? '—'}<br>
                 <span class="micro muted">${meeting.attendee_email ?? ''}</span></dd></div>

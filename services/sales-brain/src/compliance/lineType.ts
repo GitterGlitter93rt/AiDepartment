@@ -45,6 +45,27 @@ export function normalizeLineType(providerType: string | null | undefined): Norm
   return TYPE_MAP[providerType.replace(/[\s_-]/g, '').toLowerCase()] ?? 'UNKNOWN';
 }
 
+/**
+ * Our richer vocabulary projected onto the four values channel eligibility reasons
+ * about (`contact_endpoints.line_type`).
+ *
+ * Anything that is not clearly one of those four becomes `unknown` rather than being
+ * rounded to the nearest one: Twilio's `personal` is a follow-me service and not a
+ * handset, and a pager is neither. The full provider answer stays in
+ * line_type_screen_results, so nothing is lost by being careful here.
+ */
+const ENDPOINT_LINE_TYPE: Partial<Record<NormalizedLineType, string>> = {
+  LANDLINE: 'landline',
+  MOBILE: 'mobile',
+  FIXED_VOIP: 'voip',
+  NON_FIXED_VOIP: 'voip',
+  TOLL_FREE: 'toll_free',
+};
+
+export function endpointLineTypeFor(type: NormalizedLineType): string {
+  return ENDPOINT_LINE_TYPE[type] ?? 'unknown';
+}
+
 export interface LineTypeResult {
   status: LookupStatus;
   normalizedLineType: NormalizedLineType;
@@ -178,6 +199,18 @@ export function createTwilioLookupAdapter(options: {
       if (body.valid === false) return await failure('INVALID_NUMBER', 'PROVIDER_SAYS_INVALID');
 
       const intelligence = body.line_type_intelligence ?? {};
+
+      // Twilio answers 200 with an error_code inside the field when the carrier data
+      // is not available for that number's country rather than when the number is
+      // bad. "We asked and the data does not exist here" is a different fact from
+      // "we asked and the answer is unknown": the first will never improve on a
+      // rescreen, and calling it a success caches a non-answer for the full window
+      // (§11). Both leave the line type UNKNOWN -- no outage becomes a line type.
+      if (intelligence.error_code != null && !intelligence.type) {
+        return await failure('UNSUPPORTED_COVERAGE',
+          `PROVIDER_${intelligence.error_code}`);
+      }
+
       // A lookup that succeeded and returned type=unknown is a success whose answer is
       // UNKNOWN. Recording it as an error would make a rescreen look overdue forever.
       const result: LineTypeResult = {
@@ -258,6 +291,20 @@ async function persist(
      result.mobileNetworkCode, result.errorCode, result.checkedAt, result.refreshBy,
      result.providerRequestReference, result.wasCacheHit, result.costUsd],
   );
+  // The screen is only worth running if the thing that decides whether we may dial
+  // can see it. Channel eligibility reads contact_endpoints.line_type, so a
+  // successful screen is projected onto the endpoint -- otherwise a number Twilio
+  // identified as a personal mobile keeps being evaluated as 'unknown' and the
+  // personal-mobile rule can never fire (global-phone-channel-eligibility-dnc-spec
+  // §7). A failed screen writes nothing: an outage must not overwrite a known type.
+  if (endpointId && result.status === 'SUCCESS') {
+    await query(
+      `update contact_endpoints
+          set line_type = $2, line_type_source = 'TWILIO_LOOKUP_V2', updated_at = now()
+        where endpoint_id = $1`,
+      [endpointId, endpointLineTypeFor(result.normalizedLineType)],
+    );
+  }
   await recordUsage({
     status: result.status === 'SUCCESS' ? 'OK' : 'FAILED',
     costUsd: result.costUsd, units: 1, errorCode: result.errorCode,

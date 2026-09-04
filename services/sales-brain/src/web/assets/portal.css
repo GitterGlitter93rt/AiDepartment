@@ -219,6 +219,9 @@ h3 { font-size: 1rem;   font-weight: 650; }
 .badge-tier-B { background: rgba(34,211,238,0.16); color: #0E7490; }
 .badge-tier-C { background: #F1F5F9; color: var(--slate-gray); }
 .badge-tier-D { background: #F8FAFC; color: #94A3B8; }
+/* Unscored is a different statement from tier D: dashed, so "we do not know" cannot
+   be mistaken at a glance for "we looked and it was poor". */
+.badge-unscored { background: #FFFFFF; color: var(--slate-gray); border: 1px dashed #CBD5E1; }
 .badge-good   { background: rgba(16,185,129,0.12); color: #047857; }
 .badge-warn   { background: rgba(245,158,11,0.14); color: #B45309; }
 .badge-bad    { background: var(--crimson-soft);   color: var(--crimson); border-color: #FCA5A5; }
@@ -527,7 +530,8 @@ input[type='checkbox'] { width: 15px; height: 15px; accent-color: var(--electric
 /* Stale is dashed so it never reads as current at a glance. */
 .pill-stale       { background: #F8FAFC; color: #94A3B8; border: 1px dashed #CBD5E1; }
 .pill-ad          { background: #EEF2FF; color: #3730A3; }
-.pill-unscored    { background: #F8FAFC; color: #94A3B8; }
+/* Same reasoning as .badge-unscored: not-yet-known must not read as judged-poor. */
+.pill-unscored    { background: #FFFFFF; color: var(--slate-gray); border: 1px dashed #CBD5E1; }
 .pill-tier-A { background: rgba(37,99,235,0.11);  color: #1D4ED8; }
 .pill-tier-B { background: rgba(34,211,238,0.16); color: #0E7490; }
 .pill-tier-C { background: #F1F5F9; color: var(--slate-gray); }

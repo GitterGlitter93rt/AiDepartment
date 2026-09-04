@@ -54,6 +54,7 @@ import {
   runPreflight, setPilotSwitch, stopNewOutboundCalls,
 } from '../domain/pilot.js';
 import { listIntegrations, setIntegrationEnabled, testIntegration } from '../domain/settings.js';
+import { compareHookVariants, promotionReadiness } from '../analytics/hookExperiments.js';
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -877,15 +878,23 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
     const filters = parseAnalyticsFilters(params);
 
-    const [counts, options, funnel, byVertical, byOwner, byMarket, byHypothesis] = await Promise.all([
+    // The opener comparison uses the same scope the rest of the page is showing, so
+    // a filtered funnel and a filtered experiment cannot disagree.
+    const cohort = {
+      verticalProfileId: filters.verticalProfileId, marketId: filters.marketId,
+      fromDate: filters.fromDate, toDate: filters.toDate,
+    };
+    const [counts, options, funnel, byVertical, byOwner, byMarket, byHypothesis,
+           hooks, promotion] = await Promise.all([
       navCountsFull(user.userId, user.role),
       analyticsFilterOptions(),
       analyticsFunnel(filters),
       analyticsBreakdown('vertical'), analyticsBreakdown('owner'),
       analyticsBreakdown('market'), analyticsBreakdown('hypothesis'),
+      compareHookVariants(cohort), promotionReadiness(cohort),
     ]);
     return reply.type('text/html').send(renderAnalyticsPage({
-      user, counts, funnel, filters, options,
+      user, counts, funnel, filters, options, hooks, promotion,
       breakdowns: { vertical: byVertical, rep: byOwner, market: byMarket, hypothesis: byHypothesis },
     }));
   });

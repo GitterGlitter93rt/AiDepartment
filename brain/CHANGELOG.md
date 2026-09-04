@@ -1,5 +1,54 @@
 # Operational Brain Changelog
 
+## 2026-09-04 — Release hardening: eight defects found in finished code
+
+An adversarial pass over work that already had passing tests. Nothing was deployed,
+no call was placed, no webhook changed and no switch was armed.
+
+Defects found and fixed:
+
+- **An oversized WebSocket frame killed the voice process.** `ws` raised "Max payload
+  size exceeded" with no error handler attached, so on the deployed service one bad
+  frame would have ended every call in progress, not just the offending one.
+- **DataForSEO Standard mode could never return a result.** The adapter posted to
+  `task_post` and normalised the acknowledgement as though it contained results. In
+  the mode it defaults to, the provider answers with a task id; the results have to
+  be collected afterwards. It would have found nothing on the day the credential
+  arrived, while recording every run as OK.
+- **A screened line type never reached the policy that reads it.** Twilio Lookup
+  results were cached in `line_type_screen_results`, and channel eligibility reads
+  `contact_endpoints.line_type`, which nothing wrote. A number identified as a
+  personal mobile kept being evaluated as unknown, so the personal-mobile rule could
+  not fire for anyone.
+- **A correct phone number was rendered struck through.** The account page struck out
+  any endpoint that was not currently callable, including a confirmed-current main
+  line merely awaiting an eligibility check. Struck through reads as "this number is
+  wrong", which invites a rep to correct a number that was right.
+- **Contradicted evidence rendered as an ordinary signal.** A claim our own sources
+  disagree with appeared as a neutral badge beside confirmed facts, so "Decision
+  Maker Name" read as something known. It now renders as contradicted, with the
+  instruction not to state it.
+- **A booking the provider never confirmed appeared on no tab.** Upcoming means
+  confirmed, and the attention tab covered no-shows and cancellations. A booking
+  stuck in PENDING — provider timeout, webhook never delivered — was invisible to
+  everyone while the prospect may have been told an invite was coming.
+- **Unscored was styled as tier D.** Not-yet-researched was coloured as
+  judged-and-found-poor, which is backwards: an unresearched advertiser is the one
+  worth looking at.
+- **The audit page could not answer who took an Account.** Ownership is recorded in
+  its own append-only ledger; the review surface read only `audit_log`. The two are
+  now unioned for reading, without duplicating either write.
+
+Added: a signed Smartlead webhook transport (HMAC over the raw bytes, timestamp
+inside the signed material, provider event id for idempotency); the hook experiment
+report on /analytics with explicit insufficient-evidence behaviour; breadcrumbs on
+the account page; `rollback.sh` and `OPERATOR.md` for the outbound voice deployment;
+and a Vultr-console key bootstrap that never generates or prints a private key.
+
+Still blocked: SB-B8, SSH access to the voice VPS. Everything else in that path is
+written, reviewed and tested offline.
+
+
 ## 2026-08-30 — Production tracking audited and Facebook identity started
 
 - Confirmed production Google Tag Manager container GTM-5G8Q7KKZ and GA4 stream G-GLSRPH43L4 from the supplied GTM workspace screenshots and live site.

@@ -173,8 +173,13 @@ export async function listMeetings(
       conditions.push(`b.status in ('COMPLETED') or b.attended_state = 'ATTENDED'`);
       break;
     case 'needs_attention':
-      // No-shows and cancellations both need a human decision.
-      conditions.push(`b.attended_state = 'NO_SHOW' or b.status in ('CANCELLED','FAILED')`);
+      // No-shows and cancellations both need a human decision. So does a booking
+      // still waiting on the provider: we told the prospect we would send an invite,
+      // the provider never confirmed, and it appears on no other tab. Silently
+      // invisible is the worst of the three states, because nobody goes looking for
+      // it. A few minutes of grace keeps in-flight requests out of the list.
+      conditions.push(`(b.attended_state = 'NO_SHOW' or b.status in ('CANCELLED','FAILED')
+        or (b.status = 'PENDING' and b.created_at < now() - interval '10 minutes'))`);
       break;
     default:
       conditions.push(`b.status = 'CONFIRMED' and b.requested_start >= now()`);

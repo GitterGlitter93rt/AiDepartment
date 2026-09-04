@@ -92,7 +92,15 @@ function endpointRow(endpoint: DetailEndpoint, contactName: string | null): RawH
   return html`
   <div class="endpoint">
     <div style="flex:1;min-width:0">
-      <div class="endpoint-value" style="${raw(dead || !callable ? 'text-decoration:line-through;color:var(--slate-gray)' : '')}">
+      <div class="endpoint-value" style="${raw(
+        // Struck through means the value itself is wrong: a wrong number, a
+        // disconnection, a hard bounce. A perfectly correct main line that is merely
+        // waiting on an eligibility check is not wrong, and showing it struck out
+        // invites a rep to "correct" a number that was right all along. Blocked is
+        // said with the badge, the note and the missing action, not by defacing the
+        // number (endpoint-quality-spec §1: quality and permission are separate axes).
+        dead ? 'text-decoration:line-through;color:var(--slate-gray)'
+        : !callable ? 'color:var(--slate-gray)' : '')}">
         ${endpoint.display_value}${endpoint.extension ? html` <span class="muted small">ext. ${endpoint.extension}</span>` : ''}
       </div>
       <div class="endpoint-meta">
@@ -154,8 +162,14 @@ function contactBlock(contact: DetailContact, isPrimary: boolean): RawHtml {
 export function renderAccountBody(detail: AccountDetail, user: SessionUser): RawHtml {
   const { account, contacts, accountEndpoints, hypotheses, evidence, timeline, followUps } = detail;
   const primaryHypothesis = hypotheses[0];
-  const currentEvidence = evidence.filter((item) => !item.is_expired);
-  const staleEvidence = evidence.filter((item) => item.is_expired);
+  // A claim we hold *and disbelieve* is the most dangerous thing to render neutrally:
+  // a rep who reads "Decision Maker Name" as a signal opens the call with the wrong
+  // person's name. Contradicted evidence gets its own class, whatever its freshness
+  // (component contract EvidenceFact.classes, data-contract §18).
+  const contradictedEvidence = evidence.filter((item) => item.confidence === 'contradicted');
+  const believable = evidence.filter((item) => item.confidence !== 'contradicted');
+  const currentEvidence = believable.filter((item) => !item.is_expired);
+  const staleEvidence = believable.filter((item) => item.is_expired);
 
   return html`
   <div class="section">
@@ -221,6 +235,7 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
   <div class="section">
     <h3>Signals</h3>
     ${currentEvidence.length === 0 && staleEvidence.length === 0
+      && contradictedEvidence.length === 0
       ? html`<p class="muted small">No research evidence recorded yet.</p>`
       : html`
         <div class="row" style="gap:6px">
@@ -231,13 +246,21 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
             </span>`)}
           ${staleEvidence.map((item) => html`
             <span class="badge badge-stale"
-                  title="Expired ${relativeTime(item.expires_at)} — do not state in present tense">
+                  title="${item.claim_text} — expired ${relativeTime(item.expires_at)}, do not state in present tense">
               ${titleCase(item.claim_key)} (stale)
+            </span>`)}
+          ${contradictedEvidence.map((item) => html`
+            <span class="badge badge-bad"
+                  title="${item.claim_text} — ${item.source_type}, contradicted by another source. Do not state it.">
+              ${titleCase(item.claim_key)} (contradicted)
             </span>`)}
         </div>
         <p class="micro muted" style="margin-top:8px">
           Solid badges are confirmed and safe to reference. Dashed badges have aged past their
-          freshness window — refresh before saying "currently".
+          freshness window — refresh before saying "currently".${
+            contradictedEvidence.length > 0
+              ? ' Red badges are contradicted: our sources disagree, so treat it as unknown and ask.'
+              : ''}
         </p>`}
   </div>
 
@@ -477,6 +500,13 @@ export function renderAccountPage(
       account.canonical_domain
         ? html` · <a href="https://${account.canonical_domain}" target="_blank" rel="noreferrer noopener">${account.canonical_domain}</a>`
         : ''}`,
+    // The deepest page in the app needs a way back to the list it came from. A rep
+    // arrives here from My Prospects; a manager from Find or Team.
+    breadcrumbs: [
+      { href: account.current_owner_user_id === user.userId ? '/prospects' : '/find',
+        label: account.current_owner_user_id === user.userId ? 'My Prospects' : 'Find Prospects' },
+      { href: '#', label: account.company_name },
+    ],
     user, currentPath: '/prospects', counts, body,
     actions: html`${tierBadge(account.manual_tier, account.manual_score)} ${adBadges(account)} ${channelBadge(account.channel_state)}`,
     script: html`

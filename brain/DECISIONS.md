@@ -105,3 +105,62 @@ deleted; the voice track will be repointed at the canonical database when it res
 
 `primary_hook_template` contained an unquoted `": "`, which YAML read as a nested mapping. Quoting
 the scalar changed no semantics. Every other `docs/**/*.yaml` was swept for the same shape.
+
+### A rate is never shown without the population it came from
+
+Analytics prints "50% (1 of 2)", not "50%". The same percentage off two calls and off
+two hundred are different facts, and a table showing only the percentage makes them
+look identical. Below the minimum-attempt floor the opener comparison names no
+leader, prints no ranking and gives no ordering that could be read as one. Promotion
+readiness is a separate, stricter question from comparability, because reading a
+report is not the same as acting on it.
+
+### Endpoint quality and permission to dial are separate axes, including visually
+
+Struck-through means the value itself is wrong: a wrong number, a disconnection, a
+hard bounce. A correct number that is merely waiting on an eligibility check is shown
+plainly, with the block said by a badge, a note and a missing action. Defacing a
+correct number invites a rep to "fix" it, which corrupts the data we were protecting.
+
+### Not-yet-known is never styled as judged-and-found-poor
+
+Unscored gets its own treatment rather than tier D's, and a claim our own sources
+contradict gets its own rather than a neutral one. An unresearched advertiser is the
+prospect worth looking at, and a contradicted owner name is the one thing that will
+end a call in the first sentence.
+
+### A booking that is not confirmed must be visible somewhere
+
+"Confirmed only when the provider confirms" is half a rule. The other half is that a
+booking stuck waiting on the provider appears on the attention tab once it is past
+the in-flight window, because we may already have told the prospect an invite was
+coming. Silently invisible is worse than either state.
+
+### Ownership stays in its own ledger, and the audit view reads both
+
+Claims, releases and reassignments are written to `ownership_events`, not duplicated
+into `audit_log`. The audit page and the account history union the two for reading, so
+"who took this Account" is answerable without a second write path that could drift
+from the first.
+
+### A queued provider task is not a result
+
+An adapter that posts a task must collect it. DataForSEO Standard mode answers with a
+task id; treating that acknowledgement as an empty result set is indistinguishable
+from a market with no advertisers in it, and records the run as a success. The poll is
+bounded by configuration and its outcome — collected, still queued, or errored — is
+recorded either way.
+
+### A provider webhook is authenticated by signature over the raw bytes
+
+Not by knowing the URL, and not over a re-serialised object: re-serialising changes
+key order and whitespace, so the check then fails legitimate requests, and the first
+response to that is to turn the check off. The timestamp is inside the signed material
+and outside a tolerance window a captured request is refused, so a valid signature is
+not a permanent credential. An unverified payload never reaches ingestion.
+
+### A screening result that no policy reads is not a control
+
+Twilio Lookup writes its answer onto the endpoint that channel eligibility actually
+reads, only on success. A failed lookup writes nothing rather than overwriting a type
+we had already established, because an outage must never become a line type.

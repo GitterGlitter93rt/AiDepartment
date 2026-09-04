@@ -20,6 +20,28 @@ export function relativeTime(value: Date | string | null | undefined): string {
   return future ? `in ${magnitude}` : `${magnitude} ago`;
 }
 
+/**
+ * A rep reads a time, not an IANA identifier. "1:35 PM ET" is what a person says on
+ * a call; "America/New_York" is what a database stores. The identifier is kept as the
+ * fallback for any zone without a common abbreviation, because a wrong-but-friendly
+ * label would be worse than an ugly correct one.
+ */
+export function timeZoneLabel(timeZone: string | null | undefined, at?: Date | string | null): string {
+  if (!timeZone) return '';
+  const date = at ? (at instanceof Date ? at : new Date(at)) : new Date();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
+      .formatToParts(date);
+    const name = parts.find((part) => part.type === 'timeZoneName')?.value;
+    // Intl falls back to an offset like "GMT-4" for zones with no abbreviation; the
+    // identifier is more useful to a rep than an offset.
+    if (name && !/^GMT/.test(name)) return name;
+  } catch {
+    // An unknown identifier: show it as stored rather than guess.
+  }
+  return timeZone;
+}
+
 export function formatDateTime(value: Date | string | null | undefined, timeZone = 'America/New_York'): string {
   if (!value) return '—';
   const date = value instanceof Date ? value : new Date(value);

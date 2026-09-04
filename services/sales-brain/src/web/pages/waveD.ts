@@ -1,4 +1,4 @@
-import { html, type RawHtml } from '../html.js';
+import { html, raw, type RawHtml } from '../html.js';
 import { renderPage } from '../layout.js';
 import type { NavCounts } from '../components/shell.js';
 import {
@@ -9,6 +9,7 @@ import type { SessionUser } from '../../domain/auth.js';
 import type { CallPackPreview, CandidateRow, PilotState } from '../../domain/pilot.js';
 import type { IntegrationView } from '../../domain/settings.js';
 import type { AnalyticsFilters, AuditFilters, SearchHit } from '../../api/waveDQueries.js';
+import type { ExperimentReport, RateWithPopulation } from '../../analytics/hookExperiments.js';
 
 /**
  * Sales AI Pilot, Call Review, Campaigns, Analytics, Settings.
@@ -758,6 +759,8 @@ function selectFilter(input: {
 export function renderAnalyticsPage(input: {
   user: SessionUser; counts: NavCounts; funnel: any; breakdowns: Record<string, any[]>;
   filters: AnalyticsFilters & { ignored?: string[] }; options: AnalyticsOptions;
+  hooks?: ExperimentReport | null;
+  promotion?: { ready: boolean; reasons: string[] } | null;
 }): string {
   const { user, counts, funnel, breakdowns, filters, options } = input;
   const researched = Number(funnel?.researched ?? 0);
@@ -894,13 +897,119 @@ export function renderAnalyticsPage(input: {
                     })}
                   </div>`}
             </div>`)}
-        </div>`}`;
+        </div>`}
+
+    ${hookSection(input.hooks ?? null, input.promotion ?? null)}`;
 
   return renderPage({
     title: 'Analytics',
     subtitle: 'Booked and attended are separate numbers, and negative outcomes are shown.',
     user, currentPath: '/analytics', counts, body,
   });
+}
+
+/**
+ * Opener comparison.
+ *
+ * The point of this section is what it refuses to say. Below the attempt floor there
+ * is no ranking, no leader and no ordering that could be read as one -- only the
+ * counts and a sentence explaining that six calls is not a result
+ * (CLAUDE-SALES-AI-TRANSCRIPT-AUTHORITY.md: hook optimization).
+ */
+function hookSection(
+  report: ExperimentReport | null,
+  promotion: { ready: boolean; reasons: string[] } | null,
+): RawHtml {
+  if (!report) return raw('');
+
+  if (report.totalAttempts === 0) {
+    return html`
+    <div style="height:18px"></div>
+    <div class="card">
+      <div class="card-head"><h2>Openers</h2></div>
+      <div class="card-pad">
+        ${emptyState({
+          title: 'No opener has been tried yet',
+          explanation: 'Each attempt records which opener was used and what happened after it, '
+            + 'so this table fills in once calls have been made.',
+        })}
+      </div>
+    </div>`;
+  }
+
+  return html`
+    <div style="height:18px"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Openers</h2>
+        <span class="muted small">Ranked on what the meetings were worth, not on bookings.</span>
+      </div>
+      <div class="card-pad">
+        <div class="callout ${report.insufficientEvidence ? 'callout-warn' : ''}">
+          <strong>${report.insufficientEvidence
+            ? 'Not enough evidence to compare'
+            : 'Comparable'}</strong>
+          <p style="margin:6px 0 0">${report.message}</p>
+        </div>
+        ${report.leader && !report.insufficientEvidence
+          ? html`<p class="small" style="margin:10px 0 0">
+              Ahead on this cohort: <strong>${report.leader.openerVersion}</strong>
+              (${report.leader.openerFrame}) — ${report.leader.basis}.
+            </p>`
+          : ''}
+        ${promotion
+          ? html`<div class="callout ${promotion.ready ? '' : 'callout-warn'}" style="margin-top:10px">
+              <strong>${promotion.ready
+                ? 'A variant may be promoted'
+                : 'Nothing may be promoted yet'}</strong>
+              ${promotion.reasons.length > 0
+                ? html`<ul style="margin:6px 0 0;padding-left:18px">
+                    ${promotion.reasons.map((reason) => html`<li>${reason}</li>`)}
+                  </ul>`
+                : ''}
+            </div>`
+          : ''}
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr>
+            <th>Opener</th><th>Frame</th><th>Attempts</th>
+            <th>Right stakeholder</th><th>Booked</th><th>Attended</th>
+            <th>Meeting quality</th><th>DNC</th><th>State</th>
+          </tr></thead>
+          <tbody>
+            ${report.variants.map((variant) => html`<tr>
+              <td>${variant.openerVersion}</td>
+              <td class="muted small">${variant.openerFrame}</td>
+              <td>${variant.attempts}</td>
+              <td>${population(variant.rates['right_stakeholder_per_human_answer'])}</td>
+              <td>${population(variant.rates['booking_completion'])}</td>
+              <td>${variant.quality.attended}</td>
+              <td>${variant.quality.meanScore === null
+                ? html`<span class="muted small">not enough scored meetings</span>`
+                : html`${variant.quality.meanScore} / 5`}</td>
+              <td>${population(variant.rates['dnc'])}</td>
+              <td>${variant.insufficientEvidence
+                ? statusPill('Not enough evidence', 'review', variant.reason ?? undefined)
+                : statusPill('Comparable', 'success')}</td>
+            </tr>`)}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/**
+ * A rate is never shown without the population it came off. "50%" off two calls and
+ * "50%" off two hundred are different facts, and a table that prints only the
+ * percentage makes them look identical.
+ */
+function population(value: RateWithPopulation | undefined): RawHtml {
+  if (!value) return html`<span class="muted">—</span>`;
+  if (value.denominator === 0) return html`<span class="muted small">0 of 0</span>`;
+  const percent = `${((value.rate ?? 0) * 100).toFixed(0)}%`;
+  return html`${percent} <span class="muted small">(${value.numerator} of ${value.denominator})</span>${
+    value.lowSample ? html` <span class="badge badge-warn">small sample</span>` : ''}`;
 }
 
 function labelFor(options: FilterOption[], id: string): string {
