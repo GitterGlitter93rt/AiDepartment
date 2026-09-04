@@ -168,6 +168,14 @@ A task should appear in only one status section. Dependencies may be referenced 
   plus the compliance gates in CLAUDE-CURRENT-TASK.md §5. `OUTBOUND_DIAL_ENABLED` and
   `OUTBOUND_EMAIL_ENABLED` are both false and `preflight.sh` fails if either changes.
 
+## Release classification (2026-09-04)
+
+`npx tsx src/bin/release-report.ts` at b4ecdeb: **HUMAN_ASSIST_ONLY** —
+10 gates PASS, 6 BLOCKED_EXTERNAL, 4 NOT_TESTED. The four untested gates all require
+a real call, which needs SB-B8 first and SB-PILOT after it. Test totals at that
+commit: sales-brain 628/628, voice-core 31/31, sales-voice 101/101; the offline
+20-class dry-run matrix is PASS and the synthetic latency benchmark is PASS.
+
 ## Current blockers
 
 1. INPUT-005 must be resolved before changing the assessment/audit source without risking deployed fixes.
