@@ -117,6 +117,12 @@ A task should appear in only one status section. Dependencies may be referenced 
   the Tailscale admin console, and `sudo tailscale set --operator=$USER`. See
   docs/09-software/SALES-PORTAL-RUNBOOK.md §3 for the option that works today without either.
 - [ ] **SB-B5 — Smartlead API key and webhook secret.**
+- [ ] **SB-B6 — DNC screening provider.** Until one is connected no phone endpoint can reach
+  `ALLOW` on merit; human calling stays `REVIEW_REQUIRED` and a manager must clear each number.
+  Options are in `docs/09-software/outbound-sales-brain-dnc-provider-selection-current.md`.
+- [ ] **SB-B7 — Cal.com event type + API key.** `YAD 15-Minute AI Strategy Call` on
+  michael@youraidepartment.ai with Cal Video, then `CALCOM_API_KEY` and `CALCOM_EVENT_TYPE_ID`.
+  Cal.com is now the booking authority; the Graph path is a fallback and must not run alongside it.
 - [ ] **SB-PILOT — Controlled outbound pilot approval.** Not authorized. Requires explicit approval
   plus the compliance gates in CLAUDE-CURRENT-TASK.md §5. `OUTBOUND_DIAL_ENABLED` and
   `OUTBOUND_EMAIL_ENABLED` are both false and `preflight.sh` fails if either changes.
