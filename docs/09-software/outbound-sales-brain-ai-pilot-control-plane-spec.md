@@ -2,7 +2,13 @@
 
 **Status:** Architecture authority  
 **Date:** 2026-09-03  
-**Purpose:** Give Michael a safe, observable operator console for the first Sales AI outbound tests instead of treating the dialer as an unattended batch job.
+**Purpose:** Give Michael a visible operator console for the first Sales AI outbound tests instead of treating the dialer as an unattended batch job.
+
+Read with:
+
+- `outbound-sales-brain-ai-pilot-candidate-selection-contract.v1.yaml`
+- `TOMORROW-OUTBOUND-PILOT-PREFLIGHT-CURRENT.md`
+- `CLAUDE-TOMORROW-RELEASE-REPORT-TEMPLATE.md`
 
 ---
 
@@ -15,6 +21,7 @@ Do not begin with an invisible background job that attempts hundreds of calls.
 Initial flow:
 
 `researched Account inventory`
+-> `hard eligibility/relationship gates`
 -> `eligible pilot candidates`
 -> `Michael selects exact Accounts`
 -> `preview Call Pack / target / reason`
@@ -23,6 +30,8 @@ Initial flow:
 -> `live status + outcome`
 -> `QA review`
 -> `increase concurrency only after evidence supports it`.
+
+This does not change the ordinary salesperson experience into a queue. The Pilot area is a manager-controlled execution surface for Sales AI testing only.
 
 ---
 
@@ -45,7 +54,41 @@ This is not visible to ordinary reps unless role permits.
 
 ---
 
-# 3. CANDIDATE TABLE
+# 3. CANDIDATE GENERATION
+
+Candidate generation must use:
+
+`outbound-sales-brain-ai-pilot-candidate-selection-contract.v1.yaml`
+
+Hard gates run before ranking.
+
+Required concepts:
+
+- canonical Account identity resolved;
+- relationship state compatible with generic pilot outreach;
+- ownership/manager assignment compatible with AI use;
+- no active YAD suppression;
+- exact phone endpoint valid enough for intended action;
+- current `AUTONOMOUS_AI_VOICE = ALLOW` decision;
+- sufficient fresh research for selected opener;
+- current immutable Call Pack;
+- voice/persistence/campaign health.
+
+Only after hard gates pass may the system order candidates using transparent dimensions such as:
+
+- contact-route strength;
+- fresh claim-safe hook evidence;
+- YAD Tier/score;
+- research completeness;
+- advertiser strength;
+- hypothesis/question clarity;
+- research age.
+
+Do not let Module 4C score, Tier A status, manager preference or rep ownership override a failed phone/policy/relationship gate.
+
+---
+
+# 4. CANDIDATE TABLE
 
 Each candidate should show:
 
@@ -55,23 +98,26 @@ Each candidate should show:
 - YAD Tier/score;
 - advertiser evidence;
 - target contact/role;
-- phone endpoint + type/source;
-- decision-maker confidence;
+- contact route class: Direct / Named via Main Line / Role via Main Line / Generic Main Line;
+- phone endpoint type/source;
 - primary hypothesis;
+- selected hook family;
 - opening-context preview;
-- strategy-call target;
+- first question;
 - research freshness;
 - contact history;
 - current owner;
-- compliance/policy status;
+- current AI voice decision + refresh time;
 - pilot eligibility result;
 - reason if blocked/review required.
 
 Michael should be able to open full Account/Call Pack before selecting.
 
+Do not show raw registry records or provider secrets.
+
 ---
 
-# 4. SELECT FOR PILOT
+# 5. SELECT FOR PILOT
 
 Manager selects exact Accounts.
 
@@ -86,19 +132,24 @@ Actions:
 
 Adding to pilot does **not** immediately dial.
 
+A candidate that becomes ineligible after being added must change state before the next call rather than retaining stale READY status.
+
 ---
 
-# 5. PRE-FLIGHT CHECK
+# 6. PRE-FLIGHT CHECK
 
-Before a candidate can become `READY`, verify current required gates such as:
+Immediately before `Start Next Call`, recheck current required gates such as:
 
 - Account not suppressed/DNC;
 - correct relationship/campaign status;
-- phone endpoint usable under current policy;
+- owner/assignment still permits AI action;
+- exact phone endpoint still usable;
+- current autonomous AI voice eligibility decision;
+- any required registry/provider screen current;
 - local time/calling-window eligibility;
 - contact history/cadence eligible;
 - current Call Pack exists;
-- current evidence snapshot available;
+- any current-ad fact used in opener still claim-safe/fresh;
 - current agent profile version exists;
 - realtime voice health green;
 - booking adapter health green if booking enabled;
@@ -107,9 +158,11 @@ Before a candidate can become `READY`, verify current required gates such as:
 
 The language model cannot mark itself eligible.
 
+If a current gate changes from ALLOW to BLOCK/REVIEW, do not issue the Twilio request. Surface the reason and let Michael select another candidate.
+
 ---
 
-# 6. PILOT STATES
+# 7. PILOT STATES
 
 - `DRAFT`
 - `PREFLIGHT_REVIEW`
@@ -124,9 +177,11 @@ The language model cannot mark itself eligible.
 
 Each Account also retains its ordinary contact/outcome state.
 
+A Pilot state never replaces canonical Account relationship state.
+
 ---
 
-# 7. INITIAL CONCURRENCY
+# 8. INITIAL CONCURRENCY
 
 For earliest pilot:
 
@@ -146,7 +201,7 @@ Do not let LLM choose concurrency.
 
 ---
 
-# 8. START CONTROLS
+# 9. START CONTROLS
 
 Buttons:
 
@@ -162,9 +217,11 @@ Buttons:
 - visible system-wide;
 - audited with actor/time/reason.
 
+No hidden background dial loop may bypass these controls.
+
 ---
 
-# 9. LIVE CALL CARD
+# 10. LIVE CALL CARD
 
 While active show:
 
@@ -172,6 +229,7 @@ While active show:
 - call duration;
 - current state (`opening`, `discovery`, `booking`, etc.);
 - target hypothesis;
+- selected hook;
 - last prospect intent classification;
 - tool action status;
 - high-level latency indicators;
@@ -189,7 +247,7 @@ Do not require live supervisor features for first functional pilot.
 
 ---
 
-# 10. COMPLETED CALL ROW
+# 11. COMPLETED CALL ROW
 
 Show immediately:
 
@@ -211,18 +269,20 @@ Click -> full call review.
 
 ---
 
-# 11. CALL REVIEW PAGE
+# 12. CALL REVIEW PAGE
 
 Use `outbound-sales-brain-ai-cold-call-pilot-scorecard.md`.
 
 Present synchronized:
 
 - audio/recording where permitted;
-- transcript;
+- transcript where permitted;
 - state transitions;
 - tool calls/results;
 - latency timeline;
 - Call Pack snapshot;
+- selected hook/opener context;
+- phone eligibility decision reference;
 - prompt/config versions;
 - extracted facts/outcome;
 - QA score/hard fails;
@@ -232,17 +292,21 @@ This must make the call reproducible enough to debug.
 
 ---
 
-# 12. VERSION SNAPSHOT
+# 13. VERSION SNAPSHOT
 
 Every attempt records immutable references to:
 
 - agent profile version/hash;
+- core script/first-60 behavior version;
 - dialogue policy version/hash;
-- opener selector version;
+- opener selector/hook version;
 - response-card version;
 - Sales Manual knowledge snapshot;
 - vertical profile/version;
 - Call Pack version;
+- research snapshot;
+- phone eligibility/policy decision;
+- screening source/version where applicable;
 - realtime model/provider;
 - TTS/STT config;
 - voice profile;
@@ -253,9 +317,7 @@ Without this, comparing calls after prompt changes becomes unreliable.
 
 ---
 
-# 13. PILOT BATCH NOTES
-
-Batch object:
+# 14. PILOT BATCH OBJECT
 
 ```text
 PilotBatch
@@ -265,6 +327,7 @@ PilotBatch
 - created_at
 - purpose
 - candidate_account_ids[]
+- candidate_selection_contract_version
 - agent_profile_version
 - max_concurrency
 - start_status
@@ -283,24 +346,57 @@ Example name:
 
 ---
 
-# 14. FIRST BATCH DESIGN
+# 15. FIRST BATCH DESIGN
 
-Prefer a **small diverse sample** rather than ten nearly identical perfect leads.
+Earliest real batch should normally be only **3–5 manager-reviewed Accounts, possibly fewer**.
 
-Example controlled sample mix after all current eligibility gates pass:
+Prefer a deliberate mix after all current AI eligibility gates pass:
 
-- strong named decision-maker + direct/business route;
-- main-line/gatekeeper route;
+- strong named decision-maker + direct business route;
+- named decision-maker via verified main line;
+- one gatekeeper/main-line route if the endpoint is actually AI-eligible and Michael wants to test that branch;
 - current advertiser with after-hours hypothesis;
-- advertiser with estimate-follow-up hypothesis;
-- strong existing-system possibility;
-- one likely `send email`/busy-owner type if known only from contact context.
+- comparable overflow-hook candidate;
+- optional strong-system/no-sale branch only as an intentional learning case.
 
-The goal is to exercise conversation branches, not maximize bookings on the first ten calls.
+Do not include a candidate simply to create diversity when its data/policy quality is weaker.
+
+Do not mix law, roofing, real estate, collision and HVAC into the first real handful.
+
+Run the fictional HVAC gold fixture suite before selecting real Accounts.
 
 ---
 
-# 15. NO AUTOMATIC SCALE-UP
+# 16. REVIEW AFTER EACH EARLIEST CALL
+
+For the earliest real calls, do not automatically progress through a batch without review.
+
+Review:
+
+- correct Account and contact route;
+- current policy/phone preflight;
+- opener truth/relevance;
+- first-question response;
+- useful process fact by early turns;
+- barge-in/repetition;
+- unsupported claim count;
+- qualification/readiness decision;
+- next-step tool execution;
+- DNC/wrong-number behavior;
+- booking truth;
+- latency;
+- root cause.
+
+Then explicitly:
+
+- KEEP;
+- PAUSE;
+- RETEST;
+- REWRITE smallest responsible component.
+
+---
+
+# 17. NO AUTOMATIC SCALE-UP
 
 A high booking rate on five calls does not authorize 500 calls.
 
@@ -312,6 +408,7 @@ Scale decision should consider:
 - naturalness;
 - objection handling;
 - DNC reliability;
+- phone screening/eligibility reliability;
 - booking reliability;
 - qualified/attended meeting quality;
 - complaint/negative signals;
@@ -321,7 +418,7 @@ Manager explicitly advances pilot stage.
 
 ---
 
-# 16. INTEGRATION WITH REP OWNERSHIP
+# 18. INTEGRATION WITH REP OWNERSHIP
 
 If Account belongs to a human rep:
 
@@ -334,18 +431,18 @@ AI is another execution channel against one Account memory.
 
 ---
 
-# 17. CALL-BACK ROUTING
+# 19. CALL-BACK ROUTING
 
 Because outbound caller ID may be the shared YAD number:
 
 - inbound callback routes to Production Inbound, not Sales AI cold opener;
 - recent outbound Account context is retrieved;
-- callback can route to Michael/owner or create a task;
+- callback can route to Michael/current owner or create a task;
 - pilot screen should surface returned calls tied to pilot Accounts.
 
 ---
 
-# 18. FAILURE CATEGORIES
+# 20. FAILURE CATEGORIES
 
 Normalize failures:
 
@@ -353,6 +450,7 @@ Normalize failures:
 - voicemail;
 - AMD issue;
 - wrong endpoint;
+- phone eligibility/screening;
 - STT issue;
 - TTS issue;
 - websocket/runtime;
@@ -367,6 +465,22 @@ Do not dump all errors into `failed`.
 
 ---
 
-# 19. CORE RULE
+# 21. RELEASE REPORT
 
-**The first outbound pilot is a controlled experiment with a visible operator, not a volume campaign. Prove the conversation and action loop before increasing automation.**
+At the end of tomorrow's implementation/testing, use:
+
+`CLAUDE-TOMORROW-RELEASE-REPORT-TEMPLATE.md`
+
+and select exactly one release classification:
+
+- `REAL_AI_PILOT_ELIGIBLE`
+- `INTERNAL_AI_TEST_ONLY`
+- `HUMAN_ASSIST_ONLY`
+
+If not real-pilot eligible, the control plane can still support internal/allowlisted voice testing while independently eligible human reps use Human Assist.
+
+---
+
+# 22. CORE RULE
+
+**The first outbound pilot is a tiny, explicit, manager-reviewed experiment. Hard eligibility and relationship gates decide who can enter; transparent quality ranking decides who is worth testing first; Michael decides the exact Accounts; and each early call is reviewed before the system earns more automation.**
