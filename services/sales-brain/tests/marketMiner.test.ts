@@ -6,6 +6,7 @@ import { upsertAccount, recordEvidence } from '../src/domain/accounts.js';
 import { claimAccount } from '../src/domain/ownership.js';
 import { recordDisposition } from '../src/domain/activities.js';
 import { searchProspects, coverageFor } from '../src/domain/search.js';
+import { coverageNote } from '../src/web/components.js';
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { drainQueue } from '../src/workers/runner.js';
 import {
@@ -276,4 +277,28 @@ test('discovered businesses dedupe into existing Accounts and keep ownership', a
     `select count(*)::int as n from search_observations where account_id = $1`, [existing],
   );
   assert.equal(observations.rows[0]!.n, 1);
+});
+
+test('a market we have found but never looked into does not claim aged research', async () => {
+  // The stale branch prints "N researched prospects, but the research has aged past
+  // its freshness window. Treat advertising signals as historical until refreshed."
+  // Said of companies discovered an hour ago and never researched, every clause is
+  // false, and the last one invites a rep to believe we once saw advertising we have
+  // never looked for.
+  const rep = await makeUser('Rep Never Researched');
+  await seedMarketAccounts(4, '32777');
+  await query(
+    `update accounts set last_researched_at = null, research_fresh_until = null
+      where account_id in (select a.account_id from accounts a
+        join locations l on l.account_id = a.account_id where l.postal_code = '32777')`);
+
+  const coverage = await coverageFor({ geography: { type: 'zip_zcta', value: '32777' } });
+  assert.equal(coverage.state, 'NOT_YET_RESEARCHED');
+  assert.equal(coverage.researchedCount, 0, 'companies nobody has researched were counted as researched');
+  assert.equal(coverage.inScopeCount, 4, 'the inventory we do hold disappeared from the count');
+
+  const rendered = coverageNote(coverage as any, true, '32777');
+  assert.doesNotMatch(String(rendered), /aged past its freshness window/);
+  assert.match(String(rendered), /none of them researched yet/);
+  assert.ok(rep);
 });

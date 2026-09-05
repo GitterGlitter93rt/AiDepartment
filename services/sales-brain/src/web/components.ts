@@ -307,7 +307,8 @@ function discoveryNote(
 }
 
 export function coverageNote(coverage: {
-  state: string; researchedCount: number; unclaimedCount: number; lastMinedAt: Date | null;
+  state: string; researchedCount: number; inScopeCount?: number; unclaimedCount: number;
+  lastMinedAt: Date | null;
   discoveryAvailable?: boolean; activeJobScope?: string | null; unscoredExcluded?: number;
   unknownAdvertiserExcluded?: number;
   discovery?: {
@@ -375,6 +376,17 @@ export function coverageNote(coverage: {
                  search for any: this is what we hold, not what exists.`}</span>
         ${canResearch && canDiscover
           ? html`<button class="btn btn-secondary btn-sm js-research-more">Research this market</button>`
+          : ''}
+      </div>`;
+    case 'NOT_YET_RESEARCHED':
+      return html`${prefix}<div class="coverage-note">
+        <span class="dot"></span>
+        <span>${String(coverage.inScopeCount ?? coverage.researchedCount)} businesses in
+        inventory for ${geographyLabel}, and none of them researched yet. We know they
+        exist and nothing else about them &mdash; there are no advertising signals here
+        to read, rather than signals showing nothing.</span>
+        ${canResearch
+          ? html`<button class="btn btn-secondary btn-sm js-research-more">Research them</button>`
           : ''}
       </div>`;
     case 'STALE':

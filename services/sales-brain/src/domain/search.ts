@@ -214,8 +214,21 @@ export interface CoverageSummary {
    * advertising filter was asked for.
    */
   unknownAdvertiserExcluded?: number;
-  state: 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'REFRESHING';
+  state: 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'NOT_YET_RESEARCHED' | 'REFRESHING';
+  /**
+   * Accounts here that somebody has actually researched.
+   *
+   * This used to be every Account in scope, researched or not, and the stale branch
+   * printed it as "N researched prospects, but the research has aged past its
+   * freshness window. Treat advertising signals as historical." Said of a market
+   * that had just been discovered and never researched, every clause of that is
+   * false: nothing was researched, nothing aged, and there are no advertising
+   * signals to treat as anything. Never-checked and checked-a-while-ago are
+   * different states and a rep acts differently on them.
+   */
   researchedCount: number;
+  /** Everything here, researched or not. */
+  inScopeCount: number;
   unclaimedCount: number;
   lastMinedAt: Date | null;
   activeJobId: string | null;
@@ -532,7 +545,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
 
   if (!geography?.value && !marketId) {
     return {
-      state: 'FRESH', researchedCount: 0, unclaimedCount: 0, lastMinedAt: null,
+      state: 'FRESH', researchedCount: 0, inScopeCount: 0, unclaimedCount: 0, lastMinedAt: null,
       activeJobId: null, discoveryAvailable, activeJobScope: null, unscoredExcluded,
       unknownAdvertiserExcluded,
     };
@@ -577,9 +590,11 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   // and every poll of the coverage endpoint. Geography is an `exists` rather than a
   // join so an Account with two locations in one ZIP is still one Account.
   const { rows } = await query<{
-    researched: number; unclaimed: number; fresh: number; last_researched: Date | null;
+    in_scope: number; researched: number; unclaimed: number; fresh: number;
+    last_researched: Date | null;
   }>(
-    `select count(*)::bigint as researched,
+    `select count(*)::bigint as in_scope,
+            count(*) filter (where a.last_researched_at is not null)::bigint as researched,
             count(*) filter (where a.ownership_state = 'UNCLAIMED')::bigint as unclaimed,
             count(*) filter (where a.research_fresh_until > now())::bigint as fresh,
             max(a.last_researched_at) as last_researched
@@ -604,7 +619,10 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
 
   let state: CoverageSummary['state'];
   if (activeJobId) state = 'REFRESHING';
-  else if (summary.researched === 0) state = 'NOT_YET_MINED';
+  else if (summary.in_scope === 0) state = 'NOT_YET_MINED';
+  // We hold companies here and have never looked into any of them. Saying their
+  // research has "aged" invites a rep to treat never-checked as historically-checked.
+  else if (summary.researched === 0) state = 'NOT_YET_RESEARCHED';
   else if (summary.fresh === 0) state = 'STALE';
   else if (summary.fresh < summary.researched) state = 'PARTIAL';
   else state = 'FRESH';
@@ -617,6 +635,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   return {
     state,
     researchedCount: summary.researched,
+    inScopeCount: summary.in_scope,
     unclaimedCount: summary.unclaimed,
     lastMinedAt: summary.last_researched,
     activeJobId,
