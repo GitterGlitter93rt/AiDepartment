@@ -135,7 +135,9 @@ export async function runBenchmark(options: BenchmarkOptions): Promise<Benchmark
     const before = result.costUsd;
     let found: DiscoveredBusiness[] = [];
     try {
-      found = await options.adapter.discover(cell.query);
+      // The adapter reports why it came back with what it did; the benchmark cares
+      // only about yield, so a status other than OK simply contributes no rows.
+      found = (await options.adapter.discover(cell.query)).businesses;
     } catch {
       // A failed task still costs, and still counts against both ceilings.
       found = [];

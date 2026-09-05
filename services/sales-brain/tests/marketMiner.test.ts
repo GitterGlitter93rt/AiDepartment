@@ -190,11 +190,31 @@ test('a market_mine job with no discovery adapter still refreshes and says why',
   assert.match(String(rows[0]!.progress.notes), /source-governance review/);
 });
 
+test('a refresh done because no provider exists is not a searched market', async () => {
+  const rep = await makeUser('Ops Two', 'RESEARCH_OPS');
+  await seedMarketAccounts(2);
+  await query(`update accounts set research_fresh_until = now() - interval '1 day'`);
+
+  const job = await enqueueMarketResearch({
+    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32256',
+    marketId: null, requestedBy: rep.userId,
+  });
+  await drainQueue(1);
+
+  const { rows } = await query<{ outcome: string; outcome_reason: string }>(
+    'select outcome, outcome_reason from jobs where job_id = $1', [job.jobId]);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+  assert.match(rows[0]!.outcome_reason, /No search provider is configured/);
+});
+
 test('a discovery adapter must be both configured and governance-reviewed to run', async () => {
   const base = {
     name: 'test-provider', requiresCredential: true,
     isConfigured: () => true,
-    discover: async () => [],
+    discover: async () => ({
+      status: 'ZERO_RESULTS' as const, businesses: [],
+      providerRows: 0, rejectedRows: 0, duplicateRows: 0,
+    }),
   };
   registerDiscoveryAdapter({ ...base, name: 'unreviewed', governanceReviewed: false });
   assert.equal(
@@ -221,13 +241,17 @@ test('discovered businesses dedupe into existing Accounts and keep ownership', a
     requiresCredential: false,
     governanceReviewed: true,
     isConfigured: () => true,
-    discover: async () => [
-      // The same company the rep already owns, spelled differently.
-      { name: 'Riverbend Air 0 LLC', website: 'https://riverbend0.example.com',
-        city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
-      { name: 'Brand New Air', website: 'https://brandnew.example.com',
-        city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
-    ],
+    discover: async () => ({
+      status: 'OK' as const,
+      businesses: [
+        // The same company the rep already owns, spelled differently.
+        { name: 'Riverbend Air 0 LLC', website: 'https://riverbend0.example.com',
+          city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
+        { name: 'Brand New Air', website: 'https://brandnew.example.com',
+          city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
+      ],
+      providerRows: 2, rejectedRows: 0, duplicateRows: 0,
+    }),
   });
 
   const job = await enqueueMarketResearch({

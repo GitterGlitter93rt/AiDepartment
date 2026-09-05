@@ -29,6 +29,13 @@ export type MyProspectsFilter =
 export interface GeographyFilter {
   type: 'zip_zcta' | 'city' | 'county' | 'state' | 'saved_market' | 'any';
   value?: string;
+  /**
+   * The state a city was qualified with, when the operator gave one.
+   *
+   * "Jacksonville, FL" and "Jacksonville, TX" are different markets, and without
+   * this the search finds both and calls them one.
+   */
+  state?: string | null;
 }
 
 export interface SearchRequest {
@@ -217,6 +224,9 @@ function buildWhere(
       case 'city':
         needsView();
         clauses.push(`lower(city) = lower(${push(geography.value.trim())})`);
+        // A city name qualified by a state stays qualified. There is a Jacksonville
+        // in Florida and one in Texas.
+        if (geography.state) clauses.push(`state_region = upper(${push(geography.state)})`);
         break;
       case 'state':
         needsView();
@@ -398,6 +408,10 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
     conditions.push(`lower(city) = lower($${values.length})`);
+    if (geography.state) {
+      values.push(geography.state);
+      conditions.push(`state_region = upper($${values.length})`);
+    }
   } else if (geography?.type === 'state' && geography.value) {
     values.push(geography.value.trim());
     conditions.push(`state_region = upper($${values.length})`);

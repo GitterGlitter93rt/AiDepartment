@@ -109,7 +109,7 @@ export function renderMiningPage(input: {
                 </tr>
                 ${job.outcome_reason ? html`<tr>
                   <td colspan="8" class="micro muted" style="padding-top:0">
-                    ${job.outcome_reason}
+                    ${job.outcome_reason}${funnelLine(job)}
                   </td>
                 </tr>` : ''}
                 ${job.last_error ? html`<tr class="job-error-row">
@@ -154,6 +154,7 @@ const JOB_OUTCOME_LABEL: Record<string, { label: string; tone: SemanticState }> 
   DISCOVERY_BLOCKED: { label: 'Could not search', tone: 'warning' },
   PROVIDER_UNAVAILABLE: { label: 'Provider unavailable', tone: 'destructive' },
   PARTIAL: { label: 'Partly searched', tone: 'warning' },
+  PROVIDER_PENDING: { label: 'Provider still working', tone: 'info' },
   FAILED: { label: 'Failed', tone: 'destructive' },
 };
 
@@ -167,6 +168,28 @@ function outcomePill(job: any): RawHtml {
   // column was built to stop, so it says what it can honestly say.
   return statusPill(job.status === 'FAILED' ? 'Failed' : 'Ran', 
     job.status === 'FAILED' ? 'destructive' : 'neutral');
+}
+
+/**
+ * The arithmetic between what the provider sent and what reached inventory.
+ *
+ * A single "new businesses" number cannot be checked. Fifty rows becoming
+ * twenty-five Accounts is either good dedupe or a broken filter, and the operator
+ * can only tell which if the four numbers in between are on the page.
+ */
+function funnelLine(job: any): RawHtml {
+  const rows = Number(job.provider_rows ?? 0);
+  if (rows === 0) return raw('');
+  const parts = [
+    `${rows} provider row(s)`,
+    Number(job.provider_duplicates ?? 0) > 0 ? `${job.provider_duplicates} duplicate` : null,
+    Number(job.rejected_rows ?? 0) > 0 ? `${job.rejected_rows} unusable` : null,
+    `${job.matched_existing ?? 0} already held`,
+    `${job.discovered_new ?? 0} new`,
+    Number(job.research_queued ?? 0) > 0 ? `${job.research_queued} queued for research` : null,
+    job.cost_usd != null ? `$${Number(job.cost_usd).toFixed(4)}` : null,
+  ].filter(Boolean) as string[];
+  return html` <span class="micro">· ${parts.join(' → ')}</span>`;
 }
 
 function discoveredCell(job: any): RawHtml {

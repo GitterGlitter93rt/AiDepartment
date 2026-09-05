@@ -311,3 +311,30 @@ non-zero on a mismatch, and the API logs it at startup and starts anyway: a port
 that runs and says what is wrong is more use than one that refuses and tells nobody.
 This is the generalisation of the failure already seen here -- an active worker unit
 with no heartbeat, because the unit was running an older build.
+
+### A discovery adapter reports why it came back empty, not just that it did
+
+Every adapter failure -- no credential, a 401, a timeout, a task still in the
+provider's queue, an exhausted budget -- used to return an empty array, and the
+orchestrator counted that as "the provider was asked and this market has nothing in
+it". That is the same lie the job outcome field was built to stop, one layer further
+down. `discover()` returns a `DiscoveryResult` with a status, the funnel counters and
+the provider task id. A provider that could not answer is never a market with nothing
+in it, and a search that returned only companies we already hold is a completed
+search, not a zero-result one.
+
+### The ingestion funnel is four numbers, not one
+
+"Provider returned 50 rows" is not "50 new businesses discovered". Rows, duplicates,
+unusable rows, matched-existing and created are counted separately and printed on the
+Mining page, because a single number cannot be checked: fifty rows becoming
+twenty-five Accounts is either good dedupe or a broken filter, and only the numbers in
+between say which.
+
+### A discovered business is queued for research and located where it was found
+
+Discovery used to create an Account and stop, leaving a name and a phone number that
+no research would ever touch. Newly created Accounts are enqueued for research. They
+are also given the searched geography as a service area when the provider gave no
+address -- a fact about how we found them, not a claim about their mailing address --
+because without it the business was invisible to the very search that discovered it.

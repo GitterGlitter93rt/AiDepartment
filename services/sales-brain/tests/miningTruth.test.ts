@@ -11,7 +11,7 @@ import { drainQueue } from '../src/workers/runner.js';
 import '../src/workers/marketMiner.js';
 import {
   registerDiscoveryAdapter, availableDiscoveryAdapters, clearDiscoveryAdapters,
-  type DiscoveryAdapter,
+  type DiscoveryAdapter, type DiscoveryStatus,
 } from '../src/workers/marketMiner.js';
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { miningKpis, miningJobs } from '../src/api/waveCQueries.js';
@@ -46,13 +46,13 @@ beforeEach(async () => {
 
 let sequence = 0;
 async function seedAccount(name: string, source: string, options: {
-  postalCode?: string; researchedAt?: string | null;
+  postalCode?: string; researchedAt?: string | null; phone?: string;
 } = {}): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: name, website: `https://mining${sequence}.invalid`,
-      phone: `904-555-${String(1000 + sequence).slice(-4)}`,
+      phone: options.phone ?? `904-555-${String(1000 + sequence).slice(-4)}`,
       city: 'St. Augustine', state: 'FL', postalCode: options.postalCode ?? '32095',
     }, { discoverySource: source }));
   if (options.researchedAt) {
@@ -67,6 +67,7 @@ async function seedAccount(name: string, source: string, options: {
 /** An adapter that returns whatever it is given, without a network. */
 function fakeAdapter(input: {
   name?: string; businesses?: { name: string; phone: string }[]; throws?: string;
+  status?: DiscoveryStatus; providerRows?: number; reason?: string;
 } = {}): DiscoveryAdapter {
   return {
     name: input.name ?? 'fake-provider',
@@ -75,10 +76,17 @@ function fakeAdapter(input: {
     isConfigured: () => true,
     async discover() {
       if (input.throws) throw new Error(input.throws);
-      return (input.businesses ?? []).map((business) => ({
+      const businesses = (input.businesses ?? []).map((business) => ({
         name: business.name, website: null, phone: business.phone,
         city: 'St. Augustine', state: 'FL', postalCode: '32095',
       }));
+      return {
+        status: input.status ?? (businesses.length > 0 ? 'OK' as const : 'ZERO_RESULTS' as const),
+        businesses,
+        providerRows: input.providerRows ?? businesses.length,
+        rejectedRows: 0, duplicateRows: 0,
+        reason: input.reason,
+      };
     },
   };
 }
@@ -116,7 +124,7 @@ test('a genuine zero is told apart from a search that never happened', async () 
   const searched = await runMarketJob('32095');
   assert.equal(searched['outcome'], 'ZERO_RESULTS',
     'a provider that was asked and answered nothing is not a blocked search');
-  assert.match(String(searched['outcome_reason']), /were asked and returned no new business/);
+  assert.match(String(searched['outcome_reason']), /searched this market and returned nothing/);
 
   clearDiscoveryAdapters();
   const blocked = await runMarketJob('32095');
@@ -146,7 +154,8 @@ test('one provider failing among several is partial, not complete', async () => 
 
   const job = await runMarketJob('32095');
   assert.equal(job['outcome'], 'PARTIAL');
-  assert.match(String(job['outcome_reason']), /1 provider\(s\) answered, 1 failed/);
+  assert.match(String(job['outcome_reason']), /1 provider\(s\) answered and 1 could not/);
+  assert.match(String(job['outcome_reason']), /part of the market, not all of it/);
   const progress = job['progress'] as Record<string, unknown>;
   assert.equal(progress['discoveredNew'], 1);
 });
@@ -162,7 +171,103 @@ test('a provider that finds something reports what it found', async () => {
   assert.equal(job['outcome'], 'COMPLETED');
   const progress = job['progress'] as Record<string, unknown>;
   assert.equal(progress['discoveredNew'], 2);
-  assert.match(String(job['outcome_reason']), /2 new business\(es\) discovered/);
+  assert.match(String(job['outcome_reason']), /2 new business\(es\) added/);
+
+  // The whole funnel, not only the survivors. "Two rows" and "two businesses" are
+  // the same number here only because nothing was dropped, and the row says so.
+  assert.equal(progress['providerRows'], 2);
+  assert.equal(progress['matchedExisting'], 0);
+  assert.equal(progress['rejectedRows'], 0);
+  assert.equal(progress['researchQueued'], 2,
+    'a discovered business with no research is a name and a phone number');
+});
+
+test('a provider that only returns companies we already have has not found zero', async () => {
+  // Twelve companies matched is twelve companies found. Reporting that as a
+  // zero-result search tells the operator the market is empty when it is full of
+  // businesses we already know about.
+  await seedAccount('Already Known Roofing', 'apollo_purchased_import',
+    { phone: '904-555-7201' });
+  registerDiscoveryAdapter(fakeAdapter({
+    businesses: [{ name: 'Already Known Roofing', phone: '904-555-7201' }],
+  }));
+
+  const job = await runMarketJob('32095');
+  assert.equal(job['outcome'], 'COMPLETED',
+    'the provider searched and found a business; it was simply one we hold');
+  const progress = job['progress'] as Record<string, unknown>;
+  assert.equal(progress['providerRows'], 1);
+  assert.equal(progress['matchedExisting'], 1);
+  assert.equal(progress['discoveredNew'], 0);
+  assert.match(String(job['outcome_reason']), /1 already in inventory/);
+});
+
+test('a row with nothing to reach the business by never becomes an Account', async () => {
+  registerDiscoveryAdapter({
+    name: 'sloppy-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'OK' as const,
+        businesses: [
+          { name: 'Real Roofing', phone: '904-555-7301' },
+          // A name and nothing else: a rep who opens this finds a company with no
+          // way to reach it and no way to tell whether it exists.
+          { name: 'Just A Headline', website: null, phone: null },
+          { name: '', website: 'https://blank.example.com' },
+        ],
+        providerRows: 3, rejectedRows: 0, duplicateRows: 0,
+      };
+    },
+  });
+
+  const job = await runMarketJob('32095');
+  const progress = job['progress'] as Record<string, unknown>;
+  assert.equal(progress['discoveredNew'], 1);
+  assert.equal(progress['rejectedRows'], 2, 'the unusable rows are counted, not silently dropped');
+  assert.match(String(job['outcome_reason']), /2 unusable/);
+
+  const accounts = await query<{ canonical_name: string }>('select canonical_name from accounts');
+  assert.deepEqual(accounts.rows.map((row) => row.canonical_name), ['Real Roofing']);
+});
+
+test('a provider whose task is still queued is pending, not empty', async () => {
+  registerDiscoveryAdapter({
+    name: 'slow-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'PENDING' as const, businesses: [],
+        providerRows: 0, rejectedRows: 0, duplicateRows: 0,
+        providerTaskId: 'task-abc',
+        reason: 'The provider accepted the search and has not finished it yet.',
+      };
+    },
+  });
+
+  const job = await runMarketJob('32095');
+  assert.equal(job['outcome'], 'PROVIDER_PENDING',
+    'a paid search still running is neither a success nor an empty market');
+  assert.match(String(job['outcome_reason']), /not ready yet/);
+  const progress = job['progress'] as Record<string, unknown>;
+  assert.deepEqual(progress['providerTaskIds'], ['task-abc']);
+});
+
+test('a provider refusal is reported as its own kind of refusal', async () => {
+  for (const status of ['CREDENTIALS_INVALID', 'RATE_LIMITED', 'TIMEOUT', 'OUTAGE',
+    'BUDGET_EXHAUSTED', 'NOT_CONFIGURED', 'GOVERNANCE_BLOCKED', 'MALFORMED'] as const) {
+    clearDiscoveryAdapters();
+    registerDiscoveryAdapter(fakeAdapter({
+      businesses: [], status, reason: `refused: ${status}` }));
+
+    const job = await runMarketJob('32095');
+    assert.equal(job['outcome'], 'PROVIDER_UNAVAILABLE',
+      `${status} was reported as ${job['outcome']}`);
+    assert.notEqual(job['outcome'], 'ZERO_RESULTS');
+    assert.match(String(job['outcome_reason']), /not known whether/);
+    const progress = job['progress'] as Record<string, unknown>;
+    assert.deepEqual(progress['providerStatuses'], [status]);
+  }
 });
 
 test('a refresh-only job says it did not look for new businesses', async () => {
@@ -405,4 +510,86 @@ test('the job list carries the outcome, not just the queue status', async () => 
   assert.ok(String(mineJob.outcome_reason).length > 20);
   assert.equal(mineJob.discovered_new, 0);
   assert.equal(mineJob.discovery_available, false);
+});
+
+
+// --------------------------------------------------- what the page says it did --
+
+test('the mining page shows the arithmetic, not just the answer', async () => {
+  await seedAccount('Already Held Air', 'apollo_purchased_import', { phone: '904-555-7401' });
+  registerDiscoveryAdapter({
+    name: 'funnel-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'OK' as const,
+        businesses: [
+          { name: 'Already Held Air', phone: '904-555-7401' },
+          { name: 'Brand New Air', phone: '904-555-7402' },
+          { name: 'Unreachable Headline' },
+        ],
+        // The provider sent more rows than these three: two were the same company
+        // twice, and the adapter collapsed them before handing them up.
+        providerRows: 5, rejectedRows: 0, duplicateRows: 2,
+      };
+    },
+  });
+
+  await runMarketJob('32095');
+
+  await createUser({
+    email: 'funnel.ops@test.local', displayName: 'Funnel Ops', role: 'RESEARCH_OPS',
+    password: PASSWORD });
+  const login = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: 'funnel.ops@test.local', password: PASSWORD } });
+  const session = login.cookies.find((c) => c.name === 'yad_sales_session')!;
+  const page = await app.inject({
+    method: 'GET', url: '/mining',
+    headers: { cookie: `yad_sales_session=${session.value}` } });
+  assert.equal(page.statusCode, 200);
+
+  // Every step between the provider's answer and inventory is on the page, so the
+  // operator can check that five rows becoming one new Account was dedupe rather
+  // than a broken filter.
+  assert.match(page.body, /5 provider row\(s\)/);
+  assert.match(page.body, /2 duplicate/);
+  assert.match(page.body, /1 unusable/);
+  assert.match(page.body, /1 already held/);
+  assert.match(page.body, /1 new/);
+});
+
+test('a discovered business is queued for research, not left as a name and a number',
+  async () => {
+    registerDiscoveryAdapter(fakeAdapter({
+      businesses: [{ name: 'Needs Research Roofing', phone: '904-555-7501' }],
+    }));
+    await runMarketJob('32095');
+
+    const { rows } = await query<{ job_type: string; status: string; account_id: string }>(
+      `select job_type, status, account_id from jobs where job_type = 'account_research'`);
+    assert.equal(rows.length, 1, 'a discovered Account with no research is not a prospect');
+
+    const account = await query<{ canonical_name: string }>(
+      'select canonical_name from accounts where account_id = $1', [rows[0]!.account_id]);
+    assert.equal(account.rows[0]!.canonical_name, 'Needs Research Roofing');
+  });
+
+test('a discovered business is findable by the search that discovered it', async () => {
+  registerDiscoveryAdapter(fakeAdapter({
+    businesses: [{ name: 'Findable Roofing', phone: '904-555-7601' }],
+  }));
+  await runMarketJob('32095');
+
+  // Without a location the business is invisible to the ZIP search that found it:
+  // the operator searches 32095 again and the company they just discovered is not
+  // in the results.
+  const { rows } = await query<{ postal_code: string; location_type: string }>(
+    `select l.postal_code, l.location_type from locations l
+       join accounts a on a.account_id = l.account_id
+      where a.canonical_name = 'Findable Roofing'`);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.postal_code, '32095');
+  assert.equal(rows[0]!.location_type, 'service_area',
+    'the ZIP is how we found them, not a street address we were given');
 });

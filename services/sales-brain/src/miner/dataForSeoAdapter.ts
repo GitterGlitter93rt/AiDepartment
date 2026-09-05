@@ -1,5 +1,11 @@
 import { query } from '../db/pool.js';
-import type { DiscoveredBusiness, DiscoveryAdapter, DiscoveryQuery } from '../workers/marketMiner.js';
+import { normalizeGeography } from './geography.js';
+import { planSearchQueries } from './searchTaxonomy.js';
+import {
+  refusedDiscovery,
+  type DiscoveredBusiness, type DiscoveryAdapter, type DiscoveryQuery,
+  type DiscoveryResult, type DiscoveryStatus,
+} from '../workers/marketMiner.js';
 
 /**
  * DataForSEO SERP adapter — the first discovery provider to integrate and benchmark.
@@ -290,6 +296,22 @@ async function callWithRetry(
   };
 }
 
+/**
+ * Which kind of failure this was, in the orchestrator's vocabulary.
+ *
+ * A 401 is a fact about the credential, a 429 is the provider asking us to wait, a
+ * 5xx is the provider being down, and a dropped socket is a timeout. They lead to
+ * different operator actions, so they are not one 'error'.
+ */
+function statusForError(errorCode: string | null, httpStatus: number): DiscoveryStatus {
+  if (httpStatus === 401 || httpStatus === 403) return 'CREDENTIALS_INVALID';
+  if (httpStatus === 429) return 'RATE_LIMITED';
+  if (httpStatus === 408 || errorCode === 'AbortError' || errorCode === 'TimeoutError') return 'TIMEOUT';
+  if (httpStatus >= 500) return 'OUTAGE';
+  if (errorCode === 'TRANSPORT_ERROR' || httpStatus === 0) return 'OUTAGE';
+  return 'OUTAGE';
+}
+
 /** True when the task carries results rather than only an acknowledgement. */
 function taskHasResults(task: ProviderTask | undefined): boolean {
   if (!task) return false;
@@ -316,24 +338,73 @@ export function createDataForSeoAdapter(options: {
       return Boolean(config.enabled && config.login && config.password && config.governanceReviewed);
     },
 
-    async discover(request: DiscoveryQuery): Promise<DiscoveredBusiness[]> {
+    /**
+      * One discovery run.
+      *
+      * Every exit says why. This used to return an empty array for a missing
+      * credential, a 401, a timeout, a task still in the provider's queue and an
+      * exhausted budget alike, and the orchestrator read all five as "the provider
+      * was asked and this market has nothing in it".
+      */
+    async discover(request: DiscoveryQuery): Promise<DiscoveryResult> {
       if (!this.isConfigured()) {
+        const blocked = !config.governanceReviewed && Boolean(config.login && config.password);
         await recordProviderUsage({
           operation: 'serp.discover', units: 0, status: 'REFUSED',
-          errorCode: !config.governanceReviewed ? 'GOVERNANCE_REVIEW_MISSING' : 'NOT_CONFIGURED',
+          errorCode: blocked ? 'GOVERNANCE_REVIEW_MISSING' : 'NOT_CONFIGURED',
         });
-        return [];
+        return refusedDiscovery(
+          blocked ? 'GOVERNANCE_BLOCKED' : 'NOT_CONFIGURED',
+          blocked
+            ? 'The credential is present but the source governance review is not signed, '
+              + 'so no search was made.'
+            : 'No DataForSEO credential is configured, so no search was made.');
       }
 
       const budget = Math.max(0, Math.min(request.queryBudget, config.maxQueriesPerRun));
       if (budget === 0) {
         await recordProviderUsage({
           operation: 'serp.discover', units: 0, status: 'REFUSED', errorCode: 'BUDGET_EXHAUSTED' });
-        return [];
+        return refusedDiscovery('BUDGET_EXHAUSTED',
+          'The query budget for this run is zero, so no search was made.');
       }
 
-      const keyword = [request.miningMode, request.verticalProfileId, request.geographyValue]
-        .filter(Boolean).join(' ');
+      // What to search for, and where.
+      //
+      // This used to be the strategy name, the internal vertical id and the raw
+      // geography joined with spaces: "advertiser_first hvac 32095". Nobody searches
+      // for that, and a provider asked for it returns whatever it can make of it.
+      // The vertical profiles have carried a real search taxonomy all along --
+      // "AC repair", "HVAC replacement", with an intent weight and a flag for
+      // whether advertisers bid on it -- and the geography needs to be a place the
+      // provider recognises, not whatever was typed.
+      const geography = normalizeGeography(request.geographyType, request.geographyValue);
+      if (!geography.ok) {
+        await recordProviderUsage({
+          operation: 'serp.discover', units: 0, status: 'REFUSED', errorCode: 'BAD_GEOGRAPHY' });
+        return refusedDiscovery('NOT_CONFIGURED', geography.message);
+      }
+
+      const planned = await planSearchQueries({
+        verticalProfileId: request.verticalProfileId,
+        strategy: request.miningMode === 'broad_local' ? 'BROAD_LOCAL' : 'ADVERTISER_FIRST',
+        budget: budget,
+      });
+      if (planned.length === 0) {
+        await recordProviderUsage({
+          operation: 'serp.discover', units: 0, status: 'REFUSED', errorCode: 'NO_SEARCH_TERMS' });
+        return refusedDiscovery('NOT_CONFIGURED',
+          request.verticalProfileId
+            ? `The ${request.verticalProfileId} profile defines no search queries, so there is `
+              + 'nothing to ask a provider.'
+            : 'Pick a vertical: a market search needs to know what kind of business to '
+              + 'look for.');
+      }
+
+      // One query per run for now: the highest-intent one the strategy chose. Running
+      // the whole taxonomy multiplies the spend, and that is a budget decision an
+      // operator makes rather than a default.
+      const keyword = planned[0]!.query;
       const auth = Buffer.from(`${config.login}:${config.password}`).toString('base64');
       const headers = {
         authorization: `Basic ${auth}`, 'content-type': 'application/json',
@@ -343,7 +414,7 @@ export function createDataForSeoAdapter(options: {
       // asking for the one we do.
       const task = {
         keyword,
-        location_name: request.geographyValue,
+        location_name: geography.providerLocation,
         language_code: 'en',
         device: 'desktop',
         depth: Math.max(10, Math.min(700, config.resultDepth)),
@@ -364,7 +435,8 @@ export function createDataForSeoAdapter(options: {
           await recordProviderUsage({
             operation: 'serp.discover.live', units: live.attempts, status: 'FAILED',
             errorCode: live.errorCode });
-          return [];
+          return refusedDiscovery(statusForError(live.errorCode, live.status),
+            `The provider did not answer: ${live.errorCode ?? `HTTP ${live.status}`}.`);
         }
         response = live.body;
       } else {
@@ -375,7 +447,8 @@ export function createDataForSeoAdapter(options: {
           await recordProviderUsage({
             operation: 'serp.discover.task_post', units: posted.attempts, status: 'FAILED',
             errorCode: posted.errorCode });
-          return [];
+          return refusedDiscovery(statusForError(posted.errorCode, posted.status),
+            `The search could not be submitted: ${posted.errorCode ?? `HTTP ${posted.status}`}.`);
         }
         const created = (posted.body.tasks ?? [])[0];
         const taskId = created?.id;
@@ -383,7 +456,9 @@ export function createDataForSeoAdapter(options: {
           await recordProviderUsage({
             operation: 'serp.discover.task_post', units: posted.attempts, status: 'FAILED',
             errorCode: `NO_TASK_ID_${created?.status_code ?? 'UNKNOWN'}` });
-          return [];
+          return refusedDiscovery('MALFORMED',
+            'The provider accepted the request without returning a task id, so there is '
+            + 'nothing to collect.');
         }
         // A task that was posted but never collected is still a task we paid for, so
         // the poll is bounded and its outcome is recorded either way.
@@ -397,7 +472,14 @@ export function createDataForSeoAdapter(options: {
             await recordProviderUsage({
               operation: 'serp.discover.task_get', units: pollUnits, status: 'FAILED',
               errorCode: got.errorCode });
-            return [];
+            return {
+              ...refusedDiscovery(statusForError(got.errorCode, got.status),
+                `The search was submitted but its results could not be collected: `
+                + `${got.errorCode ?? `HTTP ${got.status}`}.`),
+              // The task id survives the failure. It was paid for, and collecting it
+              // later is cheaper and more honest than submitting the search again.
+              providerTaskId: taskId,
+            };
           }
           const first = (got.body.tasks ?? [])[0];
           const code = first?.status_code;
@@ -406,36 +488,60 @@ export function createDataForSeoAdapter(options: {
             await recordProviderUsage({
               operation: 'serp.discover.task_get', units: pollUnits, status: 'FAILED',
               errorCode: `TASK_${code}` });
-            return [];
+            return {
+              ...refusedDiscovery('MALFORMED',
+                `The provider reported task status ${code}, which is not a result.`),
+              providerTaskId: taskId,
+            };
           }
           if (attempt < config.maxPollAttempts) await sleep(config.pollIntervalMs);
         }
         if (!fetched) {
-          // No results and no error: the task is still queued. Nothing is invented,
-          // and the run says why it came back empty.
+          // No results and no error: the task is still queued. It is PENDING, not
+          // empty -- the money is spent and the answer is still coming -- and the
+          // task id goes back with it so a later run collects this one rather than
+          // paying for a second search of the same market.
           await recordProviderUsage({
             operation: 'serp.discover.task_get', units: pollUnits, status: 'FAILED',
             errorCode: 'TASK_NOT_READY' });
-          return [];
+          return {
+            ...refusedDiscovery('PENDING',
+              'The provider accepted the search and has not finished it yet. The task is '
+              + 'recorded and will be collected rather than submitted again.'),
+            providerTaskId: taskId,
+          };
         }
         response = fetched;
       }
 
       const observations = normalizeResponse(response, { query: keyword });
+      const cost = typeof response.cost === 'number' ? response.cost : null;
       await recordProviderUsage({
         operation: config.mode === 'live' ? 'serp.discover.live' : 'serp.discover.task_get',
-        units: 1, status: 'OK',
-        actualCostUsd: typeof response.cost === 'number' ? response.cost : null,
+        units: 1, status: 'OK', actualCostUsd: cost,
       });
 
       // Only results that identify a business become candidates. A block we could not
       // classify, or a title with nothing to resolve it against, cannot become an
       // Account: entity resolution has nothing to work with and a rep would be handed
       // a company that may not exist.
-      return dedupeCandidates(observations
+      const candidates = observations
         .filter((observation) => CANDIDATE_TYPES.has(observation.resultType))
         .filter((observation) =>
-          observation.observedDomain || (observation.observedName && observation.observedPhone)));
+          observation.observedDomain || (observation.observedName && observation.observedPhone));
+      const businesses = dedupeCandidates(candidates);
+
+      return {
+        // Rows came back and none of them identified a business: that is a real
+        // answer about this market, not a failure, and it is reported as one.
+        status: businesses.length > 0 ? 'OK' : 'ZERO_RESULTS',
+        businesses,
+        providerRows: observations.length,
+        rejectedRows: observations.length - candidates.length,
+        duplicateRows: candidates.length - businesses.length,
+        costUsd: cost,
+        reason: `${observations.length} row(s) read, ${businesses.length} business(es) identified.`,
+      };
     },
   };
 }

@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { normalizeGeography } from '../miner/geography.js';
 
 /**
  * Job enqueue helpers.
@@ -71,21 +72,62 @@ export async function enqueueAccountResearch(
   });
 }
 
+/**
+ * The fingerprint two clicks have to share before they count as the same search.
+ *
+ * The key was a raw string join, so "Jacksonville" and "jacksonville " were two
+ * different paid searches of the same market, and " 32095 " was a third thing again.
+ * It also left out the mining mode, so a broad sweep and an advertiser-first search
+ * of one market collapsed into whichever was queued first.
+ *
+ * Normalized, and including the strategy: equivalent clicks collapse, genuinely
+ * different searches do not.
+ */
+export function discoveryFingerprint(input: {
+  marketId?: string | null;
+  verticalProfileId?: string | null;
+  geographyType?: string | null;
+  geographyValue?: string | null;
+  miningMode?: string | null;
+}): string {
+  const geography = normalizeGeography(input.geographyType, input.geographyValue);
+  const place = geography.ok
+    ? `${geography.type}:${geography.value.toLowerCase()}`
+    // Unreadable geography still gets a stable key, so a rep who clicks a broken
+    // link twice does not queue the same doomed job twice.
+    : `raw:${String(input.geographyValue ?? '').trim().toLowerCase().replace(/\s+/g, ' ')}`;
+
+  return [
+    'market_mine',
+    input.marketId ?? '',
+    (input.verticalProfileId ?? '').trim().toLowerCase(),
+    place,
+    (input.miningMode ?? 'advertiser_first').trim().toLowerCase(),
+  ].join(':');
+}
+
 export async function enqueueMarketResearch(input: {
   verticalProfileId: string | null;
   geographyType: string | null;
   geographyValue: string | null;
   marketId: string | null;
   requestedBy: string;
+  miningMode?: string | null;
 }): Promise<EnqueueResult> {
-  const key = `market_mine:${input.marketId ?? ''}:${input.verticalProfileId ?? ''}:${input.geographyType ?? ''}:${input.geographyValue ?? ''}`;
+  // The payload carries the normalized geography, so the worker filters and searches
+  // on the same value the fingerprint was built from.
+  const geography = normalizeGeography(input.geographyType, input.geographyValue);
+
   return enqueue({
     jobType: 'market_mine',
-    idempotencyKey: key,
+    idempotencyKey: discoveryFingerprint(input),
     payload: {
       vertical_profile_id: input.verticalProfileId,
-      geography_type: input.geographyType,
-      geography_value: input.geographyValue,
+      geography_type: geography.ok ? geography.type : input.geographyType,
+      geography_value: geography.ok ? geography.value : input.geographyValue,
+      geography_state: geography.ok ? geography.state : null,
+      geography_display: geography.ok ? geography.display : input.geographyValue,
+      mining_mode: input.miningMode ?? 'advertiser_first',
       market_id: input.marketId,
     },
     requestedBy: input.requestedBy,

@@ -30,6 +30,7 @@ import {
 import { buildPrepBrief } from '../booking/brief.js';
 import { recordMeetingOutcome } from '../booking/service.js';
 import { parseOperatorDateTime } from '../domain/time.js';
+import { classifyGeographyForInventory } from '../miner/geography.js';
 import { config } from '../config.js';
 import {
   renderMarketDetailPage, renderMeetingDetailPage, renderMeetingsPage,
@@ -112,9 +113,14 @@ export function parseSearchQuery(params: URLSearchParams): SearchRequest {
   const where = (params.get('where') ?? '').trim();
   let geography: SearchRequest['geography'] = null;
   if (where) {
-    if (/^\d{5}$/.test(where)) geography = { type: 'zip_zcta', value: where };
-    else if (/^[A-Za-z]{2}$/.test(where)) geography = { type: 'state', value: where.toUpperCase() };
-    else geography = { type: 'city', value: where };
+    // Three regular expressions used to do this -- five digits is a ZIP, two letters
+    // is a state, anything else is a city -- so "Jacksonville, FL" became a city
+    // literally called that and matched nothing, and so did "Florida" and
+    // "32095-1234". All three are things a rep types.
+    const read = classifyGeographyForInventory(where);
+    geography = read.ok
+      ? { type: read.type, value: read.value, state: read.state }
+      : { type: 'city', value: where };
   }
 
   const tier = params.get('tier');

@@ -35,6 +35,8 @@ export type JobOutcome =
   | 'COMPLETED'
   | 'DISCOVERY_BLOCKED'
   | 'PROVIDER_UNAVAILABLE'
+  /** The provider accepted an asynchronous task; its results are not back yet. */
+  | 'PROVIDER_PENDING'
   | 'PARTIAL'
   | 'NOTHING_TO_DO'
   | 'ZERO_RESULTS'

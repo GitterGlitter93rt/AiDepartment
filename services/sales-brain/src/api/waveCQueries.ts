@@ -119,6 +119,16 @@ export async function miningJobs() {
             coalesce((j.progress->>'discoveredNew')::int, 0) as discovered_new,
             coalesce((j.progress->>'refreshQueued')::int, 0) as refresh_queued,
             coalesce((j.progress->>'discoveryAvailable')::boolean, false) as discovery_available,
+            -- The funnel between what the provider sent and what reached inventory.
+            -- Without these four the Mining page shows one number an operator cannot
+            -- check: "provider returned 50 rows" is not "50 businesses discovered".
+            coalesce((j.progress->>'providerRows')::int, 0) as provider_rows,
+            coalesce((j.progress->>'providerDuplicates')::int, 0) as provider_duplicates,
+            coalesce((j.progress->>'rejectedRows')::int, 0) as rejected_rows,
+            coalesce((j.progress->>'matchedExisting')::int, 0) as matched_existing,
+            coalesce((j.progress->>'researchQueued')::int, 0) as research_queued,
+            (j.progress->>'costUsd')::numeric as cost_usd,
+            j.payload->>'vertical_profile_id' as vertical_profile_id,
             m.name as market_name,
             j.payload->>'geography_value' as geography,
             u.display_name as requested_by_name

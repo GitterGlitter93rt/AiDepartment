@@ -48,6 +48,69 @@ export interface DiscoveredBusiness {
 }
 
 /**
+ * Why a provider came back with what it came back with.
+ *
+ * An adapter used to answer with an array, and every failure -- no credential, a
+ * 401, a timeout, a task still sitting in the provider's queue, an exhausted budget
+ * -- answered with an empty one. The orchestrator counted that as "the provider was
+ * asked and found nothing", which is the exact lie the job outcome field was built
+ * to stop, reintroduced one layer further down. A provider that could not answer
+ * must not be indistinguishable from a market with no businesses in it.
+ */
+export type DiscoveryStatus =
+  /** The provider answered and the answer contained businesses. */
+  | 'OK'
+  /** The provider answered, and this market genuinely has nothing usable in it. */
+  | 'ZERO_RESULTS'
+  /** No credential, or the adapter is switched off. */
+  | 'NOT_CONFIGURED'
+  /** Credentialed, but the source governance review is not signed. */
+  | 'GOVERNANCE_BLOCKED'
+  /** The provider rejected the credential: 401 or 403. Retrying only spends money. */
+  | 'CREDENTIALS_INVALID'
+  /** The provider asked us to slow down. */
+  | 'RATE_LIMITED'
+  /** The provider did not answer in time. */
+  | 'TIMEOUT'
+  /** The provider is failing: 5xx, or the socket went away. */
+  | 'OUTAGE'
+  /** Our own ceiling stopped the call before the money was spent. */
+  | 'BUDGET_EXHAUSTED'
+  /** An asynchronous task was accepted and its results are not ready yet. */
+  | 'PENDING'
+  /** The provider answered with something this adapter cannot read. */
+  | 'MALFORMED';
+
+/** The statuses that mean the provider actually answered the question we asked. */
+export function providerAnswered(status: DiscoveryStatus): boolean {
+  return status === 'OK' || status === 'ZERO_RESULTS';
+}
+
+/**
+ * What one provider call produced.
+ *
+ * The counters are separate on purpose. "The provider returned 50 rows" is not
+ * "50 new businesses discovered": some rows identify nothing, some are the same
+ * company twice, and some are companies we already hold. An operator needs those
+ * numbers apart, or the Mining page is arithmetic nobody can check.
+ */
+export interface DiscoveryResult {
+  status: DiscoveryStatus;
+  businesses: DiscoveredBusiness[];
+  /** Rows the provider returned, before any filtering of ours. */
+  providerRows: number;
+  /** Rows dropped because nothing in them identified a business. */
+  rejectedRows: number;
+  /** Rows collapsed into another row for the same company. */
+  duplicateRows: number;
+  /** The provider's own id for an asynchronous task, when there is one. */
+  providerTaskId?: string | null;
+  /** Operator-readable, and safe to render. Never a credential or a raw response. */
+  reason?: string;
+  costUsd?: number | null;
+}
+
+/**
  * The contract every discovery provider must satisfy. Implementations live behind
  * this so the orchestrator never learns a provider's shape, and so a provider can
  * be swapped after benchmarking without touching inventory logic.
@@ -57,7 +120,14 @@ export interface DiscoveryAdapter {
   readonly requiresCredential: boolean;
   readonly governanceReviewed: boolean;
   isConfigured(): boolean;
-  discover(request: DiscoveryQuery): Promise<DiscoveredBusiness[]>;
+  discover(request: DiscoveryQuery): Promise<DiscoveryResult>;
+}
+
+/** A result for a call that never reached the provider, or that it refused. */
+export function refusedDiscovery(
+  status: DiscoveryStatus, reason: string,
+): DiscoveryResult {
+  return { status, businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0, reason };
 }
 
 const discoveryAdapters: DiscoveryAdapter[] = [];
@@ -221,67 +291,103 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const expired = await expireStaleEvidence();
   await refreshAccountFreshness();
 
-  let discovered = 0;
-  let providersQueried = 0;
-  let providersFailed = 0;
+  const funnel: IngestionCounts = {
+    candidates: 0, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
+  };
+  let providerRows = 0;
+  let providerRejected = 0;
+  let providerDuplicates = 0;
+  let costUsd = 0;
+  let costKnown = false;
+  const statuses: DiscoveryStatus[] = [];
+  const pendingTaskIds: string[] = [];
   const discoveryNotes: string[] = [];
 
   if (adapters.length === 0) {
     discoveryNotes.push(
-      'No discovery adapter is available: new-business discovery needs an approved search provider '
-      + 'and a signed source-governance review (blocker B-3). Existing inventory was refreshed instead.',
+      'No discovery adapter is available: new-business discovery needs an approved search '
+      + 'provider and a signed source-governance review (blocker B-3). Existing inventory '
+      + 'was refreshed instead.',
     );
-  } else {
-    for (const adapter of adapters) {
-      try {
-        const businesses = await adapter.discover({
-          verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
-          geographyType: (payload['geography_type'] as string | null) ?? null,
-          geographyValue: (payload['geography_value'] as string | null) ?? null,
-          miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
-          queryBudget: Number(payload['query_budget'] ?? 25),
-        });
-        providersQueried += 1;
-        discovered += await ingestDiscoveries(businesses, adapter.name, job);
-      } catch (error) {
-        // A provider that threw is not a market with no businesses in it. Recording
-        // it as zero results is the exact lie this whole outcome field exists to
-        // stop.
-        providersFailed += 1;
-        discoveryNotes.push(
-          `${adapter.name} failed: ${(error as Error).message.slice(0, 200)}`);
-      }
+  }
+
+  for (const adapter of adapters) {
+    let result: DiscoveryResult;
+    try {
+      result = await adapter.discover({
+        verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
+        geographyType: (payload['geography_type'] as string | null) ?? null,
+        geographyValue: (payload['geography_value'] as string | null) ?? null,
+        miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
+        queryBudget: Number(payload['query_budget'] ?? 25),
+      });
+    } catch (error) {
+      // A provider that threw is not a market with no businesses in it. An adapter
+      // is supposed to report its own failures rather than raise, so a throw is a
+      // bug in the adapter, and it is recorded as an outage rather than swallowed.
+      result = refusedDiscovery('OUTAGE',
+        `${adapter.name} raised instead of reporting: ${(error as Error).message.slice(0, 200)}`);
+    }
+
+    statuses.push(result.status);
+    providerRows += result.providerRows;
+    providerRejected += result.rejectedRows;
+    providerDuplicates += result.duplicateRows;
+    if (typeof result.costUsd === 'number') { costUsd += result.costUsd; costKnown = true; }
+    if (result.providerTaskId) pendingTaskIds.push(result.providerTaskId);
+    if (result.reason) discoveryNotes.push(`${adapter.name}: ${result.reason}`);
+
+    if (result.businesses.length > 0) {
+      const counts = await ingestDiscoveries(result.businesses, adapter.name, job);
+      funnel.candidates += counts.candidates;
+      funnel.rejected += counts.rejected;
+      funnel.matchedExisting += counts.matchedExisting;
+      funnel.created += counts.created;
+      funnel.researchQueued += counts.researchQueued;
     }
   }
+
+  const answered = statuses.filter(providerAnswered).length;
+  const failed = statuses.length - answered;
 
   /**
    * What actually happened, in the operator's terms.
    *
    * "Succeeded" answered whether the handler returned. A person who typed a ZIP into
-   * Find Prospects and read "Succeeded — 0 found" concluded there are no businesses
+   * Find Prospects and read "Succeeded -- 0 found" concluded there are no businesses
    * in that ZIP. There was no provider to ask.
+   *
+   * The order matters. A provider that could not answer is never reported as a
+   * market with nothing in it, and a search that returned businesses we already hold
+   * is a completed search, not a zero-result one: twelve companies matched is twelve
+   * companies found.
    */
   const outcome: JobOutcome =
     adapters.length === 0 ? 'DISCOVERY_BLOCKED'
-    : providersFailed > 0 && providersQueried === 0 ? 'PROVIDER_UNAVAILABLE'
-    : providersFailed > 0 ? 'PARTIAL'
-    : discovered > 0 ? 'COMPLETED'
-    : plan.queued > 0 ? 'ZERO_RESULTS'
-    : plan.accountsInScope === 0 ? 'ZERO_RESULTS'
+    : statuses.every((status) => status === 'PENDING') ? 'PROVIDER_PENDING'
+    : answered === 0 ? 'PROVIDER_UNAVAILABLE'
+    : failed > 0 ? 'PARTIAL'
+    : providerRows > 0 ? 'COMPLETED'
     : 'ZERO_RESULTS';
 
+  const failureSummary = discoveryNotes.length > 0 ? ` ${discoveryNotes.join('; ')}` : '';
   const outcomeReason =
     outcome === 'DISCOVERY_BLOCKED'
       ? 'No search provider is configured, so no new business could be found. '
         + `${plan.queued} existing account(s) were queued for refresh.`
+    : outcome === 'PROVIDER_PENDING'
+      ? `The provider accepted the search and its results are not ready yet.${failureSummary}`
     : outcome === 'PROVIDER_UNAVAILABLE'
-      ? `Every discovery provider failed: ${discoveryNotes.join('; ')}`
+      ? `No provider answered, so this market was not searched. It is not known whether `
+        + `it has businesses in it.${failureSummary}`
     : outcome === 'PARTIAL'
-      ? `${providersQueried} provider(s) answered, ${providersFailed} failed: `
-        + discoveryNotes.join('; ')
+      ? `${answered} provider(s) answered and ${failed} could not, so this is part of the `
+        + `market, not all of it.${failureSummary}`
     : outcome === 'ZERO_RESULTS'
-      ? `${providersQueried} provider(s) were asked and returned no new business.`
-    : `${discovered} new business(es) discovered by ${providersQueried} provider(s).`;
+      ? `${answered} provider(s) searched this market and returned nothing usable.`
+    : `${providerRows} provider row(s): ${providerDuplicates} duplicate(s), `
+      + `${providerRejected + funnel.rejected} unusable, ${funnel.matchedExisting} already `
+      + `in inventory, ${funnel.created} new business(es) added.`;
 
   if (job.market_id) {
     await query(
@@ -289,25 +395,33 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
               last_mined_at = case when $2 > 0 then now() else last_mined_at end,
               status = 'ACTIVE'
         where market_id = $1`,
-      [job.market_id, discovered],
+      [job.market_id, funnel.created],
     );
   }
 
   return {
     outcome,
     outcomeReason,
-    // The two numbers a mining row has to keep apart. One is new businesses found in
-    // the world; the other is companies we already had, queued to be looked at again.
-    discoveredNew: discovered,
+    // The numbers a mining row has to keep apart, from the provider's answer through
+    // to what ended up in inventory.
+    providerRows,
+    providerDuplicates,
+    rejectedRows: providerRejected + funnel.rejected,
+    matchedExisting: funnel.matchedExisting,
+    discoveredNew: funnel.created,
+    researchQueued: funnel.researchQueued,
     refreshQueued: plan.queued,
     accountsInScope: plan.accountsInScope,
     staleAccounts: plan.staleAccounts,
     evidenceExpired: expired,
-    discovered,
+    discovered: funnel.created,
     discoveryAdapters: adapters.map((adapter) => adapter.name),
     discoveryAvailable: adapters.length > 0,
-    providersQueried,
-    providersFailed,
+    providerStatuses: statuses,
+    providersQueried: answered,
+    providersFailed: failed,
+    providerTaskIds: pendingTaskIds,
+    costUsd: costKnown ? Number(costUsd.toFixed(4)) : null,
     notes: discoveryNotes,
   };
 });
@@ -339,14 +453,63 @@ registerHandler('zip_research', async (job: JobRecord) => {
   };
 });
 
+/**
+ * What ingestion did with what the provider returned.
+ *
+ * "Provider returned 50 rows" is not "50 new businesses discovered". Five identify
+ * nothing, eight are the same company twice, twelve are companies we already hold,
+ * and twenty-five are new. Those are four different numbers and an operator needs
+ * them apart.
+ */
+export interface IngestionCounts {
+  /** Businesses handed to ingestion, after the adapter's own dedupe. */
+  candidates: number;
+  /** Dropped here because nothing in the row identified a business. */
+  rejected: number;
+  /** Resolved to an Account we already had. */
+  matchedExisting: number;
+  /** New canonical Accounts. */
+  created: number;
+  /** Newly created Accounts queued for research. */
+  researchQueued: number;
+}
+
+/**
+ * A row has to identify a company before it can become one.
+ *
+ * A name alone is a string somebody could have typed; the rep who opens it finds a
+ * company with no way to reach it and no way to tell whether it exists. A domain or
+ * a phone is the least that makes a row resolvable.
+ */
+export function isUsableBusiness(business: DiscoveredBusiness): boolean {
+  const name = (business.name ?? '').trim();
+  if (name.length < 2) return false;
+  const hasDomain = Boolean((business.website ?? '').trim());
+  const hasPhone = Boolean((business.phone ?? '').trim());
+  return hasDomain || hasPhone;
+}
+
 /** Resolves discovered businesses into canonical Accounts. Dedupe is not optional. */
 async function ingestDiscoveries(
   businesses: DiscoveredBusiness[], providerName: string, job: JobRecord,
-): Promise<number> {
+): Promise<IngestionCounts> {
   const { upsertAccount } = await import('../domain/accounts.js');
-  let created = 0;
+  const counts: IngestionCounts = {
+    candidates: businesses.length, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
+  };
+  const createdAccountIds: string[] = [];
+
+  // The geography the search was scoped to. A business returned by a search for one
+  // ZIP was found in that ZIP -- that is a fact about how we found it, not a claim
+  // about its mailing address -- so it is recorded as a service area rather than as a
+  // street address, and only when the provider gave us nothing better. Without it a
+  // discovered business is invisible to the very search that discovered it.
+  const searchedGeographyType = (job.payload['geography_type'] as string | null) ?? null;
+  const searchedGeography = (job.payload['geography_value'] as string | null) ?? null;
 
   for (const business of businesses) {
+    if (!isUsableBusiness(business)) { counts.rejected += 1; continue; }
+
     await withTransaction(async (client) => {
       const result = await upsertAccount(
         client,
@@ -354,9 +517,10 @@ async function ingestDiscoveries(
           canonicalName: business.name,
           website: business.website ?? null,
           phone: business.phone ?? null,
-          city: business.city ?? null,
-          state: business.state ?? null,
-          postalCode: business.postalCode ?? null,
+          city: business.city ?? (searchedGeographyType === 'city' ? searchedGeography : null),
+          state: business.state ?? (searchedGeographyType === 'state' ? searchedGeography : null),
+          postalCode: business.postalCode
+            ?? (searchedGeographyType === 'zip_zcta' ? searchedGeography : null),
           verticalProfileId: (job.payload['vertical_profile_id'] as string | null) ?? null,
           sourceIdentity: business.providerNativeId
             ? {
@@ -367,7 +531,8 @@ async function ingestDiscoveries(
         },
         { discoverySource: `market_miner:${providerName}`, marketId: job.market_id },
       );
-      if (result.created) created += 1;
+      if (result.created) { counts.created += 1; createdAccountIds.push(result.accountId); }
+      else counts.matchedExisting += 1;
 
       // Every discovery is recorded as an observation, separate from durable evidence:
       // six sightings of one advertiser stay six observations of one Account.
@@ -375,13 +540,16 @@ async function ingestDiscoveries(
         `insert into search_observations (mining_job_id, provider, source_type, observed_name,
                                           observed_domain, observed_phone, observed_location,
                                           result_type, advertised_service, landing_url,
-                                          retention_class, account_id)
-         values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', $9)`,
+                                          retention_class, account_id, job_id)
+         values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', $9, $10)`,
         [
           providerName, business.name, business.website ?? null, business.phone ?? null,
           [business.city, business.state].filter(Boolean).join(', ') || null,
           business.resultType ?? null, business.advertisedService ?? null,
           business.landingUrl ?? null, result.accountId,
+          // An observation nobody can trace back to the run that made it cannot be
+          // audited, and cannot be attributed a cost.
+          job.job_id,
         ],
       );
 
@@ -395,7 +563,17 @@ async function ingestDiscoveries(
       }
     });
   }
-  return created;
+
+  // Finding a company is step one. Without this a discovered Account sat in
+  // inventory with no research, no contact route and no score -- a name and a
+  // number, which is not what a rep needs to make a call. Enqueued after the
+  // transactions so a research job never exists for an Account that rolled back.
+  for (const accountId of createdAccountIds) {
+    const queued = await enqueueAccountResearch(accountId, job.requested_by, 'discovered');
+    if (queued.created) counts.researchQueued += 1;
+  }
+
+  return counts;
 }
 
 export { runContactResearch, config };

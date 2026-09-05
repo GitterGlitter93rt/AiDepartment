@@ -3,6 +3,7 @@ import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool } from '../src/db/pool.js';
 import { resetDatabase } from './helpers.js';
+import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import {
   createDataForSeoAdapter, normalizeResponse, normalizeResultType, isPaidPlacement,
   type DataForSeoConfig, type ProviderResponse, type Transport,
@@ -16,7 +17,7 @@ import { availableDiscoveryAdapters, registerDiscoveryAdapter } from '../src/wor
  */
 
 after(async () => { await pool.end(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeEach(async () => { await resetDatabase(); await syncVerticalProfiles(); });
 
 const READY: DataForSeoConfig = {
   login: 'login', password: 'password', baseUrl: 'https://provider.test/v3',
@@ -97,10 +98,13 @@ test('the adapter refuses to run before the source governance review', async () 
   assert.equal(adapter.isConfigured(), false);
 
   const found = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 5,
   });
-  assert.deepEqual(found, []);
+  assert.deepEqual(found.businesses, []);
+  assert.equal(found.status, 'GOVERNANCE_BLOCKED',
+    'an unreviewed source is blocked, not a market with nothing in it');
+  assert.match(found.reason ?? '', /governance review/);
 
   const { rows } = await pool.query(
     `select status, error_code, units from provider_usage where provider = 'dataforseo'`);
@@ -115,10 +119,12 @@ test('a credential alone does not start traffic', async () => {
     transport: () => { throw new Error('the provider must not be called'); },
   });
   assert.equal(adapter.isConfigured(), false);
-  assert.deepEqual(await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+  const refused = await adapter.discover({
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 5,
-  }), []);
+  });
+  assert.deepEqual(refused.businesses, []);
+  assert.equal(refused.status, 'NOT_CONFIGURED');
 });
 
 test('the run budget is capped by configuration, not by the caller', async () => {
@@ -127,11 +133,13 @@ test('the run budget is capped by configuration, not by the caller', async () =>
     config: { ...READY, maxQueriesPerRun: 0 },
     transport: async () => { called += 1; return { ok: true, status: 200, json: async () => RESPONSE }; },
   });
-  await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+  const capped = await adapter.discover({
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 10_000,
   });
   assert.equal(called, 0, 'a caller asking for ten thousand queries gets none');
+  assert.equal(capped.status, 'BUDGET_EXHAUSTED',
+    'our own ceiling stopping the call is not the market being empty');
 
   const { rows } = await pool.query(
     `select error_code from provider_usage where provider = 'dataforseo'`);
@@ -143,22 +151,28 @@ test('a discovered business carries its provider evidence, and no invented locat
     config: READY, transport: transportReturning(RESPONSE),
   });
   const found = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 5,
   });
 
-  assert.equal(found.length, 2, 'only results identifying a business become candidates');
-  assert.equal(found[0]!.name, 'Northgate Air & Heating');
-  assert.equal(found[0]!.website, 'https://northgateair.com');
-  assert.equal(found[0]!.resultType, 'PAID_SEARCH_TEXT');
-  assert.equal(found[0]!.city, null, 'a city the provider did not give is not guessed');
-  assert.equal(found[1]!.resultType, 'ORGANIC');
+  assert.equal(found.status, 'OK');
+  assert.equal(found.businesses.length, 2, 'only results identifying a business become candidates');
+  assert.equal(found.businesses[0]!.name, 'Northgate Air & Heating');
+  assert.equal(found.businesses[0]!.website, 'https://northgateair.com');
+  assert.equal(found.businesses[0]!.resultType, 'PAID_SEARCH_TEXT');
+  assert.equal(found.businesses[0]!.city, null, 'a city the provider did not give is not guessed');
+  assert.equal(found.businesses[1]!.resultType, 'ORGANIC');
+  // The funnel, not just the survivors: an operator has to be able to check the
+  // arithmetic between what the provider sent and what reached inventory.
+  assert.ok(found.providerRows >= found.businesses.length);
+  assert.equal(found.providerRows - found.rejectedRows - found.duplicateRows,
+    found.businesses.length, 'rows in must equal rows out plus what was dropped');
 });
 
 test('provider cost is recorded from the response, and a failure is still recorded', async () => {
   const ok = createDataForSeoAdapter({ config: READY, transport: transportReturning(RESPONSE) });
   await ok.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 5,
   });
   const success = await pool.query(
@@ -167,13 +181,17 @@ test('provider cost is recorded from the response, and a failure is still record
   assert.equal(Number(success.rows[0]!.actual_cost_usd), 0.0031);
 
   await resetDatabase();
+  await syncVerticalProfiles();
   const failing = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE, false, 402) });
   const found = await failing.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 5,
   });
-  assert.deepEqual(found, []);
+  assert.deepEqual(found.businesses, []);
+  assert.notEqual(found.status, 'ZERO_RESULTS',
+    'a provider that failed must never be reported as a market with nothing in it');
+  assert.equal(found.status, 'OUTAGE');
   const failure = await pool.query(
     `select status, error_code from provider_usage where provider = 'dataforseo'`);
   assert.equal(failure.rows[0]!.status, 'FAILED');
@@ -185,10 +203,10 @@ test('an unclassified block is observed but never becomes a company', async () =
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
   const found = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 5,
   });
-  assert.equal(found.some((row) => row.name === 'Mystery Block'), false,
+  assert.equal(found.businesses.some((row) => row.name === 'Mystery Block'), false,
     'a block we could not classify has nothing entity resolution can work with');
 
   // It is still normalized, so the observation is not lost — only its promotion.
@@ -225,10 +243,14 @@ function countingAdapter(options: { costPerTask?: number; results?: number } = {
       isConfigured: () => true,
       async discover() {
         state.calls += 1;
-        return Array.from({ length: options.results ?? 2 }, (_, index) => ({
+        const businesses = Array.from({ length: options.results ?? 2 }, (_, index) => ({
           name: `Result ${index}`, website: 'https://example.com',
           resultType: index === 0 ? 'PAID_SEARCH_TEXT' : 'ORGANIC',
         }));
+        return {
+          status: businesses.length > 0 ? 'OK' as const : 'ZERO_RESULTS' as const,
+          businesses, providerRows: businesses.length, rejectedRows: 0, duplicateRows: 0,
+        };
       },
     },
   };
@@ -356,7 +378,7 @@ test('recorded spend is read back from usage, not held in memory', async () => {
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
   await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville',
+    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertisers_first', queryBudget: 1,
   });
   assert.equal(await providerSpendUsd('dataforseo'), 0.0031,

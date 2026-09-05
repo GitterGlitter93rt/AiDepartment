@@ -3,6 +3,7 @@ import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query } from '../src/db/pool.js';
 import { resetDatabase } from './helpers.js';
+import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import {
   createDataForSeoAdapter, dedupeCandidates, normalizeResponse,
   type DataForSeoConfig, type ProviderResponse, type Transport,
@@ -30,7 +31,7 @@ import { upsertAccount, upsertEndpoint } from '../src/domain/accounts.js';
  */
 
 after(async () => { await pool.end(); });
-beforeEach(async () => { await resetDatabase(); });
+beforeEach(async () => { await resetDatabase(); await syncVerticalProfiles(); });
 
 const BASE: DataForSeoConfig = {
   login: 'login', password: 'password', baseUrl: 'https://provider.test/v3',
@@ -62,7 +63,9 @@ async function seedEndpoint(endpointRole: string): Promise<{ accountId: string; 
 }
 
 const REQUEST = {
-  verticalProfileId: 'hvac', geographyType: 'postal_code', geographyValue: '32256',
+  // 'postal_code' was never a geography type this system searches: the miner uses
+  // 'zip_zcta', and the adapter passed whatever it was given straight to the provider.
+  verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
   miningMode: 'advertisers_first', queryBudget: 5,
 };
 
@@ -112,8 +115,9 @@ test('standard mode posts a task and then collects it', async () => {
   const adapter = createDataForSeoAdapter({ config: BASE, transport, sleep: noSleep });
 
   const found = await adapter.discover(REQUEST);
-  assert.equal(found.length, 1, 'the queued task was never collected');
-  assert.equal(found[0]!.website, 'https://northgateair.com');
+  assert.equal(found.status, 'OK');
+  assert.equal(found.businesses.length, 1, 'the queued task was never collected');
+  assert.equal(found.businesses[0]!.website, 'https://northgateair.com');
 
   assert.match(calls[0]!.url, /task_post/);
   assert.match(calls[1]!.url, /task_get\/advanced\/task-1/);
@@ -130,7 +134,12 @@ test('an acknowledgement with no results is never treated as an empty SERP', asy
   const adapter = createDataForSeoAdapter({ config: BASE, transport, sleep: noSleep });
 
   const found = await adapter.discover(REQUEST);
-  assert.deepEqual(found, []);
+  assert.deepEqual(found.businesses, []);
+  // The money is spent and the answer is still coming. Reporting that as a market
+  // with nothing in it was the defect: PENDING is a third thing, and the task id
+  // comes back so the next run collects this search rather than buying another.
+  assert.equal(found.status, 'PENDING');
+  assert.equal(found.providerTaskId, 'task-1');
   assert.equal(calls.filter((call) => call.url.includes('task_get')).length, BASE.maxPollAttempts,
     'the poll is bounded by configuration, not by hope');
 
@@ -146,7 +155,10 @@ test('a task that errored stops the poll instead of running it out', async () =>
       : { body: { tasks: [{ id: 'task-1', status_code: 40501, status_message: 'invalid field' }] } });
   const adapter = createDataForSeoAdapter({ config: BASE, transport, sleep: noSleep });
 
-  assert.deepEqual(await adapter.discover(REQUEST), []);
+  const errored = await adapter.discover(REQUEST);
+  assert.deepEqual(errored.businesses, []);
+  assert.equal(errored.status, 'MALFORMED',
+    'a task the provider rejected is not a market with nothing in it');
   assert.equal(calls.filter((call) => call.url.includes('task_get')).length, 1,
     'a permanent task error was polled again');
   const usage = await query<{ error_code: string }>(
@@ -160,7 +172,7 @@ test('live mode reads results from the response it gets', async () => {
     config: { ...BASE, mode: 'live' }, transport, sleep: noSleep });
 
   const found = await adapter.discover(REQUEST);
-  assert.equal(found.length, 1);
+  assert.equal(found.businesses.length, 1);
   assert.equal(calls.length, 1, 'live mode should be one request');
   assert.match(calls[0]!.url, /serp\/google\/organic\/live\/advanced/);
   const usage = await query<{ operation: string; status: string }>(
@@ -198,7 +210,7 @@ test('a 429 is retried, and the provider’s own Retry-After is honoured', async
   });
 
   const found = await adapter.discover(REQUEST);
-  assert.equal(found.length, 1, 'a throttled call was not retried');
+  assert.equal(found.businesses.length, 1, 'a throttled call was not retried');
   assert.equal(calls.length, 2);
   assert.deepEqual(waited, [2_000], 'we waited less than the provider asked for');
 });
@@ -208,7 +220,10 @@ test('a 401 is not retried: repeating it only spends money', async () => {
   const adapter = createDataForSeoAdapter({
     config: { ...BASE, mode: 'live' }, transport, sleep: noSleep });
 
-  assert.deepEqual(await adapter.discover(REQUEST), []);
+  const refused = await adapter.discover(REQUEST);
+  assert.deepEqual(refused.businesses, []);
+  assert.equal(refused.status, 'CREDENTIALS_INVALID',
+    'a rejected credential is a fact about us, not about the market');
   assert.equal(calls.length, 1, 'an authentication failure was retried');
   const usage = await query<{ error_code: string }>(
     'select error_code from provider_usage order by requested_at desc limit 1');
@@ -220,7 +235,9 @@ test('retries are bounded, and the exhaustion is recorded', async () => {
   const adapter = createDataForSeoAdapter({
     config: { ...BASE, mode: 'live', maxRetries: 2 }, transport, sleep: noSleep });
 
-  assert.deepEqual(await adapter.discover(REQUEST), []);
+  const exhausted = await adapter.discover(REQUEST);
+  assert.deepEqual(exhausted.businesses, []);
+  assert.equal(exhausted.status, 'OUTAGE', 'a provider that is down is not an empty market');
   assert.equal(calls.length, 3, 'one attempt plus two retries');
   const usage = await query<{ status: string; units: number; error_code: string }>(
     'select status, units, error_code from provider_usage order by requested_at desc limit 1');
@@ -235,7 +252,7 @@ test('a dropped socket is retried like any other transient failure', async () =>
   const adapter = createDataForSeoAdapter({
     config: { ...BASE, mode: 'live' }, transport, sleep: noSleep });
 
-  assert.equal((await adapter.discover(REQUEST)).length, 1);
+  assert.equal((await adapter.discover(REQUEST)).businesses.length, 1);
   assert.equal(calls.length, 2);
 });
 
