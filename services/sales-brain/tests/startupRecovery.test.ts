@@ -51,21 +51,29 @@ test('a database with every migration applied says so', async () => {
 });
 
 test('a migration this build has never run is named, not left to become a 500', async () => {
-  await query(
-    `delete from schema_migrations where filename = (
-       select filename from schema_migrations order by filename desc limit 1)`);
+  const { rows } = await query<{ filename: string; checksum: string }>(
+    'select filename, checksum from schema_migrations order by filename desc limit 1');
+  const newest = rows[0]!;
+  await query('delete from schema_migrations where filename = $1', [newest.filename]);
 
-  const state = await schemaState();
-  assert.equal(state.pending.length, 1);
+  try {
+    const state = await schemaState();
+    assert.equal(state.pending.length, 1);
 
-  const snapshot = await operationalSnapshot();
-  const schema = snapshot.checks.find((check) => check.id === 'schema')!;
-  assert.equal(schema.state, 'BLOCKED');
-  assert.match(schema.detail ?? '', /npm run migrate/);
-  assert.match(schema.detail ?? '', new RegExp(state.pending[0]!));
-
-  // Put it back so the next test starts from a matching schema.
-  await resetDatabase();
+    const snapshot = await operationalSnapshot();
+    const schema = snapshot.checks.find((check) => check.id === 'schema')!;
+    assert.equal(schema.state, 'BLOCKED');
+    assert.match(schema.detail ?? '', /npm run migrate/);
+    assert.match(schema.detail ?? '', new RegExp(state.pending[0]!));
+  } finally {
+    // Put the row back by hand. Letting resetDatabase re-run the migration instead
+    // makes every later test depend on that one file being safe to apply twice --
+    // and when it was not, one deleted row failed a hundred and thirty-seven tests
+    // in files that had nothing to do with it.
+    await query(
+      'insert into schema_migrations (filename, checksum) values ($1, $2) on conflict do nothing',
+      [newest.filename, newest.checksum]);
+  }
 });
 
 test('a migration edited after it was applied is a blocked state, not a warning', async () => {

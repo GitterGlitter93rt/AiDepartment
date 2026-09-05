@@ -2,7 +2,11 @@ import { config } from '../config.js';
 import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
 import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
-import { enqueueAccountResearch } from './enqueue.js';
+import { discoveryFingerprint, enqueueAccountResearch } from './enqueue.js';
+import {
+  closeProviderTask, openProviderTask, recordCollectionAttempt, recordProviderTask,
+  MAX_TASK_COLLECTIONS,
+} from '../miner/providerTasks.js';
 
 /**
  * Market Miner orchestration.
@@ -121,6 +125,14 @@ export interface DiscoveryAdapter {
   readonly governanceReviewed: boolean;
   isConfigured(): boolean;
   discover(request: DiscoveryQuery): Promise<DiscoveryResult>;
+  /**
+   * Collects a task this provider accepted earlier.
+   *
+   * Optional, because a provider that answers synchronously has nothing to collect.
+   * A provider that queues work must implement it, or a search we paid for is lost
+   * the moment the worker that submitted it stops.
+   */
+  collect?(providerTaskId: string, request: DiscoveryQuery): Promise<DiscoveryResult>;
 }
 
 /** A result for a call that never reached the provider, or that it refused. */
@@ -311,16 +323,82 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     );
   }
 
+  const request: DiscoveryQuery = {
+    verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
+    geographyType: (payload['geography_type'] as string | null) ?? null,
+    geographyValue: (payload['geography_value'] as string | null) ?? null,
+    miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
+    queryBudget: Number(payload['query_budget'] ?? 25),
+  };
+  const fingerprint = discoveryFingerprint({
+    marketId: job.market_id,
+    verticalProfileId: request.verticalProfileId,
+    geographyType: request.geographyType,
+    geographyValue: request.geographyValue,
+    miningMode: request.miningMode,
+  });
+
   for (const adapter of adapters) {
     let result: DiscoveryResult;
+    // Set when a task's results are in hand but not yet in inventory.
+    let collected: string | null = null;
     try {
-      result = await adapter.discover({
-        verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
-        geographyType: (payload['geography_type'] as string | null) ?? null,
-        geographyValue: (payload['geography_value'] as string | null) ?? null,
-        miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
-        queryBudget: Number(payload['query_budget'] ?? 25),
-      });
+      // Collect before submitting.
+      //
+      // A Standard-mode search is accepted, charged for, and answered later. If a
+      // previous run submitted one for this same request -- and then the worker was
+      // restarted, or the task was simply slower than the poll -- going back for it
+      // is both cheaper and more honest than buying the same market twice.
+      const outstanding = await openProviderTask(adapter.name, fingerprint);
+      if (outstanding && adapter.collect) {
+        const attempts = await recordCollectionAttempt(outstanding.provider_task_id);
+        result = await adapter.collect(outstanding.provider_native_id, request);
+
+        if (result.status === 'PENDING') {
+          if (attempts >= MAX_TASK_COLLECTIONS) {
+            // A task the provider will never finish must not become a job that polls
+            // for ever. It is abandoned with a reason, so the operator can see that a
+            // search was paid for and never delivered.
+            await closeProviderTask({
+              providerTaskId: outstanding.provider_task_id, status: 'ABANDONED',
+              errorCode: 'NEVER_DELIVERED' });
+            result = refusedDiscovery('TIMEOUT',
+              `The provider accepted this search ${attempts} collection attempts ago and has `
+              + 'never delivered it. It has been given up on rather than polled for ever.');
+          }
+        } else if (providerAnswered(result.status)) {
+          // Closed after ingestion, not here.
+          //
+          // Marking the task collected first opens a window: a worker that dies
+          // between the two loses the results and leaves a COLLECTED row nothing
+          // will ever ask for again -- a search paid for, delivered, and thrown
+          // away. Leaving it PENDING means a crash costs one more collection call
+          // and nothing else, because ingestion resolves to the same Accounts.
+          collected = outstanding.provider_task_id;
+        } else {
+          await closeProviderTask({
+            providerTaskId: outstanding.provider_task_id, status: 'FAILED',
+            errorCode: result.status });
+        }
+      } else if (outstanding) {
+        // The provider owes us a result and this adapter cannot go back for it. Say
+        // so rather than submitting a second paid search of the same market.
+        result = refusedDiscovery('PENDING',
+          `${adapter.name} accepted this search earlier and cannot be asked for it again, `
+          + 'so no second search was submitted.');
+      } else {
+        result = await adapter.discover(request);
+
+        // A task the provider accepted is remembered before this job ends. Without
+        // this row the id dies with the process and the search is bought again.
+        if (result.status === 'PENDING' && result.providerTaskId) {
+          await recordProviderTask({
+            provider: adapter.name, providerNativeId: result.providerTaskId,
+            fingerprint, jobId: job.job_id,
+            request: request as unknown as Record<string, unknown>,
+          });
+        }
+      }
     } catch (error) {
       // A provider that threw is not a market with no businesses in it. An adapter
       // is supposed to report its own failures rather than raise, so a throw is a
@@ -344,6 +422,14 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       funnel.matchedExisting += counts.matchedExisting;
       funnel.created += counts.created;
       funnel.researchQueued += counts.researchQueued;
+    }
+
+    // The task is only finished with once its results are in inventory. A crash
+    // before this line costs one more collection call; a crash after it costs
+    // nothing, because ingestion resolves to the same Accounts either way.
+    if (collected) {
+      await closeProviderTask({
+        providerTaskId: collected, status: 'COLLECTED', costUsd: result.costUsd ?? null });
     }
   }
 

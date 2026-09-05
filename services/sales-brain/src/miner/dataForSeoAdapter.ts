@@ -319,6 +319,38 @@ function taskHasResults(task: ProviderTask | undefined): boolean {
   return (task.result ?? []).some((result) => (result.items ?? []).length > 0);
 }
 
+/**
+ * One provider response, read the same way whether it arrived from a live call or
+ * from collecting a task submitted an hour ago.
+ *
+ * Only results that identify a business become candidates. A block we could not
+ * classify, or a title with nothing to resolve it against, cannot become an Account:
+ * entity resolution has nothing to work with and a rep would be handed a company
+ * that may not exist.
+ */
+function resultFromResponse(
+  response: ProviderResponse, keyword: string, cost: number | null,
+): DiscoveryResult {
+  const observations = normalizeResponse(response, { query: keyword });
+  const candidates = observations
+    .filter((observation) => CANDIDATE_TYPES.has(observation.resultType))
+    .filter((observation) =>
+      observation.observedDomain || (observation.observedName && observation.observedPhone));
+  const businesses = dedupeCandidates(candidates);
+
+  return {
+    // Rows came back and none of them identified a business: that is a real answer
+    // about this market, not a failure, and it is reported as one.
+    status: businesses.length > 0 ? 'OK' : 'ZERO_RESULTS',
+    businesses,
+    providerRows: observations.length,
+    rejectedRows: observations.length - candidates.length,
+    duplicateRows: candidates.length - businesses.length,
+    costUsd: cost,
+    reason: `${observations.length} row(s) read, ${businesses.length} business(es) identified.`,
+  };
+}
+
 export function createDataForSeoAdapter(options: {
   config?: DataForSeoConfig; transport?: Transport; sleep?: Sleep;
 } = {}): DiscoveryAdapter {
@@ -514,34 +546,69 @@ export function createDataForSeoAdapter(options: {
         response = fetched;
       }
 
-      const observations = normalizeResponse(response, { query: keyword });
       const cost = typeof response.cost === 'number' ? response.cost : null;
       await recordProviderUsage({
         operation: config.mode === 'live' ? 'serp.discover.live' : 'serp.discover.task_get',
         units: 1, status: 'OK', actualCostUsd: cost,
       });
+      return resultFromResponse(response, keyword, cost);
+    },
 
-      // Only results that identify a business become candidates. A block we could not
-      // classify, or a title with nothing to resolve it against, cannot become an
-      // Account: entity resolution has nothing to work with and a rep would be handed
-      // a company that may not exist.
-      const candidates = observations
-        .filter((observation) => CANDIDATE_TYPES.has(observation.resultType))
-        .filter((observation) =>
-          observation.observedDomain || (observation.observedName && observation.observedPhone));
-      const businesses = dedupeCandidates(candidates);
+    /**
+     * Collects a task submitted by an earlier run, possibly by an earlier process.
+     *
+     * One request, not a poll loop: the run that submitted this already waited, and
+     * a job that sits here waiting again is a lease held for no reason. If it is
+     * still not ready it stays PENDING and the next run asks again.
+     */
+    async collect(providerTaskId: string, request: DiscoveryQuery): Promise<DiscoveryResult> {
+      if (!this.isConfigured()) {
+        return refusedDiscovery('NOT_CONFIGURED',
+          'The provider is no longer configured, so a task it accepted cannot be collected.');
+      }
+      const auth = Buffer.from(`${config.login}:${config.password}`).toString('base64');
+      const got = await callWithRetry(transport, sleep, config,
+        `${config.baseUrl}/serp/google/organic/task_get/advanced/${providerTaskId}`,
+        { method: 'GET', headers: { authorization: `Basic ${auth}`, 'content-type': 'application/json' } });
 
-      return {
-        // Rows came back and none of them identified a business: that is a real
-        // answer about this market, not a failure, and it is reported as one.
-        status: businesses.length > 0 ? 'OK' : 'ZERO_RESULTS',
-        businesses,
-        providerRows: observations.length,
-        rejectedRows: observations.length - candidates.length,
-        duplicateRows: candidates.length - businesses.length,
-        costUsd: cost,
-        reason: `${observations.length} row(s) read, ${businesses.length} business(es) identified.`,
-      };
+      if (!got.ok || !got.body) {
+        await recordProviderUsage({
+          operation: 'serp.discover.task_collect', units: got.attempts, status: 'FAILED',
+          errorCode: got.errorCode });
+        return {
+          ...refusedDiscovery(statusForError(got.errorCode, got.status),
+            `Collecting the submitted search failed: ${got.errorCode ?? `HTTP ${got.status}`}.`),
+          providerTaskId,
+        };
+      }
+
+      const first = (got.body.tasks ?? [])[0];
+      const code = first?.status_code;
+      if (!taskHasResults(first) && (code === TASK_CREATED || code === TASK_IN_QUEUE)) {
+        return {
+          ...refusedDiscovery('PENDING',
+            'The provider has still not finished this search. It is recorded and will be '
+            + 'collected rather than submitted again.'),
+          providerTaskId,
+        };
+      }
+      if (code !== undefined && code !== TASK_DONE && !taskHasResults(first)) {
+        await recordProviderUsage({
+          operation: 'serp.discover.task_collect', units: got.attempts, status: 'FAILED',
+          errorCode: `TASK_${code}` });
+        return {
+          ...refusedDiscovery('MALFORMED',
+            `The provider reported task status ${code}, which is not a result.`),
+          providerTaskId,
+        };
+      }
+
+      const cost = typeof got.body.cost === 'number' ? got.body.cost : null;
+      await recordProviderUsage({
+        operation: 'serp.discover.task_collect', units: 1, status: 'OK', actualCostUsd: cost });
+      const keyword = String((request as { keyword?: string }).keyword
+        ?? first?.result?.[0]?.keyword ?? '');
+      return { ...resultFromResponse(got.body, keyword, cost), providerTaskId };
     },
   };
 }
