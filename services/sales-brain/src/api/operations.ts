@@ -36,6 +36,8 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
   const discoveryAvailable = availableDiscoveryAdapters().length > 0;
   const schema = await schemaState();
+  const { strandedResearchCount } = await import('../workers/researchReconcile.js');
+  const strandedResearch = await strandedResearchCount();
 
   const { rows } = await query<Record<string, string | number | boolean | null>>(
     `select
@@ -195,6 +197,16 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
           + 'queued: nothing is serving them.'
         : `No heartbeat for ${heartbeatAge}s. The worker process is not running, so `
           + `the ${queued} queued job(s) are going nowhere.`);
+
+  // Discovered and then forgotten: created, never researched, nothing queued.
+  add('research_backlog', 'Is any discovered company stranded?',
+    strandedResearch === 0 ? 'OK' : strandedResearch > 20 ? 'BLOCKED' : 'ATTENTION',
+    strandedResearch === 0 ? 'none' : `${strandedResearch} stranded`,
+    strandedResearch === 0
+      ? 'Every company a provider found has research done or on its way.'
+      : `${strandedResearch} discovered compan(ies) have never been researched and have nothing `
+        + 'queued. They are a name and a phone number until the sweep picks them up, '
+        + 'which happens on the worker\'s fifteen-minute cycle.');
 
   const queueAge = number('queue_age_seconds');
   add('queue', 'Are jobs backing up?',

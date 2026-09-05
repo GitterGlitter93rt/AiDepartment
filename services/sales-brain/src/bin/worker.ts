@@ -23,11 +23,20 @@ console.log(
 const SWEEP_INTERVAL_MS = Number(process.env.REFRESH_SWEEP_INTERVAL_MS ?? 15 * 60_000);
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
+const { reconcileMissingResearch } = await import('../workers/researchReconcile.js');
 const sweep = setInterval(async () => {
   try {
     const expired = await expireStaleEvidence();
     await refreshAccountFreshness();
     if (expired > 0) console.log(`[worker] marked ${expired} evidence records stale`);
+
+    // Discovered Accounts that never reached research. A worker that died between
+    // creating them and queuing their research leaves companies nothing will ever
+    // look at again; this is what notices.
+    const stranded = await reconcileMissingResearch();
+    if (stranded.queued > 0) {
+      console.log(`[worker] queued research for ${stranded.queued} stranded account(s)`);
+    }
 
     // A booking the provider never confirmed must stop looking upcoming.
     const bookings = await reconcilePendingBookings();

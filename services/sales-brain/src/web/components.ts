@@ -220,11 +220,25 @@ export function emptyState(title: string, message: string, cta?: { href: string;
 
 export function coverageNote(coverage: {
   state: string; researchedCount: number; unclaimedCount: number; lastMinedAt: Date | null;
-  discoveryAvailable?: boolean; activeJobScope?: string | null;
+  discoveryAvailable?: boolean; activeJobScope?: string | null; unscoredExcluded?: number;
 }, canResearch: boolean, geographyLabel: string): RawHtml {
   // Never imply complete market coverage (browse-claim spec §10), and never imply a
   // search happened that could not have happened.
   const canDiscover = coverage.discoveryAvailable !== false;
+
+  // A tier filter hides Accounts with no tier, and an Account with no tier is one
+  // nobody has researched -- not one that scored badly. Without this line the rep
+  // sees an empty market and has no way to learn the companies are there.
+  const unscored = Number(coverage.unscoredExcluded ?? 0);
+  const hidden = unscored === 0 ? raw('') : html`
+    <div class="coverage-note">
+      <span class="dot"></span>
+      <span><strong>${unscored} compan${unscored === 1 ? 'y is' : 'ies are'} not shown
+      because ${unscored === 1 ? 'it has' : 'they have'} no tier yet.</strong>
+      A tier comes from research, so ${unscored === 1 ? 'this one has' : 'these have'}
+      not been researched -- not scored badly. Clear the tier filter to see
+      ${unscored === 1 ? 'it' : 'them'}.</span>
+    </div>`;
 
   // The sentence an operator has to see before any of the others. Without a search
   // provider, nothing in this market can be found that is not already here, and an
@@ -240,7 +254,7 @@ export function coverageNote(coverage: {
 
   switch (coverage.state) {
     case 'NOT_YET_MINED':
-      return html`${blocked}<div class="coverage-note">
+      return html`${blocked}${hidden}<div class="coverage-note">
         <span class="dot"></span>
         <span>${canDiscover
           ? html`No researched prospects yet for ${geographyLabel}. Market Miner has not covered this area.`
@@ -258,7 +272,7 @@ export function coverageNote(coverage: {
         ${canResearch ? html`<button class="btn btn-secondary btn-sm js-research-more">Refresh</button>` : ''}
       </div>`;
     case 'PARTIAL':
-      return html`${blocked}<div class="coverage-note">
+      return html`${blocked}${hidden}<div class="coverage-note">
         <span class="dot"></span>
         <span>More businesses may exist in ${geographyLabel}. Coverage here is partial, not complete.</span>
         ${canResearch && canDiscover
@@ -268,7 +282,7 @@ export function coverageNote(coverage: {
     case 'REFRESHING':
       // "New ones will appear as they land" was the exact sentence a market search
       // showed while no provider existed to find one.
-      return html`${blocked}<div class="coverage-note info">
+      return html`${blocked}${hidden}<div class="coverage-note info">
         <span class="dot"></span>
         <span>${coverage.activeJobScope === 'DISCOVER_NEW'
           ? html`Searching ${geographyLabel} for new businesses now. Existing results
@@ -278,6 +292,6 @@ export function coverageNote(coverage: {
                  new will appear.`}</span>
       </div>`;
     default:
-      return html`${blocked}`;
+      return html`${blocked}${hidden}`;
   }
 }

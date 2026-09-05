@@ -132,6 +132,11 @@ export interface SearchResponse {
 }
 
 export interface CoverageSummary {
+  /**
+   * Accounts in this market that a tier filter is hiding because they have no tier.
+   * Zero unless a minimum tier was asked for.
+   */
+  unscoredExcluded?: number;
   state: 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'REFRESHING';
   researchedCount: number;
   unclaimedCount: number;
@@ -249,6 +254,12 @@ function buildWhere(
   }
 
   if (request.minimumTier) {
+    // An Account with no tier is not an Account below D. It is one nobody has
+    // researched yet, and `manual_tier = any(...)` drops it silently -- so a rep
+    // filtering "Tier B and better" saw an empty market and had no way to learn that
+    // the companies were there and simply unscored. They are still excluded from the
+    // filtered rows, because a tier filter that ignores the tier is not a filter;
+    // what changes is that the page is told how many were left out and why.
     clauses.push(`manual_tier = any(${push(TIER_ORDER[request.minimumTier] ?? ['A', 'B', 'C', 'D'])})`);
   }
 
@@ -380,6 +391,8 @@ export async function searchProspects(
  * in a market unless the coverage model actually supports that (browse-claim §10).
  */
 export async function coverageFor(request: SearchRequest): Promise<CoverageSummary> {
+  const unscoredExcluded = request.minimumTier
+    ? await countUnscoredInScope(request) : 0;
   const geography = request.geography;
   const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
   const discoveryAvailable = availableDiscoveryAdapters().length > 0;
@@ -392,7 +405,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   if (!geography?.value && !marketId) {
     return {
       state: 'FRESH', researchedCount: 0, unclaimedCount: 0, lastMinedAt: null,
-      activeJobId: null, discoveryAvailable, activeJobScope: null,
+      activeJobId: null, discoveryAvailable, activeJobScope: null, unscoredExcluded,
     };
   }
 
@@ -464,7 +477,41 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     activeJobId,
     discoveryAvailable,
     activeJobScope,
+    unscoredExcluded,
   };
+}
+
+/**
+ * How many Accounts in this market the tier filter is hiding for want of a tier.
+ *
+ * Counted with the same geography and vertical the search used, so the number is
+ * about the market the rep is looking at rather than the whole database.
+ */
+async function countUnscoredInScope(request: SearchRequest): Promise<number> {
+  const conditions: string[] = ['not is_suppressed', 'manual_tier is null'];
+  const values: unknown[] = [];
+  const geography = request.geography;
+
+  if (request.verticalProfileId) {
+    values.push(request.verticalProfileId);
+    conditions.push(`primary_vertical_profile_id = $${values.length}`);
+  }
+  if (geography?.type === 'zip_zcta' && geography.value) {
+    values.push(geography.value.trim());
+    conditions.push(`postal_code = $${values.length}`);
+  } else if (geography?.type === 'city' && geography.value) {
+    values.push(geography.value.trim());
+    conditions.push(`lower(city) = lower($${values.length})`);
+  } else if (geography?.type === 'state' && geography.value) {
+    values.push(geography.value.trim());
+    conditions.push(`state_region = upper($${values.length})`);
+  }
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from prospect_inventory where ${conditions.join(' and ')}`,
+    values,
+  );
+  return rows[0]?.n ?? 0;
 }
 
 export async function recordSearchContext(

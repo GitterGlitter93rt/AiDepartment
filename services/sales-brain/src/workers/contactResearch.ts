@@ -25,6 +25,9 @@ export interface ContactResearchOutcome {
   pagesBlocked: number;
   stagesRun: string[];
   stagesSkipped: { stage: string; reason: string }[];
+  /** Null when scoring could not run; the research itself still stands. */
+  scoreTotal?: number | null;
+  scoreTier?: string | null;
 }
 
 interface AccountRow {
@@ -47,7 +50,32 @@ function depthFor(tier: string | null): { maxPages: number; allowPaid: boolean }
   }
 }
 
-export async function runContactResearch(accountId: string): Promise<ContactResearchOutcome> {
+/**
+ * What caused this research run.
+ *
+ * research_runs.trigger has a vocabulary -- newly_discovered, scheduled_refresh,
+ * human_requested, stale_evidence and the rest -- and every run ever written said
+ * `human_requested`, whatever actually asked for it. So "research runs completed
+ * today" could not be attributed: a nightly sweep, a discovery and a rep pressing a
+ * button were the same row. A trigger we do not recognise falls back rather than
+ * failing a research run over a label.
+ */
+const RESEARCH_TRIGGERS = new Set([
+  'newly_discovered', 'refresh_before_call', 'scheduled_refresh', 'human_requested',
+  'campaign_expansion', 'stale_evidence', 'import',
+]);
+
+export function researchTrigger(requested: string | null | undefined): string {
+  const value = (requested ?? '').trim();
+  if (RESEARCH_TRIGGERS.has(value)) return value;
+  // The miner's own word for it, kept so callers read naturally.
+  if (value === 'discovered') return 'newly_discovered';
+  return 'human_requested';
+}
+
+export async function runContactResearch(
+  accountId: string, trigger: string | null = null,
+): Promise<ContactResearchOutcome> {
   const { rows } = await query<AccountRow>(
     `select account_id, canonical_name, canonical_domain, primary_vertical_profile_id, manual_tier
        from accounts where account_id = $1`,
@@ -68,8 +96,8 @@ export async function runContactResearch(accountId: string): Promise<ContactRese
 
   const { rows: runRows } = await query<{ research_run_id: string }>(
     `insert into research_runs (account_id, trigger, vertical_profile_id, status)
-     values ($1, 'human_requested', $2, 'running') returning research_run_id`,
-    [accountId, account.primary_vertical_profile_id],
+     values ($1, $3, $2, 'running') returning research_run_id`,
+    [accountId, account.primary_vertical_profile_id, researchTrigger(trigger)],
   );
   const researchRunId = runRows[0]!.research_run_id;
 
@@ -170,6 +198,21 @@ export async function runContactResearch(accountId: string): Promise<ContactRese
     );
   });
 
+  // Research that produces evidence and never scores it leaves the Account without a
+  // tier, and a rep filtering "Tier B and better" cannot see it at all. Scoring runs
+  // here, on the evidence this run just wrote, outside the transaction above so a
+  // scoring fault cannot roll back the research it is reading.
+  let scored: { totalPoints: number; tier: string } | null = null;
+  try {
+    const { scoreAccount } = await import('../scoring/score.js');
+    const result = await scoreAccount(accountId, { researchRunId });
+    scored = { totalPoints: result.totalPoints, tier: result.tier };
+  } catch (error) {
+    // A research run that succeeded is not undone by a scoring failure. The Account
+    // keeps its evidence and stays unscored, which the operator can see and retry.
+    console.error('[research] scoring failed', { accountId, error });
+  }
+
   return {
     accountId,
     status: resolution.status,
@@ -179,17 +222,19 @@ export async function runContactResearch(accountId: string): Promise<ContactRese
     pagesBlocked,
     stagesRun,
     stagesSkipped,
+    scoreTotal: scored?.totalPoints ?? null,
+    scoreTier: scored?.tier ?? null,
   };
 }
 
 registerHandler('contact_research', async (job: JobRecord) => {
   const accountId = job.account_id ?? String(job.payload['account_id'] ?? '');
   if (!accountId) throw new Error('contact_research job has no account_id');
-  return { ...(await runContactResearch(accountId)) };
+  return { ...(await runContactResearch(accountId, job.payload['trigger'] as string | null)) };
 });
 
 registerHandler('account_research', async (job: JobRecord) => {
   const accountId = job.account_id ?? String(job.payload['account_id'] ?? '');
   if (!accountId) throw new Error('account_research job has no account_id');
-  return { ...(await runContactResearch(accountId)) };
+  return { ...(await runContactResearch(accountId, job.payload['trigger'] as string | null)) };
 });

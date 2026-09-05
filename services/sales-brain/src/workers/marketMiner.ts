@@ -693,7 +693,7 @@ async function ingestDiscoveries(
   // number, which is not what a rep needs to make a call. Enqueued after the
   // transactions so a research job never exists for an Account that rolled back.
   for (const accountId of createdAccountIds) {
-    const queued = await enqueueAccountResearch(accountId, job.requested_by, 'discovered');
+    const queued = await enqueueAccountResearch(accountId, job.requested_by, 'newly_discovered');
     if (queued.created) counts.researchQueued += 1;
   }
 
