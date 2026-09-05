@@ -61,6 +61,19 @@ export function registerHandler(jobType: string, handler: JobHandler): void {
   handlers.set(jobType, handler);
 }
 
+/**
+ * What this process can actually run.
+ *
+ * A handler registers as a side effect of importing its module, so a process that
+ * forgets the import serves a queue it cannot empty -- and every symptom of that
+ * appears somewhere other than the missing import. Exposed so the parity check can
+ * compare what can be enqueued against what can be run, rather than trusting that
+ * two entry points were kept in step by hand.
+ */
+export function registeredJobTypes(): string[] {
+  return [...handlers.keys()].sort();
+}
+
 const workerId = `${hostname()}:${process.pid}`;
 
 /** Claims one job atomically. `skip locked` lets several workers share the queue. */

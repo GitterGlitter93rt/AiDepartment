@@ -223,11 +223,15 @@ test('configuring a search provider does not arm anything that contacts anybody'
 });
 
 test('registering twice does not double the provider', () => {
+  // This test used to assert the opposite of its own name: it found the registry
+  // append-only, wrote down `first + 1`, and called it the contract. It is not a
+  // contract worth having. The orchestrator loops over the registry, so a provider
+  // held twice is a market searched twice and billed twice, and the duplicate rows
+  // come back through the funnel counters looking like ordinary duplicates.
   clearDiscoveryAdapters();
   registerConfiguredDiscoveryAdapters(CREDENTIALLED);
-  const first = availableDiscoveryAdapters().length;
   registerConfiguredDiscoveryAdapters(CREDENTIALLED);
-  assert.equal(availableDiscoveryAdapters().length, first + 1,
-    'the registry is append-only by design; both processes registering once is the '
-    + 'contract, and a second call inside one process would double the spend');
+  assert.equal(availableDiscoveryAdapters().length, 1,
+    'one provider registered twice is two providers, so every search costs double');
+  assert.deepEqual(availableDiscoveryAdapters().map((adapter) => adapter.name), ['dataforseo']);
 });

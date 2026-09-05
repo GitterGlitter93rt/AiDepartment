@@ -160,8 +160,23 @@ export function refusedDiscovery(
 
 const discoveryAdapters: DiscoveryAdapter[] = [];
 
+/**
+ * One adapter per provider name, replaced rather than appended.
+ *
+ * This used to push unconditionally, so registering the same provider twice gave
+ * the orchestrator two of it -- and it loops over the registry, so every market
+ * search would have queried DataForSEO twice and been billed twice, while the
+ * funnel counters reported the duplicate rows as duplicates and hid the fact. Today
+ * each process registers once at boot, so it was latent; the shape of the mistake
+ * is a second call added later by somebody with no reason to suspect it matters.
+ *
+ * The later registration wins, because the only reason to register again is a
+ * configuration that has changed.
+ */
 export function registerDiscoveryAdapter(adapter: DiscoveryAdapter): void {
-  discoveryAdapters.push(adapter);
+  const existing = discoveryAdapters.findIndex((held) => held.name === adapter.name);
+  if (existing >= 0) discoveryAdapters[existing] = adapter;
+  else discoveryAdapters.push(adapter);
 }
 
 /**
