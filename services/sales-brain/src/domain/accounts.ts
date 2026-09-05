@@ -189,6 +189,25 @@ export async function upsertAccount(
        where account_id = $1`,
       [accountId, input.legalName ?? null, hostname, input.verticalProfileId ?? null, input.industryCode ?? null],
     );
+
+    // A company can be found twice by different means, and both facts are worth
+    // keeping. Bought in a list and then seen advertising by a provider is a
+    // stronger prospect than either alone, and an operator asking where a company
+    // came from deserves both answers rather than only the first one.
+    //
+    // Once per source per day: re-running a list or re-searching a market must not
+    // write a thousand rows saying the same thing.
+    await client.query(
+      `insert into activities (account_id, activity_type, channel, source_system, payload)
+       select $1, 'SOURCE_OBSERVED', 'system', $2, $3
+        where not exists (
+          select 1 from activities a
+           where a.account_id = $1
+             and a.source_system = $2
+             and a.activity_type in ('SOURCE_OBSERVED','DISCOVERED')
+             and a.occurred_at > now() - interval '1 day')`,
+      [accountId, options.discoverySource, JSON.stringify({ match_rule: matchRule })],
+    );
   } else {
     const { rows } = await client.query<{ account_id: string }>(
       `insert into accounts (canonical_name, normalized_name, legal_name, canonical_domain,

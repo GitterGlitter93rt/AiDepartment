@@ -6,6 +6,7 @@ import { normalizeGeography, stateCode } from '../src/miner/geography.js';
 import { planSearchQueries, searchQueriesFor } from '../src/miner/searchTaxonomy.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { classifyGeographyForInventory } from '../src/miner/geography.js';
+import { providerTargetFor } from '../src/miner/providerLocation.js';
 import { discoveryFingerprint, enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { createUser } from '../src/domain/auth.js';
 import { query } from '../src/db/pool.js';
@@ -90,14 +91,14 @@ test('a two-word city keeps both words', () => {
   assert.equal(result.state, 'FL');
 });
 
-test('the provider is told a place it can recognise', () => {
+test('the provider is told a place it can recognise', async () => {
   const city = normalizeGeography('city', 'Jacksonville, FL');
   assert.ok(city.ok);
-  assert.equal(city.providerLocation, 'Jacksonville,Florida,United States');
+  assert.equal((await providerTargetFor(city)).locationName, 'Jacksonville,Florida,United States');
 
   const state = normalizeGeography('state', 'FL');
   assert.ok(state.ok);
-  assert.equal(state.providerLocation, 'Florida,United States');
+  assert.equal((await providerTargetFor(state)).locationName, 'Florida,United States');
 });
 
 test('an empty or unsupported geography is refused in words an operator can act on', () => {

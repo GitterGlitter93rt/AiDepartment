@@ -19,8 +19,6 @@ export interface NormalizedGeography {
   display: string;
   /** The two-letter state, when the input gave one. */
   state: string | null;
-  /** How a provider that wants a place name should be told. */
-  providerLocation: string;
 }
 
 export interface GeographyError {
@@ -103,7 +101,6 @@ export function normalizeGeography(
     const zip = match[1]!;
     return {
       ok: true, type: 'zip_zcta', value: zip, display: zip, state: null,
-      providerLocation: zip,
     };
   }
 
@@ -117,7 +114,7 @@ export function normalizeGeography(
     }
     return {
       ok: true, type: 'state', value: code, display: STATE_NAME_BY_CODE[code] ?? code,
-      state: code, providerLocation: `${STATE_NAME_BY_CODE[code] ?? code},United States`,
+      state: code,
     };
   }
 
@@ -162,7 +159,6 @@ export function normalizeGeography(
       value: city,
       display: `${city}, ${code}`,
       state: code,
-      providerLocation: `${city},${STATE_NAME_BY_CODE[code] ?? code},United States`,
     };
   }
 
@@ -218,6 +214,6 @@ export function classifyGeographyForInventory(where: string): GeographyResult {
 
   return {
     ok: true, type: 'city', value: titleCase(input), display: titleCase(input),
-    state: null, providerLocation: `${titleCase(input)},United States`,
+    state: null,
   };
 }

@@ -575,6 +575,44 @@ export function isUsableBusiness(business: DiscoveredBusiness): boolean {
   return hasDomain || hasPhone;
 }
 
+/**
+ * The vocabulary an observation is stored in.
+ *
+ * Adapters normalize a provider's own item types into their own words, and the
+ * column has a check constraint with a different set. Nothing matched: every value
+ * the DataForSEO adapter produces was rejected by the database, so the first row of
+ * the first real discovery would have thrown, failed the job, retried, and failed
+ * again -- and none of it showed while no provider was configured, because a fixture
+ * adapter that sets no result type writes a null the column accepts.
+ *
+ * An adapter's word we do not recognise is stored as null rather than guessed into
+ * one we do: an unclassified observation is honest, a mislabelled paid placement is
+ * manufactured ad evidence.
+ */
+const OBSERVATION_RESULT_TYPE: Record<string, string> = {
+  PAID_SEARCH_TEXT: 'paid_search',
+  PAID_LOCAL: 'sponsored_local',
+  LOCAL_SERVICES_AD: 'local_service_ad',
+  SHOPPING_OR_IRRELEVANT_PAID: 'paid_search',
+  LOCAL_ORGANIC: 'local_result',
+  MAPS_LOCAL: 'local_result',
+  ORGANIC: 'organic',
+  KNOWLEDGE_OR_ENTITY: 'directory_result',
+  // Already in the stored vocabulary: an adapter may speak it directly.
+  paid_search: 'paid_search',
+  local_service_ad: 'local_service_ad',
+  sponsored_local: 'sponsored_local',
+  organic: 'organic',
+  local_result: 'local_result',
+  transparency_ad: 'transparency_ad',
+  directory_result: 'directory_result',
+};
+
+export function storedResultType(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return OBSERVATION_RESULT_TYPE[value] ?? null;
+}
+
 /** Resolves discovered businesses into canonical Accounts. Dedupe is not optional. */
 async function ingestDiscoveries(
   businesses: DiscoveredBusiness[], providerName: string, job: JobRecord,
@@ -631,7 +669,7 @@ async function ingestDiscoveries(
         [
           providerName, business.name, business.website ?? null, business.phone ?? null,
           [business.city, business.state].filter(Boolean).join(', ') || null,
-          business.resultType ?? null, business.advertisedService ?? null,
+          storedResultType(business.resultType), business.advertisedService ?? null,
           business.landingUrl ?? null, result.accountId,
           // An observation nobody can trace back to the run that made it cannot be
           // audited, and cannot be attributed a cost.

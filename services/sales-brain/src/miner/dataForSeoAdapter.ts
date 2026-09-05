@@ -1,6 +1,7 @@
 import { query } from '../db/pool.js';
 import { normalizeGeography } from './geography.js';
 import { planSearchQueries } from './searchTaxonomy.js';
+import { providerTargetFor } from './providerLocation.js';
 import {
   refusedDiscovery,
   type DiscoveredBusiness, type DiscoveryAdapter, type DiscoveryQuery,
@@ -436,7 +437,12 @@ export function createDataForSeoAdapter(options: {
       // One query per run for now: the highest-intent one the strategy chose. Running
       // the whole taxonomy multiplies the spend, and that is a budget decision an
       // operator makes rather than a default.
-      const keyword = planned[0]!.query;
+      //
+      // The provider takes a place name, not a ZIP. A ZIP is resolved against our own
+      // inventory and kept in the query text as well, because the city it sits in is
+      // wider than the ZIP and the query is what narrows it back.
+      const target = await providerTargetFor(geography);
+      const keyword = [planned[0]!.query, target.keywordSuffix].filter(Boolean).join(' ');
       const auth = Buffer.from(`${config.login}:${config.password}`).toString('base64');
       const headers = {
         authorization: `Basic ${auth}`, 'content-type': 'application/json',
@@ -446,7 +452,7 @@ export function createDataForSeoAdapter(options: {
       // asking for the one we do.
       const task = {
         keyword,
-        location_name: geography.providerLocation,
+        location_name: target.locationName,
         language_code: 'en',
         device: 'desktop',
         depth: Math.max(10, Math.min(700, config.resultDepth)),

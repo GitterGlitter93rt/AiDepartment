@@ -99,7 +99,7 @@ async function runMarketJob(geographyValue = '32095'): Promise<Record<string, un
   });
   await drainQueue();
   const { rows } = await query<Record<string, unknown>>(
-    'select status, outcome, outcome_reason, progress from jobs where job_id = $1',
+    'select status, outcome, outcome_reason, progress, last_error from jobs where job_id = $1',
     [job.jobId]);
   return rows[0]!;
 }
@@ -592,4 +592,66 @@ test('a discovered business is findable by the search that discovered it', async
   assert.equal(rows[0]!.postal_code, '32095');
   assert.equal(rows[0]!.location_type, 'service_area',
     'the ZIP is how we found them, not a street address we were given');
+});
+
+
+test('a discovered advertiser is actually stored as an observation', async () => {
+  // The adapter normalizes provider item types into its own words; the column has a
+  // check constraint with a different set; nothing matched. Every value the
+  // DataForSEO adapter produces was rejected by the database, so the first row of
+  // the first real discovery would have thrown, failed the job, retried and failed
+  // again. It never showed while no provider was configured, because a fixture
+  // adapter that sets no result type writes a null the column accepts.
+  registerDiscoveryAdapter({
+    name: 'typed-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'OK' as const,
+        businesses: [
+          { name: 'Paid Ad Roofing', website: null, phone: '904-555-7701',
+            resultType: 'PAID_SEARCH_TEXT', advertisedService: 'roof repair',
+            landingUrl: 'https://paidad.example.com/roofing' },
+          { name: 'Local Pack Roofing', website: null, phone: '904-555-7702',
+            resultType: 'MAPS_LOCAL' },
+          { name: 'Organic Roofing', website: null, phone: '904-555-7703',
+            resultType: 'ORGANIC' },
+        ],
+        providerRows: 3, rejectedRows: 0, duplicateRows: 0,
+      };
+    },
+  });
+
+  const job = await runMarketJob('32095');
+  assert.equal(job['outcome'], 'COMPLETED', String(job['last_error'] ?? job['outcome_reason']));
+
+  const { rows } = await query<{ observed_name: string; result_type: string }>(
+    `select observed_name, result_type from search_observations order by observed_name`);
+  assert.equal(rows.length, 3, 'the observations never reached the table');
+  assert.deepEqual(rows.map((row) => row.result_type),
+    ['local_result', 'organic', 'paid_search']);
+});
+
+test('a result type nobody recognises is stored as unclassified, not guessed', async () => {
+  registerDiscoveryAdapter({
+    name: 'odd-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'OK' as const,
+        businesses: [{
+          name: 'Odd Type Roofing', website: null, phone: '904-555-7801',
+          resultType: 'SOMETHING_NEW_THE_PROVIDER_INVENTED',
+        }],
+        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
+      };
+    },
+  });
+
+  await runMarketJob('32095');
+  const { rows } = await query<{ result_type: string | null }>(
+    'select result_type from search_observations');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.result_type, null,
+    'an unclassified observation is honest; a mislabelled paid placement is manufactured ad evidence');
 });
