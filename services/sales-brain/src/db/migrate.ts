@@ -60,13 +60,28 @@ export async function schemaState(): Promise<SchemaState> {
  * than silently diverging from what the database actually contains.
  */
 export async function runMigrations(log: (message: string) => void = console.log): Promise<MigrationResult> {
-  await pool.query(`
-    create table if not exists schema_migrations (
-      filename    text primary key,
-      checksum    text not null,
-      applied_at  timestamptz not null default now()
-    )
-  `);
+  // `create table if not exists` is not safe against a concurrent identical create:
+  // two connections both find it missing, both create it, and the loser fails with
+  // "duplicate key value violates unique constraint pg_type_typname_nsp_index"
+  // rather than the friendly no-op the syntax suggests. stack.sh starts the API and
+  // the worker together and both migrate at boot, so on a brand-new database -- a
+  // fresh SiteGround install, exactly -- one of the two processes could fail to
+  // start, on its first boot, with an error naming an internal catalogue index.
+  //
+  // The table existing is the outcome we want however it got there.
+  try {
+    await pool.query(`
+      create table if not exists schema_migrations (
+        filename    text primary key,
+        checksum    text not null,
+        applied_at  timestamptz not null default now()
+      )
+    `);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    // 42P07 duplicate_table, 23505 unique_violation on the catalogue.
+    if (code !== '42P07' && code !== '23505') throw error;
+  }
 
   const { rows } = await pool.query<{ filename: string; checksum: string }>(
     'select filename, checksum from schema_migrations',
