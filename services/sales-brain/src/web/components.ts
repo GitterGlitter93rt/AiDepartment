@@ -218,10 +218,102 @@ export function emptyState(title: string, message: string, cta?: { href: string;
   </div>`;
 }
 
+/**
+ * One sentence per discovery state, written for a rep rather than an engineer.
+ *
+ * The states a rep must be able to tell apart: nobody has searched, a search is
+ * running, a search cannot run, a provider could not answer, a provider is still
+ * working, a search half-worked, a search genuinely found nothing, a search found
+ * only companies we already hold, a search added new companies, and a search that
+ * is old enough to be worth repeating.
+ */
+function discoveryNote(
+  discovery: {
+    state: string; lastRunAt?: Date | null; reason?: string | null;
+    providerRows?: number; matchedExisting?: number; discoveredNew?: number;
+  } | undefined,
+  geographyLabel: string,
+): RawHtml {
+  if (!discovery) return raw('');
+  const rows = Number(discovery.providerRows ?? 0);
+  const matched = Number(discovery.matchedExisting ?? 0);
+  const added = Number(discovery.discoveredNew ?? 0);
+
+  switch (discovery.state) {
+    case 'BLOCKED':
+      // Already covered by the blocked banner above; saying it twice is noise.
+      return raw('');
+    case 'NEVER_RUN':
+      return html`<div class="coverage-note">
+        <span class="dot"></span>
+        <span>No external search has been run for ${geographyLabel}. What you see is
+        what we already hold, which is not the same as what is there.</span>
+      </div>`;
+    case 'RUNNING':
+      return html`<div class="coverage-note info">
+        <span class="dot"></span>
+        <span>Searching ${geographyLabel} for new businesses now. Results below will
+        grow as they land.</span>
+      </div>`;
+    case 'PENDING':
+      return html`<div class="coverage-note info">
+        <span class="dot"></span>
+        <span>The search provider has accepted a search of ${geographyLabel} and has
+        not answered yet. It will be collected rather than run again.</span>
+      </div>`;
+    case 'PROVIDER_UNAVAILABLE':
+      return html`<div class="coverage-note warn">
+        <span class="dot"></span>
+        <span><strong>The last search of ${geographyLabel} could not be completed.</strong>
+        No provider answered, so it is not known whether this market has businesses we
+        do not hold.</span>
+      </div>`;
+    case 'PARTIAL':
+      return html`<div class="coverage-note warn">
+        <span class="dot"></span>
+        <span><strong>${geographyLabel} was only partly searched.</strong> Some of the
+        search completed and some did not, so this is part of the market rather than
+        all of it.</span>
+      </div>`;
+    case 'ZERO_RESULTS':
+      return html`<div class="coverage-note">
+        <span class="dot"></span>
+        <span>A provider searched ${geographyLabel} and returned no usable business.
+        That is a real answer about this market, not a failure.</span>
+      </div>`;
+    case 'MATCHED_EXISTING':
+      return html`<div class="coverage-note">
+        <span class="dot"></span>
+        <span>The last search of ${geographyLabel} found ${rows} business${rows === 1 ? '' : 'es'},
+        and ${matched === 1 ? 'it was one' : `all ${matched} were ones`} we already hold.
+        The market is covered, not empty.</span>
+      </div>`;
+    case 'FOUND_NEW':
+      return html`<div class="coverage-note">
+        <span class="dot"></span>
+        <span>The last search of ${geographyLabel} added
+        ${`${added} compan${added === 1 ? 'y' : 'ies'} we did not have`}${matched > 0
+          ? html`, and matched ${matched} we already held` : ''}.</span>
+      </div>`;
+    case 'STALE':
+      return html`<div class="coverage-note warn">
+        <span class="dot"></span>
+        <span>${geographyLabel} has not been searched recently. Businesses may have
+        opened, closed or started advertising since.</span>
+      </div>`;
+    default:
+      return raw('');
+  }
+}
+
 export function coverageNote(coverage: {
   state: string; researchedCount: number; unclaimedCount: number; lastMinedAt: Date | null;
   discoveryAvailable?: boolean; activeJobScope?: string | null; unscoredExcluded?: number;
   unknownAdvertiserExcluded?: number;
+  discovery?: {
+    state: string; lastRunAt?: Date | null; reason?: string | null;
+    providerRows?: number; matchedExisting?: number; discoveredNew?: number;
+  };
 }, canResearch: boolean, geographyLabel: string): RawHtml {
   // Never imply complete market coverage (browse-claim spec §10), and never imply a
   // search happened that could not have happened.
@@ -243,6 +335,10 @@ export function coverageNote(coverage: {
 
   // The same collapse, one filter over. An advertising filter drops companies whose
   // ad status is unknown, and unknown is not the same as checked-and-not-advertising.
+  // What external discovery has actually done here. "No rows" used to mean any of
+  // ten different things and the page said the same sentence for all of them.
+  const discoveryLine = discoveryNote(coverage.discovery, geographyLabel);
+
   const unchecked = Number(coverage.unknownAdvertiserExcluded ?? 0);
   const uncheckedNote = unchecked === 0 ? raw('') : html`
     <div class="coverage-note">
@@ -264,9 +360,14 @@ export function coverageNote(coverage: {
       ${geographyLabel} has no businesses.</span>
     </div>`;
 
+  // Every branch carries these. The stale and fresh branches did not, so a market
+  // with aged research never showed the "no search provider" banner at all -- the
+  // one sentence an operator needs before reading anything else on the page.
+  const prefix = html`${blocked}${discoveryLine}${hidden}${uncheckedNote}`;
+
   switch (coverage.state) {
     case 'NOT_YET_MINED':
-      return html`${blocked}${hidden}${uncheckedNote}<div class="coverage-note">
+      return html`${prefix}<div class="coverage-note">
         <span class="dot"></span>
         <span>${canDiscover
           ? html`No researched prospects yet for ${geographyLabel}. Market Miner has not covered this area.`
@@ -277,14 +378,14 @@ export function coverageNote(coverage: {
           : ''}
       </div>`;
     case 'STALE':
-      return html`<div class="coverage-note">
+      return html`${prefix}<div class="coverage-note">
         <span class="dot"></span>
         <span>${coverage.researchedCount} researched prospects, but the research has aged past its freshness window.
         Treat advertising signals as historical until refreshed.</span>
         ${canResearch ? html`<button class="btn btn-secondary btn-sm js-research-more">Refresh</button>` : ''}
       </div>`;
     case 'PARTIAL':
-      return html`${blocked}${hidden}${uncheckedNote}<div class="coverage-note">
+      return html`${prefix}<div class="coverage-note">
         <span class="dot"></span>
         <span>More businesses may exist in ${geographyLabel}. Coverage here is partial, not complete.</span>
         ${canResearch && canDiscover
@@ -294,7 +395,7 @@ export function coverageNote(coverage: {
     case 'REFRESHING':
       // "New ones will appear as they land" was the exact sentence a market search
       // showed while no provider existed to find one.
-      return html`${blocked}${hidden}${uncheckedNote}<div class="coverage-note info">
+      return html`${prefix}<div class="coverage-note info">
         <span class="dot"></span>
         <span>${coverage.activeJobScope === 'DISCOVER_NEW'
           ? html`Searching ${geographyLabel} for new businesses now. Existing results
@@ -304,6 +405,6 @@ export function coverageNote(coverage: {
                  new will appear.`}</span>
       </div>`;
     default:
-      return html`${blocked}${hidden}${uncheckedNote}`;
+      return html`${prefix}`;
   }
 }

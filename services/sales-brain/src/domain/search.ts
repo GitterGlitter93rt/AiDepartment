@@ -131,7 +131,58 @@ export interface SearchResponse {
   coverage: CoverageSummary;
 }
 
+/**
+ * What external discovery has actually done for this market.
+ *
+ * "No rows" meant eleven different things and the page said the same sentence for
+ * all of them: nobody has searched, a search is running, a search could not run,
+ * a search failed, a search is still with the provider, a search half-worked, a
+ * search genuinely found nothing, and a search that found companies we already
+ * hold. A rep reading one empty state cannot act on any of them.
+ */
+export type DiscoveryState =
+  /** No external search has ever been made for this market. */
+  | 'NEVER_RUN'
+  /** A search is in flight right now. */
+  | 'RUNNING'
+  /** No provider is configured, so no external search is possible. */
+  | 'BLOCKED'
+  /** The provider accepted a search and has not answered yet. */
+  | 'PENDING'
+  /** Every provider that was asked could not answer. */
+  | 'PROVIDER_UNAVAILABLE'
+  /** Some of the market was searched and some was not. */
+  | 'PARTIAL'
+  /** A provider searched and returned nothing usable. */
+  | 'ZERO_RESULTS'
+  /** A provider searched and every business it found was one we already hold. */
+  | 'MATCHED_EXISTING'
+  /** A provider searched and added companies we did not have. */
+  | 'FOUND_NEW'
+  /** The last successful search is old enough that the market may have moved. */
+  | 'STALE';
+
+export interface DiscoveryCoverage {
+  state: DiscoveryState;
+  /** When the last completed external search ran. */
+  lastRunAt: Date | null;
+  /** The job's own sentence about what happened. */
+  reason: string | null;
+  providerRows: number;
+  matchedExisting: number;
+  discoveredNew: number;
+}
+
+/** How old a successful discovery run may be before the market is called stale. */
+export const DISCOVERY_STALE_AFTER_DAYS = Number(
+  process.env['DISCOVERY_STALE_AFTER_DAYS'] ?? '14');
+
 export interface CoverageSummary {
+  /**
+   * What external discovery has done here, as one of ten distinguishable states
+   * rather than the absence of rows.
+   */
+  discovery?: DiscoveryCoverage;
   /**
    * Accounts in this market that a tier filter is hiding because they have no tier.
    * Zero unless a minimum tier was asked for.
@@ -483,6 +534,11 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   else if (summary.fresh < summary.researched) state = 'PARTIAL';
   else state = 'FRESH';
 
+  const discovery = await discoveryCoverageFor({
+    geographyValue: geography?.value ?? null,
+    discoveryAvailable, activeJobId, activeJobScope,
+  });
+
   return {
     state,
     researchedCount: summary.researched,
@@ -493,7 +549,88 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     activeJobScope,
     unscoredExcluded,
     unknownAdvertiserExcluded,
+    discovery,
   };
+}
+
+/**
+ * What external discovery has done for this market, from the jobs that ran.
+ *
+ * Read from the last completed `market_mine` job rather than inferred from how many
+ * rows came back, because the row count cannot tell a market with nothing in it from
+ * a market nobody has searched.
+ */
+export async function discoveryCoverageFor(input: {
+  geographyValue: string | null;
+  discoveryAvailable: boolean;
+  activeJobId: string | null;
+  activeJobScope: 'DISCOVER_NEW' | 'REFRESH_EXISTING' | null;
+}): Promise<DiscoveryCoverage> {
+  const empty = { providerRows: 0, matchedExisting: 0, discoveredNew: 0, reason: null,
+    lastRunAt: null } as const;
+
+  // A search in flight outranks whatever the last one concluded: the answer is
+  // about to change.
+  if (input.activeJobId && input.activeJobScope === 'DISCOVER_NEW') {
+    return { ...empty, state: 'RUNNING' };
+  }
+
+  const { rows } = await query<{
+    outcome: string | null; outcome_reason: string | null; completed_at: Date | null;
+    provider_rows: number; matched_existing: number; discovered_new: number;
+  }>(
+    `select outcome, outcome_reason, completed_at,
+            coalesce((progress->>'providerRows')::int, 0) as provider_rows,
+            coalesce((progress->>'matchedExisting')::int, 0) as matched_existing,
+            coalesce((progress->>'discoveredNew')::int, 0) as discovered_new
+       from jobs
+      where job_type = 'market_mine'
+        and status in ('SUCCEEDED','FAILED')
+        and payload->>'geography_value' = $1
+      order by completed_at desc nulls last
+      limit 1`,
+    [input.geographyValue ?? ''],
+  );
+  const last = rows[0];
+
+  // Nothing has ever run. Whether that is because nobody asked or because nothing
+  // could ask is a different sentence, and the rep needs the second one.
+  if (!last) {
+    return { ...empty, state: input.discoveryAvailable ? 'NEVER_RUN' : 'BLOCKED' };
+  }
+
+  const shared = {
+    lastRunAt: last.completed_at,
+    reason: last.outcome_reason,
+    providerRows: last.provider_rows,
+    matchedExisting: last.matched_existing,
+    discoveredNew: last.discovered_new,
+  };
+
+  switch (last.outcome) {
+    case 'DISCOVERY_BLOCKED':
+      return { ...shared, state: 'BLOCKED' };
+    case 'PROVIDER_PENDING':
+      return { ...shared, state: 'PENDING' };
+    case 'PROVIDER_UNAVAILABLE':
+    case 'FAILED':
+      return { ...shared, state: 'PROVIDER_UNAVAILABLE' };
+    case 'PARTIAL':
+      return { ...shared, state: 'PARTIAL' };
+    case 'ZERO_RESULTS':
+      return { ...shared, state: 'ZERO_RESULTS' };
+    default:
+      break;
+  }
+
+  // A completed search. Whether it added anything is the operator's question, and
+  // "found only companies we already hold" is coverage rather than emptiness.
+  const ageDays = last.completed_at
+    ? (Date.now() - last.completed_at.getTime()) / 86_400_000 : Number.POSITIVE_INFINITY;
+  if (ageDays > DISCOVERY_STALE_AFTER_DAYS) return { ...shared, state: 'STALE' };
+  if (last.discovered_new > 0) return { ...shared, state: 'FOUND_NEW' };
+  if (last.provider_rows > 0) return { ...shared, state: 'MATCHED_EXISTING' };
+  return { ...shared, state: 'ZERO_RESULTS' };
 }
 
 /**
