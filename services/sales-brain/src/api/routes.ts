@@ -13,6 +13,7 @@ import { rescheduleStrategyCall, cancelStrategyCall } from '../booking/service.j
 import { buildPrepBrief } from '../booking/brief.js';
 import { canViewBooking } from '../domain/bookingAccess.js';
 import { isUuid, validUuid } from './ids.js';
+import { parseOperatorDateTime } from '../domain/time.js';
 import { config } from '../config.js';
 import { withTransaction } from '../db/pool.js';
 import { marketCards, navCountsFor } from './queries.js';
@@ -162,8 +163,10 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       const user = requireApiUser(request, reply);
       if (!user) return;
       if (!validUuid(request.params.id, reply)) return;
-      const start = request.body?.start ? new Date(request.body.start) : null;
-      const end = request.body?.end ? new Date(request.body.end) : null;
+      // The offered slots carry a Z. A hand-written wall clock means the business
+      // timezone, so a reschedule cannot silently move a meeting by four hours.
+      const start = parseOperatorDateTime(request.body?.start, config.booking.timezone);
+      const end = parseOperatorDateTime(request.body?.end, config.booking.timezone);
       const reason = (request.body?.reason ?? '').trim();
       if (!start || !end || !reason) {
         return reply.code(400).send({ ok: false, message: 'A new time and a reason are both required.' });
@@ -234,7 +237,9 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
         contactId: request.body?.contactId ?? null,
         endpointId: request.body?.endpointId ?? null,
         notes: request.body?.notes ?? null,
-        callbackDueAt: request.body?.callbackDueAt ? new Date(request.body.callbackDueAt) : null,
+        // A JSON client may send an instant (with a Z or an offset) or a wall clock.
+        // A wall clock means the business timezone, never the server's.
+        callbackDueAt: parseOperatorDateTime(request.body?.callbackDueAt, config.booking.timezone),
         prospectRequested: request.body?.prospectRequested ?? false,
         prospectStatements: request.body?.prospectStatements ?? [],
       },

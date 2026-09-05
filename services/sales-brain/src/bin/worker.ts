@@ -40,11 +40,23 @@ const sweep = setInterval(async () => {
 }, SWEEP_INTERVAL_MS);
 sweep.unref();
 
+const { recordWorkerStopped } = await import('../workers/runner.js');
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     console.log(`[worker] ${signal} received, finishing current job then stopping`);
     stopWorker();
-    setTimeout(async () => { await closePool(); process.exit(0); }, 2000);
+    // Say so before the process goes.
+    //
+    // The loop's own finally does this, but a worker inside a long job never reaches
+    // it before the two-second deadline below, so a deliberate restart looked like an
+    // outage on the operations panel for the next forty-five seconds -- exactly the
+    // false alarm the heartbeat exists to avoid.
+    setTimeout(async () => {
+      await recordWorkerStopped().catch(() => { /* the process is going anyway */ });
+      await closePool();
+      process.exit(0);
+    }, 2000);
   });
 }
 

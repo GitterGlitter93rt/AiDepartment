@@ -4,6 +4,29 @@ import { closePool } from '../db/pool.js';
 
 const app = await buildServer();
 
+// Say out loud when the running build and the database disagree. The API still
+// starts: refusing would take the portal down over a schema step somebody is about
+// to run, and a portal that starts and says what is wrong is more useful than one
+// that will not start and says the same thing to nobody.
+try {
+  const { schemaState } = await import('../db/migrate.js');
+  const schema = await schemaState();
+  if (schema.pending.length > 0) {
+    app.log.error({ pending: schema.pending },
+      'migrations in this build have not been applied to this database; run npm run migrate');
+  }
+  if (schema.changed.length > 0) {
+    app.log.error({ changed: schema.changed },
+      'migrations were edited after being applied; the database does not contain what this build expects');
+  }
+  if (schema.unknown.length > 0) {
+    app.log.warn({ unknown: schema.unknown },
+      'this database has migrations this build does not; the running code is older than the schema');
+  }
+} catch (error) {
+  app.log.error({ err: error }, 'could not read the schema state; is PostgreSQL up?');
+}
+
 try {
   await app.listen({ port: config.portal.port, host: config.portal.bind });
   app.log.info(

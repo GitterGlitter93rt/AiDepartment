@@ -57,12 +57,30 @@ npm run build
 systemctl --user restart yad-sales-worker
 ```
 
+## When the build and the database disagree
+
+`status` compares the migrations in this build against the ones this database has
+run, and the portal's Research Health page carries the same check. A mismatch
+exits non-zero and says so before anything else on the page, because every other
+number is suspect while it stands:
+
+```
+MISMATCH: this build has 33 migrations, the database has run 30.
+          Run 'npm run migrate' -- until then pages touching new tables fail.
+```
+
+This is the same class of fault as an active worker unit with no heartbeat: the
+service is up, running something older than what is deployed beside it. The API
+logs it at startup too, and starts anyway -- a portal that runs and says what is
+wrong is more use than one that refuses and tells nobody.
+
 ## Restart and recovery
 
 - The worker restarts on its own (`Restart=always`, 10s).
 - A job the worker was holding when it died is picked up again once its lease
   expires; nothing is lost, so handlers are written to be safe to re-run.
-- A clean stop marks the worker stopped rather than leaving it looking crashed.
+- A clean stop marks the worker stopped rather than leaving it looking crashed,
+  including when it is inside a long job when the signal arrives.
 - After a reboot with lingering enabled, both services come back without a login.
 
 ## Signing in

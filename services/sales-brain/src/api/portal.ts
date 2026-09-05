@@ -29,6 +29,8 @@ import {
 } from '../domain/opportunities.js';
 import { buildPrepBrief } from '../booking/brief.js';
 import { recordMeetingOutcome } from '../booking/service.js';
+import { parseOperatorDateTime } from '../domain/time.js';
+import { config } from '../config.js';
 import {
   renderMarketDetailPage, renderMeetingDetailPage, renderMeetingsPage,
   renderOpportunitiesPage, renderOpportunityDetailPage, renderRepliesPage,
@@ -308,14 +310,17 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const disposition = request.body?.disposition as Disposition | undefined;
     if (!disposition) return reply.redirect(`/accounts/${request.params.id}?flash=No+outcome+selected`);
 
-    const callbackRaw = request.body?.callbackDueAt;
+    // The form submits a wall clock with no zone. Reading it in the process's
+    // timezone made the meaning of a callback depend on which box the API runs on.
+    const callbackDueAt = parseOperatorDateTime(
+      request.body?.callbackDueAt, config.booking.timezone);
     const result = await recordDisposition(
       {
         accountId: request.params.id,
         disposition,
         notes: request.body?.notes?.trim() || null,
         endpointId: request.body?.endpointId || null,
-        callbackDueAt: callbackRaw ? new Date(callbackRaw) : null,
+        callbackDueAt,
         prospectRequested: disposition === 'CALLBACK_REQUESTED',
         channel: 'phone',
       },
@@ -753,10 +758,10 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const body = request.body ?? {};
     const agreed = body.prospectAgreed === true || body.prospectAgreed === 'on'
       || body.prospectAgreed === 'true';
-    const start = body.start ? new Date(body.start) : null;
-    const end = body.end ? new Date(body.end) : null;
+    const start = parseOperatorDateTime(body.start, config.booking.timezone);
+    const end = parseOperatorDateTime(body.end, config.booking.timezone);
 
-    if (!start || !end || Number.isNaN(start.getTime())) {
+    if (!start || !end) {
       return reply.redirect(
         `/accounts/${request.params.id}?flash=${encodeURIComponent('Pick one of the offered times first.')}`,
       );

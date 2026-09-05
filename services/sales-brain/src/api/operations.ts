@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
+import { schemaState } from '../db/migrate.js';
 
 /**
  * One query that answers the questions an operator actually has.
@@ -34,6 +35,7 @@ export interface OperationalSnapshot {
 export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
   const discoveryAvailable = availableDiscoveryAdapters().length > 0;
+  const schema = await schemaState();
 
   const { rows } = await query<Record<string, string | number | boolean | null>>(
     `select
@@ -140,6 +142,32 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   // --- is anything broken -----------------------------------------------------
   add('database', 'Is PostgreSQL answering?', 'OK', 'yes',
     'This snapshot came from it, so the answer is yes by construction.');
+
+  // Does the code that is running match the database it is running against?
+  //
+  // This box has already shown the shape of that failure once: systemd reported the
+  // worker service active while the database reported no worker online, because the
+  // unit was running a build from before the heartbeat existed. A pending migration
+  // is the same disagreement, and without this check it arrives as a page of 500s
+  // with no explanation attached.
+  add('schema', 'Does the schema match this build?',
+    schema.changed.length > 0 ? 'BLOCKED'
+      : schema.pending.length > 0 ? 'BLOCKED'
+      : schema.unknown.length > 0 ? 'ATTENTION' : 'OK',
+    schema.changed.length > 0 ? `${schema.changed.length} changed after apply`
+      : schema.pending.length > 0 ? `${schema.pending.length} not applied`
+      : schema.unknown.length > 0 ? `${schema.unknown.length} ahead of this build`
+      : `${schema.applied} applied`,
+    schema.changed.length > 0
+      ? `Applied and then edited: ${schema.changed.join(', ')}. The database no longer `
+        + 'contains what this build thinks it contains.'
+      : schema.pending.length > 0
+        ? `Never run here: ${schema.pending.join(', ')}. Run npm run migrate. Until then `
+          + 'pages that touch the new tables will fail.'
+        : schema.unknown.length > 0
+          ? `This database has run migrations this build does not have: `
+            + `${schema.unknown.join(', ')}. The running code is older than the schema.`
+          : 'Every migration in this build has been applied, unchanged.');
 
   // Worker liveness, from a heartbeat.
   //

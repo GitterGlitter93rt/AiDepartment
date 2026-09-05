@@ -292,3 +292,22 @@ merged appears once, with the state it has now.
 Durably, per address and per source, before the portal goes behind a public hostname.
 The counters live in the database rather than in process memory: two workers behind a
 proxy must count the same attempts, and a restart must not clear a lockout.
+
+### A wall clock is read in the business timezone, never the server's
+
+`<input type="datetime-local">` submits a time with no zone. Reading it with
+`new Date()` made the meaning of a callback depend on the timezone of the box the
+API runs on -- correct on the EdgeXpert by accident, five hours early on a UTC VPS.
+It is read in `BOOKING_TIMEZONE`, the same zone the pages format times in. A value
+carrying a Z or an offset is already an instant and is left alone. On the two DST
+days the resolution favours late over early, because an hour late is a missed call
+and an hour early is a call the prospect did not agree to.
+
+### The build says whether it matches the schema it is running on
+
+`schemaState()` compares the migrations in this build against the ones the database
+has run, in both directions. Research Health carries it, `stack.sh status` exits
+non-zero on a mismatch, and the API logs it at startup and starts anyway: a portal
+that runs and says what is wrong is more use than one that refuses and tells nobody.
+This is the generalisation of the failure already seen here -- an active worker unit
+with no heartbeat, because the unit was running an older build.

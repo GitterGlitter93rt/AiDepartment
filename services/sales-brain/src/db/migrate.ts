@@ -11,6 +11,49 @@ export interface MigrationResult {
   skipped: string[];
 }
 
+export interface SchemaState {
+  /** Migration files on disk that this database has never run. */
+  pending: string[];
+  /** Migrations this database has run that are not in this build. */
+  unknown: string[];
+  /** Applied migrations whose file no longer matches what was applied. */
+  changed: string[];
+  applied: number;
+}
+
+/**
+ * What this build's migrations say, against what this database actually contains.
+ *
+ * The running code and the schema can disagree, and until now nothing said so. The
+ * shape of that failure is already familiar on this box: systemd reported the worker
+ * service active while the database reported no worker online, because the unit was
+ * running a build that predated the heartbeat. `pending` is that same disagreement,
+ * named before it turns into a page of 500s nobody can explain.
+ */
+export async function schemaState(): Promise<SchemaState> {
+  const { rows } = await pool.query<{ filename: string; checksum: string }>(
+    `select filename, checksum from schema_migrations`,
+  ).catch(() => ({ rows: [] as { filename: string; checksum: string }[] }));
+  const appliedByName = new Map(rows.map((row) => [row.filename, row.checksum]));
+
+  const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+  const pending: string[] = [];
+  const changed: string[] = [];
+
+  for (const filename of files) {
+    const previous = appliedByName.get(filename);
+    if (!previous) { pending.push(filename); continue; }
+    const checksum = createHash('sha256')
+      .update(readFileSync(resolve(migrationsDir, filename), 'utf8')).digest('hex');
+    if (previous !== checksum) changed.push(filename);
+  }
+
+  const onDisk = new Set(files);
+  const unknown = [...appliedByName.keys()].filter((name) => !onDisk.has(name)).sort();
+
+  return { pending, unknown, changed, applied: appliedByName.size };
+}
+
 /**
  * Forward-only migrations. Each file runs once inside its own transaction and is
  * recorded with a checksum, so an edited-after-apply migration is caught rather

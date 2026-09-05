@@ -121,7 +121,23 @@ status)
     union all
     select 'discovery blocked:   ' || count(*) from jobs
       where outcome = 'DISCOVERY_BLOCKED' and completed_at > now() - interval '1 day'
+    union all
+    select 'migrations applied:  ' || count(*) from schema_migrations
   " 2>/dev/null | sed 's/^/  /' || echo "  (could not reach the database)"
+
+  # The running build against the schema it is running on. A count on disk that is
+  # higher than the count applied is the same class of mismatch as an active worker
+  # unit with no heartbeat: the service is up, running something older than this.
+  on_disk=$(ls migrations/*.sql 2>/dev/null | wc -l | tr -d ' ')
+  applied=$(docker exec "$CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+    'select count(*) from schema_migrations' 2>/dev/null | tr -d ' ')
+  printf '  %-20s %s\n' 'migrations on disk:' "$on_disk"
+  SCHEMA_MISMATCH=0
+  if [ -n "$applied" ] && [ "$on_disk" != "$applied" ]; then
+    SCHEMA_MISMATCH=1
+    echo "  MISMATCH: this build has $on_disk migrations, the database has run $applied." >&2
+    echo "            Run 'npm run migrate' -- until then pages touching new tables fail." >&2
+  fi
 
   say "verdict"
   ONLINE="$(docker exec "$CONTAINER" psql -U "${POSTGRES_USER:-yad_sales}" \
@@ -129,7 +145,11 @@ status)
       where stopped_at is null and last_heartbeat_at > now() - interval '45 seconds'" 2>/dev/null || echo 0)"
   QUEUED="$(docker exec "$CONTAINER" psql -U "${POSTGRES_USER:-yad_sales}" \
     -d "${POSTGRES_DB:-yad_sales}" -tAc "select count(*) from jobs where status = 'QUEUED'" 2>/dev/null || echo 0)"
-  if [ "$ONLINE" -gt 0 ]; then
+  if [ "$SCHEMA_MISMATCH" -eq 1 ]; then
+    echo "  The running build and the database schema disagree. Migrate before trusting" >&2
+    echo "  anything else on this page." >&2
+    exit 1
+  elif [ "$ONLINE" -gt 0 ]; then
     echo "  A worker is serving the queue."
   elif [ "$QUEUED" -gt 0 ]; then
     echo "  NO WORKER IS RUNNING and $QUEUED job(s) are queued. They will not move." >&2
