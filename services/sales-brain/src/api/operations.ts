@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
 import { schemaState } from '../db/migrate.js';
 import { SCORE_VERSION } from '../scoring/model.js';
+import { buildIdentity } from '../release/identity.js';
 
 /**
  * One query that answers the questions an operator actually has.
@@ -76,6 +77,17 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
          where stopped_at is null and draining_since is not null
            and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval) as workers_draining,
        (select count(*)::int from worker_instances) as workers_known,
+       -- Which builds are actually serving this queue. Two answers here means the
+       -- API and the worker, or two workers, are running different code.
+       (select count(distinct coalesce(build_sha, 'unknown'))::int from worker_instances
+         where stopped_at is null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval)
+         as worker_builds,
+       (select string_agg(distinct coalesce(build_sha, 'unknown'), ', ')
+          from worker_instances
+         where stopped_at is null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval)
+         as worker_build_list,
        (select max(last_heartbeat_at) from worker_instances) as last_heartbeat_at,
        (select coalesce(extract(epoch from (now() - max(last_heartbeat_at))), -1)::int
           from worker_instances) as heartbeat_age_seconds,
@@ -192,7 +204,7 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
     database: 'DATABASE', schema: 'SCHEMA', worker: 'WORKER', queue: 'QUEUE',
     discovery: 'DISCOVERY_PROVIDER', provider_tasks: 'PROVIDER_TASKS',
     research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
-    score_policy: 'RESEARCH',
+    score_policy: 'RESEARCH', build_identity: 'WORKER',
     inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
     imports: 'INVENTORY',
     // Its own axis, not the provider's. "Can we search" and "may we afford to" are
@@ -240,6 +252,35 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
           ? `This database has run migrations this build does not have: `
             + `${schema.unknown.join(', ')}. The running code is older than the schema.`
           : 'Every migration in this build has been applied, unchanged.');
+
+  // Are the API and the worker the same build?
+  //
+  // They are separate processes restarted separately, so a deploy that misses one
+  // leaves two builds against one database, and every symptom of that appears
+  // somewhere other than the skew: a job type nothing can run, a column one process
+  // writes and the other never reads. The runner's "no handler" message already
+  // blames "a worker running an older build than the queue it is serving" -- that
+  // was a guess, and this is the check behind it.
+  const apiBuild = buildIdentity();
+  const workerBuilds = String(row['worker_build_list'] ?? '') || null;
+  const distinctBuilds = number('worker_builds');
+  const skewed = workerBuilds !== null && workerBuilds !== apiBuild.sha;
+  add('build_identity', 'Are the API and the worker the same build?',
+    distinctBuilds > 1 ? 'ATTENTION' : skewed ? 'ATTENTION' : 'OK',
+    workerBuilds === null ? `api ${apiBuild.sha}, no worker`
+      : distinctBuilds > 1 ? `${distinctBuilds} builds serving`
+      : skewed ? 'different builds' : apiBuild.sha,
+    workerBuilds === null
+      ? `This API is running ${apiBuild.sha}. No worker is heartbeating, so there is `
+        + 'nothing to compare it against.'
+      : distinctBuilds > 1
+        ? `Workers are running ${workerBuilds} at the same time, and this API is running `
+          + `${apiBuild.sha}. Whichever worker picks a job decides how it behaves.`
+        : skewed
+          ? `This API is running ${apiBuild.sha} and the worker is running ${workerBuilds}. `
+            + 'Restart whichever is behind: until then a page can read a column the '
+            + 'worker never writes, or queue a job it cannot run.'
+          : `Both processes are running ${apiBuild.sha}.`);
 
   // Worker liveness, from a heartbeat.
   //

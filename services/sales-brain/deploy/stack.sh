@@ -123,6 +123,15 @@ status)
       where outcome = 'DISCOVERY_BLOCKED' and completed_at > now() - interval '1 day'
     union all
     select 'migrations applied:  ' || count(*) from schema_migrations
+    union all
+    -- Which build is actually serving the queue. A worker left on an older build
+    -- after a partial restart is the failure this box has already had once, and
+    -- 'systemctl is-active' says nothing about it.
+    select 'worker build:        ' || coalesce(
+             (select string_agg(distinct coalesce(build_sha, 'unknown'), ', ')
+                from worker_instances
+               where stopped_at is null
+                 and last_heartbeat_at > now() - interval '45 seconds'), 'no worker online')
   " 2>/dev/null | sed 's/^/  /' || echo "  (could not reach the database)"
 
   # The running build against the schema it is running on. A count on disk that is

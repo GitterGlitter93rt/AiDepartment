@@ -1,4 +1,5 @@
 import { hostname } from 'node:os';
+import { buildIdentity } from '../release/identity.js';
 import { config } from '../config.js';
 import { pool, query, withTransaction } from '../db/pool.js';
 import { redactSecrets, terminalFailureReason } from './redaction.js';
@@ -181,13 +182,18 @@ export const HEARTBEAT_STALE_AFTER_MS = HEARTBEAT_INTERVAL_MS * 3;
 export async function recordHeartbeat(input: {
   processed?: number; lastJobAt?: Date | null; currentJobId?: string | null;
 } = {}): Promise<void> {
+  const identity = buildIdentity();
   await query(
     `insert into worker_instances (worker_id, hostname, pid, handlers, last_heartbeat_at,
-                                   jobs_processed, last_job_at, draining_since, current_job_id)
-     values ($1, $2, $3, $4, now(), $5, $6, $7, $8)
+                                   jobs_processed, last_job_at, draining_since, current_job_id,
+                                   build_sha, migrations_expected)
+     values ($1, $2, $3, $4, now(), $5, $6, $7, $8, $9, $10)
      on conflict (worker_id) do update set
        last_heartbeat_at = now(),
        handlers = excluded.handlers,
+       -- A worker that restarts on a new build says so on its next heartbeat.
+       build_sha = excluded.build_sha,
+       migrations_expected = excluded.migrations_expected,
        jobs_processed = greatest(worker_instances.jobs_processed, excluded.jobs_processed),
        last_job_at = coalesce(excluded.last_job_at, worker_instances.last_job_at),
        -- Draining is sticky: once asked to stop, a worker does not go back to
@@ -197,7 +203,8 @@ export async function recordHeartbeat(input: {
        stopped_at = null`,
     [workerId, hostname(), process.pid, [...handlers.keys()],
      input.processed ?? 0, input.lastJobAt ?? null,
-     stopping ? new Date() : null, input.currentJobId ?? null],
+     stopping ? new Date() : null, input.currentJobId ?? null,
+     identity.sha, identity.migrationsExpected],
   );
 }
 
