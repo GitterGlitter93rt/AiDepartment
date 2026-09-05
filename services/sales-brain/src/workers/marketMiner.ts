@@ -483,6 +483,13 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         where market_id = $1`,
       [job.market_id, funnel.created],
     );
+    // Attempted and succeeded are different facts, and the scheduler backs off on
+    // the difference. A market searched every hour and failing every hour has a
+    // recent attempt and no coverage at all.
+    const { recordMarketOutcome } = await import('./marketScheduler.js');
+    await recordMarketOutcome({
+      marketId: job.market_id, outcome, outcomeReason,
+    });
   }
 
   return {

@@ -24,6 +24,7 @@ const SWEEP_INTERVAL_MS = Number(process.env.REFRESH_SWEEP_INTERVAL_MS ?? 15 * 6
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
 const { reconcileMissingResearch } = await import('../workers/researchReconcile.js');
+const { scheduleDueMarkets } = await import('../workers/marketScheduler.js');
 const sweep = setInterval(async () => {
   try {
     const expired = await expireStaleEvidence();
@@ -36,6 +37,13 @@ const sweep = setInterval(async () => {
     const stranded = await reconcileMissingResearch();
     if (stranded.queued > 0) {
       console.log(`[worker] queued research for ${stranded.queued} stranded account(s)`);
+    }
+
+    // Saved markets that are due. Bounded per pass, so a reboot with ninety stale
+    // markets does not become ninety paid searches in the same second.
+    const scheduled = await scheduleDueMarkets();
+    if (scheduled.queued > 0) {
+      console.log(`[worker] scheduled ${scheduled.queued} of ${scheduled.due} due market(s)`);
     }
 
     // A booking the provider never confirmed must stop looking upcoming.
