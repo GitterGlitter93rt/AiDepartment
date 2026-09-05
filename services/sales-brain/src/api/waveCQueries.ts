@@ -9,7 +9,20 @@ import { query } from '../db/pool.js';
  * Account is first created. A miner discovery is the only one of them that is
  * mining output; the rest are a rep, a spreadsheet, or a fixture.
  */
+/**
+ * The `source_system` values that mean a search provider found this company.
+ *
+ * The miner writes `market_miner:<provider>` -- `market_miner:dataforseo` -- so an
+ * exact-match list of bare provider names matched none of them. The KPI that exists
+ * to stop demo rows being counted as mining output was, in the other direction,
+ * counting none of the real mining output either: every business a provider actually
+ * discovered fell through to "created another way".
+ *
+ * Matched by prefix as well as by name, so a new provider is counted the day it is
+ * added rather than the day somebody remembers to edit this list.
+ */
 export const MINER_SOURCES = ['dataforseo', 'market_miner', 'serp'] as const;
+export const MINER_SOURCE_PREFIX = 'market_miner:';
 export const SYNTHETIC_SOURCES = ['SYNTHETIC_FIXTURE', 'DEMO_FIXTURE'] as const;
 
 export interface MiningKpis {
@@ -58,7 +71,8 @@ export async function miningKpis(): Promise<MiningKpis> {
        (select count(distinct act.account_id)::int from activities act
          where act.activity_type = 'DISCOVERED'
            and act.occurred_at > now() - interval '1 day'
-           and act.source_system = any($1::text[])) as discovered_by_miner_today,
+           and (act.source_system = any($1::text[])
+             or act.source_system like 'market_miner:%')) as discovered_by_miner_today,
        (select count(distinct act.account_id)::int from activities act
          where act.activity_type = 'DISCOVERED'
            and act.occurred_at > now() - interval '1 day'
@@ -73,6 +87,7 @@ export async function miningKpis(): Promise<MiningKpis> {
                             where act.account_id = a.account_id
                               and act.activity_type = 'DISCOVERED'
                               and (act.source_system = any($1::text[])
+                                or act.source_system like 'market_miner:%'
                                 or act.source_system = 'import'
                                 or act.source_system = any($2::text[])))) as manually_added_today,
        (select count(*)::int from accounts
