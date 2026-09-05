@@ -1,0 +1,437 @@
+profile_id: electrical-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Electrical Contractors
+industry_aliases:
+  - electrician
+  - electrical contractor
+  - residential electrician
+  - commercial electrician
+priority: 8
+country_scope: [US]
+source_manual_paths:
+  - docs/07-sales/training-manual/module-17-electrical-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - troubleshooting_repair
+    - panel_service_upgrade
+    - rewiring
+    - generator_install_service
+    - ev_charger_install
+    - lighting_fixtures
+    - surge_protection
+    - commercial_service
+    - remodel_new_construction
+  lead_types:
+    - urgent_service_call
+    - paid_search
+    - organic_search
+    - referral
+    - web_form
+    - larger_project_estimate
+  customer_types: [residential, light_commercial, commercial]
+  high_value_service_families:
+    - panel_upgrade
+    - service_upgrade
+    - generator_installation
+    - ev_charger_installation
+    - rewiring
+    - larger_commercial_project
+  recurring_revenue_families:
+    - commercial_service_relationship
+  urgency_characteristics:
+    - electrical_failure
+    - emergency_service
+    - after_hours_demand
+  seasonality_characteristics: [market_dependent]
+  phone_dependence: high
+  appointment_dependence: high
+  estimate_proposal_dependence: high
+  field_service_dependence: very_high
+
+search_taxonomy:
+  core_queries:
+    - query: electrician
+      family: core
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: electrical contractor
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: emergency electrician
+      family: urgent_service
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: panel upgrade
+      family: high_ticket
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: EV charger installer
+      family: high_ticket
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: generator electrician
+      family: high_ticket
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency electrician
+    - 24 hour electrician
+    - electrical repair
+  high_ticket_queries:
+    - panel upgrade
+    - electrical service upgrade
+    - generator installation
+    - EV charger installation
+    - whole home rewiring
+  financing_queries:
+    - electrical financing
+    - generator financing
+  commercial_queries:
+    - commercial electrician
+    - commercial electrical contractor
+  service_aliases:
+    - electrical repair
+    - electrical service
+    - panel replacement
+    - generator electrician
+  negative_terms:
+    - electrical supply
+    - electrician school
+    - electrical training
+    - wholesale electrical
+  classification_warning_terms:
+    - low voltage only
+    - appliance repair
+    - lighting store
+
+classification_rules:
+  positive_business_categories:
+    - electrician
+    - electrical_contractor
+  negative_business_categories:
+    - electrical_supply
+    - training_school
+    - manufacturer_only
+  website_keyword_positive:
+    - electrical repair
+    - panel upgrade
+    - generator installation
+    - EV charger
+    - rewiring
+  website_keyword_negative:
+    - training course
+    - wholesale supply
+  required_any_of:
+    - electrical_customer_service_evidence
+    - electrical_installation_evidence
+  exclude_if_all:
+    - non_service_business
+    - no_electrical_customer_service
+  manual_review_if:
+    - low_voltage_only_unclear
+    - solar_electrical_mix_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Paid urgent/high-value electrical acquisition makes response, follow-up and attribution questions relevant.
+    possible_hypothesis_ids: [missed_after_hours, estimate_follow_up, attribution]
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: emergency_24_7
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: Creates overflow/after-hours relevance.
+    possible_hypothesis_ids: [missed_after_hours, surge_capacity]
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: prominent_quote_booking
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Shows observable inquiry/estimate entry point.
+    possible_hypothesis_ids: [speed_to_lead, estimate_follow_up]
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Suggests capacity/scaling questions.
+    possible_hypothesis_ids: [technician_capacity, office_capacity]
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: acquisition
+    label: Search/referral to call/form
+    common_inputs: [google, referral, paid_ad]
+    common_outputs: [inquiry]
+    handoff_risks: [missed_call, slow_response]
+    human_judgment_required: false
+  - stage_id: intake_schedule
+    label: Intake and schedule
+    common_inputs: [inquiry]
+    common_outputs: [appointment]
+    handoff_risks: [after_hours_gap, incomplete_context]
+    human_judgment_required: true
+  - stage_id: technician
+    label: Technician visit / diagnosis
+    common_inputs: [appointment]
+    common_outputs: [repair, estimate, project_opportunity]
+    handoff_risks: [admin_load, sales_handoff_gap]
+    human_judgment_required: true
+  - stage_id: estimate_followup
+    label: Approval or follow-up
+    common_inputs: [estimate]
+    common_outputs: [won, lost, future]
+    handoff_risks: [no_next_action, inconsistent_followup]
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: missed_after_hours
+    category: missed_call_recovery
+    title: Urgent call overflow / after-hours
+    trigger_signals: [active_google_search_ads, emergency_24_7]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a new electrical service call if nobody answers live?
+      - Do missed calls create an automatic callback task or acknowledgment?
+    primary_hook_template: I noticed you're advertising {service} in {market}. What happens if one of those paid calls comes in and the office doesn't reach them immediately?
+    backup_hook_templates:
+      - What happens to electrical calls after hours?
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [missed_call_roi]
+    must_not_claim: [missed_call_rate, lost_revenue_amount]
+  - hypothesis_id: estimate_follow_up
+    category: sales_follow_up
+    title: Larger electrical estimate follow-up
+    trigger_signals: [prominent_quote_booking]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Who follows up panel, generator, EV charger or other larger estimates?
+      - Can management see open estimate value by age?
+    primary_hook_template: What happens to a larger electrical estimate that doesn't close the first time?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [unsold_estimate_roi]
+    must_not_claim: [universal_project_value]
+  - hypothesis_id: technician_capacity
+    category: employee_capacity
+    title: Technician administrative capacity
+    trigger_signals: [visible_hiring]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What administrative work are licensed technicians doing that does not require electrical judgment?
+    primary_hook_template: What technician admin would you remove first if the system could handle it reliably?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, Managed_AI_Department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [staff_replacement, automate_electrical_judgment]
+  - hypothesis_id: attribution
+    category: attribution
+    title: Marketing-to-sold-job attribution
+    trigger_signals: [active_google_search_ads]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which campaigns produce sold electrical work rather than just calls?
+    primary_hook_template: Can you trace your Google campaigns all the way to sold electrical jobs and revenue?
+    backup_hook_templates: []
+    offer_families: [AI_Growth_Systems]
+    roi_tool_ids: [attribution_roi]
+    must_not_claim: [agency_waste]
+
+decision_maker_roles:
+  - role_category: owner_founder
+    titles: [Owner, Founder, President]
+    relevant_hypothesis_ids: [missed_after_hours, estimate_follow_up, technician_capacity, attribution]
+    priority: 1
+  - role_category: operations
+    titles: [Operations Manager, Service Manager]
+    relevant_hypothesis_ids: [missed_after_hours, technician_capacity]
+    priority: 1
+  - role_category: office_manager
+    titles: [Office Manager, Customer Service Manager]
+    relevant_hypothesis_ids: [missed_after_hours]
+    priority: 1
+  - role_category: sales_leadership
+    titles: [Sales Manager, Comfort Advisor Manager, Project Sales Manager]
+    relevant_hypothesis_ids: [estimate_follow_up]
+    priority: 2
+  - role_category: marketing
+    titles: [Marketing Manager, Marketing Director]
+    relevant_hypothesis_ids: [attribution]
+    priority: 2
+
+system_families:
+  - system_family_id: field_service_crm
+    names: [ServiceTitan, Housecall Pro, Jobber, field service platform, CRM]
+    category: field_service
+    frontend_detection_terms: []
+    positioning_rule: Treat detected system as positive context; ask what happens automatically after lead entry rather than recommending replacement by default.
+    questions:
+      - Does every inquiry enter the platform?
+      - Can unsold estimates be surfaced automatically?
+
+hook_priorities:
+  - hook_family: missed_call
+    base_priority: 10
+    boost_if_signals: [active_google_search_ads, emergency_24_7]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens to an urgent electrical call nobody can answer live?
+  - hook_family: unsold_estimate_follow_up
+    base_priority: 9
+    boost_if_signals: [prominent_quote_booking]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Who follows up larger project estimates?
+  - hook_family: employee_capacity
+    base_priority: 8
+    boost_if_signals: [visible_hiring]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What technician admin would you remove first?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals: [active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Can Google Ads tie to sold jobs?
+
+discovery_question_banks:
+  phone_after_hours:
+    - text: What happens after hours and do you track missed calls?
+      purpose: call_handling
+      data_field_created: after_hours_process
+  sales_follow_up:
+    - text: Which jobs require estimates and who follows up unsold estimates?
+      purpose: estimate_pipeline
+      data_field_created: estimate_followup
+  employee_capacity:
+    - text: What admin do technicians perform that does not require their license or judgment?
+      purpose: capacity
+      data_field_created: technician_admin
+  systems_crm:
+    - text: Which field-service/CRM platform do you use?
+      purpose: system_map
+      data_field_created: systems
+  attribution:
+    - text: Can you track source to sold-job revenue?
+      purpose: attribution
+      data_field_created: attribution_state
+
+offer_mapping:
+  - opportunity_category: missed_call_recovery
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Improve routing, acknowledgment, callback and CRM capture around the existing office/dispatch team.
+    required_discovery_before_recommending: [call_volume, current_after_hours, systems]
+    do_not_recommend_if: [strong_existing_workflow]
+  - opportunity_category: estimate_follow_up
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Standardize next actions and visibility for larger unsold estimates.
+    required_discovery_before_recommending: [estimate_volume, current_followup, systems]
+    do_not_recommend_if: [minimal_estimate_volume]
+
+roi_tools:
+  - roi_tool_id: missed_call_roi
+    name: Missed Call ROI
+    relevant_hypothesis_ids: [missed_after_hours]
+    required_inputs: [missed_calls, legitimate_opportunity_percent, close_rate, average_customer_value]
+    prohibited_shortcuts: [assume_every_missed_call_is_lost_sale]
+  - roi_tool_id: unsold_estimate_roi
+    name: Unsold Estimate ROI
+    relevant_hypothesis_ids: [estimate_follow_up]
+    required_inputs: [open_estimates, active_percent, incremental_close_scenario, average_sold_revenue]
+    prohibited_shortcuts: [assume_universal_project_range]
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids: [technician_capacity]
+    required_inputs: [employees, repetitive_hours, addressable_percent, loaded_cost]
+    prohibited_shortcuts: [treat_capacity_as_guaranteed_savings]
+
+objection_guidance:
+  - objection_id: cannot_automate_electrical
+    match_phrases: [we can't automate electrical work, electricians have to decide]
+    principle: technical_boundary
+    response_guidance: Agree. YAD targets intake, scheduling, follow-up, communication, CRM and reporting around licensed electrical judgment.
+    follow_up_questions:
+      - Which admin process consumes the most technician or office time?
+    must_not_say: [AI_can_diagnose_electrical_safety]
+    manual_reference: module-17
+
+safety_boundaries:
+  - boundary_id: electrical_safety
+    category: safety_critical
+    prohibited_agent_claims:
+      - AI_can_diagnose_electrical_conditions
+      - AI_can_determine_code_compliance
+      - AI_can_design_load_or_system
+    human_required_for:
+      - diagnosis
+      - electrical_safety
+      - code_compliance
+      - installation_decisions
+      - system_design
+      - permits
+      - inspections
+    escalation_guidance: Keep automation around business workflow; route technical/safety questions to qualified electricians.
+
+no_sale_conditions:
+  - low_lead_volume
+  - no_measurable_followup_gap
+  - strong_existing_system
+  - weak_economics
+  - unsafe_automation_expectation
+
+scoring_overrides:
+  hidden_points: none
+  use_canonical_module_4c: true
+
+research_requirements:
+  prioritize:
+    - active_google_ads
+    - emergency_24_7
+    - high_value_services
+    - quote_booking_cta
+    - financing
+    - multiple_trucks_locations
+    - hiring
+    - field_service_signals
+  do_not_infer:
+    - job_value
+    - safety_condition
+    - CRM_workflow
+    - missed_call_rate
+
+call_pack_defaults:
+  preferred_primary_hook_family: missed_call
+  preferred_backup_hook_family: unsold_estimate_follow_up
+  maximum_confirmed_facts: 3
+  default_next_step: strategy_conversation

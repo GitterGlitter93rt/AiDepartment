@@ -1,0 +1,207 @@
+schema_version: "1.0.0"
+contract: yad_sales_ai_metric_definitions_v1
+purpose: >-
+  Give every Sales AI dashboard, experiment and report the same event definitions and denominators so rates cannot be inflated by choosing convenient populations.
+
+principles:
+  - store_counts_and_denominators_alongside_rates
+  - never_call_attempt_a_conversation
+  - never_call_booked_meeting_qualified_without_downstream_evidence
+  - preserve_no_sale_and_dnc_in_denominators_where_relevant
+  - separate_telephony_delivery_from_sales_quality
+  - compare_variants_only_with_version_and_cohort_context
+
+base_events:
+  eligible_candidate:
+    definition: exact_account_endpoint_passed_current_candidate_eligibility_before_dial_request
+  call_attempted:
+    definition: provider_call_creation_confirmed_for_unique_dial_request
+  call_connected:
+    definition: provider_indicates_answered_or_live_pstn_connection_not_just_ringing
+  human_answered:
+    definition: stable_evidence_of_human_answer_from_provider_and_or_live_conversation_state
+  right_stakeholder_reached:
+    definition: named_or_role_target_confirmed_as_relevant_process_stakeholder
+  gatekeeper_route_obtained:
+    definition: gatekeeper_supplies_useful_current_person_role_extension_email_or_best_time
+  first_question_answered:
+    definition: prospect_substantively_answers_selected_primary_process_question
+  useful_process_fact_obtained:
+    definition: prospect_supplies_material_current_workflow_fact_that_changes_or_tests_the_hypothesis
+  meaningful_problem_supported:
+    definition: prospect_statements_support_a_nontrivial_workflow_gap_or_measurement_need_worth_evaluating
+  qualified_strategy_offer:
+    definition: qualification_gate_returns_BOOK_NOW_and_agent_actually_offers_strategy_call
+  strategy_call_accepted:
+    definition: prospect_explicitly_agrees_to_check_or_book_strategy_call
+  strategy_call_booked:
+    definition: booking_provider_returns_confirmed_and_canonical_booking_persisted
+  strategy_call_attended:
+    definition: attendee_status_equals_ATTENDED
+  qualified_attended_meeting:
+    definition: >-
+      strategy_call_attended AND Michael qualification_quality >= 4 AND stakeholder_fit != WRONG_STAKEHOLDER
+      AND problem_confirmation IN (CONFIRMED, PARTIALLY_CONFIRMED)
+  opportunity_created:
+    definition: canonical_opportunity_created_after_meaningful_qualification_not_sentiment_only
+  dnc:
+    definition: durable_suppression_written_for_relevant_scope_after_clear_stop_contact_intent
+  wrong_number:
+    definition: endpoint_invalidated_or_corrected_after_confirmed_wrong_number_or_company
+  no_need:
+    definition: current_workflow_credibly_sufficient_or_no_meaningful_business_case_after_valid_discovery
+  opening_hangup:
+    definition: call_ends_before_first_process_question_is_substantively_answered
+  hard_fail:
+    definition: QA_detects_release_blocking_truth_policy_booking_dnc_or_voice_behavior
+
+rates:
+  human_answer_rate:
+    numerator: human_answered
+    denominator: call_attempted
+    interpretation: telephony_contactability_not_sales_quality
+
+  right_stakeholder_rate_per_human_answer:
+    numerator: right_stakeholder_reached
+    denominator: human_answered
+
+  routing_value_rate:
+    numerator_any:
+      - right_stakeholder_reached
+      - gatekeeper_route_obtained
+    denominator: human_answered
+    note: dedupe_calls_where_both_events_occur
+
+  first_question_answer_rate:
+    numerator: first_question_answered
+    denominator: right_stakeholder_reached
+    note: for_gatekeeper_specific_analysis_use_separate_gatekeeper_denominator
+
+  useful_fact_rate:
+    numerator: useful_process_fact_obtained
+    denominator: right_stakeholder_reached
+
+  meaningful_problem_rate:
+    numerator: meaningful_problem_supported
+    denominator: right_stakeholder_reached
+
+  strategy_offer_rate_per_problem:
+    numerator: qualified_strategy_offer
+    denominator: meaningful_problem_supported
+    interpretation: qualification_gate_behavior
+
+  strategy_accept_rate:
+    numerator: strategy_call_accepted
+    denominator: qualified_strategy_offer
+
+  booking_completion_rate:
+    numerator: strategy_call_booked
+    denominator: strategy_call_accepted
+    interpretation: booking_tool_and_data_collection_quality
+
+  booked_rate_per_right_stakeholder:
+    numerator: strategy_call_booked
+    denominator: right_stakeholder_reached
+    use_with_caution: true
+
+  attendance_rate:
+    numerator: strategy_call_attended
+    denominator: strategy_call_booked
+    exclude_from_denominator:
+      - future_not_yet_due
+      - provider_booking_never_confirmed
+    separate_states:
+      - CANCELLED
+      - RESCHEDULED
+      - ATTENDANCE_UNKNOWN
+
+  qualified_attendance_rate_per_booked:
+    numerator: qualified_attended_meeting
+    denominator: strategy_call_booked
+    primary_downstream_hook_quality_signal: true
+
+  qualified_rate_per_attended:
+    numerator: qualified_attended_meeting
+    denominator: strategy_call_attended
+    interpretation: cold_call_qualification_quality
+
+  opportunity_rate_per_qualified_attended:
+    numerator: opportunity_created
+    denominator: qualified_attended_meeting
+    note: no_sale_or_measurement_first_can_still_be_valid_meeting_outcome
+
+  opportunity_rate_per_right_stakeholder:
+    numerator: opportunity_created
+    denominator: right_stakeholder_reached
+    lagging_signal: true
+
+  dnc_rate_per_human_answer:
+    numerator: dnc
+    denominator: human_answered
+    interpretation: negative_experience_and_targeting_signal_not_a_goal_to_minimize_at_any_cost
+
+  wrong_number_rate_per_attempt:
+    numerator: wrong_number
+    denominator: call_attempted
+    interpretation: contact_data_quality
+
+  opening_hangup_rate:
+    numerator: opening_hangup
+    denominator: human_answered
+    interpretation: frame_voice_contact_fit_signal
+
+  hard_fail_rate:
+    numerator: hard_fail
+    denominator: reviewed_calls
+    release_sensitivity: critical
+
+  no_need_rate_per_right_stakeholder:
+    numerator: no_need
+    denominator: right_stakeholder_reached
+    interpretation: may_indicate_good_diagnosis_or_targeting_gap_do_not_treat_automatically_as_failure
+
+experiment_dimensions:
+  required_where_available:
+    - hook_family
+    - hook_version
+    - frame_version
+    - vertical
+    - market
+    - target_role
+    - contact_route_class
+    - advertiser_evidence_class
+    - tier
+    - research_completeness_band
+    - model_version
+    - tts_voice_config
+    - stt_config
+    - campaign_id
+    - pilot_batch_id
+
+reporting_rules:
+  - show_numerator_and_denominator_next_to_percentage
+  - flag_low_sample_sizes
+  - do_not_rank_variants_with_zero_or_tiny_denominators_as_winners
+  - preserve_cancelled_rescheduled_and_future_bookings_separately
+  - use_event_time_and_cohort_time_consistently
+  - do_not_double_count_rescheduled_meeting_as_two_bookings_for_same_strategy_commitment
+  - account_merge_must_preserve_event_attribution
+  - retries_and_duplicate_webhooks_must_not_duplicate_metrics
+
+quality_score_summary:
+  michael_qualification_quality_mean:
+    source: attended_strategy_calls_with_host_rating
+    min: 1
+    max: 5
+  bad_booking_rate:
+    numerator: attended_meetings_with_qualification_quality_lte_2
+    denominator: strategy_call_attended
+  problem_confirmation_rate:
+    numerator: attended_meetings_problem_confirmed_or_partially_confirmed
+    denominator: attended_meetings_where_problem_was_evaluated
+  correct_stakeholder_rate_attended:
+    numerator: attended_meetings_stakeholder_fit_in_DECISION_MAKER_PROCESS_OWNER_INFLUENCER
+    denominator: strategy_call_attended
+
+core_rule: >-
+  Every percentage must say what happened out of exactly what population. Optimize the complete funnel from attempt to qualified attended meeting and opportunity, not whichever denominator makes a variant look best.

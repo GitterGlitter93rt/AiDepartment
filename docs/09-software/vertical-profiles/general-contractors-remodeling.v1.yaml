@@ -1,0 +1,447 @@
+profile_id: general-contractors-remodeling-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: General Contractors / Remodeling
+industry_aliases:
+  - general contractor
+  - remodeling contractor
+  - home remodeling
+  - design build
+priority: 7
+country_scope: [US]
+source_manual_paths:
+  - docs/07-sales/training-manual/module-16-general-contractors-remodeling-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - whole_home_remodeling
+    - kitchen_remodeling
+    - bathroom_remodeling
+    - additions
+    - outdoor_living
+    - restoration_repair_projects
+    - tenant_improvements
+    - light_commercial
+    - specialty_construction
+    - design_build
+  lead_types:
+    - paid_search
+    - organic_search
+    - referral
+    - web_form
+    - phone
+    - design_consultation
+    - prior_customer
+  customer_types:
+    - homeowner
+    - commercial_client
+  high_value_service_families:
+    - whole_home_remodel
+    - kitchen_remodel
+    - addition
+    - design_build
+    - commercial_project
+  recurring_revenue_families: []
+  urgency_characteristics:
+    - generally_non_emergency
+    - selected_repair_or_restoration_urgent
+  seasonality_characteristics:
+    - market_dependent
+  phone_dependence: medium
+  appointment_dependence: high
+  estimate_proposal_dependence: very_high
+  field_service_dependence: high
+
+search_taxonomy:
+  core_queries:
+    - query: general contractor
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: remodeling contractor
+      family: core
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: kitchen remodel
+      family: kitchen
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: bathroom remodel
+      family: bathroom
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: home addition contractor
+      family: additions
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: design build contractor
+      family: design_build
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries: []
+  high_ticket_queries:
+    - whole home remodeling
+    - kitchen remodeling
+    - home additions
+    - design build contractor
+  financing_queries:
+    - home remodeling financing
+  commercial_queries:
+    - commercial remodeling contractor
+    - tenant improvement contractor
+  service_aliases:
+    - remodeler
+    - renovation contractor
+    - design build
+  negative_terms:
+    - DIY
+    - building supply
+    - contractor school
+    - contractor licensing course
+    - materials supplier
+  classification_warning_terms:
+    - handyman only
+    - architect only
+    - interior designer only
+    - roofing incidental
+
+classification_rules:
+  positive_business_categories:
+    - general_contractor
+    - remodeling_contractor
+    - design_build_contractor
+  negative_business_categories:
+    - building_supply
+    - training_school
+    - materials_wholesaler
+  website_keyword_positive:
+    - kitchen remodeling
+    - bathroom remodeling
+    - whole home remodel
+    - home addition
+    - design build
+    - general contracting
+  website_keyword_negative:
+    - DIY tutorials
+    - wholesale building materials
+  required_any_of:
+    - contractor_service_evidence
+    - remodeling_service_evidence
+  exclude_if_all:
+    - no_customer_project_service_evidence
+    - non_service_business
+  manual_review_if:
+    - handyman_vs_gc_unclear
+    - roofing_only_or_incidental_unclear
+    - architect_builder_relationship_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Shows willingness to pay for project inquiries and makes lead response/proposal follow-up/attribution questions relevant.
+    possible_hypothesis_ids: [paid_lead_response, proposal_follow_up, attribution]
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: prominent_consultation_or_quote
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Shows visible project-intake workflow.
+    possible_hypothesis_ids: [lead_qualification, speed_to_lead, proposal_follow_up]
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Increases routing/reporting/process consistency needs.
+    possible_hypothesis_ids: [reporting_visibility, routing_consistency]
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Makes employee capacity/scaling relevant.
+    possible_hypothesis_ids: [employee_capacity]
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: inquiry
+    label: Search / referral / ad to call or form
+    common_inputs: [google, referral, paid_ad, website]
+    common_outputs: [lead_record]
+    handoff_risks: [slow_response, missing_source]
+    human_judgment_required: false
+  - stage_id: qualification
+    label: Project qualification
+    common_inputs: [lead_record]
+    common_outputs: [qualified_project, disqualified_project, consultation]
+    handoff_risks: [estimator_time_waste, incomplete_scope]
+    human_judgment_required: true
+  - stage_id: consultation
+    label: Site visit / consultation
+    common_inputs: [qualified_project]
+    common_outputs: [proposal_opportunity]
+    handoff_risks: [scheduling_delay, missing_notes]
+    human_judgment_required: true
+  - stage_id: proposal
+    label: Estimate / design / proposal
+    common_inputs: [proposal_opportunity]
+    common_outputs: [won, open_proposal, lost, future]
+    handoff_risks: [no_next_action, inconsistent_follow_up]
+    human_judgment_required: true
+  - stage_id: project
+    label: Preconstruction through completion
+    common_inputs: [signed_contract]
+    common_outputs: [completed_project]
+    handoff_risks: [status_communication, document_handoff, duplicate_entry]
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: paid_lead_response
+    category: speed_to_lead
+    title: Paid project lead response
+    trigger_signals: [active_google_search_ads, prominent_consultation_or_quote]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - How quickly does a qualified project inquiry get a real response?
+      - What happens after the first no-response?
+    primary_hook_template: I noticed you're advertising for {service} in {market}. What happens when a qualified project lead comes in and the estimator doesn't connect on the first attempt?
+    backup_hook_templates:
+      - How are web project inquiries assigned and followed up?
+    offer_families: [AI_Growth_Systems, AI_Implementation]
+    roi_tool_ids: [lead_response_roi]
+    must_not_claim: [ad_spend_amount, lost_lead_count, guaranteed_conversion]
+  - hypothesis_id: proposal_follow_up
+    category: sales_follow_up
+    title: Unsold proposal follow-up
+    trigger_signals: [prominent_consultation_or_quote]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a proposal that does not close on the first conversation?
+      - Can you see every unsold proposal and next action?
+    primary_hook_template: What happens to a remodeling proposal that doesn't close during the first conversation?
+    backup_hook_templates:
+      - Can management see open proposal value by age?
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [unsold_estimate_roi]
+    must_not_claim: [all_open_proposals_recoverable]
+  - hypothesis_id: lead_qualification
+    category: intake
+    title: Estimator time protection
+    trigger_signals: [prominent_consultation_or_quote]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What makes a project worth your estimator's time?
+      - What information is collected before scheduling the site visit?
+    primary_hook_template: How are project inquiries qualified before they consume estimator time?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [AI_should_accept_projects]
+  - hypothesis_id: employee_capacity
+    category: capacity
+    title: Project/estimator administrative capacity
+    trigger_signals: [visible_hiring]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What does your best project manager or estimator spend time on that does not require their judgment?
+    primary_hook_template: What repetitive admin would you remove first from your project managers or estimators?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, Managed_AI_Department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [staff_replacement]
+  - hypothesis_id: attribution
+    category: attribution
+    title: Marketing to signed-project attribution
+    trigger_signals: [active_google_search_ads]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you trace Google Ads from inquiry through signed project?
+    primary_hook_template: Can you tie your paid lead sources all the way to signed projects rather than just form submissions?
+    backup_hook_templates: []
+    offer_families: [AI_Growth_Systems]
+    roi_tool_ids: [attribution_roi]
+    must_not_claim: [agency_is_wasting_money]
+
+decision_maker_roles:
+  - role_category: owner_founder
+    titles: [Owner, Founder, President]
+    relevant_hypothesis_ids: [proposal_follow_up, employee_capacity, attribution]
+    priority: 1
+  - role_category: general_manager
+    titles: [General Manager, GM]
+    relevant_hypothesis_ids: [paid_lead_response, proposal_follow_up, employee_capacity]
+    priority: 1
+  - role_category: sales_leadership
+    titles: [Sales Manager, Director of Sales, Estimating Manager]
+    relevant_hypothesis_ids: [proposal_follow_up, lead_qualification]
+    priority: 1
+  - role_category: operations
+    titles: [Operations Manager, Director of Operations]
+    relevant_hypothesis_ids: [employee_capacity, reporting_visibility]
+    priority: 1
+  - role_category: marketing
+    titles: [Marketing Director, Marketing Manager]
+    relevant_hypothesis_ids: [paid_lead_response, attribution]
+    priority: 2
+
+system_families:
+  - system_family_id: contractor_crm_project_stack
+    names: [CRM, project management, estimating, accounting, scheduling]
+    category: business_systems
+    frontend_detection_terms: []
+    positioning_rule: Map and improve the existing stack before recommending replacement.
+    questions:
+      - Where does someone manually move the same project information between systems?
+      - Can lead source be tied to signed project revenue?
+
+hook_priorities:
+  - hook_family: unsold_proposal_follow_up
+    base_priority: 10
+    boost_if_signals: [prominent_consultation_or_quote, active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens to a proposal that doesn't close on the first conversation?
+  - hook_family: paid_lead_response
+    base_priority: 9
+    boost_if_signals: [active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - How quickly does a paid remodeling lead hear back?
+  - hook_family: lead_qualification
+    base_priority: 8
+    boost_if_signals: [prominent_consultation_or_quote]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What makes a project worth an estimator's time?
+  - hook_family: attribution
+    base_priority: 7
+    boost_if_signals: [active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Can you trace paid marketing to signed projects?
+
+discovery_question_banks:
+  lead_generation:
+    - text: Where do your best project leads come from?
+      purpose: source_mix
+      data_field_created: lead_sources
+    - text: How quickly are new inquiries contacted?
+      purpose: response_process
+      data_field_created: response_time
+  sales_follow_up:
+    - text: How many proposals are sent monthly and what happens to the unsold ones?
+      purpose: proposal_pipeline
+      data_field_created: proposal_followup
+  employee_capacity:
+    - text: What administrative hire would you need first if revenue grew 50%?
+      purpose: capacity
+      data_field_created: capacity_constraint
+  systems_crm:
+    - text: Which CRM, estimating, project-management and accounting systems do you use?
+      purpose: stack_map
+      data_field_created: systems
+  attribution:
+    - text: Can marketing source be tied to sold projects?
+      purpose: attribution
+      data_field_created: attribution_state
+
+offer_mapping:
+  - opportunity_category: proposal_follow_up
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Improve the proposal pipeline, next actions, reminders and reporting around the existing sales team.
+    required_discovery_before_recommending: [proposal_volume, current_followup, systems]
+    do_not_recommend_if: [strong_current_workflow]
+  - opportunity_category: employee_capacity
+    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    positioning: Reduce repetitive project/estimating admin while human judgment remains with the team.
+    required_discovery_before_recommending: [task_volume, systems, human_review]
+    do_not_recommend_if: [weak_economics]
+
+roi_tools:
+  - roi_tool_id: unsold_estimate_roi
+    name: Unsold Estimate / Proposal ROI
+    relevant_hypothesis_ids: [proposal_follow_up]
+    required_inputs: [proposal_count, legitimate_active_percent, incremental_close_scenario, average_sold_revenue]
+    prohibited_shortcuts: [assume_all_open_proposals_recoverable]
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids: [employee_capacity, lead_qualification]
+    required_inputs: [employee_count, repetitive_hours, addressable_percent, loaded_hourly_cost]
+    prohibited_shortcuts: [treat_capacity_as_payroll_savings]
+
+objection_guidance:
+  - objection_id: project_management_software_already
+    match_phrases: [we already have project management software, we already have a CRM]
+    principle: existing_system_positive
+    response_guidance: Map whether the current system handles lead capture, proposal follow-up, handoffs and reporting before adding anything.
+    follow_up_questions:
+      - Can it show every unsold proposal and who owns the next action?
+    must_not_say: [rip_it_out]
+    manual_reference: module-16
+
+safety_boundaries:
+  - boundary_id: construction_judgment
+    category: technical_professional
+    prohibited_agent_claims: [AI_can_make_engineering_decisions, AI_can_determine_code_compliance]
+    human_required_for: [construction_scope, engineering, code, permits, pricing, contracts, change_order_approval]
+    escalation_guidance: Keep AI/automation around intake, admin, routing, follow-up and information workflows.
+
+no_sale_conditions:
+  - no_measurable_followup_gap
+  - current_systems_work_well
+  - low_lead_or_proposal_volume
+  - integration_not_feasible
+  - weak_economics
+  - primary_goal_staff_elimination
+
+scoring_overrides:
+  hidden_points: none
+  use_canonical_module_4c: true
+
+research_requirements:
+  prioritize:
+    - active_google_ads
+    - service_pages
+    - consultation_quote_cta
+    - project_types
+    - multiple_locations
+    - financing
+    - leadership
+  do_not_infer:
+    - project_value
+    - close_rate
+    - CRM_workflow
+    - profit_margin
+
+call_pack_defaults:
+  preferred_primary_hook_family: unsold_proposal_follow_up
+  preferred_backup_hook_family: paid_lead_response
+  maximum_confirmed_facts: 3
+  default_next_step: strategy_conversation

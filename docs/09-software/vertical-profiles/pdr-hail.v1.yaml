@@ -1,0 +1,827 @@
+profile_id: pdr-hail-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: PDR / Automotive Hail Repair
+industry_aliases:
+  - paintless dent repair
+  - PDR
+  - auto hail repair
+  - hail damage repair
+  - dent repair
+priority: 5
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-14-pdr-hail-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - automotive_hail_pdr
+    - retail_pdr
+    - dealer_programs
+    - fleet_wholesale
+    - related_collision_body_work
+  lead_types:
+    - google_hail_lead
+    - meta_hail_lead
+    - field_sales_lead
+    - dealer_lead
+    - referral
+    - inbound_call
+    - web_form
+    - social_message
+    - prior_customer
+  customer_types:
+    - vehicle_owner
+    - dealer
+    - fleet
+    - referral_partner
+  high_value_service_families:
+    - automotive_hail_repair
+    - multi_panel_hail_repair
+    - dealer_hail_program
+    - fleet_hail_program
+  recurring_revenue_families:
+    - dealer_relationships
+    - fleet_relationships
+    - referral_relationships
+  urgency_characteristics:
+    - recent_hail_event
+    - temporary_market_window
+    - surge_lead_volume
+  seasonality_characteristics:
+    - event_driven
+    - storm_market_dependent
+    - mobile_market_rotation
+  phone_dependence: high
+  appointment_dependence: very_high
+  estimate_proposal_dependence: high
+  field_service_dependence: very_high
+
+search_taxonomy:
+  core_queries:
+    - query: paintless dent repair
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: auto hail repair
+      family: hail
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: hail damage repair
+      family: hail
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: auto hail repair
+      family: hail
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: hail damage car repair
+      family: hail
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: PDR hail repair
+      family: hail
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: paintless dent repair
+      family: retail_pdr
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - hail damage repair near me
+    - recent hail car repair
+    - hail dent repair
+  high_ticket_queries:
+    - auto hail repair
+    - PDR hail repair
+  financing_queries: []
+  commercial_queries:
+    - dealer hail repair
+    - fleet hail repair
+    - dealership PDR
+  service_aliases:
+    - PDR
+    - paintless dent repair
+    - hail repair
+    - dent repair
+    - auto hail
+  negative_terms:
+    - dent repair training
+    - PDR tools
+    - PDR school
+    - hail repair supplies
+    - storm roofing hail
+  classification_warning_terms:
+    - collision shop with limited PDR
+    - mobile dent only
+    - lead generation site
+    - catastrophe staffing company
+
+classification_rules:
+  positive_business_categories:
+    - pdr_shop
+    - auto_hail_repair
+    - paintless_dent_repair
+    - hail_collision_repair
+  negative_business_categories:
+    - training_school
+    - tool_supplier
+    - parts_supplier
+    - non_automotive_hail_business
+  website_keyword_positive:
+    - auto hail repair
+    - hail damage repair
+    - paintless dent repair
+    - PDR
+    - hail damage vehicle
+    - free hail inspection
+  website_keyword_negative:
+    - PDR training
+    - dent tools
+    - roofing hail damage
+  required_any_of:
+    - automotive_hail_service_evidence
+    - PDR_service_evidence
+  exclude_if_all:
+    - non_automotive_business
+    - no_vehicle_repair_evidence
+  manual_review_if:
+    - collision_PDR_mix_unclear
+    - temporary_location_identity_unclear
+    - multi_market_parent_child_ambiguous
+    - lead_generation_site_possible
+
+public_signal_rules:
+  - signal_id: active_hail_google_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Current hail advertising in an active market creates a high-value reason to test lead surge, assignment, appointments and attribution.
+    possible_hypothesis_ids:
+      - storm_lead_surge
+      - paid_lead_assignment
+      - market_attribution
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_hail_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Active hail creatives can create high-volume form/social leads requiring rapid routing and market-specific follow-up.
+    possible_hypothesis_ids:
+      - storm_lead_surge
+      - paid_lead_assignment
+      - appointment_no_show
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: recent_market_launch
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: A new hail market increases relevance of reusable setup, routing, training and reporting workflows.
+    possible_hypothesis_ids:
+      - market_launch_repeatability
+      - multi_market_visibility
+    score_rule_reference: module4c_growth_plus1
+  - signal_id: multiple_markets
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Multiple storm markets increase lead ownership, reporting, routing and attribution complexity.
+    possible_hypothesis_ids:
+      - multi_market_visibility
+      - market_attribution
+      - field_lead_capture
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: appointment_cta
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Appointment-driven hail repair makes reminder, reschedule and no-show workflows measurable.
+    possible_hypothesis_ids:
+      - appointment_no_show
+      - paid_lead_assignment
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: field_sales_signal
+    category: sales_operations
+    evidence_claim_key: field_sales_presence
+    confidence_required: likely
+    why_it_matters: Field sales can create pipeline visibility and company-owned lead-data issues if leads stay on personal devices.
+    possible_hypothesis_ids:
+      - field_lead_capture
+    score_rule_reference: vertical_priority_signal_only
+
+customer_journey:
+  - stage_id: storm_event
+    label: Hail event / market creation
+    common_inputs:
+      - hail_event
+      - market_entry
+    common_outputs:
+      - paid_campaign
+      - canvass
+      - dealer_outreach
+      - organic_search
+    handoff_risks:
+      - slow_market_setup
+    human_judgment_required: false
+  - stage_id: lead_capture
+    label: Phone / form / text / field conversation
+    common_inputs:
+      - google
+      - meta
+      - field_sales
+      - dealer
+      - referral
+    common_outputs:
+      - lead_record
+      - appointment_request
+    handoff_risks:
+      - duplicate_lead
+      - personal_phone_only
+      - no_source_tag
+      - slow_response
+      - no_owner
+    human_judgment_required: true
+  - stage_id: appointment
+    label: Qualification / appointment / reminder / show
+    common_inputs:
+      - lead_record
+    common_outputs:
+      - inspected_vehicle
+      - no_show
+      - rescheduled
+    handoff_risks:
+      - no_show
+      - reminder_gap
+      - reschedule_gap
+    human_judgment_required: true
+  - stage_id: repair_conversion
+    label: Inspection / estimate / claim process / repair scheduling
+    common_inputs:
+      - inspected_vehicle
+    common_outputs:
+      - scheduled_repair
+      - pending
+      - lost
+      - future
+    handoff_risks:
+      - no_follow_up
+      - document_admin_load
+      - claim_specific_exception
+    human_judgment_required: true
+  - stage_id: production
+    label: Vehicle in / repair / QC / ready
+    common_inputs:
+      - scheduled_repair
+    common_outputs:
+      - completed_vehicle
+    handoff_risks:
+      - status_communication_load
+      - false_status_if_data_stale
+    human_judgment_required: true
+  - stage_id: attribution
+    label: Delivery / revenue / source / market reporting
+    common_inputs:
+      - completed_vehicle
+    common_outputs:
+      - revenue_record
+      - review
+      - referral
+      - market_performance
+    handoff_risks:
+      - source_loss
+      - rep_attribution_gap
+      - market_reporting_gap
+    human_judgment_required: false
+
+leak_hypotheses:
+  - hypothesis_id: storm_lead_surge
+    category: speed_to_lead
+    title: Hail lead surge may overwhelm normal intake capacity
+    description: Storm markets can create a temporary flood of calls, forms, social and field leads faster than normal staff/processes can organize them.
+    trigger_signals:
+      - active_hail_google_ads
+      - active_hail_meta_ads
+      - recent_market_launch
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_surge_system
+    public_fact_requirements:
+      - current_hail_market_evidence_if_referenced
+    questions_to_verify:
+      - When storm volume spikes, do phone, web, Meta and field leads all land in the same trackable pipeline?
+      - Which office task explodes first during the first two weeks after a storm?
+    primary_hook_template: I noticed you are actively marketing hail repair in [market]. When volume spikes, how do phone, web, Meta and field leads all get into the same follow-up system?
+    backup_hook_templates:
+      - What happens when the office gets more hail calls than it can answer live?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - lead_response_roi
+      - employee_capacity_roi
+    must_not_claim:
+      - known_lead_volume
+      - leads_are_currently_being_lost
+  - hypothesis_id: field_lead_capture
+    category: crm_workflow
+    title: Field leads may live on reps' personal devices instead of the company pipeline
+    description: Mobile hail sales can create lead-ownership and management-visibility problems when contact details, next actions and outcomes are not centralized.
+    trigger_signals:
+      - field_sales_signal
+      - multiple_markets
+    disqualifying_signals:
+      - prospect_confirms_shared_mobile_CRM_and_visibility
+    public_fact_requirements: []
+    questions_to_verify:
+      - If a field rep collects 30 leads today, can management see every one and its next action tomorrow morning?
+      - Does the company own the lead record or does the rep's phone own it?
+    primary_hook_template: If one field rep generates 30 leads this weekend, can management see every lead, next action and eventual repair without asking the rep?
+    backup_hook_templates:
+      - How are field leads tagged by rep, source and market?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - field_reps_are_hiding_leads
+  - hypothesis_id: appointment_no_show
+    category: appointment_no_show
+    title: Valuable hail appointment capacity may be lost to no-shows and weak rescheduling
+    description: Event-driven appointment volume makes confirmation, reminders, easy rescheduling and no-show recovery worth measuring.
+    trigger_signals:
+      - appointment_cta
+      - active_hail_ads
+    disqualifying_signals:
+      - prospect_confirms_high_show_rate_and_strong_recovery
+    public_fact_requirements: []
+    questions_to_verify:
+      - What percentage of hail appointments show?
+      - What happens automatically after a no-show or reschedule request?
+    primary_hook_template: What happens to a hail appointment after the customer no-shows or needs to reschedule?
+    backup_hook_templates:
+      - How much appointment capacity sits unused because follow-up is inconsistent?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - no_show_roi
+    must_not_claim:
+      - known_no_show_rate_without_data
+  - hypothesis_id: market_launch_repeatability
+    category: integration
+    title: New hail markets may require repetitive manual setup
+    description: Numbers, landing pages, campaigns, CRM stages, calendars, scripts, reporting and permissions may be rebuilt each storm instead of instantiated from a reusable template.
+    trigger_signals:
+      - recent_market_launch
+      - multiple_markets
+    disqualifying_signals:
+      - prospect_confirms_repeatable_launch_template
+    public_fact_requirements: []
+    questions_to_verify:
+      - When you enter a new city, what has to be rebuilt manually?
+      - How long until phones, forms, rep assignment, appointments and reporting are visible in one system?
+    primary_hook_template: When you enter a new hail market, how much of the operating system has to be rebuilt manually?
+    backup_hook_templates:
+      - How fast can you launch a fully tracked market after a storm?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+    must_not_claim:
+      - current_launch_process_is_slow_without_confirmation
+  - hypothesis_id: market_attribution
+    category: attribution
+    title: Lead source and market may not tie cleanly to completed repair revenue
+    description: Google, Meta, field, dealer and referral channels can be compared properly only when source survives through appointment, vehicle-in, completed repair and revenue.
+    trigger_signals:
+      - active_hail_google_ads
+      - active_hail_meta_ads
+      - multiple_markets
+      - field_sales_signal
+    disqualifying_signals:
+      - prospect_confirms_closed_loop_market_attribution
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you compare cost per completed repair by market and lead source?
+      - Which sources produce vehicles-in, not just leads?
+    primary_hook_template: Can you compare completed repairs and revenue by Google, Meta, field rep and market today?
+    backup_hook_templates:
+      - Which source produces the most vehicles-in rather than the most leads?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - advertising_efficiency_roi
+    must_not_claim:
+      - attribution_is_broken
+
+decision_maker_roles:
+  - role_category: owner_operator
+    titles:
+      - owner
+      - president
+      - managing partner
+    relevant_hypothesis_ids:
+      - market_launch_repeatability
+      - storm_lead_surge
+      - market_attribution
+    priority: 1
+  - role_category: market_operations
+    titles:
+      - operations manager
+      - market manager
+      - general manager
+    relevant_hypothesis_ids:
+      - storm_lead_surge
+      - appointment_no_show
+      - market_launch_repeatability
+    priority: 1
+  - role_category: sales_management
+    titles:
+      - sales manager
+      - field sales manager
+      - canvassing manager
+    relevant_hypothesis_ids:
+      - field_lead_capture
+      - appointment_no_show
+      - market_attribution
+    priority: 1
+  - role_category: marketing
+    titles:
+      - marketing manager
+      - growth manager
+    relevant_hypothesis_ids:
+      - storm_lead_surge
+      - market_attribution
+    priority: 2
+  - role_category: office_admin
+    titles:
+      - office manager
+      - appointment coordinator
+      - customer service manager
+    relevant_hypothesis_ids:
+      - appointment_no_show
+      - storm_lead_surge
+    priority: 2
+
+system_families:
+  - system_family_id: hail_crm
+    names: []
+    category: CRM_sales_pipeline
+    frontend_detection_terms: []
+    positioning_rule: CRM presence does not prove field reps use it consistently or that every market/source is connected.
+    questions:
+      - Do all phone, web, social and field leads enter one pipeline?
+      - Can management see pipeline by salesperson and market?
+  - system_family_id: appointment_system
+    names: []
+    category: scheduling
+    frontend_detection_terms:
+      - schedule hail inspection
+      - book appointment
+    positioning_rule: Booking presence does not prove reminders, rescheduling and no-show recovery are complete.
+    questions:
+      - What happens after a no-show?
+  - system_family_id: tracking_numbers
+    names: []
+    category: call_attribution
+    frontend_detection_terms:
+      - tracking phone
+    positioning_rule: Market-specific numbers help attribution but do not prove source-to-completed-repair reporting.
+    questions:
+      - Can the call source be tied through to completed repair and market revenue?
+
+hook_priorities:
+  - hook_family: storm_lead_surge
+    base_priority: 10
+    boost_if_signals:
+      - active_hail_google_ads
+      - active_hail_meta_ads
+      - recent_market_launch
+    demote_if_signals: []
+    avoid_if:
+      - no_current_hail_market_evidence_when_market_reference_required
+    question_templates:
+      - When storm volume spikes, do every phone, web, Meta and field lead enter one trackable pipeline?
+  - hook_family: field_lead_capture
+    base_priority: 9
+    boost_if_signals:
+      - field_sales_signal
+      - multiple_markets
+    demote_if_signals: []
+    avoid_if:
+      - no_field_sales_operation
+    question_templates:
+      - Can management see every field lead and next action without asking the rep?
+  - hook_family: appointment_no_show
+    base_priority: 8
+    boost_if_signals:
+      - appointment_cta
+      - high_lead_volume_signal
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens after a hail appointment no-shows?
+  - hook_family: market_launch
+    base_priority: 8
+    boost_if_signals:
+      - multiple_markets
+      - recent_market_launch
+    demote_if_signals: []
+    avoid_if:
+      - permanent_single_market_operator
+    question_templates:
+      - What has to be rebuilt manually when you launch a new storm market?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals:
+      - active_hail_google_ads
+      - active_hail_meta_ads
+      - field_sales_signal
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_closed_loop_attribution
+    question_templates:
+      - Can you compare completed repairs by source, rep and market?
+
+discovery_question_banks:
+  lead_generation:
+    - text: Which sources produce the most completed vehicles in each market?
+      purpose: source economics
+    - text: How quickly are hail leads contacted after a storm?
+      purpose: speed to lead
+  phone_after_hours:
+    - text: What happens to hail calls when surge volume overwhelms the office?
+      purpose: overflow
+  scheduling_dispatch:
+    - text: What is the appointment show rate and how are no-shows recovered?
+      purpose: appointment utilization
+  sales_follow_up:
+    - text: How many leads never receive a second follow-up?
+      purpose: lead follow-up
+  retention_reactivation:
+    - text: How are old storm leads and unscheduled estimates handled?
+      purpose: database lifecycle
+  employee_capacity:
+    - text: Which office task explodes fastest during the first two weeks after a storm?
+      purpose: surge capacity
+  reporting:
+    - text: How quickly can management compare market and rep performance?
+      purpose: reporting visibility
+  systems_crm:
+    - text: Do field, phone, Meta and web leads all enter the same CRM?
+      purpose: pipeline integrity
+  attribution:
+    - text: Can source and rep be tied to vehicle-in, completed repair and revenue?
+      purpose: closed-loop attribution
+  technical_constraints:
+    - text: Which claim, insurance, repair and financial questions must route to qualified humans?
+      purpose: safety boundary
+
+offer_mapping:
+  - opportunity_category: speed_to_lead
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Build a surge-capable lead capture, routing, acknowledgment and follow-up system around existing staff and markets.
+    required_discovery_before_recommending:
+      - market_lead_volume
+      - channels
+      - current_routing
+      - CRM
+    do_not_recommend_if:
+      - current_surge_process_already_strong
+  - opportunity_category: crm_workflow
+    possible_offer_families:
+      - ai_implementation
+      - managed_ai_department
+    positioning: Centralize field and digital lead ownership, source, rep, appointment and next-action visibility.
+    required_discovery_before_recommending:
+      - field_sales_process
+      - current_CRM
+      - rep_usage
+    do_not_recommend_if:
+      - shared_mobile_pipeline_already_complete
+  - opportunity_category: appointment_no_show
+    possible_offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    positioning: Improve confirmation, reminder, easy rescheduling and no-show recovery while preserving human escalation.
+    required_discovery_before_recommending:
+      - appointment_volume
+      - show_rate
+      - current_reminders
+    do_not_recommend_if:
+      - show_rate_and_recovery_already_strong
+  - opportunity_category: attribution
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Preserve market, source and rep attribution through completed repair and revenue where systems permit.
+    required_discovery_before_recommending:
+      - source_tracking
+      - CRM
+      - repair_system
+      - revenue_data
+    do_not_recommend_if:
+      - attribution_already_reliable
+
+roi_tools:
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids:
+      - storm_lead_surge
+      - field_lead_capture
+    required_inputs:
+      - event_window_leads
+      - affected_percent
+      - legitimate_vehicle_opportunity_percent
+      - conservative_recovery_scenario
+      - average_completed_repair_value
+    prohibited_shortcuts:
+      - every_delayed_lead_equals_lost_repair
+  - roi_tool_id: no_show_roi
+    name: No-Show ROI
+    relevant_hypothesis_ids:
+      - appointment_no_show
+    required_inputs:
+      - appointments
+      - no_show_rate
+      - realistically_recoverable_percent
+      - repair_conversion
+      - customer_value_metric
+    prohibited_shortcuts:
+      - every_no_show_equals_lost_repair
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids:
+      - storm_lead_surge
+      - market_launch_repeatability
+    required_inputs:
+      - employee_count
+      - repetitive_hours
+      - addressable_percent
+      - loaded_hourly_cost
+    prohibited_shortcuts:
+      - guaranteed_payroll_savings
+  - roi_tool_id: advertising_efficiency_roi
+    name: Advertising Efficiency
+    relevant_hypothesis_ids:
+      - market_attribution
+    required_inputs:
+      - actual_ad_cost
+      - leads
+      - appointments
+      - vehicles_in
+      - completed_repairs
+      - revenue
+    prohibited_shortcuts:
+      - guessing_ad_spend
+
+objection_guidance:
+  - objection_id: hail_too_fast_for_crm
+    match_phrases:
+      - hail is too fast for a CRM
+    principle: The pipeline should reduce work, not create field bureaucracy.
+    response_guidance: Explain that speed is why mobile capture and minimal required fields matter; ask what reps can realistically use.
+    follow_up_questions:
+      - What information can a rep capture in under a minute?
+    must_not_say:
+      - force reps into long data entry
+    manual_reference: module-14-pdr-hail-industry-playbook.md#29-pdr--hail-objections
+  - objection_id: reps_keep_leads_in_phones
+    match_phrases:
+      - our guys keep everything in their phones
+    principle: Do not accuse reps; focus on business visibility and continuity.
+    response_guidance: Ask whether management can see/protect pipeline across reps and markets.
+    follow_up_questions:
+      - If a rep leaves the market, does the company retain the full lead history and next actions?
+    must_not_say:
+      - your reps are stealing leads
+    manual_reference: module-14-pdr-hail-industry-playbook.md#29-pdr--hail-objections
+  - objection_id: just_need_more_leads
+    match_phrases:
+      - we just need more leads
+    principle: Measure existing funnel before adding demand.
+    response_guidance: Ask what percentage of current leads are contacted, scheduled, shown and repaired.
+    follow_up_questions:
+      - How many current leads make it to appointment and vehicle-in?
+    must_not_say:
+      - you are wasting all your ad money
+    manual_reference: module-14-pdr-hail-industry-playbook.md#29-pdr--hail-objections
+  - objection_id: every_storm_different
+    match_phrases:
+      - every storm is different
+    principle: Market conditions change, but core pipeline stages can still be standardized.
+    response_guidance: Agree and isolate repeatable launch/capture/assignment/appointment/reporting components.
+    follow_up_questions:
+      - Which parts are repeated every storm regardless of city?
+    must_not_say: []
+    manual_reference: module-14-pdr-hail-industry-playbook.md#29-pdr--hail-objections
+
+safety_boundaries:
+  - boundary_id: insurance_claim
+    category: insurance_legal
+    prohibited_agent_claims:
+      - coverage_decision
+      - deductible_legality_claim
+      - claim_outcome_guarantee
+      - unauthorized_adjusting_advice
+    human_required_for:
+      - claim_specific_questions
+      - coverage_questions
+      - sensitive_financial_questions
+    escalation_guidance: Hail phone/automation workflows can capture approved intake and schedule, but claim-specific and coverage questions route to qualified humans.
+  - boundary_id: vehicle_repair
+    category: technical_safety
+    prohibited_agent_claims:
+      - PDR_repairability_decision
+      - repair_scope_decision
+      - vehicle_safety_clearance
+    human_required_for:
+      - damage_assessment
+      - repair_plan
+      - quality_control
+    escalation_guidance: Qualified repair professionals retain technical and safety judgment.
+  - boundary_id: repair_status_truth
+    category: communication_truth
+    prohibited_agent_claims:
+      - fabricated_completion_date
+      - fabricated_repair_status
+    human_required_for:
+      - status_exception_without_reliable_data
+    escalation_guidance: Automated customer updates require reliable system state.
+
+no_sale_conditions:
+  - tiny_lead_volume
+  - field_CRM_process_already_strong
+  - economics_weak
+  - no_reliable_measurement_possible
+  - misleading_insurance_representation_requested
+  - communication_compliance_refused
+  - unsupported_required_integration
+  - guaranteed_results_demanded
+  - unsafe_claim_or_repair_automation_requested
+
+scoring_overrides:
+  enabled: false
+  rule: Use canonical Module 4C. Hail event and field-sales signals change routing/hypothesis priority but add no hidden fit points.
+
+research_requirements:
+  minimum_before_research_ready:
+    - company_identity
+    - active_market_or_primary_location
+    - website_attempted
+    - google_ad_check_attempted
+  refresh_before_ad_specific_opener:
+    - current_hail_market_ad_evidence
+  optional_deep_research:
+    - meta_hail_ads
+    - recent_market_social_signal
+    - temporary_locations
+    - multiple_markets
+    - field_sales_presence
+    - appointment_CTA
+    - leadership_roles
+  forbidden_research_actions:
+    - fake_hail_claim
+    - fake_vehicle_appointment
+    - fake_insurance_inquiry
+    - fake_field_lead
+
+call_pack_defaults:
+  preferred_primary_hook_order:
+    - storm_lead_surge
+    - field_lead_capture
+    - appointment_no_show
+    - market_launch
+    - attribution
+  default_first_question: When a storm hits, do every phone, web, Meta and field lead enter the same trackable system?
+  employee_safe_positioning: The goal is to give the storm team more capacity and management visibility while salespeople and repair professionals keep the human relationships and judgment.
+  default_prohibited_claims:
+    - known_ad_spend_without_verified_data
+    - known_lead_volume_without_data
+    - every_slow_lead_is_lost
+    - field_reps_are_hiding_leads
+    - insurance_coverage_or_claim_outcome
+    - vehicle_repair_decision_by_ai

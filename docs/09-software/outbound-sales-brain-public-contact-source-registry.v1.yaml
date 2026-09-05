@@ -1,0 +1,229 @@
+version: 1
+status: architecture_authority
+purpose: >-
+  Machine-readable source classes for YAD public-first decision-maker and business-contact resolution.
+  This registry defines what a source can prove, what it cannot prove, and how its evidence should be retained.
+
+default_contact_enrichment_mode: PUBLIC_ONLY
+
+source_classes:
+  COMPANY_FIRST_PARTY:
+    priority: 10
+    examples:
+      - company_about_page
+      - company_team_page
+      - company_leadership_page
+      - company_contact_page
+      - company_location_page
+      - company_press_release
+      - company_public_pdf
+      - company_structured_data
+    may_support:
+      - current_employer_relationship
+      - current_title
+      - leadership_identity
+      - business_phone
+      - direct_business_phone_if_explicit
+      - business_email
+      - location_scope
+    never_assume:
+      - workflow_quality
+      - decision_authority_beyond_stated_role
+      - personal_phone_ownership_from_company_main_line
+    retention_class: DURABLE
+    default_role_ttl_days: 30
+    default_endpoint_ttl_days: 30
+
+  PUBLIC_COMPANY_REGISTRY:
+    priority: 20
+    examples:
+      - secretary_of_state_entity_record
+      - state_corporation_registry
+      - public_dba_record
+    may_support:
+      - legal_entity_identity
+      - entity_status
+      - member_manager_officer_relationship_if_explicit
+      - registered_agent_relationship
+      - principal_address
+      - dba_relationship
+    never_assume:
+      - registered_agent_is_owner
+      - registered_agent_is_sales_decision_maker
+      - officer_controls_target_workflow
+      - public_address_is_personal_outreach_address
+    retention_class: DURABLE
+    default_role_ttl_days: 90
+
+  PUBLIC_LICENSE_REGISTRY:
+    priority: 30
+    examples:
+      - contractor_license
+      - professional_license
+      - facility_license
+      - responsible_professional_record
+    may_support:
+      - person_company_relationship
+      - license_holder_relationship
+      - qualifier_relationship
+      - professional_role
+      - current_license_status
+    never_assume:
+      - qualifier_is_owner
+      - license_holder_runs_daily_operations
+      - license_holder_owns_paid_marketing
+    retention_class: DURABLE
+    default_role_ttl_days: 90
+
+  PUBLIC_BUSINESS_DIRECTORY:
+    priority: 40
+    examples:
+      - chamber_directory
+      - trade_association_directory
+      - industry_directory
+      - public_professional_directory
+    may_support:
+      - person_company_relationship
+      - title
+      - business_phone
+      - business_email
+      - location
+    never_assume:
+      - currentness_without_date_or_cross_check
+      - direct_phone_ownership_if_not_explicit
+    retention_class: SOURCE_TERMS_DEPENDENT
+    default_role_ttl_days: 30
+
+  PUBLIC_BUSINESS_NEWS:
+    priority: 50
+    examples:
+      - reputable_business_news
+      - company_feature
+      - conference_speaker_bio
+      - public_press_coverage
+    may_support:
+      - historical_or_current_leadership_clue
+      - founder_identity
+      - executive_title
+      - business_context
+    never_assume:
+      - current_employment_from_old_article
+      - direct_contact_endpoint
+    retention_class: DURABLE_REFERENCE
+    default_role_ttl_days: 30
+
+  SEARCH_RESULT_DISCOVERY:
+    priority: 60
+    examples:
+      - approved_search_api
+      - indexed_public_result
+    may_support:
+      - discovery_of_candidate_sources
+      - candidate_person_name
+      - candidate_role
+      - candidate_business_endpoint
+    never_assume:
+      - snippet_alone_is_final_authority
+      - login_gated_result_is_scrapeable
+      - currentness_without_source_review
+    retention_class: TRANSIENT_DISCOVERY
+    default_role_ttl_days: 7
+
+  PROSPECT_OR_GATEKEEPER_SUPPLIED:
+    priority: 5
+    examples:
+      - receptionist_correction
+      - prospect_reply
+      - direct_business_conversation
+      - requested_callback
+    may_support:
+      - current_person
+      - current_role
+      - extension
+      - business_email
+      - preferred_business_contact_route
+      - person_left_company
+    never_assume:
+      - broader_account_permission_from_individual_statement
+    retention_class: DURABLE_INTERACTION
+    default_role_ttl_days: 90
+
+  LICENSED_CONTACT_PROVIDER:
+    priority: 70
+    examples:
+      - apollo
+      - approved_equivalent
+    default_enabled: false
+    may_support:
+      - candidate_person
+      - provider_asserted_title
+      - provider_business_email
+      - provider_direct_phone
+      - provider_mobile
+    never_assume:
+      - provider_record_is_current_without_semantics
+      - provider_endpoint_is_yad_confirmed
+      - provider_data_overrides_prospect_correction
+    retention_class: LICENSE_DEPENDENT
+    default_role_ttl_days: 30
+
+relationship_classes:
+  - OWNER
+  - FOUNDER
+  - MEMBER
+  - MANAGER
+  - OFFICER
+  - PRESIDENT
+  - CEO
+  - GENERAL_MANAGER
+  - OPERATIONS
+  - OFFICE_MANAGER
+  - SERVICE_MANAGER
+  - SALES_LEADERSHIP
+  - MARKETING
+  - INTAKE
+  - PRACTICE_ADMINISTRATOR
+  - MANAGING_PARTNER
+  - BROKER_OWNER
+  - TEAM_LEADER
+  - ISA_LEADERSHIP
+  - LOCATION_MANAGER
+  - LICENSE_HOLDER
+  - QUALIFIER
+  - REGISTERED_AGENT
+  - OTHER_BUSINESS_ROLE
+
+non_decision_relationships_by_default:
+  - REGISTERED_AGENT
+
+endpoint_relationship_classes:
+  - DIRECT_CONFIRMED
+  - DIRECT_PROVIDER_ASSERTED
+  - COMPANY_ROUTE
+  - LOCATION_ROUTE
+  - ROLE_INBOX
+  - UNVERIFIED
+
+resolution_statuses:
+  - NAMED_DIRECT_READY
+  - NAMED_EMAIL_READY
+  - NAMED_MAINLINE_ROUTE_READY
+  - ROLE_ROUTE_READY
+  - PUBLIC_RESEARCH_PARTIAL
+  - PAID_ENRICHMENT_OPTIONAL
+  - REVIEW_REQUIRED
+  - STALE_REFRESH_REQUIRED
+
+hard_rules:
+  - id: no_registered_agent_promotion
+    rule: REGISTERED_AGENT alone must never normalize to owner, GM, or primary decision-maker.
+  - id: no_mainline_as_direct
+    rule: MAIN_BUSINESS_LINE must never be attached to a person as DIRECT_CONFIRMED without separate evidence.
+  - id: no_guessed_email_as_verified
+    rule: Guessed email patterns remain GUESSED_UNVERIFIED until an approved verification process changes state.
+  - id: public_only_default
+    rule: New internal YAD mining campaigns default to PUBLIC_ONLY contact enrichment unless manager policy enables a paid provider.
+  - id: prospect_correction_precedence
+    rule: Fresh prospect/gatekeeper correction outranks stale third-party person/title data for current routing.
+  - id: no_sensitive_personal_enrichment
+    rule: Do not collect unrelated sensitive or personal-life data for business prospecting.

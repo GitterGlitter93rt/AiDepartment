@@ -1,0 +1,292 @@
+schema_version: "1.0.0"
+fixture_set: yad_sales_ai_spoken_normalization_v1
+purpose: >-
+  Test how canonical CRM/CallPack values are rendered for speech so phone numbers, emails,
+  dates, times, money, acronyms and names sound natural and remain accurate.
+
+rules:
+  - canonical_text_and_spoken_rendering_are_separate
+  - never_change_semantic_value_for_naturalness
+  - preserve_uncertainty_labels
+  - domestic_us_phone_numbers_use_area_exchange_line_grouping
+  - email_confirmation_uses_at_and_dot_naturally
+  - booking_times_always_include_timezone_when_ambiguous
+  - urls_are_not_read_character_by_character_unless_requested
+  - do_not_spell_common_business_acronyms_when_normal_spoken_form_exists
+
+fixtures:
+  - id: V001
+    type: phone
+    canonical: "+19045551212"
+    expected_spoken: "nine oh four, five five five, one two one two"
+    prohibited:
+      - "nine zero four million"
+      - "9045 5512 12"
+      - "plus one nine zero four five five five one two one two"
+
+  - id: V002
+    type: phone
+    canonical: "+13055550199"
+    expected_spoken: "three oh five, five five five, oh one nine nine"
+
+  - id: V003
+    type: phone_confirmation
+    canonical: "+19045551212"
+    expected_shape: "I have nine oh four, five five five, one two one two. Is that right?"
+
+  - id: V004
+    type: extension
+    canonical: "204"
+    expected_spoken: "extension two oh four"
+
+  - id: V005
+    type: email
+    canonical: "mike@abcair.com"
+    expected_spoken: "mike at abc air dot com"
+    note: company_tokenization_may_use_known_brand_pronunciation
+
+  - id: V006
+    type: email
+    canonical: "john.smith+sales@example.com"
+    expected_spoken_shape: "john dot smith plus sales at example dot com"
+    only_repeat_full_address_if_confirmation_needed: true
+
+  - id: V007
+    type: email_spelling
+    canonical: "sara@acmehvac.com"
+    expected_behavior:
+      - say_local_part_carefully
+      - use_at_and_dot
+      - allow_prospect_to_correct_or_spell
+      - store_exact_canonical_text_from_stable_input
+
+  - id: V008
+    type: url
+    canonical: "https://youraidepartment.ai/assessment"
+    expected_spoken_shape: "your AI department dot AI slash assessment"
+    preferred_behavior: send_link_when_channel_is_approved_instead_of_long_verbal_url
+
+  - id: V009
+    type: money
+    canonical: 5000
+    currency: USD
+    expected_spoken: "five thousand dollars"
+
+  - id: V010
+    type: money
+    canonical: 12500
+    currency: USD
+    expected_spoken: "twelve thousand five hundred dollars"
+
+  - id: V011
+    type: percentage
+    canonical: 12
+    expected_spoken: "twelve percent"
+
+  - id: V012
+    type: approximate_number
+    canonical: 1200
+    uncertainty: prospect_estimate
+    expected_spoken_shape: "about twelve hundred"
+    prohibited:
+      - "exactly twelve hundred"
+
+  - id: V013
+    type: date
+    canonical: "2026-09-04"
+    timezone: "America/New_York"
+    expected_spoken_shape: "Friday, September fourth"
+
+  - id: V014
+    type: time
+    canonical: "2026-09-04T15:30:00-04:00"
+    expected_spoken_shape: "three thirty PM Eastern"
+
+  - id: V015
+    type: booking_confirmation
+    canonical: "2026-09-04T15:30:00-04:00"
+    expected_spoken_shape: "You're all set for three thirty tomorrow afternoon, Eastern time."
+    requirement: relative_day_language_only_when_date_context_is_unambiguous
+
+  - id: V016
+    type: timezone
+    canonical: "America/New_York"
+    expected_spoken: "Eastern"
+
+  - id: V017
+    type: acronym
+    canonical: "HVAC"
+    expected_spoken: "H V A C"
+
+  - id: V018
+    type: acronym
+    canonical: "CRM"
+    expected_spoken: "C R M"
+
+  - id: V019
+    type: acronym
+    canonical: "AI"
+    expected_spoken: "A I"
+
+  - id: V020
+    type: acronym
+    canonical: "PDR"
+    expected_spoken: "P D R"
+
+  - id: V021
+    type: product_name
+    canonical: "ServiceTitan"
+    expected_spoken: "Service Titan"
+
+  - id: V022
+    type: product_name
+    canonical: "Housecall Pro"
+    expected_spoken: "Housecall Pro"
+
+  - id: V023
+    type: product_name
+    canonical: "Cal.com"
+    expected_spoken: "Cal dot com"
+
+  - id: V024
+    type: company_name
+    canonical: "ABC Air"
+    expected_spoken: "A B C Air"
+    behavior: use_company_pronunciation_override_if_known
+
+  - id: V025
+    type: company_name
+    canonical: "A-1 Roofing"
+    expected_spoken_shape: "A one Roofing"
+    behavior: pronunciation_dictionary_may_override
+
+  - id: V026
+    type: address
+    canonical: "1234 County Road 210 W, St. Augustine, FL 32092"
+    expected_spoken_shape: "twelve thirty-four County Road two ten West, Saint Augustine, Florida"
+    note: do_not_read_zip_unless_needed
+
+  - id: V027
+    type: zip
+    canonical: "32256"
+    expected_spoken: "three two two five six"
+
+  - id: V028
+    type: version
+    canonical: "v1.2"
+    expected_spoken: "version one point two"
+    note: normally_not_customer_facing
+
+  - id: V029
+    type: duration
+    canonical_minutes: 15
+    expected_spoken: "fifteen minutes"
+
+  - id: V030
+    type: count
+    canonical: 3
+    context: offered_slots
+    expected_behavior: offer_at_most_two_slots_even_if_more_returned
+
+  - id: V031
+    type: silence
+    scenario: prospect_pauses_mid_email_dictation
+    expected_behavior: wait_longer_than_normal_endpointing_do_not_interrupt
+
+  - id: V032
+    type: interruption
+    scenario: agent_speaking_reason_and_prospect_says_who_is_this
+    expected_behavior:
+      - stop_tts_immediately
+      - discard_unsent_old_sentence
+      - answer_identity_question
+      - do_not_resume_stale_sentence_word_for_word
+
+  - id: V033
+    type: interruption
+    scenario: prospect_says_stop_calling_during_agent_pitch
+    expected_behavior:
+      - stop_tts_immediately
+      - invoke_durable_suppression
+      - brief_acknowledgement
+      - end
+
+  - id: V034
+    type: correction
+    scenario: prospect_corrects_email_mid_confirmation
+    expected_behavior:
+      - accept_correction
+      - update_canonical_value
+      - confirm_corrected_chunk_once
+      - do_not_repeat_old_email
+
+  - id: V035
+    type: numeric_uncertainty
+    canonical: 30
+    unit: leads_per_month
+    source: prospect_estimate
+    expected_spoken_shape: "roughly thirty leads a month"
+    prohibited:
+      - "you get thirty leads a month"
+
+  - id: V036
+    type: range
+    low: 3
+    high: 5
+    unit: business_days
+    expected_spoken: "three to five business days"
+
+  - id: V037
+    type: ordinal
+    canonical: 2
+    expected_spoken: "second"
+
+  - id: V038
+    type: phone_bad_chunking_negative_control
+    canonical: "+19045551212"
+    prohibited_spoken: "nine oh four five, five five one two, one two"
+    expected_result: fail
+
+  - id: V039
+    type: iso_timestamp_negative_control
+    canonical: "2026-09-04T15:30:00-04:00"
+    prohibited_spoken: "two zero two six dash zero nine dash zero four T fifteen thirty"
+    expected_result: fail
+
+  - id: V040
+    type: unsupported_precision_negative_control
+    canonical: 17.382
+    context: illustrative_roi_percentage
+    expected_behavior: round_only_if_business_logic_authorizes_and_keep_illustrative_label
+    prohibited:
+      - present_false_precision_as_verified_fact
+
+pronunciation_dictionary_contract:
+  fields:
+    - canonical_token
+    - spoken_form
+    - scope
+    - source
+    - verified_at
+  scopes:
+    - global
+    - vertical
+    - account
+    - contact
+  precedence:
+    - contact
+    - account
+    - vertical
+    - global
+
+acceptance:
+  - all_phone_fixtures_sound_natural_and_preserve_digits
+  - email_confirmation_preserves_exact_address
+  - booking_time_timezone_is_correct
+  - no_iso_or_raw_storage_formats_leak_to_speech
+  - interruption_discards_stale_audio
+  - uncertainty_is_not_removed_by_speech_normalization
+  - pronunciation_overrides_are_auditable
+
+core_rule: >-
+  Store exact values canonically and render them for speech like a competent human would say them, without changing the underlying truth.

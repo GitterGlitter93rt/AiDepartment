@@ -1,0 +1,221 @@
+snapshot_id: yad_commercial_truth_v1
+version: 1.0.0
+status: architecture_authority
+source:
+  path: docs/00-company/launch-decisions.md
+  version: "1.0"
+  source_status: LOCKED_FOR_V1
+review_rule: If launch-decisions.md changes, regenerate/review this snapshot before outbound/proposal systems use changed commercial claims.
+
+company:
+  brand: Your AI Department
+  primary_domain: YourAIDepartment.ai
+  campaign_domain: HireAnAIDepartment.com
+  core_positioning: External AI strategy, implementation, growth, and optimization capability focused on business problems before technology.
+
+primary_client_journey:
+  - AI Department Assessment
+  - Strategy Call
+  - Executive AI Strategy when appropriate
+  - AI Implementation project(s)
+  - Managed AI Department when appropriate
+  - Continuous Optimization and Additional Opportunities
+  - note: Not every prospect must follow every step; defined-problem prospects may enter through strategy/service inquiry.
+
+offers:
+  ai_department_assessment:
+    canonical_name: AI Department Assessment
+    preferred_marketing_name: AI Department Assessment™
+    offer_type: free_assessment
+    price_status: fixed
+    price_usd: 0
+    primary_cta: Get Your AI Department Score
+    allowed_claims:
+      - Public assessment is free.
+      - It can diagnose AI, automation, marketing, sales, productivity, operational and related opportunities.
+    prohibited_claims:
+      - Public assessment costs $495.
+      - Assessment guarantees a financial result.
+
+  strategy_call:
+    canonical_name: Strategy Call
+    offer_type: free_or_current_funnel_next_step
+    price_status: consult_current_funnel
+    primary_cta: Schedule a Strategy Call
+    notes:
+      - Use the current approved scheduling/funnel process at runtime.
+      - Do not hard-code legacy links in sales brain architecture.
+
+  executive_ai_strategy:
+    canonical_name: Executive AI Strategy
+    preferred_marketing_name: Executive AI Strategy™
+    offer_type: paid_strategy
+    price_status: indicative_starting_point
+    indicative_starting_price_usd: 5000
+    pricing_language: Approximately $5,000+ starting point; final pricing depends on scope and company complexity.
+    possible_scope:
+      - executive interviews
+      - department analysis
+      - workflow discovery
+      - technology review
+      - AI opportunity analysis
+      - automation analysis
+      - marketing analysis
+      - sales analysis
+      - employee productivity analysis
+      - financial impact modeling
+      - opportunity prioritization
+      - implementation recommendations
+      - 90-day roadmap
+      - longer-term roadmap
+      - executive findings
+    prohibited_claims:
+      - fixed universal $5,000 price
+      - guaranteed roadmap result
+
+  ai_implementation:
+    canonical_name: AI Implementation
+    offer_type: implementation_project
+    price_status: indicative_range
+    indicative_range_usd:
+      minimum: 5000
+      maximum_soft: 50000
+      may_exceed_when_justified: true
+    pricing_language: Approximately $5,000–$50,000+ depending on scope; more complex implementations may exceed this range.
+    possible_scope:
+      - AI agents
+      - internal AI assistants
+      - workflow automation
+      - CRM automation
+      - AI phone agents
+      - lead qualification systems
+      - sales automation
+      - customer service automation
+      - reporting systems
+      - software integrations
+      - API integrations
+      - custom software
+      - knowledge systems
+      - marketing systems
+    prohibited_claims:
+      - universal fixed implementation price
+      - every listed capability is feasible for every client
+
+  ai_growth_systems:
+    canonical_name: AI Growth Systems
+    preferred_marketing_name: AI Growth Systems™
+    offer_type: growth_marketing_system
+    price_status: custom
+    potential_components:
+      - Google Ads
+      - Meta Ads
+      - SEO
+      - landing pages
+      - conversion optimization
+      - CRM
+      - lead routing
+      - lead response
+      - AI follow-up
+      - SMS
+      - email automation
+      - AI phone agents
+      - customer reactivation
+      - sales automation
+      - conversion tracking
+      - revenue attribution
+      - executive reporting
+    pricing_may_include:
+      - setup fees
+      - implementation fees
+      - monthly management fees
+      - advertising management fees
+      - ongoing optimization retainers
+    prohibited_claims:
+      - fixed package price unless later approved
+      - guaranteed lead/revenue outcome
+
+  managed_ai_department:
+    canonical_name: Managed AI Department
+    preferred_marketing_name: Managed AI Department™
+    offer_type: recurring_strategic_relationship
+    price_status: custom_monthly_retainer
+    fixed_public_price_allowed: false
+    possible_responsibilities:
+      - ongoing AI strategy
+      - opportunity discovery
+      - roadmap management
+      - vendor evaluation
+      - AI implementation oversight
+      - automation oversight
+      - employee training
+      - executive advisory
+      - AI governance
+      - technology evaluation
+      - performance measurement
+      - optimization
+      - new use-case discovery
+    prohibited_claims:
+      - Starter Professional Enterprise package pricing
+      - invented fixed monthly price
+
+  ai_training:
+    canonical_name: AI Training
+    offer_type: education
+    price_status: custom
+
+  ai_workshops:
+    canonical_name: AI Workshops
+    offer_type: education_advisory
+    price_status: custom
+
+  executive_ai_coaching:
+    canonical_name: Executive AI Coaching
+    offer_type: advisory
+    price_status: custom
+
+marketing_services:
+  allowed_services:
+    - Google Ads
+    - Meta Ads
+    - SEO
+    - landing pages
+    - conversion optimization
+    - marketing automation
+    - CRM integration
+    - lead follow-up systems
+    - reporting
+  positioning_rule: Marketing services are part of connected AI/automation/data/growth improvement, not disconnected from YAD positioning.
+
+sales_rules:
+  - Diagnose honestly.
+  - Do not recommend expensive implementation merely because it creates YAD revenue.
+  - Do not guarantee ROI.
+  - Do not manufacture inflated ROI estimates.
+  - Existing software may be the correct solution.
+  - Hiring a person may be the correct recommendation.
+  - Avoid AI when it is not the right solution.
+  - No-sale is valid.
+
+cta_hierarchy:
+  primary: Get Your AI Department Score
+  secondary: Schedule a Strategy Call
+  service_specific_examples:
+    - Request a Google Ads Audit
+    - Request a Meta Ads Audit
+    - Request an SEO Assessment
+    - Schedule AI Training
+    - Book an AI Workshop
+    - Schedule an Executive AI Consultation
+
+claims_prohibited_globally:
+  - fabricated customer counts
+  - fabricated revenue results
+  - fabricated ROI
+  - fabricated testimonials
+  - fabricated case studies
+  - fabricated certifications
+  - fabricated partnerships
+  - fabricated awards
+  - fabricated employee counts
+  - fabricated company history or years experience
+  - fabricated proprietary technology

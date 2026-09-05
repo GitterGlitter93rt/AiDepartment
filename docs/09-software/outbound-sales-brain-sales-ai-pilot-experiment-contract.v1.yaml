@@ -1,0 +1,142 @@
+schema_version: "1.0.0"
+contract: yad_sales_ai_pilot_experiment_v1
+purpose: >-
+  Make every pilot call reproducible by recording the exact research, hook, prompt, model, voice,
+  booking and policy configuration that produced the call.
+
+required_per_call:
+  - call_id
+  - account_id
+  - contact_id_optional
+  - campaign_id
+  - pilot_batch_id
+  - vertical_profile_id
+  - vertical_profile_version
+  - runtime_callpack_id
+  - runtime_callpack_version
+  - research_snapshot_id
+  - research_snapshot_at
+  - hook_family
+  - hook_version
+  - opener_variant
+  - primary_hypothesis
+  - backup_hypothesis_optional
+  - target_role
+  - agent_profile
+  - core_script_version
+  - dialogue_policy_version
+  - response_card_version
+  - prompt_composer_version
+  - conversation_state_machine_version
+  - model_provider
+  - model_name
+  - model_config_hash
+  - stt_provider
+  - stt_config_hash
+  - tts_provider
+  - tts_voice
+  - tts_config_hash
+  - telephony_config_version
+  - booking_provider
+  - booking_event_type_version
+  - compliance_policy_version
+  - started_at
+  - ended_at
+  - terminal_reason
+
+hook_families:
+  HVAC_AH_A1:
+    context: fresh_paid_demand_plus_after_hours
+    question: "When a new call hits after hours, what happens today?"
+  HVAC_OVERFLOW_A2:
+    context: fresh_paid_demand_plus_phone_dependence
+    question: "When a new call comes in while everybody's already tied up, what happens next?"
+  CATEGORY_AH_B1:
+    context: category_market_without_claim_safe_ad_context
+    question: "When somebody reaches out after hours, what happens today?"
+  ESTIMATE_A1:
+    context: estimate_or_proposal_heavy_business
+    question: "What normally happens to an estimate or proposal that doesn't close the first time?"
+  NURTURE_A1:
+    context: long_cycle_lead_or_seller_nurture
+    question: "When somebody isn't ready right now but might be later, what keeps that relationship alive?"
+  INTAKE_AH_A1:
+    context: intake_heavy_business_after_hours
+    question: "What happens to a new inquiry that comes in after the office closes?"
+
+outcome_fields:
+  - human_answered
+  - answer_classification
+  - right_person_reached
+  - gatekeeper_route_obtained
+  - first_question_answered
+  - useful_process_fact_obtained
+  - agent_turn_of_first_useful_fact
+  - engaged_over_30_seconds
+  - meaningful_problem_supported
+  - primary_hypothesis_status
+  - strategy_call_readiness_result
+  - strategy_call_offered
+  - strategy_call_accepted
+  - strategy_call_booked
+  - targeted_email_requested
+  - callback_requested
+  - no_need
+  - dnc
+  - wrong_number
+  - hangup_during_opening
+  - hard_fail
+  - qa_score
+
+latency_fields:
+  - greeting_latency_ms
+  - response_latency_p50_ms_call
+  - response_latency_p95_ms_call
+  - max_response_latency_ms
+  - barge_in_stop_latency_samples
+  - booking_tool_latency_ms_optional
+
+conversation_quality_fields:
+  - talk_time_agent_seconds
+  - talk_time_prospect_seconds
+  - agent_turn_count
+  - prospect_turn_count
+  - interruption_count
+  - stale_response_after_interrupt_count
+  - semantic_repetition_count
+  - stacked_question_count
+  - unsupported_claim_count
+  - objection_loop_count
+
+review_fields:
+  - reviewer_id
+  - reviewed_at
+  - root_cause_category
+  - root_cause_notes
+  - keep_pause_or_rewrite
+  - proposed_change_id_optional
+
+root_cause_categories:
+  - prospect_fit
+  - contact_data
+  - hook
+  - callpack_research
+  - dialogue_logic
+  - objection_handling
+  - qualification
+  - booking
+  - model
+  - stt
+  - tts
+  - latency
+  - telephony
+  - compliance
+  - unknown
+
+rules:
+  - never_compare_hook_conversion_without_controlling_for_obvious_configuration_changes
+  - never_call_synthetic_backtest_scores_live_conversion_rates
+  - preserve_failed_calls_not_only_successes
+  - no_prompt_or_hook_hot_edit_mid_call
+  - every_call_uses_immutable_version_snapshot
+  - dnc_wrong_number_and_policy_stop_override_experiment_goals

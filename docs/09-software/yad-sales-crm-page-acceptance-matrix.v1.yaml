@@ -1,0 +1,244 @@
+schema_version: "1.0.0"
+contract: yad_sales_crm_page_acceptance_matrix
+status: architecture_authority
+common_acceptance:
+  - route_resolves
+  - server_side_rbac_enforced
+  - canonical_data_source_used
+  - loading_state_verified
+  - empty_state_verified
+  - error_state_verified
+  - desktop_layout_verified
+  - mobile_or_responsive_layout_verified
+  - primary_actions_verified
+  - direct_api_bypass_cannot_defeat_permissions
+  - sensitive_writes_audited
+  - no_secret_or_provider_internal_leak
+  - no_unsupported_fact_rendered_as_truth
+  - no_console_or_runtime_error
+  - keyboard_focus_and_touch_targets_verified
+
+pages:
+  sign_in:
+    route: /login
+    roles: [all]
+    must_prove:
+      - valid_login
+      - invalid_credentials_inline_error
+      - disabled_user_denied
+      - session_expiry_flow
+      - successful_login_redirects_by_role
+
+  overview:
+    route: /
+    roles: [rep, manager, admin]
+    must_prove:
+      - kpis_are_user_or_role_scoped
+      - followups_sorted_by_due_priority
+      - recent_claims_link_to_account
+      - market_cards_link_to_market
+      - no_forced_queue_behavior
+
+  find_prospects:
+    route: /find
+    roles: [rep, manager, admin]
+    must_prove:
+      - inventory_first_search
+      - hvac_32256_advertisers_first_tier_bplus_unclaimed_fixture
+      - filters_apply_server_side_or_verified_contract
+      - quick_drawer_uses_same_account_truth
+      - atomic_claim
+      - bulk_claim_partial_success
+      - research_more_non_blocking
+      - stale_inventory_message_does_not_hide_existing_results
+
+  markets:
+    route: /markets
+    roles: [rep, manager, admin]
+    must_prove:
+      - saved_markets_render_counts
+      - freshness_and_status_truthful
+      - browse_prospects_navigation
+      - manager_only_controls_hidden_and_server_blocked_for_rep
+
+  market_detail:
+    route: /markets/:marketId
+    roles: [rep, manager, admin]
+    must_prove:
+      - market_identity_and_vertical_correct
+      - inventory_metrics_match_account_inventory
+      - prospect_table_filters_to_market
+      - research_activity_visible
+      - manager_replenishment_controls_server_guarded
+
+  my_prospects:
+    route: /prospects
+    roles: [rep, manager, admin]
+    must_prove:
+      - rep_sees_owned_book
+      - manager_scope_as_authorized
+      - next_action_visible
+      - callbacks_and_positive_replies_surface
+      - claimed_account_from_find_appears_immediately_or_after_consistent_refresh
+
+  account_detail:
+    route: /accounts/:accountId
+    roles: [rep, manager, admin]
+    must_prove:
+      - identity_and_owner_correct
+      - fact_vs_hypothesis_distinction
+      - endpoint_type_and_quality_distinction
+      - direct_not_found_route_supported
+      - timeline_combines_channels_without_duplicates
+      - channel_status_server_authoritative
+      - prospect_statements_keep_source
+      - opportunity_and_meeting_links_consistent
+      - refresh_research_does_not_reset_relationship_history
+
+  follow_ups:
+    route: /follow-ups
+    roles: [rep, manager, admin]
+    must_prove:
+      - due_upcoming_overdue_completed_filters
+      - timezone_correct
+      - requested_callback_context_preserved
+      - complete_and_reschedule_write_durable_state
+      - dnc_or_meeting_cancels_inappropriate_pending_cold_task
+
+  replies:
+    route: /replies
+    roles: [rep, manager, admin]
+    must_prove:
+      - inbound_reply_links_to_canonical_account
+      - positive_reply_pauses_generic_sequence
+      - opt_out_applies_correct_suppression_scope
+      - draft_uses_context_not_generic_brochure
+
+  opportunities:
+    route: /opportunities
+    roles: [rep, manager, admin]
+    must_prove:
+      - only_qualified_relationships_enter_pipeline
+      - stage_filters_work
+      - drag_or_stage_change_validated_server_side
+      - closed_lost_reason_supported
+      - no_fake_value_if_unknown
+
+  opportunity_detail:
+    route: /opportunities/:opportunityId
+    roles: [owner, manager, admin]
+    must_prove:
+      - problem_workflow_unknowns_and_stakeholders_render
+      - prospect_numbers_separate_from_assumptions
+      - next_action_and_decision_process_visible
+      - unauthorized_rep_denied
+
+  meetings:
+    route: /meetings
+    roles: [rep, manager, admin]
+    must_prove:
+      - confirmed_meetings_from_booking_provider_only
+      - cal_video_link_when_present
+      - prep_brief_renders
+      - cancel_reschedule_state_consistent
+      - no_show_and_attendance_unknown_distinct
+
+  sales_ai_pilot:
+    route: /ai/pilot
+    roles: [manager, admin]
+    must_prove:
+      - candidate_eligibility_server_evaluated
+      - add_to_pilot_does_not_dial
+      - max_concurrency_one_initially
+      - stop_new_calls_blocks_new_dial_creation
+      - callpack_preview_immutable_snapshot
+      - rep_access_denied
+
+  call_review:
+    route: /calls/:callId
+    roles: [manager, admin, scoped_rep]
+    must_prove:
+      - transcript_audio_state_timeline_alignment_where_available
+      - qa_and_root_cause_visible
+      - version_snapshot_visible
+      - no_hidden_reasoning_exposed
+
+  team_ownership:
+    route: /team
+    roles: [manager, admin]
+    must_prove:
+      - current_owner_and_claim_age_correct
+      - reassignment_requires_reason_and_audit
+      - protected_relationship_not_auto_stolen
+      - rep_access_denied
+
+  mining:
+    route: /mining
+    roles: [manager, admin]
+    must_prove:
+      - job_states_business_readable
+      - provider_secrets_hidden
+      - retry_cancel_guarded
+      - no_fake_percent_progress
+
+  research_health:
+    route: /research-health
+    roles: [manager, admin]
+    must_prove:
+      - freshness_contact_and_quality_metrics_distinct
+      - exceptions_link_to_account_or_research_context
+      - sales_performance_not_conflated_with_data_quality
+
+  imports:
+    route: /imports
+    roles: [manager, admin]
+    must_prove:
+      - upload_mapping_preview_dedupe_suppression_flow
+      - import_never_triggers_outreach
+      - merge_create_block_counts_reconcile
+      - source_identity_preserved
+
+  campaigns:
+    route: /campaigns
+    roles: [manager, admin, scoped_rep]
+    must_prove:
+      - account_relationship_state_overrides_campaign_newness
+      - smartlead_is_execution_provider_not_crm
+      - meeting_or_positive_reply_pauses_conflicting_cold_actions
+      - content_and_cadence_version_refs_visible
+
+  analytics:
+    route: /analytics
+    roles: [manager, admin, scoped_rep]
+    must_prove:
+      - funnel_counts_have_defined_denominators
+      - booked_and_attended_qualified_meetings_separate
+      - dnc_negative_metrics_not_hidden
+      - filters_by_date_rep_market_vertical_source_channel
+      - script_version_comparison_available_for_ai_pilot_data
+
+  settings:
+    route: /settings
+    roles: [admin, scoped_manager]
+    must_prove:
+      - masked_secret_metadata_only
+      - integration_health_without_secret_values
+      - mode_changes_server_authorized_and_audited
+      - calcom_twilio_research_provider_status_sections
+      - ordinary_rep_denied
+
+hero_end_to_end:
+  name: brent_hvac_32256
+  sequence:
+    - login_as_rep
+    - open_find
+    - search_hvac_32256_advertisers_first_tier_bplus_unclaimed
+    - inspect_account
+    - claim_to_me
+    - verify_in_my_prospects
+    - open_account_detail
+    - log_disposition_or_followup
+    - verify_callback_in_followups
+    - verify_positive_reply_in_replies_when_fixture_injected
+    - create_qualified_opportunity_from_meaningful_problem
+    - verify_confirmed_strategy_call_in_meetings_when_booking_fixture_confirms

@@ -1,0 +1,223 @@
+schema: yad_prospect_worklist_v1
+version: 1.0.0
+purpose: Machine-readable contracts for rep Call, Email, Combined, and Smartlead-ready worklists.
+
+common_rules:
+  canonical_source: Prospect Factory Account/Contact state
+  suppression_required: true
+  active_opportunity_cold_exclusion: true
+  client_cold_exclusion: true
+  account_ownership_required_for_action: true
+  provenance_required_for_endpoint: true
+  actionable_exports_are_snapshots_not_source_of_truth: true
+
+eligibility_states:
+  - CALL_ELIGIBLE
+  - EMAIL_ELIGIBLE
+  - CALL_AND_EMAIL_ELIGIBLE
+  - HUMAN_REVIEW_REQUIRED
+  - FOLLOW_UP_ONLY
+  - ACTIVE_OPPORTUNITY
+  - CLIENT_NO_COLD_OUTREACH
+  - SUPPRESSED
+
+phone_quality:
+  - VERIFIED_BUSINESS_MAIN
+  - VERIFIED_BUSINESS_DIRECT
+  - PROVIDER_BUSINESS_CONTACT
+  - UNKNOWN_LINE_TYPE
+  - INVALID
+  - SUPPRESSED
+
+email_quality:
+  - VERIFIED_BUSINESS_EMAIL
+  - LICENSED_PROVIDER_EMAIL
+  - ROLE_INBOX
+  - UNVERIFIED
+  - BOUNCED
+  - OPTED_OUT
+
+worklists:
+  CALL_SHEET:
+    purpose: Human rep calling worklist.
+    required_eligibility:
+      - CALL_ELIGIBLE
+      - CALL_AND_EMAIL_ELIGIBLE
+    fields:
+      - account_id
+      - account_display_name
+      - contact_id
+      - contact_name
+      - contact_title
+      - target_role
+      - phone
+      - phone_quality
+      - city
+      - state
+      - vertical_profile_id
+      - campaign_id
+      - yad_score
+      - yad_tier
+      - advertiser_evidence_strength
+      - research_freshness
+      - primary_hypothesis
+      - primary_hook
+      - first_question
+      - do_not_claim_summary
+      - last_contact_at
+      - last_disposition
+      - next_action_at
+      - rep_owner_id
+      - eligibility_state
+    prohibited_fields:
+      - provider_api_key
+      - raw_provider_payload
+      - internal_system_prompt
+      - raw_sensitive_transcript
+      - unrestricted_private_notes
+
+  EMAIL_SHEET:
+    purpose: Human/manual or approved email worklist.
+    required_eligibility:
+      - EMAIL_ELIGIBLE
+      - CALL_AND_EMAIL_ELIGIBLE
+    fields:
+      - account_id
+      - account_display_name
+      - contact_id
+      - first_name
+      - last_name
+      - contact_title
+      - email
+      - email_quality
+      - city
+      - state
+      - vertical_profile_id
+      - campaign_id
+      - yad_score
+      - yad_tier
+      - advertiser_signal_summary
+      - advertised_service
+      - primary_hypothesis
+      - primary_hook
+      - personalized_line
+      - personalization_freshness
+      - last_contact_at
+      - last_disposition
+      - rep_owner_id
+      - eligibility_state
+    prohibited_fields:
+      - raw_research_payload
+      - financial_diagnosis_detail
+      - transcript
+      - secret_prompt
+      - credentials
+
+  COMBINED_WORKLIST:
+    purpose: Rep workspace list for coordinated call/email work.
+    fields:
+      - account_id
+      - account_display_name
+      - contact_id
+      - contact_name
+      - contact_title
+      - target_role
+      - phone
+      - phone_quality
+      - email
+      - email_quality
+      - city
+      - state
+      - vertical_profile_id
+      - campaign_id
+      - yad_score
+      - yad_tier
+      - advertiser_evidence_strength
+      - research_completeness
+      - research_freshness
+      - primary_hypothesis
+      - primary_hook
+      - backup_hook
+      - first_question
+      - personalized_line
+      - do_not_claim_summary
+      - relationship_state
+      - last_contact_at
+      - next_action_at
+      - rep_owner_id
+      - eligibility_state
+
+  SMARTLEAD_EXPORT:
+    purpose: Minimum safe fields for approved Smartlead campaign execution.
+    required_eligibility:
+      - EMAIL_ELIGIBLE
+      - CALL_AND_EMAIL_ELIGIBLE
+    fields:
+      - account_id
+      - contact_id
+      - first_name
+      - last_name
+      - email
+      - company_name
+      - title
+      - city
+      - state
+      - vertical
+      - yad_tier
+      - yad_score
+      - advertiser_signal
+      - advertised_service
+      - primary_hook
+      - personalized_line
+      - campaign_id
+      - source
+      - rep_owner
+      - personalization_version
+    prohibited_fields:
+      - transcript
+      - financial_notes
+      - provider_payload
+      - suppression_reason_detail
+      - prompt_content
+      - api_credentials
+
+sort_policy:
+  hard_priority_order:
+    - requested_callback_due
+    - promised_followup_due
+    - warm_referral_due
+    - scheduled_meeting_action
+    - fresh_tier_a_new
+    - fresh_tier_b_new
+    - policy_eligible_retry
+  cold_tie_breakers:
+    - yad_tier_desc
+    - advertiser_evidence_strength_desc
+    - research_completeness_desc
+    - contact_quality_desc
+    - no_prior_contact_first
+    - research_freshness_desc
+
+export_audit:
+  required_fields:
+    - export_id
+    - user_id
+    - role
+    - export_type
+    - campaign_id
+    - filter_snapshot
+    - row_count
+    - exported_fields
+    - purpose
+    - created_at
+
+invariants:
+  - suppressed_account_never_actionable
+  - dnc_phone_never_in_call_sheet
+  - opted_out_email_never_in_email_sheet
+  - hard_bounced_email_never_in_email_sheet
+  - active_client_never_in_generic_cold_sheet
+  - active_opportunity_never_in_generic_cold_sheet
+  - requested_callback_not_displaced_by_new_cold_lead
+  - account_id_always_present_for_reconciliation
+  - exported_file_never_becomes_canonical_state

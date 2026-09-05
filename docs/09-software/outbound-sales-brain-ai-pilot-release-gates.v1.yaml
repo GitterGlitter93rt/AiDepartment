@@ -1,0 +1,320 @@
+schema_version: "1.0.0"
+contract: yad_ai_pilot_release_gates_v1
+purpose: >-
+  Convert the outbound pilot preflight into deterministic release evidence so REAL_AI_PILOT_ELIGIBLE
+  cannot be declared from partial readiness or subjective confidence.
+
+release_states:
+  - REAL_AI_PILOT_ELIGIBLE
+  - INTERNAL_AI_TEST_ONLY
+  - HUMAN_ASSIST_ONLY
+
+gate_status_values:
+  - PASS
+  - FAIL
+  - BLOCKED_EXTERNAL
+  - NOT_TESTED
+  - NOT_APPLICABLE
+
+rules:
+  - every_required_gate_has_evidence_reference
+  - no_llm_can_override_failed_gate
+  - external_blocker_is_not_a_pass
+  - stale_evidence_requires_retest
+  - exact_pilot_target_set_must_be_rechecked_at_attempt_time
+  - human_assist_and_ai_voice_release_states_are_independent
+
+required_for_real_ai_pilot:
+  G01_branch_runtime_integrity:
+    required: true
+    checks:
+      - feature_branch_is_expected
+      - no_uncommitted_release_critical_changes
+      - main_not_merged_by_this_gate
+      - automatic_github_actions_not_reenabled
+      - secrets_not_committed
+
+  G02_canonical_account_identity:
+    required: true
+    per_candidate: true
+    checks:
+      - one_canonical_account
+      - company_identity_supported
+      - geography_supported
+      - vertical_profile_current
+      - duplicate_alias_history_resolved
+
+  G03_research_callpack:
+    required: true
+    per_candidate: true
+    checks:
+      - research_fresh_enough_for_claims
+      - fact_vs_hypothesis_separated
+      - immutable_runtime_callpack_created
+      - selected_hook_supported_by_callpack
+      - target_role_supported
+      - no_raw_provider_or_dnc_payload_in_prompt
+
+  G04_contact_route_quality:
+    required: true
+    per_candidate: true
+    checks:
+      - endpoint_normalized
+      - endpoint_source_present
+      - endpoint_type_semantics_present
+      - named_person_not_fabricated
+      - main_line_not_labeled_person_direct
+      - contact_route_meets_pilot_threshold
+
+  G05_internal_suppression:
+    required: true
+    per_candidate: true
+    checks:
+      - no_active_yad_dnc_for_scope
+      - merged_alias_suppressions_included
+      - dnc_write_path_tested_durable
+      - suppression_failure_fails_closed
+
+  G06_external_phone_screening:
+    required: true
+    per_candidate: true
+    checks:
+      - production_screening_source_configured
+      - required_registry_or_provider_checks_current
+      - screening_error_not_treated_as_no_match
+      - scope_and_freshness_valid
+      - audit_reference_persisted
+    if_not_pass: INTERNAL_AI_TEST_ONLY
+
+  G07_ai_channel_eligibility:
+    required: true
+    per_candidate: true
+    checks:
+      - autonomous_ai_voice_decision_equals_ALLOW
+      - decision_not_reused_past_refresh_requirement
+      - local_calling_window_open
+      - attempt_cadence_eligible
+      - relationship_state_allows_generic_ai_outreach
+      - ownership_assignment_allows_ai_action
+
+  G08_caller_identity_trust:
+    required: true
+    checks:
+      - approved_twilio_caller_number
+      - caller_number_enabled_for_mode
+      - no_arbitrary_spoofing
+      - caller_health_not_PAUSED_or_DISABLED
+      - callback_route_works
+    advisory_for_earliest_micro_pilot:
+      - voice_integrity_status
+      - cnam_status
+      - branded_calling_status
+      - stir_attestation_monitoring
+
+  G09_twilio_webhook_transport:
+    required: true
+    checks:
+      - webhook_signature_validation
+      - expected_voice_url_routes
+      - conversationrelay_websocket_healthy
+      - provider_call_status_callbacks_persist
+      - session_cleanup
+      - test_number_cannot_escape_allowlist_in_internal_mode
+
+  G10_human_answer_experience:
+    required: true
+    checks:
+      - no_recurring_3_to_5_second_answer_silence
+      - greeting_latency_within_approved_target_or_documented_exception
+      - async_amd_or_other_selected_path_benchmarked
+      - answer_machine_classification_does_not_break_live_human_conversation
+      - no_audio_fork_conflict
+
+  G11_turn_taking_voice_quality:
+    required: true
+    checks:
+      - normal_turn_first_audio_within_target_or_approved_exception
+      - barge_in_stops_audio
+      - stale_generation_cancelled
+      - one_question_at_a_time
+      - spoken_normalization_fixture_suite_passes
+      - no_repeating_full_opener_after_interrupt
+
+  G12_sales_ai_regression:
+    required: true
+    checks:
+      - critical_roleplay_suite_passes
+      - first_60_second_fixtures_pass
+      - objection_language_critical_fixtures_pass
+      - hook_selection_fixtures_pass
+      - dnc_wrong_number_priority_100_percent
+      - no_unsupported_claim_critical_failures
+      - no_booking_on_politeness_only
+
+  G13_action_tools:
+    required: true
+    checks:
+      - dnc_action_durable
+      - wrong_number_endpoint_correction
+      - callback_task_creation
+      - targeted_email_request_capture
+      - action_idempotency
+      - tool_failure_never_spoken_as_success
+
+  G14_calcom_availability_booking:
+    required: true
+    checks:
+      - live_or_release_test_calcom_configured
+      - availability_returns_real_slots
+      - only_returned_slots_offered
+      - create_booking_provider_confirmed
+      - no_duplicate_direct_outlook_event
+      - canonical_booking_persisted_once
+      - booking_failure_language_tested
+
+  G15_calcom_lifecycle_sync:
+    required_for_first_real_call: false
+    required_for_scaled_pilot: true
+    checks:
+      - webhook_or_reconciliation_path_active
+      - reschedule_idempotent
+      - cancellation_sync
+      - no_show_sync
+      - meeting_end_outcome_review_trigger
+    degraded_behavior_if_not_pass: >-
+      Real micro-pilot may proceed only if booking creation is correct and manager explicitly accepts
+      non-realtime lifecycle reconciliation; scaled rollout remains blocked.
+
+  G16_crm_persistence:
+    required: true
+    checks:
+      - call_attempt_persisted
+      - call_outcome_persisted
+      - prospect_statements_extracted_with_source
+      - account_timeline_updated
+      - followup_next_step_created_when_applicable
+      - version_snapshot_persisted
+
+  G17_pilot_operator_controls:
+    required: true
+    checks:
+      - manager_selects_exact_accounts
+      - start_next_call_controlled
+      - max_concurrency_equals_1_for_earliest_pilot
+      - stop_new_outbound_calls_works
+      - pause_after_current_call_works
+      - candidate_becoming_ineligible_is_blocked_before_dial
+
+  G18_review_observability:
+    required: true
+    checks:
+      - transcript_available_where_authorized
+      - recording_state_correct_where_authorized
+      - state_transitions_visible
+      - tool_results_visible
+      - latency_summary
+      - qa_score_and_hard_fails
+      - root_cause_classification
+      - exact_config_versions_recorded
+
+  G19_internal_allowlisted_voice_suite:
+    required: true
+    checks:
+      - normal_owner_answer
+      - interruption_during_opener
+      - who_is_this
+      - why_calling
+      - ai_identity
+      - send_email
+      - existing_crm
+      - no_problem
+      - not_interested
+      - dnc
+      - wrong_number
+      - booking_success
+      - booking_failure
+      - voicemail_or_machine_path
+
+  G20_exact_real_pilot_approval:
+    required: true
+    checks:
+      - michael_explicitly_approved_real_pilot
+      - exact_batch_size_and_accounts_selected
+      - approved_caller_number
+      - release_report_classification_REAL_AI_PILOT_ELIGIBLE
+      - no_unresolved_critical_hard_fail
+
+required_for_internal_ai_test_only:
+  - G01_branch_runtime_integrity
+  - G08_caller_identity_trust
+  - G09_twilio_webhook_transport
+  - G10_human_answer_experience
+  - G11_turn_taking_voice_quality
+  - G12_sales_ai_regression
+  - G13_action_tools
+  - G17_pilot_operator_controls
+  - G18_review_observability
+  - G19_internal_allowlisted_voice_suite
+
+human_assist_release_gates:
+  H01_portal_auth_rbac:
+    checks:
+      - secure_login
+      - server_side_rbac
+      - actor_audit
+  H02_browse_search_claim:
+    checks:
+      - inventory_search
+      - atomic_claim
+      - duplicate_owner_prevention
+      - my_prospects
+  H03_human_manual_call_eligibility:
+    checks:
+      - independent_HUMAN_MANUAL_CALL_decision
+      - action_time_recheck
+      - no_tel_action_when_blocked_or_review_required
+  H04_followup_dnc_persistence:
+    checks:
+      - disposition
+      - callback
+      - wrong_number
+      - dnc
+      - timeline
+
+release_classification_logic:
+  REAL_AI_PILOT_ELIGIBLE:
+    requires:
+      - all_required_for_real_ai_pilot_PASS
+      - G20_exact_real_pilot_approval_PASS
+  INTERNAL_AI_TEST_ONLY:
+    requires:
+      - all_required_for_internal_ai_test_only_PASS
+    and_any:
+      - G06_external_phone_screening_not_PASS
+      - G07_ai_channel_eligibility_not_PASS_for_real_targets
+      - G14_calcom_availability_booking_not_live_ready
+      - G20_exact_real_pilot_approval_not_PASS
+  HUMAN_ASSIST_ONLY:
+    when_any:
+      - critical_voice_gate_not_PASS
+      - internal_allowlisted_voice_suite_not_PASS
+    requires:
+      - human_assist_release_gates_PASS_for_human_use
+
+release_evidence_record:
+  fields:
+    - gate_id
+    - status
+    - evaluated_at
+    - evaluator
+    - environment
+    - version_or_commit
+    - test_name_or_command_reference
+    - evidence_reference
+    - blocker_id_optional
+    - notes
+    - expires_or_retest_by_optional
+
+core_rule: >-
+  No real AI pilot exists until every required gate for the exact pilot is evidenced as PASS and Michael explicitly approves the exact batch.
+  Internal voice progress and Human Assist can continue independently when real AI screening or production dependencies are blocked.

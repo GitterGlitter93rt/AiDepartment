@@ -1,0 +1,413 @@
+schema_version: "1.0.0"
+contract: yad_ftc_national_dnc_ingestion_v1
+status: architecture_authority
+purpose: >-
+  Define a protected, auditable direct-FTC National Do Not Call Registry ingestion path that can
+  feed YAD's normalized PhoneScreeningProvider interface without exposing registry data to sales
+  users or treating National DNC membership as prospect enrichment.
+
+source:
+  source_id: FTC_NATIONAL_DNC
+  source_class: FEDERAL_REGISTRY
+  access_model:
+    organization_profile_required: true
+    subscription_account_number_required: true
+    area_code_subscriptions: true
+    full_list_supported: true
+    change_list_supported: true
+    interactive_lookup_not_primary_automation: true
+    automated_change_list_service_possible: true
+  official_reference_docs:
+    - https://www.ftc.gov/business-guidance/resources/qa-telemarketers-sellers-about-dnc-provisions-tsr-0
+    - https://www.ftc.gov/business-guidance/resources/complying-telemarketing-sales-rule
+  not_this_source:
+    - FTC_DNC_REPORTED_CALLS_COMPLAINT_API
+
+security:
+  credentials_server_side_only: true
+  san_or_password_never_in_git: true
+  raw_registry_not_rep_visible: true
+  raw_registry_not_sales_ai_visible: true
+  raw_registry_not_exportable_by_sales_roles: true
+  purpose_limited_use: phone_outreach_screening_only
+  logs_should_prefer:
+    - snapshot_id
+    - phone_id
+    - screening_result_id
+    - redacted_endpoint
+  never_log:
+    - registry_password
+    - secret_download_credentials
+    - raw_full_list_contents
+
+objects:
+  NationalDncSubscription:
+    fields:
+      - subscription_id
+      - source_id
+      - organization_reference_nonsecret
+      - credential_reference_secret_store
+      - subscribed_area_codes
+      - effective_at
+      - expires_or_renews_at_optional
+      - status
+      - last_verified_at
+      - created_at
+      - updated_at
+  NationalDncSnapshot:
+    fields:
+      - snapshot_id
+      - source_id
+      - subscription_id
+      - data_kind
+      - source_generated_at_optional
+      - downloaded_at
+      - validated_at
+      - applied_at
+      - subscribed_area_codes
+      - record_count
+      - checksum_optional
+      - source_file_reference_ephemeral
+      - ingestion_version
+      - status
+      - error_summary_optional
+      - next_sync_due_at
+  NationalDncChangeBatch:
+    fields:
+      - change_batch_id
+      - subscription_id
+      - source_id
+      - source_generated_at_optional
+      - downloaded_at
+      - validated_at
+      - applied_at
+      - additions_count
+      - deletions_count
+      - duplicate_operations_count
+      - ignored_out_of_scope_count
+      - checksum_optional
+      - status
+      - prior_snapshot_or_batch_reference
+      - next_sync_due_at
+  NationalDncMembership:
+    implementation_note: >-
+      Logical lookup structure. Claude may choose an indexed normalized-phone table, protected
+      partition, encrypted store, or equivalent representation after measuring list size and
+      PostgreSQL capabilities. This object must not become an ordinary prospect table.
+    minimum_semantics:
+      - normalized_e164_or_normalized_nanp_number
+      - active_membership
+      - source_id
+      - last_source_change_at_optional
+      - applied_snapshot_or_batch_id
+      - updated_at
+  RegistryScreenResult:
+    maps_to_global_contract: true
+    required_fields:
+      - provider_result_id
+      - provider_id
+      - phone_id
+      - source_class
+      - screen_type
+      - status
+      - normalized_result
+      - reason_code
+      - checked_at
+      - refresh_by
+      - jurisdiction_scope
+      - source_reference
+      - raw_retention_class
+
+snapshot_states:
+  - NOT_CONFIGURED
+  - CREDENTIALS_MISSING
+  - READY_FOR_BOOTSTRAP
+  - DOWNLOADING
+  - VALIDATING
+  - APPLYING
+  - CURRENT
+  - STALE_WARNING
+  - STALE_BLOCKING
+  - FAILED_RETRYABLE
+  - FAILED_BLOCKING
+
+source_file_kinds:
+  - FULL_LIST
+  - CHANGE_LIST
+
+change_operations:
+  A:
+    normalized_action: ADD
+  D:
+    normalized_action: DELETE
+  unknown:
+    normalized_action: REJECT_BATCH_OR_RECORD_PER_VALIDATED_POLICY
+
+bootstrap_flow:
+  - validate_nonsecret_subscription_configuration
+  - verify_secret_credentials_available_from_secret_store
+  - resolve_subscribed_area_codes
+  - download_full_list_to_ephemeral_protected_location
+  - validate_file_format_and_scope
+  - validate_record_normalization
+  - calculate_optional_checksum_and_counts
+  - begin_transaction_or_versioned_snapshot_build
+  - populate_protected_membership_lookup
+  - verify_counts_and_sample_integrity
+  - atomically_mark_snapshot_current
+  - retain_minimal_ingestion_audit
+  - delete_or_expire_raw_file_according_to_source_policy
+  - calculate_next_sync_due_at
+
+change_sync_flow:
+  - confirm_current_snapshot_exists
+  - download_change_list_from_last_valid_source_boundary
+  - validate_file_before_mutating_current_lookup
+  - parse_add_delete_records
+  - reject_or_quarantine_malformed_records
+  - apply_changes_idempotently
+  - ensure_delete_of_absent_number_is_safe_and_audited
+  - ensure_duplicate_add_does_not_create_duplicate_membership
+  - commit_batch_atomically
+  - update_snapshot_freshness_metadata
+  - write_ingestion_audit
+  - delete_or_expire_raw_file_according_to_source_policy
+
+idempotency:
+  batch_identity_inputs:
+    - source_id
+    - source_generated_at_or_download_window
+    - checksum_when_available
+    - subscription_id
+  rules:
+    - same_validated_change_batch_must_not_apply_twice
+    - repeated_add_does_not_duplicate_membership
+    - repeated_delete_does_not_create_negative_membership
+    - process_restart_must_resume_or_rollback_safely
+
+phone_normalization:
+  canonical_internal_format: E164_WHERE_APPLICABLE
+  national_registry_lookup_format: source_required_nanp_representation
+  requirements:
+    - reject_impossible_or_malformed_numbers_before_membership_check
+    - preserve_phone_id_correlation
+    - never_infer_clean_registry_result_from_normalization_failure
+
+screening_behavior:
+  request_inputs:
+    - phone_id
+    - normalized_phone
+    - destination_country
+    - destination_state_optional
+    - channel
+    - communication_technology
+    - policy_version
+  preconditions:
+    - current_or_policy_acceptable_snapshot
+    - phone_format_valid
+    - endpoint_in_subscribed_area_code_scope_or_other_valid_subscription_scope
+  output_cases:
+    membership_active:
+      status: MATCH
+      normalized_result: DNC_MATCH
+      reason_code: federal_registry_match
+    membership_absent_and_snapshot_current:
+      status: NO_MATCH
+      normalized_result: DNC_NO_MATCH
+      reason_code: federal_registry_no_match
+    area_code_not_subscribed:
+      status: NOT_APPLICABLE
+      normalized_result: SCREEN_NOT_AVAILABLE_FOR_SCOPE
+      reason_code: area_code_not_subscribed
+    snapshot_stale_warning:
+      status: UNKNOWN
+      normalized_result: REFRESH_REQUIRED_OR_POLICY_DECISION
+      reason_code: registry_snapshot_stale
+    snapshot_stale_blocking:
+      status: ERROR_BLOCKING
+      normalized_result: REQUIRED_SCREEN_UNAVAILABLE
+      reason_code: registry_snapshot_stale_blocking
+    storage_or_lookup_error:
+      status: ERROR_RETRYABLE
+      normalized_result: SCREENING_ERROR
+      reason_code: registry_lookup_error
+  important_rule: >-
+    A National DNC NO_MATCH is only an input. It must not independently produce
+    AUTONOMOUS_AI_VOICE=ALLOW.
+
+freshness:
+  software_values_must_be_configurable: true
+  source_sync_requirement_reference: current_reviewed_ftc_policy
+  never_hardcode_forever:
+    - sync_interval
+    - subscription_fee
+    - area_code_fee
+  states:
+    CURRENT:
+      action: normal_lookup_allowed
+    STALE_WARNING:
+      action: refresh_immediately_and_apply_current_policy
+    STALE_BLOCKING:
+      action: required_ai_screen_fails_closed
+
+cost_controls:
+  direct_lookup_marginal_cost_expected_low_after_ingestion: true
+  track:
+    - subscription_area_codes
+    - subscription_cost_metadata_optional
+    - downloads
+    - ingestion_compute_time
+    - storage_size
+    - lookup_count
+    - cache_or_local_hit_count
+  prohibit:
+    - downloading_full_list_per_call
+    - interactive_web_lookup_per_high_volume_call
+
+scope_strategy:
+  pilot_market:
+    geography: Jacksonville_St_Augustine_FL
+    instructions:
+      - determine_actual_destination_area_codes_from_approved_pilot_endpoints
+      - verify_required_area_codes_are_subscribed
+      - do_not_buy_nationwide_scope_without_business_or_policy_need
+      - do_not_treat_area_code_as_authoritative_current_location_for_other_policy_dimensions
+
+failure_behavior:
+  credential_failure:
+    snapshot_bootstrap: FAILED_BLOCKING
+    existing_snapshot: apply_freshness_policy
+  download_timeout:
+    action: preserve_last_known_good_snapshot_and_raise_sync_failure
+  malformed_file:
+    action: do_not_replace_current_snapshot
+  partial_apply_failure:
+    action: rollback_or_leave_prior_version_current
+  database_unavailable:
+    autonomous_ai_voice: FAIL_CLOSED_WHEN_SCREEN_REQUIRED
+  source_unavailable:
+    autonomous_ai_voice: FAIL_CLOSED_WHEN_CURRENT_SCREEN_REQUIRED
+  critical_alerts:
+    - no_current_snapshot
+    - stale_blocking
+    - repeated_sync_failure
+    - count_change_anomaly
+    - malformed_change_batch
+
+anomaly_detection:
+  recommended_checks:
+    - record_count_unexpected_drop
+    - record_count_unexpected_spike
+    - additions_deletions_ratio_outlier
+    - empty_file
+    - duplicate_operation_spike
+    - unsupported_area_code_records
+    - parse_error_rate
+  action: quarantine_new_version_and_preserve_last_known_good_when_integrity_uncertain
+
+retention:
+  raw_full_list:
+    default: short_lived_protected
+    final_rule: source_terms_and_yad_policy
+  raw_change_list:
+    default: short_lived_protected
+    final_rule: source_terms_and_yad_policy
+  normalized_membership:
+    default: current_operational_snapshot_only_plus_required_audit
+  ingestion_audit:
+    default: durable_security_compliance_record
+  per_phone_screen_result:
+    default: retain_minimal_policy_audit
+  dnc_membership_never_used_for:
+    - lead_scoring
+    - targeting
+    - personalization
+    - market_research
+    - sales_rep_curiosity
+
+backup_restore:
+  requirements:
+    - registry_snapshot_can_be_rebuilt_from_current_authorized_source
+    - backup_restore_must_not_make_stale_snapshot_appear_current
+    - restored_system_revalidates_snapshot_age_before_outbound
+    - YAD_internal_suppression_remains_separate_and_higher_priority
+
+observability:
+  metrics:
+    - dnc_snapshot_age_seconds
+    - dnc_last_successful_sync_at
+    - dnc_sync_failures_total
+    - dnc_full_ingestion_duration_seconds
+    - dnc_change_ingestion_duration_seconds
+    - dnc_membership_count
+    - dnc_lookup_latency_ms
+    - dnc_lookup_errors_total
+    - dnc_area_code_scope_misses_total
+  logs:
+    - ingestion_started
+    - ingestion_validated
+    - ingestion_applied
+    - ingestion_failed
+    - snapshot_became_stale_warning
+    - snapshot_became_stale_blocking
+  no_raw_phone_list_in_metrics: true
+
+acceptance_fixtures:
+  - id: full_bootstrap_success
+    expect:
+      - snapshot_current
+      - membership_queryable
+      - raw_file_not_rep_visible
+  - id: repeated_change_batch
+    expect:
+      - applied_once
+      - no_duplicate_membership
+  - id: add_then_delete
+    expect:
+      - final_membership_absent
+      - audit_preserved
+  - id: malformed_change_file
+    expect:
+      - prior_snapshot_remains_current
+      - new_batch_not_applied
+  - id: sync_timeout
+    expect:
+      - last_known_good_preserved
+      - freshness_policy_recalculated
+  - id: stale_blocking_before_ai_call
+    expect:
+      - autonomous_ai_voice_not_allow
+  - id: area_code_not_subscribed
+    expect:
+      - no_false_no_match
+      - normalized_not_applicable_or_review
+  - id: internal_yad_dnc_plus_registry_no_match
+    expect:
+      - phone_call_still_blocked_by_internal_dnc
+  - id: registry_no_match_other_policy_missing
+    expect:
+      - autonomous_ai_voice_not_auto_allowed
+  - id: restored_old_backup
+    expect:
+      - snapshot_age_revalidated
+      - outbound_not_enabled_until_current_policy_passes
+
+claude_checkpoint:
+  required_report:
+    - existing_ftc_registry_account_or_san_present_without_revealing_secret
+    - subscribed_area_codes
+    - full_list_access_status
+    - change_list_access_status
+    - selected_storage_representation
+    - bootstrap_result
+    - change_sync_result
+    - snapshot_age_monitoring
+    - lookup_latency
+    - failure_fixture_results
+    - missing_external_setup
+    - tomorrow_release_effect
+
+core_rule: >-
+  Treat the National DNC dataset as protected compliance infrastructure, not prospect data. Build a
+  validated versioned snapshot, apply changes atomically, expose only normalized screening results,
+  and never turn stale/missing Registry data into permission to dial.

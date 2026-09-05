@@ -1,0 +1,176 @@
+schema_version: "1.0.0"
+contract: yad_sales_crm_component_contract
+status: architecture_authority
+purpose: >-
+  Define reusable CRM UI primitives, their minimum data contracts, allowed actions,
+  responsive behavior, and server-authority expectations so Claude builds one coherent product.
+
+global_rules:
+  - server_authority_for_rbac_ownership_dnc_channel_eligibility_booking_and_sensitive_writes
+  - no_component_may_infer_missing_business_truth
+  - unknown_stays_unknown
+  - stale_evidence_must_render_as_stale
+  - main_business_line_must_not_render_as_direct_person_phone_without_evidence
+  - destructive_or_relationship_changing_actions_require_confirmation_when_material
+  - all_components_support_loading_empty_error_and_disabled_states_where_applicable
+  - keyboard_focus_and_touch_targets_required
+
+components:
+  AppShell:
+    purpose: global_layout
+    slots: [sidebar, top_bar, page_content, modal_layer, toast_layer]
+    requirements:
+      - desktop_sidebar_232_to_248px
+      - mobile_bottom_navigation_for_rep_core
+      - role_filtered_navigation_from_server_permissions
+      - no_provider_secrets_or_raw_worker_internals
+
+  SidebarNav:
+    items_rep: [overview, find_prospects, markets, my_prospects, follow_ups, replies, opportunities, meetings]
+    items_manager: [sales_ai_pilot, mining, research_health, imports, campaigns, analytics, team, settings]
+    behavior:
+      - current_route_highlight
+      - hidden_if_permission_absent
+      - collapsed_mobile_more_menu
+
+  TopUtilityBar:
+    fields: [global_account_search, notifications, quick_actions, profile_menu]
+    global_search_targets: [company, person, phone, email, city, alias]
+    rule: search_results_link_to_canonical_account_or_contact_context
+
+  PageHeader:
+    fields: [title, subtitle, status, primary_action, secondary_actions, breadcrumbs]
+    requirement: one_clear_primary_action_max_by_default
+
+  KpiCard:
+    fields: [label, value, delta_optional, scope, time_window, click_target_optional]
+    rule: value_must_be_backed_by_server_query
+
+  StatusPill:
+    fields: [label, semantic_state, tooltip_optional]
+    semantic_states: [neutral, info, success, warning, destructive, stale, blocked, review]
+    rule: status_cannot_be_color_only
+
+  TierBadge:
+    fields: [tier, score, max_score, explanation_ref]
+    allowed_tiers: [A, B, C, D]
+    rule: tier_does_not_imply_contact_permission_or_certainty
+
+  AdEvidenceBadge:
+    fields: [channel, evidence_strength, observed_at, freshness_state]
+    channels: [google_ads, lsa, meta, other]
+    rule: no_spend_claim_from_badge
+
+  ContactRouteBadge:
+    fields: [route_type, quality, source_class, last_verified]
+    route_types: [direct_business, extension, business_mobile, named_via_main_line, role_via_main_line, generic_main_line, email_direct, email_role, email_general, unknown]
+    rule: directness_and_person_identity_are_separate
+
+  ChannelStatusBadge:
+    fields: [channel, status, reason_short, evaluated_at]
+    channels: [human_phone, email, ai_voice, sms]
+    statuses: [allowed, ready, review, blocked, research_needed, suppressed]
+    rule: frontend_never_overrides_status
+
+  SearchHero:
+    fields: [vertical, geography, prospect_mode, saved_market_optional]
+    actions: [search, research_more_if_authorized]
+    requirements:
+      - existing_inventory_returns_first
+      - research_more_non_blocking
+      - no_fake_progress_percent
+
+  FilterBar:
+    fields: [filters, saved_view, result_count]
+    behavior:
+      - chips_for_common_filters
+      - advanced_filter_drawer_for_long_tail
+      - URL_or_server_state_should_support_shareable_views_where_safe
+
+  ProspectTable:
+    row_fields: [select, company, market, fit, advertising, contact_route, why_it_fits, freshness, owner, action]
+    actions: [open, claim, bulk_claim, manager_assign]
+    requirements:
+      - sticky_header
+      - server_side_pagination_or_bounded_result_set
+      - atomic_claim
+      - partial_bulk_success_supported
+      - no_frontend_only_ownership
+
+  AccountQuickDrawer:
+    fields: [identity, tier, owner, best_contact_route, why_reach_out, primary_hypothesis, first_question, evidence_summary, latest_activity]
+    actions: [open_account, claim_if_eligible, call_if_eligible, email_if_eligible]
+    rule: drawer_is_preview_not_second_source_of_truth
+
+  Timeline:
+    event_types: [research, ownership, call, voicemail, email, reply, callback, meeting, opportunity, suppression, import, note]
+    fields: [occurred_at, actor, channel, summary, outcome, source_ref_optional]
+    rules:
+      - chronological
+      - audited_events_immutable
+      - corrected_facts_append_history_not_silent_rewrite
+
+  ContactCard:
+    fields: [name, role, role_confidence, phone_endpoints, email_endpoints, provenance, last_verified]
+    actions: [call_if_allowed, email_if_allowed, edit_with_permission, mark_wrong_or_stale]
+    rule: direct_not_found_should_be_explicit_when_named_person_known
+
+  EvidenceFact:
+    fields: [statement, class, source, observed_at, freshness, confidence]
+    classes: [confirmed, likely, hypothesis, contradicted, unknown]
+    rule: hypothesis_visually_distinct_from_confirmed_fact
+
+  HypothesisCard:
+    fields: [problem_family, hypothesis_text, support_state, evidence_refs, first_question, backup_optional]
+    support_states: [untested, supported, contradicted, inconclusive]
+    rule: no_more_than_one_primary_and_one_supported_backup_in_rep_view
+
+  TaskCard:
+    fields: [account, contact_optional, task_type, reason, due_at, timezone, owner, source_interaction, status]
+    actions: [open_account, complete, reschedule, execute_allowed_action]
+    statuses: [due, upcoming, overdue, completed, cancelled]
+
+  ReplyThread:
+    fields: [account, contact, owner, source_channel, messages, relationship_state, suggested_next_step]
+    actions: [draft_reply, schedule_call, create_follow_up, mark_no_need, suppress_if_applicable]
+    rule: meaningful_reply_pauses_conflicting_generic_cold_sequence
+
+  OpportunityCard:
+    fields: [account, owner, stage, problem_summary, next_step, meeting_status, value_optional, source]
+    rule: opportunity_requires_meaningful_qualification_not_positive_sentiment
+
+  MeetingCard:
+    fields: [start_at, timezone, account, attendee, host, event_type, status, join_link_optional, prep_brief_status, source]
+    statuses: [confirmed, cancelled, completed, no_show, attendance_unknown]
+    rule: confirmed_only_after_booking_provider_confirmation
+
+  PrepBriefPanel:
+    fields: [why_booked, prospect_words, workflow, systems, numbers, objections, unknowns, do_not_assume, suggested_questions, source_refs]
+    rule: prospect_statements_and_assumptions_are_separated
+
+  CallTranscript:
+    fields: [speaker, timestamp, text, interruption_marker_optional, tool_event_optional]
+    rule: never_surface_hidden_chain_of_thought
+
+  QaScorePanel:
+    fields: [overall, categories, hard_failures, root_cause, reviewer_notes, version_refs]
+    root_causes: [research, contact_data, opener, dialogue, model, stt, tts, latency, telephony, booking, policy, other]
+
+  EmptyState:
+    fields: [title, explanation, primary_action_optional]
+    rule: next_action_should_match_page_purpose
+
+  LoadingSkeleton:
+    rule: mirror_final_layout_not_generic_spinner
+
+  ErrorState:
+    fields: [business_message, retry_action_optional, correlation_id_optional]
+    rule: never_show_stack_trace_or_provider_secret
+
+  ConfirmDialog:
+    fields: [title, consequence, confirm_label, cancel_label]
+    used_for: [large_bulk_claim, reassignment, release, suppression, destructive_setting, campaign_stop]
+
+  Toast:
+    types: [success, info, warning, error]
+    rule: never_be_only_confirmation_for_durable_sensitive_action

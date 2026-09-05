@@ -1,0 +1,684 @@
+import './setup.js';
+import { test, before, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import type { FastifyInstance } from 'fastify';
+import { pool, withTransaction } from '../src/db/pool.js';
+import { buildServer } from '../src/api/server.js';
+import { createUser } from '../src/domain/auth.js';
+import { upsertAccount } from '../src/domain/accounts.js';
+import { resetDatabase } from './helpers.js';
+import { listIntegrations } from '../src/domain/settings.js';
+import { readPilotState } from '../src/domain/pilot.js';
+
+/**
+ * Sales AI Pilot, Call Review, Campaigns, Analytics and Settings.
+ * Authority: yad-sales-crm-page-acceptance-matrix.v1.yaml,
+ * outbound-sales-brain-shared-twilio-number-dual-service-spec.md §6-§7.
+ *
+ * These prove the parts a browser must not be able to talk its way past: a rep cannot
+ * reach the outbound control plane, adding a prospect to the pilot never dials, an
+ * operator switch is refused without a reason, and settings cannot leak a credential.
+ */
+
+let app: FastifyInstance;
+const PASSWORD = 'wave-d-test-password';
+
+before(async () => { app = await buildServer(); });
+after(async () => { await app.close(); await pool.end(); });
+
+async function signIn(email: string): Promise<string> {
+  const response = await app.inject({
+    method: 'POST', url: '/login', payload: { email, password: PASSWORD },
+  });
+  assert.equal(response.statusCode, 302, `sign-in for ${email} should redirect`);
+  const cookie = response.cookies.find((c) => c.name === 'yad_sales_session');
+  return `yad_sales_session=${cookie!.value}`;
+}
+
+interface Fixture { rep: string; manager: string; admin: string; accountId: string }
+
+async function fixture(): Promise<Fixture> {
+  await createUser({ email: 'r@test.local', displayName: 'Rep', role: 'SALES_REP', password: PASSWORD });
+  await createUser({ email: 'm@test.local', displayName: 'Manager', role: 'SALES_MANAGER', password: PASSWORD });
+  await createUser({ email: 'ad@test.local', displayName: 'Admin', role: 'ADMIN', password: PASSWORD });
+
+  const { accountId } = await withTransaction((client) =>
+    upsertAccount(client, {
+      canonicalName: 'Palmetto Plumbing',
+      website: 'https://palmetto.example.com',
+      phone: '904-555-0142',
+      city: 'Jacksonville', state: 'FL', postalCode: '32256',
+    }, { discoverySource: 'test' }));
+
+  return {
+    rep: await signIn('r@test.local'),
+    manager: await signIn('m@test.local'),
+    admin: await signIn('ad@test.local'),
+    accountId,
+  };
+}
+
+beforeEach(async () => { await resetDatabase(); });
+
+test('a rep cannot reach the outbound control plane, by page or by action', async () => {
+  const f = await fixture();
+  for (const url of ['/ai/pilot', '/calls', '/campaigns', '/analytics', '/settings']) {
+    const response = await app.inject({ method: 'GET', url, headers: { cookie: f.rep } });
+    assert.equal(response.statusCode, 403, `${url} must refuse a rep`);
+  }
+  for (const url of ['/ai/pilot/stop', '/ai/pilot/switch', '/ai/pilot/candidates',
+                     '/ai/pilot/preflight', '/settings/integration']) {
+    const response = await app.inject({
+      method: 'POST', url, headers: { cookie: f.rep }, payload: { reason: 'trying it on' },
+    });
+    assert.equal(response.statusCode, 403, `${url} must refuse a rep posting directly`);
+  }
+});
+
+test('adding a prospect to the pilot never dials', async () => {
+  const f = await fixture();
+  const response = await app.inject({
+    method: 'POST', url: '/ai/pilot/candidates', headers: { cookie: f.manager },
+    payload: { accountId: f.accountId },
+  });
+  assert.equal(response.statusCode, 302);
+
+  const candidate = await pool.query(
+    `select state, eligibility_at_add from pilot_candidates where account_id = $1`, [f.accountId]);
+  assert.equal(candidate.rows[0]?.state, 'CANDIDATE',
+    'a new candidate starts in review, never armed to dial');
+
+  const calls = await pool.query(`select count(*)::int as n from voice_calls`);
+  assert.equal(calls.rows[0]!.n, 0, 'adding a candidate must not create a call');
+
+  const audit = await pool.query(
+    `select detail from audit_log where action = 'pilot.add_candidate'`);
+  assert.equal(audit.rows[0]?.detail?.dialled, false, 'the audit records that nothing was dialled');
+});
+
+test('preflight fails closed when the number is not cleared for AI voice', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/candidates', headers: { cookie: f.manager },
+    payload: { accountId: f.accountId },
+  });
+  const { rows } = await pool.query(
+    `select pilot_candidate_id from pilot_candidates where account_id = $1`, [f.accountId]);
+
+  const response = await app.inject({
+    method: 'POST', url: '/ai/pilot/preflight', headers: { cookie: f.manager },
+    payload: { pilotCandidateId: rows[0]!.pilot_candidate_id },
+  });
+  assert.equal(response.statusCode, 302);
+  assert.match(response.headers.location as string, /error=/,
+    'a preflight that does not clear must report a failure, not a pass');
+
+  const after = await pool.query(
+    `select state from pilot_candidates where pilot_candidate_id = $1`,
+    [rows[0]!.pilot_candidate_id]);
+  assert.equal(after.rows[0]!.state, 'PREFLIGHT_FAILED');
+  const calls = await pool.query(`select count(*)::int as n from voice_calls`);
+  assert.equal(calls.rows[0]!.n, 0, 'a preflight never places a call');
+});
+
+test('an operator switch is refused without a reason, and recorded with one', async () => {
+  const f = await fixture();
+
+  const noReason = await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'CONTROLLED_PILOT', reason: '' },
+  });
+  assert.match(noReason.headers.location as string, /error=/);
+  assert.equal((await readPilotState()).outboundMode, 'OFF', 'the mode must not have moved');
+
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'CONTROLLED_PILOT', reason: 'internal gate test' },
+  });
+  assert.equal((await readPilotState()).outboundMode, 'CONTROLLED_PILOT');
+
+  const events = await pool.query(
+    `select field, old_value, new_value, reason from voice_pilot_state_events`);
+  assert.equal(events.rows.length, 1);
+  assert.equal(events.rows[0]!.reason, 'internal gate test');
+  assert.equal(events.rows[0]!.old_value, 'OFF');
+});
+
+test('stop new outbound calls disarms the dialler and leaves the receptionist alone', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'CONTROLLED_PILOT', reason: 'test' },
+  });
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_dial_enabled', value: 'true', reason: 'test' },
+  });
+  assert.equal((await readPilotState()).outboundDialEnabled, true);
+
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/stop', headers: { cookie: f.manager },
+    payload: { reason: 'ending the test window' },
+  });
+
+  const state = await readPilotState();
+  assert.equal(state.outboundMode, 'OFF');
+  assert.equal(state.outboundDialEnabled, false);
+  assert.equal(state.stopReason, 'ending the test window');
+  assert.equal(state.inboundReceptionist, true,
+    'stopping outbound must never take the inbound receptionist down');
+});
+
+test('turning outbound off also disarms dial creation', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'CONTROLLED_PILOT', reason: 'test' },
+  });
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_dial_enabled', value: 'true', reason: 'test' },
+  });
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'OFF', reason: 'stand down' },
+  });
+
+  const state = await readPilotState();
+  assert.equal(state.outboundDialEnabled, false,
+    'leaving the dialler armed under an OFF mode is the failure this switch prevents');
+});
+
+test('the dialler cannot be armed underneath an OFF mode', async () => {
+  const f = await fixture();
+  assert.equal((await readPilotState()).outboundMode, 'OFF');
+
+  const armed = await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_dial_enabled', value: 'true', reason: 'trying it on' },
+  });
+  assert.match(armed.headers.location as string, /error=/);
+
+  const state = await readPilotState();
+  assert.equal(state.outboundDialEnabled, false,
+    'arming the dialler under an OFF mode reaches the same unsafe state from the other side');
+
+  const events = await pool.query(
+    `select field from voice_pilot_state_events where field = 'outbound_dial_enabled'`);
+  assert.equal(events.rows.length, 0, 'and a refused change is not recorded as one that happened');
+});
+
+test('an operator switch refuses a value it cannot mean', async () => {
+  const f = await fixture();
+  const nonsense = [
+    { field: 'outbound_mode', value: 'ENABLED' },
+    { field: 'outbound_mode', value: "OFF'; drop table users; --" },
+    { field: 'max_concurrency', value: '9999999999999' },
+    { field: 'max_concurrency', value: '-1' },
+    { field: 'max_concurrency', value: 'lots' },
+    { field: 'auto_book_enabled', value: 'yes' },
+    { field: 'inbound_receptionist', value: '1' },
+  ];
+
+  for (const attempt of nonsense) {
+    const response = await app.inject({
+      method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+      payload: { ...attempt, reason: 'testing the control plane' },
+    });
+    assert.equal(response.statusCode, 302, `${attempt.field}=${attempt.value}`);
+    assert.match(response.headers.location as string, /error=/,
+      `${attempt.field}=${attempt.value} was not refused in the product's own words`);
+  }
+
+  const state = await readPilotState();
+  assert.equal(state.outboundMode, 'OFF');
+  assert.equal(state.maxConcurrency, 1);
+  assert.equal(state.autoBookEnabled, false);
+  assert.equal(state.inboundReceptionist, true);
+});
+
+test('settings shows that a credential is set without showing the credential', async () => {
+  const f = await fixture();
+  const secret = 'sk-live-do-not-render-me-0000';
+  const integrations = await listIntegrations({ CALCOM_API_KEY: secret } as NodeJS.ProcessEnv);
+  const calcom = integrations.find((row) => row.key === 'calcom')!;
+  assert.equal(calcom.secretPresent, true, 'presence is reported');
+  assert.equal(JSON.stringify(integrations).includes(secret), false,
+    'no read model may carry the credential itself');
+
+  const page = await app.inject({ method: 'GET', url: '/settings', headers: { cookie: f.admin } });
+  assert.equal(page.statusCode, 200);
+  assert.equal(page.body.includes(secret), false, 'the page must never render a credential');
+  assert.match(page.body, /CALCOM_API_KEY/,
+    'naming the variable is how an operator knows where to set it');
+});
+
+test('settings names exactly what is still missing, not just "not configured"', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: '/settings', headers: { cookie: f.admin } });
+
+  // A Cal.com key with no event type id is still not a working calendar.
+  assert.match(page.body, /CALCOM_API_KEY/);
+  assert.match(page.body, /CALCOM_EVENT_TYPE_ID/);
+  assert.match(page.body, /BOOKING_CALENDAR_UPN/);
+  assert.match(page.body, /Still needed:/);
+  assert.match(page.body, /The YAD 15-Minute AI Strategy Call event type/,
+    'each setting says what it is for');
+  assert.match(page.body, /settings missing/, 'the count is on the status, not buried');
+});
+
+test('a setting that is present reads as set, and its value never appears', async () => {
+  const secret = 'sk-live-never-render-this-0000';
+  const integrations = await listIntegrations({
+    CALCOM_API_KEY: secret, CALCOM_EVENT_TYPE_ID: '1234',
+  } as NodeJS.ProcessEnv);
+  const calcom = integrations.find((row) => row.key === 'calcom')!;
+
+  const apiKey = calcom.required.find((setting) => setting.name === 'CALCOM_API_KEY')!;
+  const eventType = calcom.required.find((setting) => setting.name === 'CALCOM_EVENT_TYPE_ID')!;
+  assert.equal(apiKey.present, true);
+  assert.equal(eventType.present, true);
+  assert.deepEqual(calcom.missing, ['BOOKING_CALENDAR_UPN', 'BOOKING_PROVIDER']);
+  assert.equal(JSON.stringify(integrations).includes(secret), false);
+});
+
+test('a manager may read settings but not change them', async () => {
+  const f = await fixture();
+  const read = await app.inject({ method: 'GET', url: '/settings', headers: { cookie: f.manager } });
+  assert.equal(read.statusCode, 200);
+
+  const write = await app.inject({
+    method: 'POST', url: '/settings/integration', headers: { cookie: f.manager },
+    payload: { key: 'calcom', enabled: 'true', reason: 'trying it' },
+  });
+  assert.equal(write.statusCode, 403);
+
+  const row = await pool.query(
+    `select enabled from integration_settings where integration_key = 'calcom'`);
+  assert.equal(row.rows[0]!.enabled, false, 'the refused write must not have landed');
+});
+
+test('an integration change by an administrator is audited with its reason', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/settings/integration', headers: { cookie: f.admin },
+    payload: { key: 'calcom', enabled: 'true', reason: 'Cal.com account connected' },
+  });
+  const audit = await pool.query(
+    `select reason, detail from audit_log where action = 'settings.integration_enabled'`);
+  assert.equal(audit.rows.length, 1);
+  assert.equal(audit.rows[0]!.reason, 'Cal.com account connected');
+});
+
+test('analytics filters narrow the scope, and an empty scope says so', async () => {
+  const f = await fixture();
+
+  const unfiltered = await app.inject({
+    method: 'GET', url: '/analytics', headers: { cookie: f.manager } });
+  assert.match(unfiltered.body, /Showing everything researched/);
+  assert.match(unfiltered.body, /Researched accounts/);
+
+  // A channel nothing was ever attempted on empties the scope. The page must say the
+  // denominator is zero rather than render rates off nothing.
+  const filtered = await app.inject({
+    method: 'GET', url: '/analytics?channel=AUTONOMOUS_AI_VOICE', headers: { cookie: f.manager } });
+  assert.match(filtered.body, /Nothing matches these filters/);
+  assert.match(filtered.body, /zero out of\s+zero|empty denominator/,
+    'an empty scope is explained, not shown as 0%');
+  assert.match(filtered.body, /Clear filters/);
+});
+
+test('every analytics filter is accepted and reflected back', async () => {
+  const f = await fixture();
+  const url = '/analytics?from=2026-01-01&to=2026-12-31&channel=EMAIL'
+    + '&outcome=DECISION_MAKER_REACHED&hook=missed_call_recovery';
+  const page = await app.inject({ method: 'GET', url, headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Showing: from 2026-01-01/);
+  assert.match(page.body, /value="2026-01-01"/, 'the form keeps what was chosen');
+  assert.match(page.body, /Decision maker reached/i);
+});
+
+test('an unknown filter value cannot break the page or the query', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET',
+    url: "/analytics?rep=not-a-uuid&market=%27%3B+drop+table+accounts%3B--&channel=NOPE",
+    headers: { cookie: f.manager },
+  });
+  assert.equal(page.statusCode, 200, 'a bad filter value is not a server error');
+  assert.match(page.body, /Ignored rep and market/,
+    'the page says the scope is wider than the link suggests');
+  const survived = await pool.query(`select count(*)::int as n from accounts`);
+  assert.ok(survived.rows[0]!.n >= 1, 'the accounts table is still there');
+});
+
+test('a campaign detail page shows members, sources and stuck sends', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ email_campaign_id: string }>(
+    `insert into email_campaigns (name, status, hook_family)
+     values ('Jacksonville HVAC after-hours', 'ACTIVE', 'after_hours_response')
+     returning email_campaign_id`);
+  const campaignId = rows[0]!.email_campaign_id;
+
+  const page = await app.inject({
+    method: 'GET', url: `/campaigns/${campaignId}`, headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Jacksonville HVAC after-hours/);
+  assert.match(page.body, /Where the audience came from/);
+  assert.match(page.body, /Not linked/,
+    'a campaign with no provider campaign says so rather than looking ready to send');
+  assert.match(page.body, /Nobody is enrolled yet/);
+  assert.match(page.body, /Enrolling queues an export for review/);
+});
+
+test('a campaign member who is no longer cold is surfaced before any send', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ email_campaign_id: string }>(
+    `insert into email_campaigns (name, status) values ('Cold sequence', 'ACTIVE')
+     returning email_campaign_id`);
+  const campaignId = rows[0]!.email_campaign_id;
+
+  await pool.query(
+    `update accounts set relationship_state = 'ACTIVE_OPPORTUNITY' where account_id = $1`,
+    [f.accountId]);
+  await pool.query(
+    `insert into email_enrollments (email_campaign_id, account_id, normalized_email, status)
+     values ($1, $2, 'owner@palmetto.example.com', 'PENDING_EXPORT')`,
+    [campaignId, f.accountId]);
+
+  const page = await app.inject({
+    method: 'GET', url: `/campaigns/${campaignId}`, headers: { cookie: f.manager } });
+  assert.match(page.body, /no longer cold/);
+  assert.match(page.body, /Relationship state outranks campaign membership/);
+  assert.match(page.body, /Active opportunity/i);
+});
+
+test('a rep cannot open a campaign detail page', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ email_campaign_id: string }>(
+    `insert into email_campaigns (name, status) values ('Cold sequence', 'ACTIVE')
+     returning email_campaign_id`);
+  const page = await app.inject({
+    method: 'GET', url: `/campaigns/${rows[0]!.email_campaign_id}`, headers: { cookie: f.rep } });
+  assert.equal(page.statusCode, 403);
+});
+
+test('a connection test reports what is actually usable, not what is merely set', async () => {
+  const f = await fixture();
+  const response = await app.inject({
+    method: 'POST', url: '/settings/test', headers: { cookie: f.admin },
+    payload: { key: 'dataforseo' },
+  });
+  assert.equal(response.statusCode, 302);
+  assert.match(response.headers.location as string, /NOT_CONFIGURED/);
+  assert.match(decodeURIComponent(response.headers.location as string),
+    /source governance review is not recorded/,
+    'the operator is told which gate is shut, not just that it failed');
+
+  const row = await pool.query(
+    `select last_check_status, last_check_detail from integration_settings
+      where integration_key = 'dataforseo'`);
+  assert.equal(row.rows[0]!.last_check_status, 'NOT_CONFIGURED');
+
+  const audit = await pool.query(
+    `select detail from audit_log where action = 'settings.integration_test'`);
+  assert.equal(audit.rows.length, 1);
+});
+
+test('a manager cannot run a connection test', async () => {
+  const f = await fixture();
+  const response = await app.inject({
+    method: 'POST', url: '/settings/test', headers: { cookie: f.manager },
+    payload: { key: 'calcom' },
+  });
+  assert.equal(response.statusCode, 403);
+});
+
+test('analytics reports booked and attended as separate numbers', async () => {
+  const f = await fixture();
+  const page = await app.inject({ method: 'GET', url: '/analytics', headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Meetings booked/);
+  assert.match(page.body, /Attended/);
+  assert.match(page.body, /booked is not attended/,
+    'the page must say plainly that a booking is not an attendance');
+  assert.match(page.body, /Suppressed \/ DNC/,
+    'negative outcomes are shown, not hidden');
+});
+
+test('a call review is written by a person and the transcript is not rewritten', async () => {
+  const f = await fixture();
+  const { rows } = await pool.query<{ voice_call_id: string }>(
+    `insert into voice_calls (direction, agent_profile_id, mode_at_start, account_id, outcome)
+     values ('OUTBOUND', 'yad-sales-core-v1', 'INTERNAL_TEST', $1, 'CALLBACK')
+     returning voice_call_id`, [f.accountId]);
+  const callId = rows[0]!.voice_call_id;
+  await pool.query(
+    `insert into voice_call_turns (voice_call_id, turn_index, speaker, text)
+     values ($1, 0, 'AGENT', 'This is a cold call, so I will be brief.')`, [callId]);
+
+  const review = await app.inject({
+    method: 'POST', url: `/calls/${callId}/review`, headers: { cookie: f.manager },
+    payload: { qaScore: '64', rootCause: 'dialogue', reviewAction: 'NEEDS_SCRIPT_CHANGE',
+               hardFailure: 'true', reviewerNotes: 'Two questions in one turn.' },
+  });
+  assert.equal(review.statusCode, 302);
+
+  const after = await pool.query(
+    `select qa_score, root_cause, qa_hard_failure, reviewed_by from voice_calls where voice_call_id = $1`,
+    [callId]);
+  assert.equal(after.rows[0]!.qa_score, 64);
+  assert.equal(after.rows[0]!.qa_hard_failure, true);
+  assert.ok(after.rows[0]!.reviewed_by, 'the reviewer is recorded');
+
+  const turn = await pool.query(
+    `select text from voice_call_turns where voice_call_id = $1`, [callId]);
+  assert.equal(turn.rows[0]!.text, 'This is a cold call, so I will be brief.',
+    'reviewing a call must never change what was said on it');
+
+  const page = await app.inject({
+    method: 'GET', url: `/calls/${callId}`, headers: { cookie: f.manager } });
+  assert.match(page.body, /Never the model&#39;s internal reasoning|Never the model's internal reasoning/);
+});
+
+test('campaigns surface an account whose relationship outranks its campaign membership', async () => {
+  const f = await fixture();
+  const page = await app.inject({ method: 'GET', url: '/campaigns', headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Smartlead executes sending/,
+    'Smartlead is the execution provider, not the CRM');
+});
+
+test('the Call Pack preview is the snapshot, not whatever research says now', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/candidates', headers: { cookie: f.manager },
+    payload: { accountId: f.accountId },
+  });
+  const { rows } = await pool.query(
+    `select pilot_candidate_id, call_pack_id from pilot_candidates where account_id = $1`,
+    [f.accountId]);
+  assert.ok(rows[0]!.call_pack_id, 'a Call Pack is snapshotted when the candidate is added');
+
+  const page = await app.inject({
+    method: 'GET', url: `/ai/pilot?preview=${rows[0]!.pilot_candidate_id}`,
+    headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /What the agent would open with/);
+  assert.match(page.body, /This snapshot does not change when\s+research does/,
+    'the operator is told the preview is fixed');
+  assert.match(page.body, /must never claim/,
+    'the prohibitions are part of what is approved');
+
+  // Renaming the account afterwards must not rewrite the approved snapshot.
+  const before = await pool.query(
+    `select company_summary from call_packs where call_pack_id = $1`, [rows[0]!.call_pack_id]);
+  await pool.query(`update accounts set canonical_name = 'Renamed Co' where account_id = $1`,
+    [f.accountId]);
+  const after = await pool.query(
+    `select company_summary from call_packs where call_pack_id = $1`, [rows[0]!.call_pack_id]);
+  assert.equal(after.rows[0]!.company_summary, before.rows[0]!.company_summary);
+});
+
+test('a manager can queue a prospect from the account page without dialling', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: `/accounts/${f.accountId}`, headers: { cookie: f.manager } });
+  assert.match(page.body, /Add to the pilot list/);
+  assert.match(page.body, /It does not dial/);
+
+  const rep = await app.inject({
+    method: 'GET', url: `/accounts/${f.accountId}`, headers: { cookie: f.rep } });
+  assert.equal(/Add to the pilot list/.test(rep.body), false,
+    'a rep has no route into the outbound control plane');
+});
+
+test('the audit trail shows what was done, and nothing can change it there', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_mode', value: 'INTERNAL_TEST', reason: 'gate rehearsal' },
+  });
+
+  const page = await app.inject({ method: 'GET', url: '/audit', headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /voice_pilot\.switch/);
+  assert.match(page.body, /gate rehearsal/, 'the reason is part of the record');
+  assert.match(page.body, /Manager/, 'the actor is named');
+  assert.match(page.body, /Nothing on this page can change one/);
+
+  // The page offers no way to mutate an audit row, and no such route exists.
+  assert.equal(/action="\/audit\/[^"]*"/.test(page.body), false);
+});
+
+test('the audit trail filters, and says when a filter value was unusable', async () => {
+  const f = await fixture();
+  await app.inject({
+    method: 'POST', url: '/ai/pilot/candidates', headers: { cookie: f.manager },
+    payload: { accountId: f.accountId },
+  });
+
+  const matching = await app.inject({
+    method: 'GET', url: '/audit?action=pilot.add_candidate', headers: { cookie: f.manager } });
+  assert.match(matching.body, /pilot\.add_candidate/);
+
+  const empty = await app.inject({
+    method: 'GET', url: '/audit?action=nothing.ever.happened', headers: { cookie: f.manager } });
+  assert.match(empty.body, /No events match these filters/);
+  assert.match(empty.body, /Clear filters/);
+
+  const bad = await app.inject({
+    method: 'GET', url: '/audit?actor=not-a-uuid', headers: { cookie: f.manager } });
+  assert.equal(bad.statusCode, 200);
+  assert.match(bad.body, /Ignored actor/);
+});
+
+test('an audit detail never renders a secret-looking field', async () => {
+  const f = await fixture();
+  await pool.query(
+    `insert into audit_log (actor_user_id, action, subject_type, subject_id, detail)
+     values (null, 'test.event', 'thing', 'x', $1::jsonb)`,
+    [JSON.stringify({ api_key: 'sk-should-never-render', outcome: 'ok' })]);
+
+  const page = await app.inject({ method: 'GET', url: '/audit', headers: { cookie: f.manager } });
+  assert.equal(page.body.includes('sk-should-never-render'), false,
+    'a key-shaped field is filtered out of the detail summary');
+  assert.match(page.body, /outcome: ok/);
+});
+
+test('a rep cannot read the audit trail', async () => {
+  const f = await fixture();
+  const page = await app.inject({ method: 'GET', url: '/audit', headers: { cookie: f.rep } });
+  assert.equal(page.statusCode, 403);
+});
+
+test('global search resolves a phone number to its canonical account', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=904-555-0142', headers: { cookie: f.rep } });
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /Palmetto Plumbing/,
+    'a number typed the way a person writes it must find the account it belongs to');
+  assert.match(page.body, new RegExp(`/accounts/${f.accountId}`),
+    'the hit opens the canonical account, not a search-only view');
+});
+
+test('global search shows suppression on the result rather than after the click', async () => {
+  const f = await fixture();
+  await pool.query(`update accounts set is_suppressed = true where account_id = $1`, [f.accountId]);
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  assert.match(page.body, /Suppressed/,
+    'a rep must see that a company cannot be contacted before opening it');
+});
+
+test('search finds nothing it has not researched, and says so', async () => {
+  const f = await fixture();
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Acme%20Unresearched%20Co', headers: { cookie: f.rep } });
+  assert.match(page.body, /Nothing matches/);
+  assert.match(page.body, /Searching does not create a record|has not been researched/,
+    'the empty state must not imply the company simply does not exist');
+});
+
+test('search ranks an exact company name above an incidental match', async () => {
+  const f = await fixture();
+  await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Palmetto', website: 'https://palmetto-exact.example.com',
+    phone: '904-555-0143', city: 'Jacksonville', state: 'FL', postalCode: '32256',
+  }, { discoverySource: 'test' }));
+
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  const exactAt = page.body.indexOf('>Palmetto<');
+  const partialAt = page.body.indexOf('Palmetto Plumbing');
+  assert.ok(exactAt > -1 && partialAt > -1, 'both accounts are found');
+  assert.ok(exactAt < partialAt, 'the exact name comes first');
+});
+
+test('a short digit string is not treated as a phone number', async () => {
+  const f = await fixture();
+  // "904" is an area code, not a line. Matching it against every number in the book
+  // would bury the result a rep actually wants.
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=904', headers: { cookie: f.rep } });
+  assert.equal(/Phone: /.test(page.body), false,
+    'three digits do not identify a line');
+});
+
+test('search shows the relationship so a rep sees an account already in play', async () => {
+  const f = await fixture();
+  await pool.query(
+    `update accounts set relationship_state = 'MEETING_SCHEDULED' where account_id = $1`,
+    [f.accountId]);
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  assert.match(page.body, /Meeting scheduled/i);
+});
+
+test('a suppressed account sorts below one that can be worked', async () => {
+  const f = await fixture();
+  const { accountId: workable } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Palmetto Roofing', website: 'https://palmetto-roofing.example.com',
+    phone: '904-555-0144', city: 'Jacksonville', state: 'FL', postalCode: '32256',
+  }, { discoverySource: 'test' }));
+  await pool.query(`update accounts set is_suppressed = true where account_id = $1`, [f.accountId]);
+
+  const page = await app.inject({
+    method: 'GET', url: '/search?q=Palmetto', headers: { cookie: f.rep } });
+  const workableAt = page.body.indexOf('Palmetto Roofing');
+  const suppressedAt = page.body.indexOf('Palmetto Plumbing');
+  assert.ok(workableAt > -1 && suppressedAt > -1);
+  assert.ok(workableAt < suppressedAt,
+    'a rep sees what they can work before what they cannot');
+  assert.ok(workable);
+});
+
+test('an anonymous caller cannot search', async () => {
+  await fixture();
+  const page = await app.inject({ method: 'GET', url: '/search?q=Palmetto' });
+  assert.equal(page.statusCode, 302);
+  assert.equal(page.headers.location, '/login');
+});

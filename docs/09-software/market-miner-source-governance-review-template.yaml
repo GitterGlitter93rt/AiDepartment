@@ -1,0 +1,130 @@
+template_id: yad_market_miner_source_governance_v1
+version: 1.0.0
+status: template
+purpose: Complete before production use of an external discovery, enrichment, research, telecom, messaging, or AI provider.
+
+provider:
+  provider_id: null
+  provider_name: null
+  provider_type: null
+  website: null
+  api_docs: null
+  terms_url: null
+  privacy_url: null
+  pricing_url: null
+  account_plan: null
+  review_date: null
+  reviewed_by: []
+
+capabilities:
+  countries: []
+  operations: []
+  async_supported: false
+  live_supported: false
+  sandbox_or_test_mode: false
+  provider_native_ids: []
+
+business_use_review:
+  intended_yad_use: null
+  approved: false
+  prohibited_or_unclear_uses: []
+  notes: null
+
+retention:
+  raw_response_retention_allowed: unknown
+  raw_response_max_duration: null
+  normalized_fields_retention_allowed: unknown
+  provider_native_id_retention_allowed: unknown
+  derived_data_rules: null
+  attribution_requirements: null
+  deletion_requirements: null
+  contract_termination_deletion_rule: null
+  notes: null
+
+field_matrix:
+  # Add rows for important fields.
+  - field: example_field
+    may_retrieve: unknown
+    may_store_raw: unknown
+    may_store_normalized: unknown
+    retention_limit: null
+    may_export: unknown
+    notes: null
+
+rate_limits:
+  requests_per_second: null
+  requests_per_minute: null
+  daily_or_monthly_quota: null
+  concurrency_limit: null
+  provider_retry_after_supported: unknown
+  notes: null
+
+pricing:
+  currency: USD
+  model: null
+  base_price: null
+  per_request_or_unit: null
+  queue_vs_live_difference: null
+  minimum_monthly_commitment: null
+  overage: null
+  last_verified: null
+  notes: null
+
+security:
+  auth_type: null
+  secrets_server_side_only: true
+  ip_allowlist_supported: unknown
+  webhook_signature_supported: unknown
+  data_encryption_claims_reviewed: false
+  subprocessor_or_region_notes: null
+
+reliability:
+  status_page: null
+  documented_sla: null
+  common_error_codes: []
+  idempotency_support: unknown
+  task_status_lookup: unknown
+  webhook_callback_support: unknown
+
+adapter_policy:
+  default_timeout_ms: null
+  retryable_errors: []
+  non_retryable_errors: []
+  max_retries: null
+  fallback_provider: null
+  fail_behavior: unknown_not_negative
+  circuit_breaker_threshold: null
+
+cost_controls:
+  global_daily_cap: null
+  campaign_cap_supported: true
+  integration_test_cap: null
+  alert_thresholds: []
+
+quality_benchmark:
+  benchmark_plan: null
+  benchmark_completed: false
+  precision: null
+  geography_accuracy: null
+  unique_yield: null
+  cost_per_unique_account: null
+  cost_per_tier_b_plus: null
+  sample_size: null
+  benchmark_date: null
+
+compliance_or_policy_notes:
+  communication_provider: false
+  telecom_provider: false
+  personal_data_provider: false
+  AI_model_provider: false
+  special_review_required: []
+
+approval:
+  architecture_approved: false
+  security_approved: false
+  legal_or_terms_review_required: false
+  legal_or_terms_approved: false
+  production_approved: false
+  approved_at: null
+  expires_or_review_due: null
+  decision_notes: null

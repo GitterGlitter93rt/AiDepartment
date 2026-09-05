@@ -1,0 +1,690 @@
+profile_id: plumbing-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Plumbing
+industry_aliases:
+  - plumber
+  - plumbing contractor
+  - drain and sewer contractor
+priority: 2
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-11-plumbing-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - service_repair
+    - drain_sewer
+    - water_heaters
+    - repipes
+    - larger_projects
+    - remodel_plumbing
+    - commercial_projects
+    - memberships_recurring
+  lead_types:
+    - urgent_service_call
+    - emergency_call
+    - drain_sewer_call
+    - water_heater_call
+    - larger_estimate
+    - web_form
+    - paid_search_lead
+    - referral
+    - existing_customer
+  customer_types:
+    - residential_homeowner
+    - light_commercial
+  high_value_service_families:
+    - repipe
+    - sewer_replacement
+    - water_line_replacement
+    - tankless_installation
+    - water_heater_replacement
+    - major_drain_sewer
+    - remodel_project
+    - commercial_project
+  recurring_revenue_families:
+    - membership
+    - priority_service
+    - inspection
+    - maintenance
+  urgency_characteristics:
+    - active_leak
+    - backed_up_drain
+    - no_hot_water
+    - emergency_service
+    - after_hours_on_call
+  seasonality_characteristics:
+    - weather_event_dependent
+    - freeze_event_dependent
+    - normal_year_round_urgent_demand
+  phone_dependence: high
+  appointment_dependence: high
+  estimate_proposal_dependence: medium_high
+  field_service_dependence: high
+
+search_taxonomy:
+  core_queries:
+    - query: plumber
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: plumbing contractor
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: emergency plumber
+      family: urgent_service
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: drain cleaning
+      family: drain_sewer
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: water heater repair
+      family: water_heater
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: sewer repair
+      family: drain_sewer
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: repipe
+      family: larger_project
+      intent_weight: 5
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency plumber
+    - 24 hour plumber
+    - burst pipe plumber
+    - clogged drain plumber
+    - emergency drain cleaning
+    - water heater repair
+  high_ticket_queries:
+    - repipe
+    - whole house repipe
+    - sewer replacement
+    - trenchless sewer repair
+    - tankless water heater installation
+    - water heater replacement
+    - water line replacement
+  financing_queries:
+    - plumbing financing
+    - sewer financing
+    - repipe financing
+    - water heater financing
+  commercial_queries:
+    - commercial plumber
+    - commercial plumbing contractor
+  service_aliases:
+    - drain
+    - sewer
+    - repipe
+    - water heater
+    - tankless
+    - leak repair
+  negative_terms:
+    - plumbing supply
+    - wholesale plumbing
+    - plumbing school
+    - plumbing training
+    - parts supplier
+    - manufacturer only
+  classification_warning_terms:
+    - handyman
+    - septic only
+    - restoration only
+    - leak detection only
+
+classification_rules:
+  positive_business_categories:
+    - plumber
+    - plumbing_contractor
+    - drain_sewer_contractor
+    - mechanical_contractor_plumbing
+  negative_business_categories:
+    - supply_house
+    - wholesaler
+    - training_school
+    - manufacturer_only
+  website_keyword_positive:
+    - plumbing repair
+    - emergency plumber
+    - drain cleaning
+    - sewer repair
+    - water heater
+    - repipe
+    - tankless
+  website_keyword_negative:
+    - plumbing supplies only
+    - trade school
+  required_any_of:
+    - plumbing_service_evidence
+    - drain_sewer_service_evidence
+    - water_heater_service_evidence
+  exclude_if_all:
+    - non_service_business
+    - no_customer_plumbing_service_evidence
+  manual_review_if:
+    - lead_generation_site_possible
+    - franchise_parent_child_ambiguous
+    - septic_plumbing_mix_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Plumbing search intent can be urgent; current paid acquisition makes call handling, response, booking and attribution economically relevant to investigate.
+    possible_hypothesis_ids:
+      - paid_urgent_call_handling
+      - speed_to_lead
+      - attribution_gap
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Provides additional paid-demand signal, especially for larger projects/offers.
+    possible_hypothesis_ids:
+      - lead_follow_up
+      - larger_estimate_follow_up
+      - attribution_gap
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: emergency_24_7
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: Creates after-hours and simultaneous-call handling relevance.
+    possible_hypothesis_ids:
+      - paid_urgent_call_handling
+      - missed_call_recovery
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: high_value_drain_sewer_repipe
+    category: high_value_service
+    evidence_claim_key: high_value_plumbing_services
+    confidence_required: confirmed
+    why_it_matters: Larger projects can make estimate and financing follow-up more material.
+    possible_hypothesis_ids:
+      - larger_estimate_follow_up
+    score_rule_reference: module4c_high_value_plus2_if_vertical_model_rule_satisfied
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Raises routing, process consistency, attribution and reporting complexity.
+    possible_hypothesis_ids:
+      - routing_consistency
+      - attribution_gap
+      - employee_capacity
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: online_booking_quote
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Creates an observable digital intake path worth mapping.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - crm_capture
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: May indicate growth/capacity pressure worth investigating.
+    possible_hypothesis_ids:
+      - employee_capacity
+    score_rule_reference: module4c_growth_plus1
+  - signal_id: membership_program
+    category: recurring_revenue
+    evidence_claim_key: membership_program
+    confidence_required: confirmed
+    why_it_matters: Creates retention/reactivation workflow relevance.
+    possible_hypothesis_ids:
+      - reactivation
+    score_rule_reference: vertical_priority_signal_only
+
+customer_journey:
+  - stage_id: problem_occurs
+    label: Plumbing problem occurs
+    common_inputs: [leak, clog, no_hot_water, sewer_problem, project_need]
+    common_outputs: [search, referral, previous_customer]
+    handoff_risks: []
+    human_judgment_required: false
+  - stage_id: acquisition
+    label: Search / referral / previous customer
+    common_inputs: [google, maps, referral, paid_ad, existing_customer]
+    common_outputs: [call, form]
+    handoff_risks: [attribution_loss]
+    human_judgment_required: false
+  - stage_id: intake_response
+    label: Answer / response / basic intake
+    common_inputs: [call, web_form]
+    common_outputs: [lead_record, appointment]
+    handoff_risks: [missed_call, slow_response, no_record, mixed_call_types]
+    human_judgment_required: true
+  - stage_id: scheduling_dispatch
+    label: Schedule / dispatch
+    common_inputs: [lead_record, service_request]
+    common_outputs: [technician_visit]
+    handoff_risks: [skill_matching, routing, rescheduling, ETA_load, emergency_prioritization]
+    human_judgment_required: true
+  - stage_id: technician_visit
+    label: Technician visit / diagnosis / options
+    common_inputs: [dispatched_job]
+    common_outputs: [approval, estimate, work]
+    handoff_risks: [estimate_handoff, incomplete_notes]
+    human_judgment_required: true
+  - stage_id: estimate_sale
+    label: Approval or larger estimate
+    common_inputs: [options, estimate]
+    common_outputs: [won, open_estimate, lost]
+    handoff_risks: [no_defined_follow_up, financing_gap, lost_reason_missing]
+    human_judgment_required: true
+  - stage_id: completion_retention
+    label: Work / payment / review / membership / future service
+    common_inputs: [completed_job]
+    common_outputs: [review, membership, future_service]
+    handoff_risks: [review_inconsistency, membership_lapse, reactivation_gap]
+    human_judgment_required: false
+  - stage_id: reporting
+    label: Source-to-revenue reporting
+    common_inputs: [lead_source, booking, job, revenue]
+    common_outputs: [management_visibility]
+    handoff_risks: [source_revenue_disconnect, manual_reporting]
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: paid_urgent_call_handling
+    category: after_hours
+    title: Paid urgent-call handling
+    description: Paid/urgent plumbing calls may require immediate capture/recovery when office staff are tied up or after hours.
+    trigger_signals: [active_google_search_ads, emergency_24_7, strong_phone_dependence]
+    disqualifying_signals: [prospect_confirms_strong_live_answer_overflow]
+    public_fact_requirements: [fresh_paid_ad_evidence_if_ad_referenced]
+    questions_to_verify:
+      - What happens when an urgent new customer calls and everybody is tied up?
+      - What happens after hours?
+      - Do missed callers automatically receive acknowledgement or a callback task?
+    primary_hook_template: I noticed you're advertising around {{advertised_service}} in {{market}}. When one of those paid calls comes in while the office is already tied up, what happens next?
+    backup_hook_templates:
+      - When three calls hit at once, what happens to the third caller?
+      - What happens to an emergency call that reaches voicemail?
+    offer_families: [ai_phone_agent, workflow_automation, ai_growth_systems]
+    roi_tool_ids: [missed_call_roi, lead_response_roi]
+    must_not_claim: [every_missed_call_is_new_customer, exact_missed_call_rate, exact_lost_revenue]
+  - hypothesis_id: speed_to_lead
+    category: speed_to_lead
+    title: Paid/web lead response
+    description: Forms and paid inquiries may require fast assignment, acknowledgement and callback.
+    trigger_signals: [active_google_search_ads, active_meta_ads, online_booking_quote]
+    disqualifying_signals: [prospect_confirms_fast_measured_response]
+    public_fact_requirements: []
+    questions_to_verify:
+      - How quickly are forms contacted?
+      - What happens when a customer doesn't answer the first callback?
+      - Does every inquiry enter the field-service/CRM platform?
+    primary_hook_template: How quickly does a new {{lead_type}} get a real response when it comes in outside normal office flow?
+    backup_hook_templates:
+      - What happens after a new customer misses the first callback?
+    offer_families: [workflow_automation, crm_system, ai_growth_systems]
+    roi_tool_ids: [lead_response_roi]
+    must_not_claim: [current_response_time_without_measurement]
+  - hypothesis_id: larger_estimate_follow_up
+    category: unsold_estimate
+    title: Larger plumbing estimate follow-up
+    description: Repipes, sewer, water-heater and other larger estimates may need defined next steps and visibility if not approved immediately.
+    trigger_signals: [high_value_drain_sewer_repipe, financing_promoted]
+    disqualifying_signals: [prospect_confirms_strong_estimate_process]
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a larger estimate that doesn't sell on the first visit?
+      - Who owns follow-up?
+      - Can management see untouched open estimates?
+    primary_hook_template: What happens to a {{service}} estimate that doesn't sell on the first visit?
+    backup_hook_templates:
+      - Who owns open estimates seven or thirty days later?
+    offer_families: [crm_system, workflow_automation, ai_growth_systems]
+    roi_tool_ids: [unsold_estimate_roi]
+    must_not_claim: [entire_open_pipeline_is_recoverable, fixed_close_rate_gain]
+  - hypothesis_id: attribution_gap
+    category: attribution
+    title: Marketing-to-collected-revenue attribution
+    description: Plumbing marketing may create calls/forms without complete source-to-booking-to-revenue visibility.
+    trigger_signals: [active_google_search_ads, active_meta_ads, call_tracking_signal, multiple_locations]
+    disqualifying_signals: [prospect_confirms_closed_loop_attribution]
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you tell which channel produces booked jobs rather than just leads?
+      - Can you trace Google spend to collected plumbing revenue?
+      - Are phone calls attributed to their source?
+    primary_hook_template: Can you trace your Google leads all the way through booked jobs and collected revenue, or is some of that still hard to see?
+    backup_hook_templates:
+      - Do you know cost per booked job or mainly cost per lead?
+    offer_families: [ai_growth_systems, crm_system, workflow_automation]
+    roi_tool_ids: [advertising_efficiency]
+    must_not_claim: [advertising_is_wasted, agency_is_bad]
+  - hypothesis_id: employee_capacity
+    category: employee_capacity
+    title: Dispatcher / CSR capacity
+    description: Repetitive status, scheduling, CRM and customer communication tasks may consume front-office capacity around judgment-heavy work.
+    trigger_signals: [visible_hiring, multiple_locations, emergency_24_7]
+    disqualifying_signals: [prospect_confirms_no_capacity_problem]
+    public_fact_requirements: []
+    questions_to_verify:
+      - What repetitive task buries dispatch during busy periods?
+      - Where are employees entering the same customer information twice?
+      - If call volume doubled tomorrow, where would the office break first?
+    primary_hook_template: What repetitive task buries your dispatch or front-office team when volume gets heavy?
+    backup_hook_templates:
+      - If you gave the dispatcher five hours back every week, where would you want those hours spent?
+    offer_families: [workflow_automation, ai_implementation, managed_ai_department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [employees_are_wasteful, recovered_time_is_payroll_savings]
+  - hypothesis_id: reactivation
+    category: reactivation
+    title: Past-customer / old-estimate reactivation
+    description: Past customers, memberships and old estimates may contain legitimate future service opportunities if contact permissions/workflows allow.
+    trigger_signals: [membership_program, recurring_service_model, larger_estimate_services]
+    disqualifying_signals: [prospect_confirms_strong_reactivation_program]
+    public_fact_requirements: []
+    questions_to_verify:
+      - How are old estimates followed up over time?
+      - How are lapsed members or past customers reactivated?
+    primary_hook_template: What happens to old estimates or past customers once they fall out of the active queue?
+    backup_hook_templates:
+      - How do you identify customers who are worth contacting again for legitimate recurring service?
+    offer_families: [workflow_automation, ai_growth_systems]
+    roi_tool_ids: [lead_reactivation_roi]
+    must_not_claim: [entire_database_is_recoverable_revenue]
+
+# Static vertical characteristics used as signals only after business classification is sufficiently confident.
+derived_signals:
+  strong_phone_dependence: true
+  appointment_estimate_intake_heavy: true
+  high_value_service_terms:
+    - repipe
+    - sewer replacement
+    - tankless
+    - water heater replacement
+    - water line replacement
+    - major drain
+  crm_frontend_signal_examples:
+    - ServiceTitan
+    - Housecall Pro
+    - Jobber
+    - HubSpot
+    - Salesforce
+
+# Roles.
+decision_maker_roles:
+  - role_category: owner
+    titles: [owner, founder, president]
+    relevant_hypothesis_ids: [paid_urgent_call_handling, larger_estimate_follow_up, attribution_gap, employee_capacity]
+    priority: 1
+  - role_category: general_manager
+    titles: [general manager, GM]
+    relevant_hypothesis_ids: [paid_urgent_call_handling, employee_capacity, attribution_gap]
+    priority: 1
+  - role_category: operations
+    titles: [operations manager, service manager, dispatch manager]
+    relevant_hypothesis_ids: [paid_urgent_call_handling, employee_capacity, crm_capture]
+    priority: 1
+  - role_category: sales
+    titles: [sales manager, estimator manager]
+    relevant_hypothesis_ids: [larger_estimate_follow_up]
+    priority: 1
+  - role_category: marketing
+    titles: [marketing manager, marketing director]
+    relevant_hypothesis_ids: [attribution_gap, speed_to_lead]
+    priority: 1
+  - role_category: office_manager
+    titles: [office manager, CSR manager]
+    relevant_hypothesis_ids: [paid_urgent_call_handling, employee_capacity]
+    priority: 2
+
+system_families:
+  - system_family_id: field_service_platforms
+    names: [ServiceTitan, Housecall Pro, Jobber]
+    category: field_service_crm
+    frontend_detection_terms: [servicetitan, housecallpro, jobber]
+    positioning_rule: Treat existing software as positive. Diagnose configuration, capture, follow-up, attribution, reactivation and employee usage rather than assuming replacement.
+    questions:
+      - Does every new inquiry enter the system?
+      - What happens automatically after no contact?
+      - Can revenue be tied back to source?
+  - system_family_id: general_crm
+    names: [HubSpot, Salesforce, HighLevel, GoHighLevel]
+    category: crm
+    frontend_detection_terms: [hubspot, salesforce, leadconnector, gohighlevel]
+    positioning_rule: Existing CRM is part of the solution landscape, not an objection to defeat.
+    questions:
+      - Are phone calls, forms, estimates and revenue visible in one workflow?
+  - system_family_id: call_tracking
+    names: [CallRail, other_call_tracking]
+    category: call_tracking
+    frontend_detection_terms: [callrail]
+    positioning_rule: Call tracking signal does not prove booked-job/revenue attribution.
+    questions:
+      - Can those calls be tied through to sold jobs and collected revenue?
+
+hook_priorities:
+  - hook_family: paid_urgent_calls
+    base_priority: 100
+    boost_if_signals: [active_google_search_ads, emergency_24_7]
+    demote_if_signals: [prospect_confirms_strong_live_answer_overflow]
+    avoid_if: []
+    question_templates:
+      - I noticed you're advertising around {{service}}. When one of those calls comes in while everybody is tied up, what happens next?
+  - hook_family: larger_estimate_follow_up
+    base_priority: 90
+    boost_if_signals: [high_value_drain_sewer_repipe, financing_promoted]
+    demote_if_signals: [prospect_confirms_strong_estimate_process]
+    avoid_if: []
+    question_templates:
+      - What happens to a larger {{service}} estimate that doesn't sell on the first visit?
+  - hook_family: attribution
+    base_priority: 80
+    boost_if_signals: [active_google_search_ads, active_meta_ads, multiple_locations]
+    demote_if_signals: [prospect_confirms_closed_loop_attribution]
+    avoid_if: []
+    question_templates:
+      - Can you trace Google spend through booked jobs to collected revenue?
+  - hook_family: employee_capacity
+    base_priority: 70
+    boost_if_signals: [visible_hiring, multiple_locations, emergency_24_7]
+    demote_if_signals: [prospect_confirms_no_capacity_problem]
+    avoid_if: []
+    question_templates:
+      - What repetitive task buries dispatch during busy periods?
+
+# Compact banks; Sales Manual retrieval remains available for deeper discovery.
+discovery_question_banks:
+  phone_after_hours:
+    - How many inbound calls do you receive in a typical month?
+    - What happens after hours?
+    - Do you measure unanswered calls?
+    - What percentage are legitimate new-business opportunities?
+  lead_generation:
+    - Which marketing channels are active?
+    - Which services are most valuable?
+    - Can you trace marketing to collected revenue?
+  systems_crm:
+    - Which field-service or CRM platform do you use?
+    - Does every lead make it into the system?
+    - What happens when a customer doesn't answer the first callback?
+  estimates:
+    - Which larger jobs require estimates?
+    - What happens to an unsold larger estimate?
+    - Who owns untouched leads or estimates seven days later?
+  employee_capacity:
+    - What front-office task consumes the most time?
+    - Where is information entered more than once?
+    - If volume grew fifty percent, where would the office break first?
+  reactivation:
+    - How are old customers or leads reactivated?
+  reporting:
+    - What business number is hardest to see quickly?
+
+roi_tools:
+  - roi_tool_id: missed_call_roi
+    name: Missed Call ROI
+    relevant_hypothesis_ids: [paid_urgent_call_handling]
+    required_inputs: [monthly_inbound_calls, unanswered_percent, legitimate_new_business_percent, scenario_capture_close_percent, average_customer_revenue]
+    prohibited_shortcuts: [every_missed_call_is_customer, hundred_percent_capture]
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids: [speed_to_lead]
+    required_inputs: [lead_volume, response_process, outcome_data_or_measurement_plan]
+    prohibited_shortcuts: [invented_speed_gain]
+  - roi_tool_id: unsold_estimate_roi
+    name: Unsold Estimate Follow-Up ROI
+    relevant_hypothesis_ids: [larger_estimate_follow_up]
+    required_inputs: [unsold_estimate_count, average_estimate_value, illustrative_incremental_close_rate]
+    prohibited_shortcuts: [entire_pipeline_recoverable]
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids: [employee_capacity]
+    required_inputs: [employees, repetitive_hours_per_week, addressable_percent, loaded_hourly_cost_or_measurement_plan]
+    prohibited_shortcuts: [call_capacity_payroll_savings]
+  - roi_tool_id: lead_reactivation_roi
+    name: Lead Reactivation ROI
+    relevant_hypothesis_ids: [reactivation]
+    required_inputs: [contactable_population, response_rate_or_scenario, qualification_rate_or_scenario, close_rate_or_scenario, customer_value]
+    prohibited_shortcuts: [entire_database_value]
+
+objection_guidance:
+  - objection_id: answering_service
+    match_phrases: [our answering service handles after hours, we have an answering service]
+    principle: Do not replace what works. Diagnose whether it creates a structured next step and visibility.
+    response_guidance: Ask whether it creates a structured lead, captures needed information and gives management visibility into response/booking.
+    follow_up_questions:
+      - Does it create the lead in your system and can you see whether it booked?
+    must_not_say: [answering_services_are_bad]
+    manual_reference: module-11 section 29
+  - objection_id: existing_field_service_software
+    match_phrases: [we have ServiceTitan, we use Housecall Pro, we use Jobber, we already have software]
+    principle: Software ownership is not the same as workflow quality, but do not criticize unreviewed platforms.
+    response_guidance: Ask what the system does well and what they wish it did better.
+    follow_up_questions:
+      - What is the biggest thing you wish the system did better?
+    must_not_say: [you_need_our_crm_instead]
+    manual_reference: module-11 section 29
+  - objection_id: dispatchers_handle_it
+    match_phrases: [our dispatchers handle that]
+    principle: Preserve judgment-heavy dispatch; investigate repetitive surrounding work.
+    response_guidance: Focus on repetitive communication/data work that may create capacity.
+    follow_up_questions:
+      - Which routine tasks take the most dispatcher time away from exceptions and customers?
+    must_not_say: [replace_dispatchers]
+    manual_reference: module-11 section 29
+  - objection_id: referrals
+    match_phrases: [most of our business is referrals]
+    principle: Referral demand can still benefit from capture/follow-up/attribution if the prospect has a problem.
+    response_guidance: Ask how referral calls are captured, followed and attributed.
+    follow_up_questions:
+      - How consistently are those referral calls captured and followed up today?
+    must_not_say: [referrals_are_not_scalable]
+    manual_reference: module-11 section 29
+  - objection_id: dont_need_ai
+    match_phrases: [we don't need AI, don't need AI]
+    principle: The problem may require ordinary automation, CRM configuration, integration or nothing.
+    response_guidance: Agree that AI is not automatically necessary; return to business workflow.
+    follow_up_questions:
+      - Is there any expensive workflow problem you're actually trying to fix today?
+    must_not_say: [every_business_needs_ai]
+    manual_reference: module-11 section 29
+
+safety_boundaries:
+  - boundary_id: plumbing_dispatch_safety
+    category: technical_safety
+    prohibited_agent_claims:
+      - autonomous_safety_critical_dispatch_without_review
+      - plumbing_diagnosis_as_sales_agent
+      - emergency_hazard_decision_without_approved_escalation
+      - code_or_repair_authority
+    human_required_for:
+      - technical_diagnosis
+      - safety_critical_dispatch
+      - repair_decision
+      - code_compliance
+    escalation_guidance: Qualified plumbing personnel retain technical/safety judgment; YAD focuses on intake, routing, scheduling support, communication, CRM and follow-up.
+
+no_sale_conditions:
+  - very_low_call_lead_volume
+  - economics_too_small
+  - current_workflow_strong_and_measured
+  - no_decision_path
+  - guaranteed_results_required
+  - staff_replacement_is_primary_goal_without_process_case
+  - required_integration_infeasible
+  - security_human_controls_refused
+  - no_meaningful_pain
+
+scoring_overrides:
+  canonical_model: module_04c
+  tier_thresholds:
+    A: 9
+    B_min: 6
+    B_max: 8
+    C_min: 3
+    C_max: 5
+    D_max: 2
+  vertical_priority_signals:
+    - active_google_search_ads
+    - emergency_24_7
+    - drain_sewer
+    - water_heaters
+    - financing
+    - multiple_trucks
+    - multiple_locations
+    - membership
+    - visible_hiring
+    - active_meta_ads
+    - substantial_website_funnel
+  note: Preserve the general Module 4C score as the auditable canonical score. Vertical-only signals may influence queue tie-break ranking unless leadership explicitly changes the canonical scoring model.
+
+research_requirements:
+  required_before_score: [identity_attempted, vertical_classification_attempted, website_resolution_attempted]
+  recommended_before_human_queue: [website_research, paid_google_check, phone_verification, crm_technology_detection, decision_maker_search_attempted]
+  required_before_research_specific_hook: [referenced_evidence_fresh, referenced_evidence_confirmed]
+  refresh_before_call:
+    - active_google_search_ad_if_older_than_48_hours
+    - active_meta_ad_if_older_than_48_hours
+    - time_sensitive_offer_if_older_than_7_days
+
+call_pack_defaults:
+  default_primary_hook_family: paid_urgent_calls
+  default_backup_hook_family: larger_estimate_follow_up
+  default_first_questions:
+    - What happens when an urgent new customer calls and dispatch can't answer immediately?
+    - What happens after hours?
+    - What happens to a larger estimate that doesn't sell on the first visit?
+  common_objection_ids: [answering_service, existing_field_service_software, dispatchers_handle_it, referrals, dont_need_ai]
+  vertical_truth_boundaries:
+    - never_invent_ticket_size
+    - never_invent_ad_spend
+    - never_invent_missed_call_rate
+    - never_invent_close_rate
+    - never_claim_frontend_system_signal_proves_backend_workflow
+    - never_promise_safety_critical_autonomous_dispatch
+  preferred_next_step: strategy_call_or_workflow_measurement_review

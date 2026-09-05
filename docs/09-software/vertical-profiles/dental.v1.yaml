@@ -1,0 +1,469 @@
+profile_id: dental-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Dental Practices
+industry_aliases:
+  - dentist
+  - dental practice
+  - dental office
+  - cosmetic dentist
+  - implant dentist
+priority: 9
+country_scope: [US]
+source_manual_paths:
+  - docs/07-sales/training-manual/module-18-dental-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - preventive_hygiene
+    - restorative
+    - crowns_bridges
+    - implants
+    - cosmetic
+    - orthodontic_aligners
+    - specialty_procedures
+    - emergency_dentistry
+    - memberships_plans
+  lead_types:
+    - new_patient_phone
+    - paid_search
+    - organic_search
+    - referral
+    - insurance_directory
+    - web_form
+    - appointment_request
+  customer_types: [patients]
+  high_value_service_families:
+    - dental_implants
+    - cosmetic_dentistry
+    - orthodontic_aligner
+    - full_arch_or_specialty_treatment
+  recurring_revenue_families:
+    - hygiene_recall
+    - memberships
+  urgency_characteristics:
+    - dental_emergency
+    - pain_related_inquiry
+  seasonality_characteristics: [practice_dependent]
+  phone_dependence: high
+  appointment_dependence: very_high
+  estimate_proposal_dependence: medium
+  field_service_dependence: none
+
+search_taxonomy:
+  core_queries:
+    - query: dentist
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: dental office
+      family: core
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: emergency dentist
+      family: urgent
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: dental implants
+      family: high_value
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: cosmetic dentist
+      family: high_value
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: clear aligners dentist
+      family: high_value
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency dentist
+    - same day dentist
+    - tooth pain dentist
+  high_ticket_queries:
+    - dental implants
+    - cosmetic dentistry
+    - full arch implants
+    - clear aligners
+  financing_queries:
+    - dental financing
+    - dental implant financing
+  commercial_queries: []
+  service_aliases:
+    - implant dentist
+    - cosmetic dentistry
+    - family dentist
+    - emergency dental
+  negative_terms:
+    - dental school
+    - dental supplies
+    - dental lab only
+    - dental equipment
+  classification_warning_terms:
+    - oral surgery only
+    - orthodontics specialty
+    - dental lab
+
+classification_rules:
+  positive_business_categories:
+    - dentist
+    - dental_practice
+    - cosmetic_dentist
+    - implant_dentist
+  negative_business_categories:
+    - dental_supply
+    - dental_school
+    - dental_lab_only
+  website_keyword_positive:
+    - new patients
+    - dental implants
+    - cosmetic dentistry
+    - emergency dentist
+    - schedule appointment
+  website_keyword_negative:
+    - dental supplies
+    - dental laboratory services only
+  required_any_of:
+    - patient_care_service_evidence
+    - appointment_service_evidence
+  exclude_if_all:
+    - non_patient_service_business
+  manual_review_if:
+    - specialty_practice_context_needed
+    - multi_location_dso_relationship_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Paid new-patient/high-value treatment acquisition makes response, scheduling, follow-up and attribution questions relevant.
+    possible_hypothesis_ids: [new_patient_response, unscheduled_treatment, attribution]
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: emergency_service
+    category: urgency
+    evidence_claim_key: emergency_24_7_service
+    confidence_required: confirmed
+    why_it_matters: Makes phone responsiveness and overflow relevant.
+    possible_hypothesis_ids: [new_patient_response]
+    score_rule_reference: module4c_after_hours_plus1
+  - signal_id: online_booking
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Shows observable scheduling entry point.
+    possible_hypothesis_ids: [scheduling_no_show, new_patient_response]
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Increases routing, reporting and process-consistency needs.
+    possible_hypothesis_ids: [reporting_visibility, attribution]
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Makes front-desk capacity relevant.
+    possible_hypothesis_ids: [front_desk_capacity]
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: acquisition
+    label: Search/referral/ad to inquiry
+    common_inputs: [google, referral, insurance_directory, paid_ad]
+    common_outputs: [call, form, booking]
+    handoff_risks: [missed_call, slow_response, source_loss]
+    human_judgment_required: false
+  - stage_id: intake_schedule
+    label: New-patient intake and appointment
+    common_inputs: [call, form, booking]
+    common_outputs: [appointment]
+    handoff_risks: [incomplete_intake, no_followup, scheduling_friction]
+    human_judgment_required: true
+  - stage_id: appointment
+    label: Confirmation / reminder / show
+    common_inputs: [appointment]
+    common_outputs: [show, cancel, no_show]
+    handoff_risks: [no_show, late_cancel, empty_chair]
+    human_judgment_required: false
+  - stage_id: treatment
+    label: Clinical diagnosis / treatment plan
+    common_inputs: [show]
+    common_outputs: [scheduled_treatment, unscheduled_treatment]
+    handoff_risks: [followup_gap]
+    human_judgment_required: true
+  - stage_id: retention
+    label: Recall / reactivation / review
+    common_inputs: [completed_treatment]
+    common_outputs: [future_visit, reactivated_patient]
+    handoff_risks: [overdue_recall, inconsistent_reactivation]
+    human_judgment_required: true
+
+leak_hypotheses:
+  - hypothesis_id: new_patient_response
+    category: speed_to_lead
+    title: New-patient inquiry response / overflow
+    trigger_signals: [active_google_search_ads, emergency_service, online_booking]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens when a new-patient call comes in while the front desk is already helping patients?
+      - What happens if nobody reaches the inquiry on the first attempt?
+    primary_hook_template: I noticed the practice is advertising for {service} in {market}. What happens when one of those inquiries comes in while the front desk is already busy?
+    backup_hook_templates:
+      - How are missed new-patient inquiries recovered?
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [lead_response_roi]
+    must_not_claim: [ad_spend_amount, patient_loss_amount, clinical_suitability]
+  - hypothesis_id: scheduling_no_show
+    category: no_show_recovery
+    title: Appointment no-show / schedule recovery
+    trigger_signals: [online_booking]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What is your no-show and late-cancel rate by appointment type?
+      - How quickly are open chair slots refilled?
+    primary_hook_template: What happens after a patient no-shows or cancels late—does the system recover that slot and follow up automatically?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation]
+    roi_tool_ids: [no_show_roi]
+    must_not_claim: [every_empty_slot_recoverable]
+  - hypothesis_id: unscheduled_treatment
+    category: sales_follow_up
+    title: Unscheduled treatment follow-up
+    trigger_signals: [active_google_search_ads]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - How are patients with unscheduled treatment followed up?
+      - Can coordinators see next action/status?
+    primary_hook_template: What happens when treatment is presented but the patient is not ready to schedule that day?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, AI_Growth_Systems]
+    roi_tool_ids: [unsold_estimate_roi]
+    must_not_claim: [pressure_treatment, diagnose_need]
+  - hypothesis_id: front_desk_capacity
+    category: employee_capacity
+    title: Front-desk repetitive workload
+    trigger_signals: [visible_hiring]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What does your best front-desk employee spend hours doing that does not require judgment or relationship skills?
+    primary_hook_template: Which repetitive front-desk task would you remove first if the system could handle it reliably?
+    backup_hook_templates: []
+    offer_families: [AI_Implementation, Managed_AI_Department]
+    roi_tool_ids: [employee_capacity_roi]
+    must_not_claim: [replace_staff]
+  - hypothesis_id: attribution
+    category: attribution
+    title: Marketing-to-completed-treatment attribution
+    trigger_signals: [active_google_search_ads]
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which campaigns produce completed high-value treatment rather than just calls?
+    primary_hook_template: Can you trace your paid campaigns from inquiry through appointment, show, and completed treatment using a privacy-safe business metric?
+    backup_hook_templates: []
+    offer_families: [AI_Growth_Systems]
+    roi_tool_ids: [attribution_roi]
+    must_not_claim: [patient_revenue_without_practice_data]
+
+decision_maker_roles:
+  - role_category: owner_founder
+    titles: [Owner Dentist, Practice Owner, Founder]
+    relevant_hypothesis_ids: [new_patient_response, front_desk_capacity, attribution]
+    priority: 1
+  - role_category: practice_administrator
+    titles: [Practice Administrator, Practice Manager, Office Manager]
+    relevant_hypothesis_ids: [new_patient_response, scheduling_no_show, front_desk_capacity]
+    priority: 1
+  - role_category: marketing
+    titles: [Marketing Director, Marketing Manager]
+    relevant_hypothesis_ids: [new_patient_response, attribution]
+    priority: 2
+  - role_category: other_relevant
+    titles: [Treatment Coordinator, New Patient Coordinator]
+    relevant_hypothesis_ids: [unscheduled_treatment, scheduling_no_show]
+    priority: 2
+
+system_families:
+  - system_family_id: dental_pms_crm
+    names: [practice management software, patient communication platform, CRM, scheduling]
+    category: healthcare_business_system
+    frontend_detection_terms: []
+    positioning_rule: Map current systems and privacy requirements before adding/replacing anything.
+    questions:
+      - Does every new-patient inquiry get tracked?
+      - Can unscheduled treatment and no-shows be surfaced appropriately?
+
+hook_priorities:
+  - hook_family: new_patient_response
+    base_priority: 10
+    boost_if_signals: [active_google_search_ads, emergency_service]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens when a new-patient inquiry arrives while the front desk is busy?
+  - hook_family: no_show_recovery
+    base_priority: 9
+    boost_if_signals: [online_booking]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What happens to a no-show or late cancellation?
+  - hook_family: unscheduled_treatment_follow_up
+    base_priority: 9
+    boost_if_signals: [active_google_search_ads]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - How is unscheduled treatment followed up?
+  - hook_family: employee_capacity
+    base_priority: 8
+    boost_if_signals: [visible_hiring]
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - Which repetitive front-desk task consumes the most time?
+
+discovery_question_banks:
+  lead_generation:
+    - text: Which services drive growth and where do new-patient inquiries come from?
+      purpose: source_mix
+      data_field_created: lead_sources
+  scheduling_dispatch:
+    - text: What is the no-show or late-cancel rate by appointment type and what happens next?
+      purpose: schedule_utilization
+      data_field_created: no_show_process
+  sales_follow_up:
+    - text: How is unscheduled treatment surfaced and followed up?
+      purpose: treatment_followup
+      data_field_created: unscheduled_treatment_process
+  employee_capacity:
+    - text: Which repetitive communication/admin work consumes the most front-desk time?
+      purpose: capacity
+      data_field_created: front_desk_capacity
+  systems_crm:
+    - text: Which PMS, communication, scheduling and CRM systems are used?
+      purpose: system_map
+      data_field_created: systems
+  attribution:
+    - text: Can lead source be tied to completed treatment or collections using an appropriate business metric?
+      purpose: attribution
+      data_field_created: attribution_state
+
+offer_mapping:
+  - opportunity_category: new_patient_response
+    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    positioning: Improve non-clinical inquiry capture, routing, scheduling and follow-up around front-desk staff.
+    required_discovery_before_recommending: [inquiry_volume, privacy_requirements, current_phone_schedule_systems]
+    do_not_recommend_if: [strong_existing_workflow]
+  - opportunity_category: employee_capacity
+    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    positioning: Reduce repetitive administrative workload while patient relationships and clinical decisions remain human.
+    required_discovery_before_recommending: [task_volume, privacy_scope, system_access]
+    do_not_recommend_if: [privacy_or_security_requirements_not_met]
+
+roi_tools:
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids: [new_patient_response]
+    required_inputs: [new_inquiries, uncontacted_percent, qualified_percent, incremental_booking_scenario, practice_selected_value_metric]
+    prohibited_shortcuts: [use_industry_average_as_practice_value]
+  - roi_tool_id: no_show_roi
+    name: No-Show ROI
+    relevant_hypothesis_ids: [scheduling_no_show]
+    required_inputs: [appointments, no_show_rate, refill_or_recovery_scenario, practice_selected_chair_value_metric]
+    prohibited_shortcuts: [assume_every_no_show_recoverable]
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids: [front_desk_capacity]
+    required_inputs: [employees, repetitive_hours, addressable_percent, loaded_cost]
+    prohibited_shortcuts: [treat_capacity_as_payroll_savings]
+
+objection_guidance:
+  - objection_id: patients_need_humans
+    match_phrases: [patients want a person, patients need human care]
+    principle: preserve_human_clinical_relationship
+    response_guidance: Agree; automate reminders, routing, intake support and admin around the patient relationship while clinical judgment stays human.
+    follow_up_questions:
+      - Which repetitive administrative step consumes the most staff time today?
+    must_not_say: [AI_replaces_clinical_staff]
+    manual_reference: module-18
+
+safety_boundaries:
+  - boundary_id: dental_clinical
+    category: healthcare
+    prohibited_agent_claims:
+      - AI_can_diagnose
+      - AI_can_recommend_treatment
+      - YAD_guarantees_HIPAA_compliance
+    human_required_for:
+      - diagnosis
+      - treatment_planning
+      - prescribing
+      - clinical_suitability
+      - consequential_patient_decisions
+    escalation_guidance: Limit automation to approved non-clinical business workflows and require appropriate privacy/security review.
+  - boundary_id: patient_privacy
+    category: privacy
+    prohibited_agent_claims:
+      - generic_public_AI_is_safe_for_PHI
+    human_required_for:
+      - HIPAA_BAA_vendor_review
+      - privacy_policy_decisions
+    escalation_guidance: Technical/security review required before handling PHI.
+
+no_sale_conditions:
+  - no_meaningful_workflow_problem
+  - privacy_requirements_cannot_be_met
+  - clinical_automation_requested
+  - strong_existing_workflow
+  - weak_economics
+
+scoring_overrides:
+  hidden_points: none
+  use_canonical_module_4c: true
+
+research_requirements:
+  prioritize:
+    - active_google_ads
+    - advertised_services
+    - online_booking
+    - emergency_language
+    - multiple_locations
+    - hiring
+    - financing
+    - patient_communication_signals
+  do_not_infer:
+    - treatment_value
+    - clinical_suitability
+    - HIPAA_compliance
+    - patient_volume
+    - PMS_workflow
+
+call_pack_defaults:
+  preferred_primary_hook_family: new_patient_response
+  preferred_backup_hook_family: no_show_recovery
+  maximum_confirmed_facts: 3
+  default_next_step: strategy_conversation

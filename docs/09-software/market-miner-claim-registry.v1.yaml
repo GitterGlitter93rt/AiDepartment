@@ -1,0 +1,437 @@
+registry_id: yad_market_miner_claim_registry_v1
+version: 1.0.0
+status: architecture_authority
+
+semantics:
+  confidence_values: [confirmed, likely, unknown]
+  evidence_state_values: [active, aging, stale, contradicted, superseded]
+  tri_state_values: [yes, no_confirmed, unknown]
+  note: Absence of detection defaults to unknown unless an appropriate source affirmatively supports a negative.
+
+claims:
+  - claim_key: active_google_search_ad
+    category: paid_acquisition
+    value_type: tri_state
+    default_ttl_hours: 48
+    qualifying_source_types:
+      confirmed:
+        - paid_google_serp_observation
+        - google_local_services_paid_observation
+      supporting_only:
+        - google_ads_transparency
+        - google_ads_tag_signal
+    canonical_score_support:
+      rule: google_paid_search_confirmed
+      points: 4
+      requires_value: yes
+      requires_confidence: confirmed
+      awards_once_per_account: true
+    fact_rendering:
+      confirmed_fresh: current_fact_allowed
+      stale: current_fact_forbidden
+      unknown: ask_or_do_not_mention
+    forbidden_inference:
+      - ad_spend
+      - impression_share
+      - profitability
+      - lead_volume
+      - campaign_quality
+    negative_evidence_rule: Non-observation in sampled searches does not establish no_confirmed.
+
+  - claim_key: google_local_services_ad
+    category: paid_acquisition
+    value_type: tri_state
+    default_ttl_hours: 48
+    qualifying_source_types:
+      confirmed:
+        - google_local_services_paid_observation
+    canonical_score_support:
+      rule: google_paid_search_confirmed
+      points: 4
+      requires_value: yes
+      requires_confidence: confirmed
+      awards_once_with_other_google_paid: true
+    queue_priority_support:
+      advertiser_evidence_strength: strong_positive_component
+    fact_rendering:
+      confirmed_fresh: current_fact_allowed
+      stale: current_fact_forbidden
+    forbidden_inference: [lsa_spend, lead_count, booking_rate]
+
+  - claim_key: active_meta_ad
+    category: paid_acquisition
+    value_type: tri_state
+    default_ttl_hours: 48
+    qualifying_source_types:
+      confirmed:
+        - approved_meta_ad_evidence_provider
+        - approved_meta_ad_library_observation
+      supporting_only:
+        - meta_pixel_signal
+    canonical_score_support:
+      rule: meta_active_ads_confirmed
+      points: 3
+      requires_value: yes
+      requires_confidence: confirmed
+      awards_once_per_account: true
+    fact_rendering:
+      confirmed_fresh: current_fact_allowed
+      stale: current_fact_forbidden
+      unknown: ask_or_do_not_mention
+    forbidden_inference: [meta_spend, roas, lead_volume]
+
+  - claim_key: multiple_paid_channels
+    category: paid_acquisition
+    value_type: boolean
+    derived: true
+    derive_when:
+      minimum_confirmed_distinct_paid_channels: 2
+    canonical_score_support:
+      rule: multiple_paid_channels_confirmed
+      points: 1
+      awards_once_per_account: true
+    fact_rendering:
+      confirmed_fresh: internal_and_fact_allowed_if_both_channels_fresh
+    forbidden_inference: [large_marketing_budget, successful_marketing]
+
+  - claim_key: google_ads_tag_signal
+    category: website_technology
+    value_type: boolean
+    default_ttl_days: 14
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_script
+        - rendered_page_network_or_script_signature
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: technology_fact_only
+    forbidden_inference:
+      - active_google_search_ad
+      - current_ad_spend
+
+  - claim_key: meta_pixel_signal
+    category: website_technology
+    value_type: boolean
+    default_ttl_days: 14
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_script
+        - rendered_page_network_or_script_signature
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: technology_fact_only
+    forbidden_inference:
+      - active_meta_ad
+      - current_meta_spend
+
+  - claim_key: emergency_24_7_service
+    category: urgency
+    value_type: tri_state
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_current_page
+        - first_party_business_hours
+      supporting_only:
+        - licensed_business_directory
+    canonical_score_support:
+      rule: emergency_after_hours
+      points: 1
+      requires_value: yes
+      requires_confidence: confirmed
+    fact_rendering:
+      confirmed_fresh: current_fact_allowed
+      no_confirmed: negative_fact_allowed_if_source_appropriate
+    forbidden_inference:
+      - live_human_answers_24_7
+      - no_missed_calls
+      - answering_service_exists
+
+  - claim_key: financing_promoted
+    category: offer
+    value_type: tri_state
+    default_ttl_days: 7
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_current_offer
+        - current_paid_ad_landing_page
+    canonical_score_support: null
+    queue_priority_support:
+      may_help_high_value_or_offer_hypothesis: true
+    fact_rendering:
+      confirmed_fresh: current_fact_allowed
+      stale: historical_only
+    forbidden_inference: [approval_rate, financing_volume, average_ticket]
+
+  - claim_key: high_value_service_promoted
+    category: economics
+    value_type: object
+    object_fields: [service_family, observed_label]
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_service_page
+        - current_paid_ad_landing_page
+        - current_paid_ad_observation
+    canonical_score_support:
+      rule: high_value_economics_signal
+      points: 2
+      conditional: vertical_profile_must_classify_service_or_business_model_as_high_value
+    fact_rendering:
+      confirmed_fresh: service_fact_allowed
+    forbidden_inference: [universal_ticket_size, profit_margin]
+
+  - claim_key: operationally_important_lead_volume_signal
+    category: economics
+    value_type: tri_state
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - prospect_statement
+        - system_verified_business_data
+      likely:
+        - vertical_business_model_plus_multiple_strong_public_scale_signals
+    canonical_score_support:
+      rule: operationally_important_lead_volume_signal
+      points: 2
+      requires_profile_rule: true
+    fact_rendering:
+      confirmed_fresh: fact_allowed
+      likely: question_or_internal_scoring_only_according_to_approved_rule
+    forbidden_inference: [exact_monthly_leads_without_data]
+    implementation_note: Claude must make the canonical recognition rule explicit/testable; do not award merely because industry typically receives leads.
+
+  - claim_key: appointment_estimate_consultation_intake_heavy
+    category: workflow
+    value_type: tri_state
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_workflow
+        - vertical_profile_business_model_plus_confirmed_service_cta
+    canonical_score_support:
+      rule: appointment_estimate_consultation_intake_heavy
+      points: 1
+    fact_rendering:
+      confirmed_fresh: workflow_characteristic_allowed
+    forbidden_inference: [current_follow_up_quality]
+
+  - claim_key: multiple_physical_locations
+    category: scale
+    value_type: integer
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_locations
+        - public_or_licensed_business_identity_source
+    canonical_score_support:
+      rule: multiple_locations_or_service_territories
+      points: 1
+      conditional: count_greater_than_1
+    fact_rendering:
+      confirmed_fresh: fact_allowed
+    forbidden_inference: [revenue, employee_count]
+
+  - claim_key: multiple_service_territories
+    category: scale
+    value_type: object
+    object_fields: [territories]
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_service_area
+        - licensed_business_service_area
+    canonical_score_support:
+      rule: multiple_locations_or_service_territories
+      points: 1
+      conditional: implementation_rule_must_distinguish_meaningful_distinct_territories_from_footer_city_list
+    fact_rendering:
+      confirmed_fresh: service_area_fact_allowed
+    forbidden_inference: [multiple_physical_locations]
+
+  - claim_key: visible_growth_hiring
+    category: growth
+    value_type: object
+    object_fields: [role_family, location, listing_or_page]
+    default_ttl_days: 14
+    qualifying_source_types:
+      confirmed:
+        - first_party_careers_page
+        - current_approved_job_listing_source
+    canonical_score_support:
+      rule: visible_growth_hiring
+      points: 1
+    fact_rendering:
+      confirmed_fresh: careful_fact_allowed
+    forbidden_inference: [financial_health, labor_shortage_at_company, exact_headcount_growth]
+
+  - claim_key: strong_phone_dependence
+    category: workflow
+    value_type: tri_state
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - vertical_profile_characteristic_plus_confirmed_phone_first_customer_journey
+        - prospect_statement
+      likely:
+        - vertical_profile_characteristic_plus_first_party_phone_cta_evidence
+    canonical_score_support:
+      rule: strong_phone_dependence
+      points: 1
+      implementation_note: recognition must be deterministic and fixture-tested.
+    fact_rendering:
+      confirmed_fresh: business_characteristic_allowed
+      likely: internal_hypothesis_or_question
+    forbidden_inference: [exact_call_volume]
+
+  - claim_key: prominent_lead_capture_cta
+    category: lead_capture
+    value_type: object
+    object_fields: [cta_types, pages]
+    default_ttl_days: 7
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_current_page
+    canonical_score_support:
+      rule: prominent_forms_booking_quote_consultation_cta
+      points: 1
+    fact_rendering:
+      confirmed_fresh: fact_allowed
+    forbidden_inference: [form_response_time, crm_capture, conversion_rate]
+
+  - claim_key: call_tracking_signal
+    category: website_technology
+    value_type: object
+    object_fields: [provider, signature]
+    default_ttl_days: 14
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_script
+        - rendered_page_network_or_script_signature
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: technology_fact_allowed
+    forbidden_inference: [closed_loop_attribution, call_answer_rate]
+
+  - claim_key: crm_frontend_signal
+    category: website_technology
+    value_type: object
+    object_fields: [provider, signal_type]
+    default_ttl_days: 14
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_widget_or_script
+      likely:
+        - indirect_frontend_signature
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: frontend_signal_only
+      likely: ask_or_soften
+    forbidden_inference:
+      - crm_is_system_of_record
+      - every_lead_enters_crm
+      - follow_up_is_automated
+      - follow_up_is_not_automated
+
+  - claim_key: online_booking_or_quote
+    category: lead_capture
+    value_type: tri_state
+    default_ttl_days: 7
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_current_page
+    canonical_score_support:
+      rule: prominent_forms_booking_quote_consultation_cta
+      points: 1
+      note: Do not double award if same underlying canonical rule already satisfied by another CTA claim.
+    fact_rendering:
+      confirmed_fresh: fact_allowed
+    forbidden_inference: [booking_conversion_rate, instant_human_response]
+
+  - claim_key: membership_program
+    category: recurring_revenue
+    value_type: tri_state
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - first_party_website_current_page
+    canonical_score_support: null
+    queue_priority_support:
+      reactivation_hypothesis: true
+    fact_rendering:
+      confirmed_fresh: fact_allowed
+    forbidden_inference: [membership_count, renewal_rate]
+
+  - claim_key: current_decision_maker_role
+    category: contact
+    value_type: object
+    object_fields: [name, title, role_category]
+    default_ttl_days: 30
+    qualifying_source_types:
+      confirmed:
+        - current_first_party_team_page
+        - current_high_quality_licensed_contact_source
+      likely:
+        - aging_public_or_licensed_contact_source
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: personalization_allowed
+      likely: role_question_or_nonassertive_personalization
+    forbidden_inference: [decision_authority_beyond_role_without_confirmation]
+
+  - claim_key: no_verified_website_found
+    category: website_presence
+    value_type: boolean
+    default_ttl_days: 7
+    qualifying_source_types:
+      confirmed:
+        - independent_domain_resolution_process_complete
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: careful_confirmation_language_only
+    required_language_principle: Say YAD could not find a current site and ask if one was missed; do not accuse.
+
+  - claim_key: prospect_reported_monthly_calls
+    category: prospect_statement
+    value_type: number
+    default_ttl_days: 90
+    qualifying_source_types:
+      confirmed:
+        - prospect_statement
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: repeat_with_source_language
+    requires_source_class: true
+
+  - claim_key: prospect_reported_ad_spend
+    category: prospect_statement
+    value_type: currency
+    default_ttl_days: 90
+    qualifying_source_types:
+      confirmed:
+        - prospect_statement
+        - system_verified_business_data
+    canonical_score_support: null
+    fact_rendering:
+      confirmed_fresh: repeat_with_source_period
+    requires_time_period: true
+
+cross_claim_rules:
+  - rule_id: google_pixel_never_creates_ad
+    if_claim: google_ads_tag_signal
+    must_not_derive: active_google_search_ad
+  - rule_id: meta_pixel_never_creates_ad
+    if_claim: meta_pixel_signal
+    must_not_derive: active_meta_ad
+  - rule_id: crm_signal_never_creates_backend_workflow
+    if_claim: crm_frontend_signal
+    must_not_derive:
+      - crm_is_system_of_record
+      - automated_follow_up_exists
+      - automated_follow_up_missing
+  - rule_id: one_canonical_ad_score_per_channel
+    description: Repeated paid observations strengthen advertiser evidence but do not multiply Module 4C channel points.
+  - rule_id: one_cta_score_rule
+    description: Multiple CTA evidence records satisfy the single +1 prominent lead-capture rule only once.
+  - rule_id: multiple_location_service_territory_rule_awards_once
+    description: Physical locations and service territories together satisfy one +1 canonical rule, never +2.

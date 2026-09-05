@@ -1,0 +1,852 @@
+profile_id: roofing-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Roofing
+industry_aliases:
+  - roofer
+  - roofing contractor
+  - roofing company
+  - roof replacement contractor
+priority: 3
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-12-roofing-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile-review
+
+business_model:
+  revenue_categories:
+    - retail_residential_replacement
+    - roof_repair
+    - storm_insurance_related_work
+    - commercial_repair_replacement
+    - gutters_siding_windows_related_services
+  lead_types:
+    - paid_search_lead
+    - meta_lead
+    - storm_lead
+    - referral
+    - canvass_lead
+    - website_form
+    - inbound_call
+    - inspection_request
+  customer_types:
+    - residential_homeowner
+    - commercial_property_owner
+    - property_manager
+  high_value_service_families:
+    - roof_replacement
+    - commercial_replacement
+    - storm_damage_replacement
+    - major_repair
+  recurring_revenue_families:
+    - commercial_maintenance
+    - inspection_service_where_offered
+  urgency_characteristics:
+    - active_leak
+    - storm_event
+    - hail_wind_event
+  seasonality_characteristics:
+    - storm_driven_surges
+    - seasonal_weather_patterns
+  phone_dependence: high
+  appointment_dependence: high
+  estimate_proposal_dependence: very_high
+  field_service_dependence: high
+
+search_taxonomy:
+  core_queries:
+    - query: roofer
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: roofing company
+      family: core
+      intent_weight: 4
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: roofing contractor
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: roof replacement
+      family: replacement
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: roof repair
+      family: repair
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: hail damage roof
+      family: storm
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: storm damage roof
+      family: storm
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - emergency roof repair
+    - roof leak repair
+    - storm damage roofer
+    - hail damage roofer
+  high_ticket_queries:
+    - roof replacement
+    - new roof
+    - commercial roof replacement
+    - hail damage roof replacement
+  financing_queries:
+    - roof financing
+    - roof replacement financing
+  commercial_queries:
+    - commercial roofing contractor
+    - commercial roof repair
+    - commercial roof replacement
+  service_aliases:
+    - roofing
+    - roof replacement
+    - roof repair
+    - storm damage
+    - hail damage
+  negative_terms:
+    - roofing supply
+    - roofing materials
+    - roofing school
+    - roof manufacturer only
+    - wholesale
+  classification_warning_terms:
+    - general contractor only
+    - solar only
+    - gutter only
+    - siding only
+    - lead generation site
+
+classification_rules:
+  positive_business_categories:
+    - roofing_contractor
+    - residential_roofer
+    - commercial_roofer
+    - storm_restoration_roofer
+  negative_business_categories:
+    - supply_house
+    - manufacturer_only
+    - training_school
+    - lead_aggregator
+  website_keyword_positive:
+    - roof replacement
+    - roof repair
+    - roofing contractor
+    - hail damage
+    - storm damage
+    - free inspection
+    - financing
+  website_keyword_negative:
+    - wholesale only
+    - roofing supply
+  required_any_of:
+    - roofing_service_evidence
+    - roof_replacement_evidence
+    - roof_repair_evidence
+  exclude_if_all:
+    - non_service_business
+    - no_roofing_customer_service_evidence
+  manual_review_if:
+    - insurance_adjusting_role_unclear
+    - franchise_parent_child_ambiguous
+    - lead_generation_site_possible
+    - general_contractor_roofing_mix_unclear
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Paid roofing demand makes lead response, inspection scheduling, proposal follow-up and attribution worth investigating.
+    possible_hypothesis_ids:
+      - paid_lead_response
+      - no_response_follow_up
+      - attribution_gap
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Meta campaigns can create form-driven roofing leads that require fast routing and follow-up.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - inspection_booking
+      - attribution_gap
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: storm_market_signal
+    category: urgency
+    evidence_claim_key: storm_hail_market_signal
+    confidence_required: confirmed
+    why_it_matters: Storm surges create temporary lead-volume and routing pressure.
+    possible_hypothesis_ids:
+      - storm_surge_capacity
+      - speed_to_lead
+      - lead_assignment
+    score_rule_reference: vertical_priority_signal_only
+  - signal_id: financing_promoted
+    category: sales_follow_up
+    evidence_claim_key: financing_promoted
+    confidence_required: confirmed
+    why_it_matters: Financing can make proposal follow-up and customer next-action tracking more important.
+    possible_hypothesis_ids:
+      - unsold_proposal_follow_up
+      - financing_follow_up
+    score_rule_reference: vertical_priority_signal_only
+  - signal_id: multiple_locations
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Multi-market operations increase routing, pipeline consistency and reporting complexity.
+    possible_hypothesis_ids:
+      - multi_market_consistency
+      - attribution_gap
+      - reporting_visibility
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: inspection_quote_cta
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: A visible inspection or quote path creates a measurable lead-entry workflow.
+    possible_hypothesis_ids:
+      - inspection_booking
+      - speed_to_lead
+      - crm_capture
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Growth and sales/admin hiring can make capacity and standardization questions more relevant.
+    possible_hypothesis_ids:
+      - employee_sales_capacity
+      - multi_market_consistency
+    score_rule_reference: module4c_growth_plus1
+
+customer_journey:
+  - stage_id: demand
+    label: Need / storm / age / leak
+    common_inputs:
+      - storm
+      - roof_age
+      - leak
+      - planned_replacement
+    common_outputs:
+      - search
+      - ad_response
+      - referral
+      - canvass
+    handoff_risks: []
+    human_judgment_required: false
+  - stage_id: acquisition
+    label: Search / ad / referral / canvass
+    common_inputs:
+      - google
+      - meta
+      - referral
+      - canvass
+    common_outputs:
+      - call
+      - form
+      - inspection_request
+    handoff_risks:
+      - attribution_loss
+    human_judgment_required: false
+  - stage_id: lead_response
+    label: Response / qualification
+    common_inputs:
+      - call
+      - form
+      - field_lead
+    common_outputs:
+      - qualified_lead
+      - inspection_request
+    handoff_risks:
+      - slow_response
+      - missed_call
+      - no_owner
+      - no_second_attempt
+    human_judgment_required: true
+  - stage_id: inspection
+    label: Inspection scheduling and completion
+    common_inputs:
+      - qualified_lead
+    common_outputs:
+      - inspection_complete
+      - proposal_ready
+    handoff_risks:
+      - no_show
+      - reschedule_gap
+      - rep_assignment_gap
+    human_judgment_required: true
+  - stage_id: proposal
+    label: Proposal / options / financing / follow-up
+    common_inputs:
+      - inspection_complete
+    common_outputs:
+      - signed_contract
+      - open_proposal
+      - lost
+      - future
+    handoff_risks:
+      - no_follow_up
+      - no_next_action
+      - financing_follow_up_gap
+      - lost_reason_missing
+    human_judgment_required: true
+  - stage_id: production
+    label: Production / customer communication
+    common_inputs:
+      - signed_contract
+    common_outputs:
+      - completed_job
+    handoff_risks:
+      - status_communication_load
+      - document_routing_load
+    human_judgment_required: true
+  - stage_id: revenue_retention
+    label: Payment / review / referral / reactivation
+    common_inputs:
+      - completed_job
+    common_outputs:
+      - paid_job
+      - review
+      - referral
+      - future_customer
+    handoff_risks:
+      - review_request_inconsistent
+      - old_lead_reactivation_gap
+    human_judgment_required: false
+
+leak_hypotheses:
+  - hypothesis_id: unsold_proposal_follow_up
+    category: unsold_estimate
+    title: Unsold proposal follow-up may be inconsistent
+    description: High-value proposals can become stale when next actions depend primarily on salesperson memory.
+    trigger_signals:
+      - replacement_focus
+      - inspection_quote_cta
+      - financing_promoted
+      - sales_team_signal
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_follow_up
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a proposal that does not sign during the first presentation?
+      - Can management see every open proposal with its next action and value?
+    primary_hook_template: What happens to a roofing proposal that does not sign during the first conversation?
+    backup_hook_templates:
+      - Who owns proposal follow-up after day seven?
+      - Can management see stale proposal value by salesperson?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - unsold_estimate_follow_up_roi
+    must_not_claim:
+      - every_open_proposal_is_recoverable
+      - automation_will_raise_close_rate_by_specific_percent
+  - hypothesis_id: paid_lead_response
+    category: speed_to_lead
+    title: Paid roofing leads may lose momentum after acquisition
+    description: Active advertisers may benefit from measuring first response, routing and second-attempt behavior.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_response_process
+    public_fact_requirements:
+      - current_paid_ad_evidence_if_referenced
+    questions_to_verify:
+      - How quickly does a new paid roofing lead hear from somebody?
+      - What happens if nobody reaches the homeowner on the first attempt?
+    primary_hook_template: I noticed you are advertising around [service] in [market]. What happens if that lead does not answer the first callback?
+    backup_hook_templates:
+      - Can you trace that campaign through inspection and signed job?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - known_ad_spend
+      - paid_leads_are_being_lost
+  - hypothesis_id: storm_surge_capacity
+    category: employee_capacity
+    title: Storm surges may overwhelm normal lead and office capacity
+    description: A storm can create temporary lead volume that exceeds ordinary phone, routing and follow-up capacity.
+    trigger_signals:
+      - storm_market_signal
+      - storm_landing_page
+      - hail_wind_offer
+    disqualifying_signals:
+      - prospect_confirms_strong_surge_playbook
+    public_fact_requirements: []
+    questions_to_verify:
+      - When normal lead volume becomes several times larger after a storm, what breaks first?
+      - How are leads assigned and followed up during the surge?
+    primary_hook_template: When a storm spikes lead volume, what part of the office or sales process gets overloaded first?
+    backup_hook_templates:
+      - What does your team rebuild manually every time you enter a storm market?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - lead_response_roi
+      - employee_capacity_roi
+    must_not_claim:
+      - storm_leads_are_currently_being_lost
+  - hypothesis_id: attribution_gap
+    category: attribution
+    title: Marketing may not be tied through signed roofing revenue
+    description: Ad platforms can report leads while the contractor needs visibility through inspection, proposal, signed contract and collected revenue.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - call_tracking_signal
+    disqualifying_signals:
+      - prospect_confirms_closed_loop_attribution
+    public_fact_requirements: []
+    questions_to_verify:
+      - Can you trace a paid lead through to a signed roof and collected revenue?
+      - Do you know cost per inspection and sold job or mainly cost per lead?
+    primary_hook_template: Can you trace your paid campaigns all the way to signed roofing jobs?
+    backup_hook_templates:
+      - Which source creates the best sold jobs rather than the most leads?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - advertising_efficiency_roi
+    must_not_claim:
+      - attribution_is_broken
+  - hypothesis_id: employee_sales_capacity
+    category: employee_capacity
+    title: Sales and office staff may be carrying repetitive administrative work
+    description: Follow-up, CRM notes, documents, status messages and reporting can consume time that does not require selling or roofing judgment.
+    trigger_signals:
+      - visible_hiring
+      - multiple_locations
+      - high_sales_team_signal
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What does your best salesperson spend time doing that does not require selling ability?
+      - Which customer or document workflow repeats most often?
+    primary_hook_template: What administrative work keeps your best salespeople from selling?
+    backup_hook_templates:
+      - If lead volume doubled, where would office capacity break first?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+    must_not_claim:
+      - staff_should_be_replaced
+
+decision_maker_roles:
+  - role_category: owner_founder
+    titles:
+      - owner
+      - founder
+      - president
+    relevant_hypothesis_ids:
+      - unsold_proposal_follow_up
+      - attribution_gap
+      - storm_surge_capacity
+    priority: 1
+  - role_category: sales_leadership
+    titles:
+      - sales manager
+      - director of sales
+      - sales operations manager
+    relevant_hypothesis_ids:
+      - unsold_proposal_follow_up
+      - paid_lead_response
+      - employee_sales_capacity
+    priority: 1
+  - role_category: operations
+    titles:
+      - general manager
+      - operations manager
+      - COO
+    relevant_hypothesis_ids:
+      - storm_surge_capacity
+      - employee_sales_capacity
+      - attribution_gap
+    priority: 1
+  - role_category: marketing
+    titles:
+      - marketing director
+      - marketing manager
+    relevant_hypothesis_ids:
+      - paid_lead_response
+      - attribution_gap
+    priority: 2
+  - role_category: office_admin
+    titles:
+      - office manager
+      - administrator
+    relevant_hypothesis_ids:
+      - employee_sales_capacity
+      - inspection_booking
+    priority: 3
+
+system_families:
+  - system_family_id: roofing_crm
+    names: []
+    category: crm_sales_pipeline
+    frontend_detection_terms: []
+    positioning_rule: A detected CRM is evidence of a system, not proof that lead routing, follow-up, attribution or salesperson usage are configured well.
+    questions:
+      - Does every lead and proposal live in the system?
+      - Can management see stale proposals by value and next action?
+  - system_family_id: call_tracking
+    names: []
+    category: call_attribution
+    frontend_detection_terms:
+      - call tracking
+    positioning_rule: Call-tracking presence does not prove source-to-signed-job attribution.
+    questions:
+      - Can the call source be tied through to the signed job?
+  - system_family_id: scheduling
+    names: []
+    category: inspection_scheduling
+    frontend_detection_terms:
+      - schedule inspection
+      - book inspection
+    positioning_rule: A scheduling widget does not prove no-show and reschedule follow-up are automated.
+    questions:
+      - What happens after a reschedule or no-show?
+
+hook_priorities:
+  - hook_family: unsold_proposal_follow_up
+    base_priority: 10
+    boost_if_signals:
+      - replacement_focus
+      - financing_promoted
+      - inspection_quote_cta
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_strong_measured_follow_up
+    question_templates:
+      - What happens to a roofing proposal that does not sign the first time?
+  - hook_family: paid_lead_response
+    base_priority: 9
+    boost_if_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - storm_market_signal
+    demote_if_signals: []
+    avoid_if:
+      - no_current_ad_evidence_when_ad_reference_required
+    question_templates:
+      - What happens if a paid roofing lead does not answer the first callback?
+  - hook_family: storm_surge
+    base_priority: 8
+    boost_if_signals:
+      - storm_market_signal
+      - multiple_markets
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - When storm volume spikes, what breaks first?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - call_tracking_signal
+    demote_if_signals: []
+    avoid_if:
+      - prospect_confirms_closed_loop_attribution
+    question_templates:
+      - Can you trace a paid lead through to a signed roof and revenue?
+  - hook_family: employee_capacity
+    base_priority: 6
+    boost_if_signals:
+      - visible_hiring
+      - multiple_locations
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What repetitive work keeps your best salespeople or office team busiest?
+
+discovery_question_banks:
+  lead_generation:
+    - text: Which lead sources create the most signed roofing jobs?
+      purpose: source economics
+    - text: How quickly are new paid or storm leads contacted?
+      purpose: response process
+  phone_after_hours:
+    - text: What happens to after-hours roofing calls?
+      purpose: overflow and recovery
+  scheduling_dispatch:
+    - text: How quickly can a qualified lead get an inspection appointment?
+      purpose: inspection conversion
+    - text: What happens when an inspection is rescheduled or missed?
+      purpose: no-show recovery
+  sales_follow_up:
+    - text: How many proposals are still open after 30 days?
+      purpose: open pipeline
+    - text: Who owns the next action on every unsold proposal?
+      purpose: follow-up ownership
+  retention_reactivation:
+    - text: How are old storm leads and unsold estimates reactivated?
+      purpose: dormant pipeline
+  employee_capacity:
+    - text: What does the sales or office team repeat manually every week?
+      purpose: capacity
+  reporting:
+    - text: Which pipeline or marketing report still requires manual work?
+      purpose: reporting friction
+  systems_crm:
+    - text: Does every lead and proposal live in one visible pipeline?
+      purpose: CRM completeness
+  attribution:
+    - text: Can you tie campaign source to signed contract and collected revenue?
+      purpose: closed-loop measurement
+  technical_constraints:
+    - text: Which insurance, financing or production decisions must remain with qualified humans?
+      purpose: boundary discovery
+
+offer_mapping:
+  - opportunity_category: unsold_estimate
+    possible_offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    positioning: Improve the existing proposal pipeline, tasks, reminders, CRM visibility and appropriate follow-up before considering replacement software.
+    required_discovery_before_recommending:
+      - current_crm
+      - proposal_volume
+      - current_follow_up_process
+      - communication_permissions
+    do_not_recommend_if:
+      - process_already_strong_and_measured
+  - opportunity_category: speed_to_lead
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Improve capture, routing, response and next-action consistency around existing paid demand.
+    required_discovery_before_recommending:
+      - lead_sources
+      - response_time
+      - current_routing
+    do_not_recommend_if:
+      - response_process_already_strong
+  - opportunity_category: attribution
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Connect lead source to inspections, proposals, signed contracts and revenue where technically feasible.
+    required_discovery_before_recommending:
+      - ad_platforms
+      - CRM
+      - accounting_or_revenue_source
+    do_not_recommend_if:
+      - closed_loop_attribution_already_reliable
+  - opportunity_category: employee_capacity
+    possible_offer_families:
+      - ai_implementation
+      - managed_ai_department
+    positioning: Reduce repetitive admin around sales and office staff while preserving human roofing, sales, financing and insurance judgment.
+    required_discovery_before_recommending:
+      - task_frequency
+      - employee_hours
+      - system_constraints
+    do_not_recommend_if:
+      - economics_weak
+
+roi_tools:
+  - roi_tool_id: unsold_estimate_follow_up_roi
+    name: Unsold Estimate / Follow-Up ROI
+    relevant_hypothesis_ids:
+      - unsold_proposal_follow_up
+    required_inputs:
+      - open_proposals
+      - legitimately_active_percent
+      - incremental_close_scenario
+      - average_sold_revenue
+    prohibited_shortcuts:
+      - treating_all_open_proposals_as_recoverable
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids:
+      - paid_lead_response
+      - storm_surge_capacity
+    required_inputs:
+      - lead_volume
+      - affected_percent
+      - qualified_percent
+      - conservative_conversion_scenario
+      - customer_value_metric
+    prohibited_shortcuts:
+      - treating_every_delayed_lead_as_lost_sale
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids:
+      - employee_sales_capacity
+      - storm_surge_capacity
+    required_inputs:
+      - employee_count
+      - repetitive_hours
+      - addressable_percent
+      - loaded_hourly_cost
+    prohibited_shortcuts:
+      - calling_capacity_value_guaranteed_payroll_savings
+  - roi_tool_id: advertising_efficiency_roi
+    name: Advertising Efficiency
+    relevant_hypothesis_ids:
+      - attribution_gap
+    required_inputs:
+      - actual_ad_cost
+      - leads
+      - inspections
+      - signed_jobs
+      - revenue_metric
+    prohibited_shortcuts:
+      - guessing_ad_spend
+
+objection_guidance:
+  - objection_id: salespeople_already_follow_up
+    match_phrases:
+      - our salespeople follow up
+    principle: Do not attack the team; test process consistency and visibility.
+    response_guidance: Good. Ask whether the process is standardized and whether management can verify next actions on every open proposal.
+    follow_up_questions:
+      - Can you see untouched proposals and value by salesperson?
+    must_not_say:
+      - your reps are dropping leads
+    manual_reference: module-12-roofing-industry-playbook.md#28-roofing-objections
+  - objection_id: existing_crm
+    match_phrases:
+      - we already have a CRM
+    principle: Existing software is positive if it works.
+    response_guidance: Ask whether it shows stale proposals, next actions, source and signed revenue.
+    follow_up_questions:
+      - Can it show every proposal untouched for seven days and its value?
+    must_not_say:
+      - you need a new CRM
+    manual_reference: module-12-roofing-industry-playbook.md#28-roofing-objections
+  - objection_id: marketing_agency
+    match_phrases:
+      - we have an agency
+    principle: Do not attack the agency.
+    response_guidance: Focus on what happens after demand is created and whether it can be tied to sold revenue.
+    follow_up_questions:
+      - Can you trace the agency lead to inspection, proposal and signed job?
+    must_not_say:
+      - your agency is wasting money
+    manual_reference: module-12-roofing-industry-playbook.md#28-roofing-objections
+  - objection_id: storm_leads_are_different
+    match_phrases:
+      - storm leads are different
+    principle: Map the surge workflow rather than forcing a generic model.
+    response_guidance: Agree that storm behavior differs and ask which parts of the operating system are repeatable.
+    follow_up_questions:
+      - Which storm-launch steps are rebuilt every time?
+    must_not_say: []
+    manual_reference: module-12-roofing-industry-playbook.md#28-roofing-objections
+
+safety_boundaries:
+  - boundary_id: insurance_adjusting
+    category: insurance_legal
+    prohibited_agent_claims:
+      - insurance_coverage_decision
+      - legal_interpretation
+      - unauthorized_public_adjusting
+      - guaranteed_claim_outcome
+    human_required_for:
+      - claim_specific_advice
+      - coverage_questions
+      - authorized_adjusting_decisions
+    escalation_guidance: Route claim-specific, coverage, legal and adjusting questions to appropriately authorized humans.
+  - boundary_id: financing
+    category: financial
+    prohibited_agent_claims:
+      - loan_approval
+      - guaranteed_financing
+    human_required_for:
+      - financing_approval
+      - lender_specific_decisions
+    escalation_guidance: Use approved lender processes and human oversight.
+  - boundary_id: roofing_technical
+    category: safety_technical
+    prohibited_agent_claims:
+      - roof_is_safe
+      - structural_diagnosis
+      - repair_specification_without_qualified_review
+    human_required_for:
+      - inspection_judgment
+      - repair_scope
+      - safety_decisions
+    escalation_guidance: Roofing and structural judgments remain with qualified personnel.
+
+no_sale_conditions:
+  - lead_volume_insufficient
+  - no_measurable_follow_up_gap
+  - current_crm_and_process_already_strong
+  - economics_weak
+  - unsupported_required_integration
+  - company_demands_guaranteed_sales
+  - communication_plan_noncompliant
+  - employee_replacement_is_primary_goal
+
+scoring_overrides:
+  enabled: false
+  rule: Use canonical Module 4C only. Vertical signals may rank hypotheses but do not add hidden fit points.
+
+research_requirements:
+  minimum_before_research_ready:
+    - company_identity
+    - geography
+    - website_attempted
+    - google_ad_check_attempted
+  refresh_before_ad_specific_opener:
+    - current_paid_ad_evidence
+  optional_deep_research:
+    - meta_ads
+    - financing
+    - storm_market_signal
+    - multiple_locations
+    - hiring
+    - leadership_roles
+  forbidden_research_actions:
+    - fake_inspection_request
+    - fake_quote_form
+    - fake_claim_inquiry
+
+call_pack_defaults:
+  preferred_primary_hook_order:
+    - unsold_proposal_follow_up
+    - paid_lead_response
+    - storm_surge
+    - attribution
+    - employee_capacity
+  default_first_question: What happens to a roofing proposal that does not sign during the first conversation?
+  employee_safe_positioning: The goal is to help salespeople sell and the office serve customers while routine tracking, reminders and reporting become more consistent.
+  default_prohibited_claims:
+    - known_ad_spend_without_verified_data
+    - every_open_proposal_is_recoverable
+    - guaranteed_close_rate_improvement
+    - CRM_is_broken_without_proof
+    - insurance_coverage_or_claim_outcome

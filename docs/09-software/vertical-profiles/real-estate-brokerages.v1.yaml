@@ -1,0 +1,863 @@
+profile_id: real-estate-brokerages-us-v1
+version: 1.0.0
+status: architecture_draft
+industry_name: Real Estate Brokerages
+industry_aliases:
+  - real estate brokerage
+  - real estate team
+  - realtor team
+  - real estate office
+  - real estate agents
+priority: 17
+country_scope:
+  - US
+source_manual_paths:
+  - docs/07-sales/training-manual/module-26-real-estate-brokerages-industry-playbook.md
+  - docs/07-sales/training-manual/module-04c-prospect-qualification-and-target-scoring.md
+  - docs/07-sales/training-manual/module-05-hooks-and-opening-angles.md
+source_manual_commit: main-current-at-profile_review
+
+business_model:
+  revenue_categories:
+    - buyer_side_transactions
+    - listing_side_transactions
+    - team_or_brokerage_commission_revenue
+    - referral_business
+  lead_types:
+    - portal_lead
+    - website_lead
+    - google_lead
+    - meta_lead
+    - referral
+    - open_house_lead
+    - seller_home_value_lead
+    - inbound_call
+    - prior_database_lead
+  customer_types:
+    - buyer
+    - seller
+    - investor
+    - referral_partner
+    - past_client
+  high_value_service_families:
+    - listing_client
+    - buyer_client
+    - luxury_or_high_value_segment_where_applicable
+  recurring_revenue_families:
+    - referral_relationships
+    - past_client_database
+    - sphere_of_influence
+  urgency_characteristics:
+    - hot_portal_lead
+    - active_listing_inquiry
+    - seller_ready_now
+  seasonality_characteristics:
+    - market_dependent
+    - seasonal_transaction_patterns
+  phone_dependence: medium_high
+  appointment_dependence: high
+  estimate_proposal_dependence: low
+  field_service_dependence: medium
+
+search_taxonomy:
+  core_queries:
+    - query: realtor
+      family: core
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: real estate agent
+      family: core
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: real estate brokerage
+      family: core
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  high_intent_queries:
+    - query: sell my home
+      family: seller
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: false
+    - query: listing agent
+      family: seller
+      intent_weight: 5
+      priority: 1
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: homes for sale
+      family: buyer
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: false
+    - query: realtor
+      family: buyer_seller
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+  urgent_queries:
+    - realtor near me
+    - listing agent near me
+  high_ticket_queries:
+    - luxury real estate agent
+    - listing agent
+  financing_queries: []
+  commercial_queries:
+    - commercial real estate brokerage
+  service_aliases:
+    - realtor
+    - real estate agent
+    - broker
+    - brokerage
+    - listing agent
+    - buyer agent
+  negative_terms:
+    - real estate school
+    - property tax records
+    - MLS software
+    - apartment complex only
+    - real estate investing course
+  classification_warning_terms:
+    - property management only
+    - cash buyer lead generator
+    - mortgage company
+    - title company
+    - portal or directory
+
+classification_rules:
+  positive_business_categories:
+    - real_estate_brokerage
+    - residential_real_estate_team
+    - realtor_office
+    - real_estate_agent_team
+  negative_business_categories:
+    - real_estate_school
+    - property_portal
+    - title_company
+    - mortgage_lender
+  website_keyword_positive:
+    - homes for sale
+    - sell your home
+    - home valuation
+    - schedule showing
+    - meet our agents
+    - buyer consultation
+    - listing consultation
+  website_keyword_negative:
+    - real estate classes
+    - title services only
+    - mortgage only
+  required_any_of:
+    - real_estate_sales_service_evidence
+    - buyer_or_seller_service_evidence
+  exclude_if_all:
+    - non_brokerage_business
+    - no_buyer_seller_service_evidence
+  manual_review_if:
+    - property_management_mix_unclear
+    - individual_agent_vs_team_unclear
+    - portal_or_lead_generator_possible
+    - brokerage_brand_franchise_relationship_ambiguous
+
+public_signal_rules:
+  - signal_id: active_google_search_ads
+    category: paid_acquisition
+    evidence_claim_key: active_google_search_ad
+    confidence_required: confirmed
+    why_it_matters: Paid buyer/seller acquisition makes speed-to-lead, long-term nurture, routing and source-to-close attribution relevant.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - long_term_nurture
+      - source_to_close_attribution
+    score_rule_reference: module4c_google_ads_plus4
+  - signal_id: active_meta_ads
+    category: paid_acquisition
+    evidence_claim_key: active_meta_ad
+    confidence_required: confirmed
+    why_it_matters: Meta lead forms, listing ads and seller campaigns often require rapid routing and structured nurture.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - long_term_nurture
+      - seller_follow_up
+    score_rule_reference: module4c_meta_ads_plus3
+  - signal_id: online_lead_capture
+    category: lead_capture
+    evidence_claim_key: online_quote_booking
+    confidence_required: confirmed
+    why_it_matters: Home-value forms, showing requests, contact forms and consultation CTAs create visible lead-entry paths.
+    possible_hypothesis_ids:
+      - speed_to_lead
+      - long_term_nurture
+      - CRM_capture
+    score_rule_reference: module4c_lead_capture_plus1
+  - signal_id: multiple_offices
+    category: scale
+    evidence_claim_key: multiple_locations
+    confidence_required: confirmed
+    why_it_matters: Multiple offices or teams increase routing, CRM consistency and reporting complexity.
+    possible_hypothesis_ids:
+      - agent_routing
+      - source_to_close_attribution
+      - reporting_visibility
+    score_rule_reference: module4c_multiple_locations_plus1
+  - signal_id: visible_hiring
+    category: growth
+    evidence_claim_key: visible_growth_hiring
+    confidence_required: confirmed
+    why_it_matters: Agent, ISA or operations hiring can make lead-management capacity and standardization more relevant.
+    possible_hypothesis_ids:
+      - agent_capacity
+      - agent_routing
+    score_rule_reference: module4c_growth_plus1
+  - signal_id: open_house_or_listing_activity
+    category: pipeline
+    evidence_claim_key: open_house_listing_signal
+    confidence_required: likely
+    why_it_matters: Active listing/open-house workflows can create lead capture and nurture opportunities.
+    possible_hypothesis_ids:
+      - open_house_capture
+      - long_term_nurture
+    score_rule_reference: vertical_priority_signal_only
+
+customer_journey:
+  - stage_id: demand
+    label: Buyer / seller interest
+    common_inputs:
+      - buyer_interest
+      - seller_interest
+      - referral
+      - open_house
+    common_outputs:
+      - search
+      - portal
+      - ad
+      - referral_contact
+    handoff_risks: []
+    human_judgment_required: false
+  - stage_id: acquisition
+    label: Portal / ad / search / referral / open house
+    common_inputs:
+      - portal
+      - google
+      - meta
+      - referral
+      - open_house
+    common_outputs:
+      - lead
+    handoff_risks:
+      - attribution_loss
+    human_judgment_required: false
+  - stage_id: response_routing
+    label: Agent / ISA response and routing
+    common_inputs:
+      - lead
+    common_outputs:
+      - conversation
+      - appointment
+      - nurture
+    handoff_risks:
+      - slow_response
+      - no_owner
+      - inconsistent_routing
+      - no_second_attempt
+    human_judgment_required: true
+  - stage_id: qualification_nurture
+    label: Qualification / future timing / nurture
+    common_inputs:
+      - conversation
+    common_outputs:
+      - appointment
+      - long_term_nurture
+      - disqualified
+    handoff_risks:
+      - future_lead_forgotten
+      - weak_next_action
+      - CRM_nonuse
+    human_judgment_required: true
+  - stage_id: relationship
+    label: Showing / listing consult / client relationship
+    common_inputs:
+      - appointment
+      - nurtured_lead
+    common_outputs:
+      - client_relationship
+    handoff_risks:
+      - admin_capacity
+      - follow_up_gap
+    human_judgment_required: true
+  - stage_id: transaction
+    label: Transaction / close
+    common_inputs:
+      - client_relationship
+    common_outputs:
+      - closed_transaction
+    handoff_risks:
+      - source_lost
+      - transaction_admin_load
+    human_judgment_required: true
+  - stage_id: database
+    label: Review / referral / database
+    common_inputs:
+      - closed_transaction
+      - past_lead
+    common_outputs:
+      - referral
+      - repeat_relationship
+      - reactivation
+    handoff_risks:
+      - database_nurture_gap
+    human_judgment_required: false
+
+leak_hypotheses:
+  - hypothesis_id: speed_to_lead
+    category: speed_to_lead
+    title: Internet leads may not receive a fast consistent human response
+    description: Portal, Meta and website leads can arrive while agents are driving, showing property or in appointments.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - online_lead_capture
+    disqualifying_signals:
+      - prospect_confirms_strong_measured_response_process
+    public_fact_requirements:
+      - current_paid_ad_evidence_if_referenced
+    questions_to_verify:
+      - How quickly does a brand-new internet lead get a real response?
+      - What happens after the first unanswered call or text?
+    primary_hook_template: I noticed your team is actively advertising in [market]. How quickly does a brand-new internet lead get a real response when the assigned agent is busy?
+    backup_hook_templates:
+      - What happens after the first unanswered contact attempt?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - first_responder_always_wins
+      - known_lead_loss_rate
+      - known_ad_spend
+  - hypothesis_id: long_term_nurture
+    category: follow_up
+    title: Legitimate future buyers and sellers may fall out of consistent nurture
+    description: Real estate cycles can be months long, making timing, status and next-action discipline important.
+    trigger_signals:
+      - active_meta_ads
+      - portal_leads
+      - online_lead_capture
+      - large_team_signal
+    disqualifying_signals:
+      - prospect_confirms_strong_CRM_nurture_and_reporting
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a good buyer or seller lead who says they are six months away?
+      - Can management see long-term leads with a real next action by agent?
+    primary_hook_template: What happens to a good buyer or seller lead that says they are six months away?
+    backup_hook_templates:
+      - How does the CRM keep that relationship alive without relying on the agent remembering?
+    offer_families:
+      - ai_implementation
+      - ai_growth_systems
+    roi_tool_ids:
+      - lead_response_roi
+      - lead_reactivation_roi
+    must_not_claim:
+      - every_old_lead_will_transact
+  - hypothesis_id: seller_follow_up
+    category: follow_up
+    title: Future seller inquiries may lack structured next steps
+    description: Home-value and listing inquiries may be valuable long before the homeowner is ready to sign a listing agreement.
+    trigger_signals:
+      - seller_campaign_signal
+      - home_value_CTA
+      - active_meta_ads
+    disqualifying_signals:
+      - strong_seller_nurture_confirmed
+    public_fact_requirements: []
+    questions_to_verify:
+      - What happens to a homeowner who is curious about selling but not ready today?
+      - How is future listing timing recorded and revisited?
+    primary_hook_template: What happens to a seller lead who is interested but not ready to list today?
+    backup_hook_templates:
+      - How does the team know exactly when to re-engage that homeowner?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - lead_reactivation_roi
+    must_not_claim:
+      - every_home_value_lead_is_a_listing
+  - hypothesis_id: agent_routing
+    category: CRM_workflow
+    title: Lead routing and ownership may become inconsistent across agents, offices or lead types
+    description: Geography, lead type, price segment, language, availability and round-robin rules can create routing complexity.
+    trigger_signals:
+      - multiple_offices
+      - large_team_signal
+      - portal_leads
+    disqualifying_signals:
+      - prospect_confirms_strong_routing_and_visibility
+    public_fact_requirements: []
+    questions_to_verify:
+      - How are new leads assigned and what happens if the assigned agent does not respond?
+      - Can management see stale leads by agent?
+    primary_hook_template: How are leads assigned, and what happens if the assigned agent is unavailable or does not respond?
+    backup_hook_templates:
+      - Can management see untouched leads by agent and source?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - lead_response_roi
+    must_not_claim:
+      - routing_is_discriminatory
+  - hypothesis_id: source_to_close_attribution
+    category: attribution
+    title: Lead source may not tie cleanly through client and closing
+    description: Ad/portal/source performance should be evaluated by appointments, clients and closed transactions rather than raw leads alone.
+    trigger_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - portal_leads
+      - multiple_offices
+    disqualifying_signals:
+      - prospect_confirms_closed_loop_source_to_close_reporting
+    public_fact_requirements: []
+    questions_to_verify:
+      - Which lead source actually creates closings, not just names in the CRM?
+      - Can closed transaction be tied back to original lead source?
+    primary_hook_template: Can you trace your paid and portal leads all the way through to closed transactions?
+    backup_hook_templates:
+      - Which source creates the best actual clients rather than the most leads?
+    offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    roi_tool_ids:
+      - advertising_efficiency_roi
+    must_not_claim:
+      - source_is_unprofitable_without_data
+  - hypothesis_id: agent_capacity
+    category: employee_capacity
+    title: Agents or ISA staff may spend meaningful time on repetitive administrative work
+    description: CRM notes, reminders, drafting, open-house follow-up, tagging and summaries can take time from client relationships.
+    trigger_signals:
+      - visible_hiring
+      - large_team_signal
+      - multiple_offices
+    disqualifying_signals: []
+    public_fact_requirements: []
+    questions_to_verify:
+      - What administrative work keeps your best agents or ISA team from talking to clients?
+      - Where is lead data entered more than once?
+    primary_hook_template: What administrative work keeps your best agents from talking to clients and showing or listing property?
+    backup_hook_templates:
+      - Which CRM task is most likely to get skipped when agents are busy?
+    offer_families:
+      - ai_implementation
+      - managed_ai_department
+    roi_tool_ids:
+      - employee_capacity_roi
+    must_not_claim:
+      - agents_should_be_replaced
+
+decision_maker_roles:
+  - role_category: broker_owner
+    titles:
+      - broker owner
+      - managing broker
+      - owner
+      - team leader
+    relevant_hypothesis_ids:
+      - long_term_nurture
+      - source_to_close_attribution
+      - agent_capacity
+    priority: 1
+  - role_category: sales_operations
+    titles:
+      - sales manager
+      - director of sales
+      - operations manager
+      - COO
+    relevant_hypothesis_ids:
+      - speed_to_lead
+      - agent_routing
+      - long_term_nurture
+      - agent_capacity
+    priority: 1
+  - role_category: ISA_lead_management
+    titles:
+      - ISA manager
+      - inside sales manager
+      - lead manager
+      - lead conversion manager
+    relevant_hypothesis_ids:
+      - speed_to_lead
+      - long_term_nurture
+      - seller_follow_up
+    priority: 1
+  - role_category: marketing
+    titles:
+      - marketing director
+      - marketing manager
+      - growth manager
+    relevant_hypothesis_ids:
+      - source_to_close_attribution
+      - speed_to_lead
+    priority: 2
+  - role_category: office_admin
+    titles:
+      - office manager
+      - transaction coordinator manager
+    relevant_hypothesis_ids:
+      - agent_capacity
+      - reporting_visibility
+    priority: 3
+
+system_families:
+  - system_family_id: real_estate_CRM
+    names: []
+    category: CRM_lead_nurture
+    frontend_detection_terms: []
+    positioning_rule: CRM presence does not prove consistent agent use, future-timing nurture, routing or source-to-close reporting.
+    questions:
+      - Does every portal, web and open-house lead enter the CRM?
+      - Can management see future-timing and stale leads by agent?
+  - system_family_id: portal_lead_sources
+    names: []
+    category: lead_provider
+    frontend_detection_terms: []
+    positioning_rule: Portal presence shows a lead source, not the response or nurture quality after delivery.
+    questions:
+      - What happens when a portal lead arrives while the assigned agent is busy?
+  - system_family_id: scheduling
+    names: []
+    category: appointments_showings
+    frontend_detection_terms:
+      - schedule showing
+      - book consultation
+    positioning_rule: Scheduling availability does not prove reminders, no-show handling or lead routing are consistent.
+    questions:
+      - What happens if a prospect reschedules or stops responding?
+
+hook_priorities:
+  - hook_family: long_term_nurture
+    base_priority: 10
+    boost_if_signals:
+      - active_meta_ads
+      - portal_leads
+      - seller_campaign_signal
+    demote_if_signals: []
+    avoid_if:
+      - strong_nurture_confirmed
+    question_templates:
+      - What happens to a good lead that is six months away?
+  - hook_family: speed_to_lead
+    base_priority: 9
+    boost_if_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - online_lead_capture
+    demote_if_signals: []
+    avoid_if:
+      - strong_response_process_confirmed
+    question_templates:
+      - How quickly does a new internet lead get a real response?
+  - hook_family: seller_follow_up
+    base_priority: 9
+    boost_if_signals:
+      - home_value_CTA
+      - seller_campaign_signal
+    demote_if_signals: []
+    avoid_if:
+      - no_seller_lead_focus
+    question_templates:
+      - What happens to a homeowner who is not ready to list today?
+  - hook_family: attribution
+    base_priority: 8
+    boost_if_signals:
+      - active_google_search_ads
+      - active_meta_ads
+      - portal_leads
+    demote_if_signals: []
+    avoid_if:
+      - reliable_source_to_close_attribution_confirmed
+    question_templates:
+      - Can you trace paid and portal leads through to closings?
+  - hook_family: agent_capacity
+    base_priority: 7
+    boost_if_signals:
+      - visible_hiring
+      - multiple_offices
+      - large_team_signal
+    demote_if_signals: []
+    avoid_if: []
+    question_templates:
+      - What administrative work keeps your best agents from talking to clients?
+
+discovery_question_banks:
+  lead_generation:
+    - text: Which sources generate buyers and sellers today?
+      purpose: source mix
+    - text: Which sources ultimately create closed transactions?
+      purpose: source economics
+  phone_after_hours:
+    - text: What happens to new portal or web inquiries after hours?
+      purpose: response coverage
+  scheduling_dispatch:
+    - text: How are buyer showings and listing consultations scheduled and rescheduled?
+      purpose: appointment workflow
+  sales_follow_up:
+    - text: What happens after the first unanswered contact attempt?
+      purpose: contact cadence
+    - text: What happens to a good lead that is six months away?
+      purpose: long-term nurture
+  retention_reactivation:
+    - text: How are old internet, open-house and past-client databases reactivated?
+      purpose: database value
+  employee_capacity:
+    - text: Which administrative work keeps agents or ISA staff from client conversations?
+      purpose: capacity
+  reporting:
+    - text: Can management compare response, appointments, clients and closings by source and agent?
+      purpose: management visibility
+  systems_crm:
+    - text: Does every lead source enter the CRM and are calls, texts and emails visible?
+      purpose: CRM discipline
+  attribution:
+    - text: Can closed transactions be tied to the original source and campaign?
+      purpose: source-to-close attribution
+  technical_constraints:
+    - text: Which licensed, fair-housing, negotiation and contract decisions must remain human?
+      purpose: professional boundary
+
+offer_mapping:
+  - opportunity_category: speed_to_lead
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Improve capture, routing, acknowledgment, appointment support and next-action consistency around internet leads.
+    required_discovery_before_recommending:
+      - lead_sources
+      - response_time
+      - routing_rules
+      - CRM
+    do_not_recommend_if:
+      - response_process_already_strong
+  - opportunity_category: follow_up
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Preserve future timing, automate appropriate nurture support and keep agent-owned next actions visible.
+    required_discovery_before_recommending:
+      - lead_statuses
+      - current_nurture
+      - agent_usage
+      - communication_permissions
+    do_not_recommend_if:
+      - nurture_already_strong_and_measured
+  - opportunity_category: CRM_workflow
+    possible_offer_families:
+      - ai_implementation
+      - managed_ai_department
+    positioning: Improve routing, CRM discipline, lead ownership and management visibility without replacing a working platform unnecessarily.
+    required_discovery_before_recommending:
+      - current_CRM
+      - routing_rules
+      - agent_adoption
+    do_not_recommend_if:
+      - current_system_already_solves_problem
+  - opportunity_category: attribution
+    possible_offer_families:
+      - ai_growth_systems
+      - ai_implementation
+    positioning: Connect source through conversation, appointment, client and closed transaction using brokerage-approved revenue metrics.
+    required_discovery_before_recommending:
+      - lead_sources
+      - CRM
+      - closing_data
+      - brokerage_value_metric
+    do_not_recommend_if:
+      - attribution_already_reliable
+
+roi_tools:
+  - roi_tool_id: lead_response_roi
+    name: Lead Response ROI
+    relevant_hypothesis_ids:
+      - speed_to_lead
+      - long_term_nurture
+    required_inputs:
+      - lead_volume
+      - affected_segment_percent
+      - legitimate_prospect_percent
+      - conservative_incremental_conversion
+      - brokerage_selected_value_metric
+      - time_horizon
+    prohibited_shortcuts:
+      - treating_every_lead_as_transaction
+      - presenting_long_cycle_value_as_guaranteed_monthly_revenue
+  - roi_tool_id: lead_reactivation_roi
+    name: Lead Reactivation ROI
+    relevant_hypothesis_ids:
+      - long_term_nurture
+      - seller_follow_up
+    required_inputs:
+      - contactable_records
+      - legitimately_relevant_percent
+      - response_rate_scenario
+      - client_conversion_scenario
+      - brokerage_selected_value_metric
+    prohibited_shortcuts:
+      - valuing_entire_database_as_recoverable_transactions
+  - roi_tool_id: employee_capacity_roi
+    name: Employee Capacity ROI
+    relevant_hypothesis_ids:
+      - agent_capacity
+    required_inputs:
+      - employee_or_agent_count
+      - repetitive_hours
+      - addressable_percent
+      - loaded_hourly_cost_or_capacity_metric
+    prohibited_shortcuts:
+      - guaranteed_payroll_savings
+  - roi_tool_id: advertising_efficiency_roi
+    name: Advertising Efficiency
+    relevant_hypothesis_ids:
+      - source_to_close_attribution
+    required_inputs:
+      - actual_ad_or_portal_cost
+      - leads
+      - conversations
+      - appointments
+      - clients
+      - closings
+      - brokerage_value_metric
+    prohibited_shortcuts:
+      - guessing_ad_spend
+      - guessing_commission_rate
+
+objection_guidance:
+  - objection_id: relationship_based
+    match_phrases:
+      - real estate is relationship based
+    principle: Agree and position systems as support for relationships rather than replacement.
+    response_guidance: Focus on reminders, tracking, summaries and routine nurture so agents have more time for clients.
+    follow_up_questions:
+      - Which relationship-support tasks are repetitive enough to automate?
+    must_not_say:
+      - AI should replace agents
+    manual_reference: module-26-real-estate-brokerages-industry-playbook.md#19-objections
+  - objection_id: CRM_already_nurtures
+    match_phrases:
+      - our CRM already nurtures
+    principle: Existing automation is positive if used and measured well.
+    response_guidance: Ask whether agents use it consistently and whether nurture can be tied to appointments, clients and closings.
+    follow_up_questions:
+      - Can you see future-timing leads and source-to-close results by agent?
+    must_not_say:
+      - you need another CRM
+    manual_reference: module-26-real-estate-brokerages-industry-playbook.md#19-objections
+  - objection_id: AI_cannot_negotiate
+    match_phrases:
+      - AI cannot negotiate for our clients
+    principle: Agree; representation, negotiation, contracts and licensed judgment remain human.
+    response_guidance: Reframe around lead response, CRM, nurture, admin and reporting.
+    follow_up_questions: []
+    must_not_say:
+      - AI can represent buyers or sellers
+    manual_reference: module-26-real-estate-brokerages-industry-playbook.md#19-objections
+
+safety_boundaries:
+  - boundary_id: licensed_real_estate
+    category: professional_judgment
+    prohibited_agent_claims:
+      - negotiation_on_behalf_of_client
+      - licensed_representation
+      - contract_advice
+      - pricing_or_fiduciary_decision
+    human_required_for:
+      - negotiation
+      - representation
+      - contract_decisions
+      - pricing_strategy
+      - fiduciary_judgment
+    escalation_guidance: Licensed agents/brokers retain professional representation and transaction judgment.
+  - boundary_id: fair_housing
+    category: anti_discrimination
+    prohibited_agent_claims:
+      - discriminatory_lead_routing
+      - protected_class_targeting
+      - neighborhood_recommendation_based_on_protected_traits
+    human_required_for:
+      - fair_housing_sensitive_decisions
+    escalation_guidance: Routing, targeting and customer interactions must respect applicable fair-housing and anti-discrimination rules.
+  - boundary_id: marketing_economics
+    category: financial_truth
+    prohibited_agent_claims:
+      - guessed_commission_rate
+      - guaranteed_closing
+      - guaranteed_lead_value
+    human_required_for:
+      - brokerage_economic_inputs
+    escalation_guidance: Use brokerage-provided transaction and revenue metrics.
+
+no_sale_conditions:
+  - low_lead_volume
+  - CRM_nurture_and_response_already_strong
+  - no_measurable_workflow_problem
+  - economics_weak
+  - requested_automation_conflicts_with_licensing_or_fair_housing
+  - required_integration_not_feasible
+  - guaranteed_closings_demanded
+  - employee_or_agent_replacement_is_primary_goal
+
+scoring_overrides:
+  enabled: false
+  rule: Use canonical Module 4C only. High-value economics and lead-volume scoring require evidence about the brokerage/team model rather than assuming every agent qualifies.
+
+research_requirements:
+  minimum_before_research_ready:
+    - company_identity
+    - brokerage_or_team_type_attempted
+    - geography
+    - website_attempted
+    - google_ad_check_attempted
+  refresh_before_ad_specific_opener:
+    - current_paid_ad_evidence
+  optional_deep_research:
+    - meta_ads
+    - seller_home_value_CTA
+    - portal_lead_signals
+    - multiple_offices
+    - visible_hiring
+    - leadership_roles
+    - open_house_activity
+  forbidden_research_actions:
+    - fake_buyer_inquiry
+    - fake_seller_inquiry
+    - fake_showing_request
+    - fake_home_valuation_request
+    - fake_open_house_registration
+
+call_pack_defaults:
+  preferred_primary_hook_order:
+    - long_term_nurture
+    - speed_to_lead
+    - seller_follow_up
+    - attribution
+    - agent_capacity
+  default_first_question: What happens to a good buyer or seller lead that says they are six months away?
+  employee_safe_positioning: Systems can remember, route and nurture while agents keep the human work of advice, negotiation, representation and trust.
+  default_prohibited_claims:
+    - known_ad_spend_without_verified_data
+    - known_commission_rate_without_brokerage_data
+    - every_lead_will_close
+    - AI_can_negotiate_or_represent_clients
+    - discriminatory_lead_routing

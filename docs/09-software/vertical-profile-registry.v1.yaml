@@ -1,0 +1,116 @@
+registry_id: yad_vertical_profiles_v1
+version: 1.0.0
+status: architecture_authority
+
+implementation_policy:
+  initial_proof_profiles:
+    - hvac-us-v1
+    - plumbing-us-v1
+  rule: Architecture-ready does not mean Claude implements every profile before HVAC/Plumbing Gate 7 proof passes.
+
+profiles:
+  - profile_id: hvac-us-v1
+    path: docs/09-software/vertical-profiles/hvac.v1.yaml
+    manual_priority: 1
+    implementation_wave: 1
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+  - profile_id: plumbing-us-v1
+    path: docs/09-software/vertical-profiles/plumbing.v1.yaml
+    manual_priority: 2
+    implementation_wave: 1
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+  - profile_id: roofing-us-v1
+    path: docs/09-software/vertical-profiles/roofing.v1.yaml
+    manual_priority: 3
+    implementation_wave: 2
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+  - profile_id: collision-repair-us-v1
+    path: docs/09-software/vertical-profiles/collision-repair.v1.yaml
+    manual_priority: 4
+    implementation_wave: 2
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+  - profile_id: pdr-hail-us-v1
+    path: docs/09-software/vertical-profiles/pdr-hail.v1.yaml
+    manual_priority: 5
+    implementation_wave: 2
+    mining_strength: event_context_plus_google_meta
+    enabled_architecture: true
+  - profile_id: law-firms-us-v1
+    path: docs/09-software/vertical-profiles/law-firms.v1.yaml
+    manual_priority: 6
+    implementation_wave: 2
+    mining_strength: practice_area_google_lsa_first
+    enabled_architecture: true
+  - profile_id: general-contractors-remodeling-us-v1
+    path: docs/09-software/vertical-profiles/general-contractors-remodeling.v1.yaml
+    manual_priority: 7
+    implementation_wave: 3
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+  - profile_id: electrical-us-v1
+    path: docs/09-software/vertical-profiles/electrical.v1.yaml
+    manual_priority: 8
+    implementation_wave: 3
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+  - profile_id: dental-us-v1
+    path: docs/09-software/vertical-profiles/dental.v1.yaml
+    manual_priority: 9
+    implementation_wave: 3
+    mining_strength: google_service_specific
+    enabled_architecture: true
+  - profile_id: med-spas-us-v1
+    path: docs/09-software/vertical-profiles/med-spas.v1.yaml
+    manual_priority: 10
+    implementation_wave: 3
+    mining_strength: meta_plus_google
+    enabled_architecture: true
+  - profile_id: real-estate-brokerages-us-v1
+    path: docs/09-software/vertical-profiles/real-estate-brokerages.v1.yaml
+    manual_priority: 17
+    implementation_wave: 3
+    mining_strength: mixed_google_meta_portal
+    enabled_architecture: true
+  - profile_id: restoration-us-v1
+    path: docs/09-software/vertical-profiles/restoration.v1.yaml
+    manual_priority: 30
+    implementation_wave: 3
+    mining_strength: urgent_google_advertiser_first
+    enabled_architecture: true
+  - profile_id: garage-door-us-v1
+    path: docs/09-software/vertical-profiles/garage-door.v1.yaml
+    manual_priority: 33
+    implementation_wave: 3
+    mining_strength: google_advertiser_first
+    enabled_architecture: true
+
+cross_profile_rules:
+  account_identity_global: true
+  dnc_global_by_policy_scope: true
+  contact_history_account_wide: true
+  campaign_context_selects_active_profile: true
+  secondary_profiles_preserved: true
+  classification_score_separate_from_module4c: true
+  stricter_safety_boundary_wins: true
+  ambiguous_profile_blocks_vertical_specific_claims: true
+
+special_contexts:
+  - id: collision_hail_overlap
+    profiles: [collision-repair-us-v1, pdr-hail-us-v1]
+    rule: Active campaign context selects ordinary collision vs storm/hail workflow; same Account may carry both.
+  - id: hvac_plumbing_overlap
+    profiles: [hvac-us-v1, plumbing-us-v1]
+    rule: Same home-service company may legitimately have both profiles; no duplicate Account/contact history.
+  - id: law_practice_area
+    profiles: [law-firms-us-v1]
+    rule: Practice-area context is required for ad-specific query and opener language.
+  - id: healthcare_privacy
+    profiles: [dental-us-v1, med-spas-us-v1]
+    rule: Privacy/clinical boundaries apply and may only become stricter based on implementation requirements.
+  - id: urgent_home_service_family
+    profiles: [hvac-us-v1, plumbing-us-v1, electrical-us-v1, restoration-us-v1, garage-door-us-v1]
+    rule: Shared missed-call concepts do not erase vertical-specific safety, economics, search terms, or decision-maker routing.
