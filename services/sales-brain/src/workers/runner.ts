@@ -1,6 +1,7 @@
 import { hostname } from 'node:os';
 import { config } from '../config.js';
 import { pool, query, withTransaction } from '../db/pool.js';
+import { redactSecrets, terminalFailureReason } from './redaction.js';
 
 /**
  * Durable job runner over the Postgres job table.
@@ -88,7 +89,9 @@ async function leaseJob(): Promise<JobRecord | null> {
 
 async function completeJob(jobId: string, progress: JobResult | void): Promise<void> {
   const outcome = progress?.outcome ?? 'COMPLETED';
-  const reason = progress?.outcomeReason ?? null;
+  // A handler's own reason quotes provider messages, so it goes through the same
+  // filter as an exception does.
+  const reason = progress?.outcomeReason ? redactSecrets(progress.outcomeReason) : null;
   await query(
     `update jobs set status = 'SUCCEEDED', completed_at = now(), leased_by = null,
                      leased_until = null, last_error = null, progress = $2,
@@ -98,8 +101,33 @@ async function completeJob(jobId: string, progress: JobResult | void): Promise<v
   );
 }
 
+/**
+ * A job of a type this process cannot run.
+ *
+ * Two code paths handled this and handled it differently: the worker loop wrote a
+ * sentence naming the job type, drainQueue wrote the words "no handler", and neither
+ * set an outcome -- so on the Mining page the row showed the fallback pill rather
+ * than a failure. One condition, one answer, and an operator reason, because the
+ * usual cause is a worker running an older build than the queue it is serving.
+ */
+async function failUnhandled(job: JobRecord): Promise<void> {
+  const message = `No handler registered for job type "${job.job_type}". This worker `
+    + 'cannot run this kind of work; it is usually a worker running an older build '
+    + 'than the queue it is serving.';
+  await query(
+    `update jobs set status = 'FAILED', last_error = $2, outcome = 'FAILED',
+                     outcome_reason = $2, completed_at = now(),
+                     leased_by = null, leased_until = null
+      where job_id = $1`,
+    [job.job_id, message],
+  );
+}
+
 async function failJob(job: JobRecord, error: unknown): Promise<void> {
-  const message = error instanceof Error ? error.message : String(error);
+  const raw = error instanceof Error ? error.message : String(error);
+  // Redacted where it becomes durable, not where it is displayed: by display time
+  // it is already in the database and in whatever was backed up.
+  const message = redactSecrets(raw);
   const exhausted = job.attempts >= job.max_attempts;
   await query(
     `update jobs set status = $2, last_error = $3, leased_by = null, leased_until = null,
@@ -110,7 +138,9 @@ async function failJob(job: JobRecord, error: unknown): Promise<void> {
                      run_after = now() + (least(power(3, $4::int), 900) || ' seconds')::interval
       where job_id = $1`,
     [job.job_id, exhausted ? 'FAILED' : 'QUEUED', message.slice(0, 2000), job.attempts,
-     message.slice(0, 400)],
+     // A terminal failure gets a sentence an operator can act on. A retry does not
+     // need one: it is going to happen again in a moment.
+     exhausted ? terminalFailureReason(job.job_type, message).slice(0, 600) : null],
   );
 }
 
@@ -243,10 +273,7 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
     const handler = handlers.get(job.job_type);
     if (!handler) {
       log(`[worker] no handler for job type ${job.job_type}; marking failed`);
-      await query(
-        `update jobs set status = 'FAILED', last_error = $2, completed_at = now() where job_id = $1`,
-        [job.job_id, `No handler registered for job type "${job.job_type}"`],
-      );
+      await failUnhandled(job);
       continue;
     }
 
@@ -297,10 +324,7 @@ export async function drainQueue(limit = 50): Promise<number> {
     if (!job) break;
     const handler = handlers.get(job.job_type);
     if (!handler) {
-      await query(
-        `update jobs set status = 'FAILED', last_error = 'no handler', completed_at = now() where job_id = $1`,
-        [job.job_id],
-      );
+      await failUnhandled(job);
       continue;
     }
     try {
