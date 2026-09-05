@@ -41,6 +41,8 @@ export interface ReconcileResult {
   queued: number;
   /** Held back because their last research attempt failed recently. */
   heldAfterFailure: number;
+  /** Researched Accounts that had never been scored, and now are. */
+  scored: number;
 }
 
 const STRANDED_SQL = `
@@ -112,11 +114,56 @@ export async function reconcileMissingResearch(options: {
     if (result.created) queued += 1;
   }
 
+  const scored = await scoreResearchedButUnscored({ limit });
+
   return {
     stranded: counts[0]?.stranded ?? 0,
     queued,
     heldAfterFailure: counts[0]?.held ?? 0,
+    scored,
   };
+}
+
+/**
+ * Accounts that were researched before there was anything to score them with.
+ *
+ * Scoring runs at the end of a research run, so every Account researched before
+ * scoring existed has evidence and no tier -- and a tier filter hides an Account
+ * with no tier. Without this they would stay invisible until something happened to
+ * research them again, which for a fresh Account is never.
+ *
+ * Bounded per pass so a database with thousands of them recovers steadily rather
+ * than in one long transaction nobody can interrupt.
+ */
+export async function scoreResearchedButUnscored(options: {
+  limit?: number;
+} = {}): Promise<number> {
+  const { rows } = await query<{ account_id: string }>(
+    `select a.account_id
+       from accounts a
+      where a.merged_into_account_id is null
+        and a.manual_tier is null
+        and exists (
+          select 1 from research_runs r
+           where r.account_id = a.account_id
+             and r.status in ('completed', 'partial'))
+        and not exists (
+          select 1 from canonical_scores c where c.account_id = a.account_id)
+      order by a.created_at asc
+      limit ${Math.max(1, Math.min(1000, options.limit ?? 100))}`,
+  );
+
+  const { scoreAccount } = await import('../scoring/score.js');
+  let scored = 0;
+  for (const row of rows) {
+    try {
+      await scoreAccount(row.account_id);
+      scored += 1;
+    } catch {
+      // One Account that cannot be scored must not stop the rest of the sweep.
+    }
+  }
+  return scored;
 }
 
 /** The same count, for the operations panel. Reads nothing and queues nothing. */

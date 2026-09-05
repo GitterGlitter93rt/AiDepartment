@@ -137,6 +137,12 @@ export interface CoverageSummary {
    * Zero unless a minimum tier was asked for.
    */
   unscoredExcluded?: number;
+  /**
+   * Accounts an advertising filter is hiding because nobody has ever checked whether
+   * they advertise -- as opposed to having checked and found nothing. Zero unless an
+   * advertising filter was asked for.
+   */
+  unknownAdvertiserExcluded?: number;
   state: 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'REFRESHING';
   researchedCount: number;
   unclaimedCount: number;
@@ -393,6 +399,13 @@ export async function searchProspects(
 export async function coverageFor(request: SearchRequest): Promise<CoverageSummary> {
   const unscoredExcluded = request.minimumTier
     ? await countUnscoredInScope(request) : 0;
+  const { unknownAdvertiserCount } = await import('./advertiserEvidence.js');
+  const unknownAdvertiserExcluded = (request.advertising ?? []).length > 0
+    ? await unknownAdvertiserCount({
+      verticalProfileId: request.verticalProfileId ?? null,
+      geography: request.geography ?? null,
+    })
+    : 0;
   const geography = request.geography;
   const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
   const discoveryAvailable = availableDiscoveryAdapters().length > 0;
@@ -406,6 +419,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     return {
       state: 'FRESH', researchedCount: 0, unclaimedCount: 0, lastMinedAt: null,
       activeJobId: null, discoveryAvailable, activeJobScope: null, unscoredExcluded,
+      unknownAdvertiserExcluded,
     };
   }
 
@@ -478,6 +492,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     discoveryAvailable,
     activeJobScope,
     unscoredExcluded,
+    unknownAdvertiserExcluded,
   };
 }
 
