@@ -1,5 +1,12 @@
 import { config } from '../config.js';
 import { buildServer } from '../api/server.js';
+
+// Discovery providers. Registered in both processes so the API answers "can this
+// system find a new business" the same way the worker would; registering an
+// unconfigured adapter changes nothing, because availability is decided by the
+// credential and the governance review rather than by the import.
+const { registerConfiguredDiscoveryAdapters } = await import('../miner/registry.js');
+const availableProviders = registerConfiguredDiscoveryAdapters();
 import { closePool } from '../db/pool.js';
 
 const app = await buildServer();
@@ -8,6 +15,12 @@ const app = await buildServer();
 // starts: refusing would take the portal down over a schema step somebody is about
 // to run, and a portal that starts and says what is wrong is more useful than one
 // that will not start and says the same thing to nobody.
+app.log.info(
+  { providers: availableProviders },
+  availableProviders.length > 0
+    ? 'discovery providers configured'
+    : 'no discovery provider is configured; market search can only refresh existing inventory');
+
 try {
   const { schemaState } = await import('../db/migrate.js');
   const schema = await schemaState();

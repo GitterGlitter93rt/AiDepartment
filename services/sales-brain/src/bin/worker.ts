@@ -11,8 +11,14 @@ import { runWorker, stopWorker } from '../workers/runner.js';
 import '../workers/contactResearch.js';   // registers contact_research / account_research
 import '../workers/marketMiner.js';       // registers market_mine / zip_research
 
-const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
-const adapters = availableDiscoveryAdapters();
+// Discovery providers. Registered in both processes so the API answers "can this
+// system find a new business" the same way the worker would; registering an
+// unconfigured adapter changes nothing, because availability is decided by the
+// credential and the governance review rather than by the import.
+const { registerConfiguredDiscoveryAdapters } = await import('../miner/registry.js');
+const availableProviders = registerConfiguredDiscoveryAdapters();
+
+const adapters = availableProviders.map((name) => ({ name }));
 console.log(
   `[worker] contact enrichment mode: ${config.contactEnrichmentMode}; ` +
   `paid provider: ${config.apolloApiKey ? 'configured' : 'not configured'}; ` +
