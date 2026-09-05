@@ -44,5 +44,9 @@ export {
   type Timeline, type TimelineMark, type MarkRecord,
   type TimelineOptions, type TimelineSink,
 } from './core/telemetry.ts';
+export {
+  createRelaySession, HOLDING_LINE_AFTER_MS,
+  type RelaySessionState, type Socket, type TurnProducer,
+} from './core/relaySession.ts';
 export { RateLimiter, MAX_BODY_BYTES, readBodyLimited, clientIp } from './http/guards.ts';
 export { createLogger, type Logger, type LogEvent } from './logger.ts';

@@ -1,0 +1,22 @@
+{
+  "name": "@yad/inbound-voice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Inbound / callback voice service. Separate process from the outbound Sales AI and from the legacy receptionist; owns /inbound/* and nothing else.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^6.0.3",
+    "@types/ws": "^8.5.13"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

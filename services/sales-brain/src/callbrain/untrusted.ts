@@ -46,6 +46,16 @@ function neutraliseStructure(text: string): string {
  * the label the model sees says so, and so security analysis can look at it.
  */
 const INSTRUCTION_SHAPED = [
+  // "Ignore your rules" is the same attack as "ignore your instructions", and a
+  // detector that only knows the second word is a detector somebody has read.
+  /\b(?:ignore|disregard|forget|override)\s+(?:all\s+|your\s+|the\s+|any\s+)?(?:previous\s+|prior\s+|above\s+|earlier\s+)?(?:instructions?|rules?|guidelines?|guardrails?|polic(?:y|ies)|constraints?|prompts?|training)\b/i,
+  // A bare imperative asking for a commercial promise. No "you may" required: an
+  // instruction planted in a company name is written as an order, not a permission.
+  /\b(?:offer|promise|guarantee|give|grant|waive|discount|comp)\b[^.]{0,40}\b(?:guarantee|refund|free|discount|setup fee|deposit|\$\s*\d|\d+\s*%)/i,
+  // Asserting a fact about the caller that the CRM does not hold.
+  /\btell\s+(?:the\s+)?(?:caller|customer|prospect|them|him|her|user)\b[^.]{0,40}\bthey\b/i,
+  // Turning a control off by name.
+  /\b(?:disable|bypass|skip|turn\s+off|ignore)\s+(?:the\s+|all\s+)?(?:compliance|safety|dnc|suppression|verification|checks?|screening)\b/i,
   /\bignore\s+(?:all\s+|your\s+|the\s+)?(?:previous\s+|prior\s+|above\s+)?instructions?\b/i,
   /\b(?:you\s+are|act\s+as|pretend\s+to\s+be)\s+(?:now\s+)?an?\b/i,
   /\bsystem\s*(?::|prompt|message)\b/i,
