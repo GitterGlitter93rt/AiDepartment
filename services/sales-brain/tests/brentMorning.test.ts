@@ -235,7 +235,7 @@ test('the operations page accounts for the night: work done, money spent, build'
   await mine('32095', ops);
   await recordHeartbeat();
 
-  const manager = await createUser({
+  await createUser({
     email: 'nightmanager@morning.invalid', displayName: 'Night Manager',
     role: 'SALES_MANAGER', password: PASSWORD });
   const login = await app.inject({
@@ -247,7 +247,6 @@ test('the operations page accounts for the night: work done, money spent, build'
     method: 'GET', url: '/research-health', headers: { cookie } });
   assert.equal(response.statusCode, 200);
   assert.match(response.body, /night01/, 'the page does not say which build ran overnight');
-  assert.ok(manager);
 });
 
 test('a market Brent refreshes himself does not re-buy a search already paid for', async () => {
