@@ -49,6 +49,22 @@ export interface DiscoveredBusiness {
   resultType?: string;
   advertisedService?: string | null;
   landingUrl?: string | null;
+  /**
+   * What the provider actually showed us, kept so a rep can quote it.
+   *
+   * The adapter normalized every one of these and then dropped them on the way
+   * here: the search that found the company, where it sat on the page, what the ad
+   * said, the provider's own verification link, and when the SERP was really read.
+   * `search_observations` has had a column waiting for each since migration 003.
+   * Without them an observation says only "paid_search", which is a claim with no
+   * proof behind it -- and on a collected task, one stamped at collection time
+   * rather than at the moment the page was read, which overstates its freshness.
+   */
+  query?: string | null;
+  position?: number | null;
+  adHeadline?: string | null;
+  checkUrl?: string | null;
+  observedAt?: Date | null;
 }
 
 /**
@@ -684,8 +700,11 @@ async function ingestDiscoveries(
         `insert into search_observations (mining_job_id, provider, source_type, observed_name,
                                           observed_domain, observed_phone, observed_location,
                                           result_type, advertised_service, landing_url,
-                                          retention_class, account_id, job_id)
-         values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', $9, $10)`,
+                                          retention_class, account_id, job_id,
+                                          query, position, ad_headline, provider_native_id,
+                                          observed_at)
+         values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', $9, $10,
+                 $11, $12, $13, $14, coalesce($15::timestamptz, now()))`,
         [
           providerName, business.name, business.website ?? null, business.phone ?? null,
           [business.city, business.state].filter(Boolean).join(', ') || null,
@@ -694,6 +713,12 @@ async function ingestDiscoveries(
           // An observation nobody can trace back to the run that made it cannot be
           // audited, and cannot be attributed a cost.
           job.job_id,
+          business.query ?? null, business.position ?? null, business.adHeadline ?? null,
+          business.providerNativeId ?? null,
+          // The provider's own timestamp when it gave us one. A task submitted on
+          // Monday and collected on Thursday was read on Monday, and saying
+          // otherwise makes three-day-old ad evidence look like today's.
+          business.observedAt ?? null,
         ],
       );
 

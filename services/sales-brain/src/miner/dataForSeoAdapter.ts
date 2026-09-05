@@ -178,7 +178,16 @@ export function normalizeResponse(
       for (const item of result.items ?? []) {
         const type = normalizeResultType(item.type);
         observations.push({
-          providerNativeId: item.advertiser_id ?? task.id ?? null,
+          // The provider's id for *this business*, or nothing.
+          //
+          // This used to fall back to the task id, which identifies the search. Every
+          // row in one response carries the same one, and account resolution matches
+          // on provider identity before it looks at domain or phone -- so a search
+          // that found twenty companies resolved all twenty to whichever was ingested
+          // first, and reported the other nineteen as "already in inventory". None of
+          // the existing fixtures could show it because they all set advertiser_id;
+          // real organic and paid SERP items do not carry one at all.
+          providerNativeId: item.advertiser_id?.trim() || null,
           observedName: item.title?.trim() || null,
           observedDomain: item.domain?.trim().toLowerCase() || null,
           observedPhone: item.phone?.trim() || null,
@@ -636,10 +645,28 @@ export function dedupeCandidates(
   observations: NormalizedObservation[],
 ): DiscoveredBusiness[] {
   const byIdentity = new Map<string, NormalizedObservation>();
+  /**
+   * The company's name, which is not always in the row we keep.
+   *
+   * A text ad's title is ad copy -- "Same-Day AC Repair St. Augustine -- 24/7
+   * Emergency Service" -- and naming the Account after it puts a slogan in the rep's
+   * list where a company should be. The same company's organic row usually carries
+   * something closer to a name, and the domain always does. A Local Services ad is
+   * the exception: Google shows the business name there, so its title is a name.
+   */
+  const nameByIdentity = new Map<string, { name: string; rank: number }>();
 
   for (const observation of observations) {
     const identity = observation.observedDomain ?? observation.observedPhone;
     if (!identity) continue;
+    if (observation.resultType !== 'PAID_SEARCH_TEXT' && observation.observedName) {
+      // The highest-placed one, not the first one seen: a deep link buried at rank
+      // seven carries the title of a blog post, and the row at rank two carries
+      // something much closer to the company's name.
+      const rank = observation.position ?? Number.MAX_SAFE_INTEGER;
+      const held = nameByIdentity.get(identity);
+      if (!held || rank < held.rank) nameByIdentity.set(identity, { name: observation.observedName, rank });
+    }
     const held = byIdentity.get(identity);
     if (!held) { byIdentity.set(identity, observation); continue; }
 
@@ -655,8 +682,12 @@ export function dedupeCandidates(
     // A paid row already held is never displaced by an organic one.
   }
 
-  return [...byIdentity.values()].map((observation) => ({
-    name: observation.observedName ?? observation.observedDomain!,
+  return [...byIdentity.entries()].map(([identity, observation]) => ({
+    name: nameByIdentity.get(identity)?.name
+      ?? observation.observedDomain
+      // Nothing but a text ad to go on. The slogan is all we have; it is better than
+      // an empty row, and the ad copy is kept separately either way.
+      ?? observation.observedName!,
     website: observation.observedDomain ? `https://${observation.observedDomain}` : null,
     phone: observation.observedPhone,
     city: null, state: null, postalCode: null,
@@ -664,5 +695,15 @@ export function dedupeCandidates(
     resultType: observation.resultType,
     advertisedService: observation.advertisedService,
     landingUrl: observation.landingUrl,
+    // Everything above this line described the company; everything below describes
+    // the sighting, and it used to stop here. The rank, the ad copy, the search
+    // that found them, the provider's own check link and the time the page was
+    // actually read were all normalized and then dropped on the floor -- so the
+    // record of how we found a company said "paid_search" and nothing else.
+    query: observation.query,
+    position: observation.position,
+    adHeadline: observation.adHeadline,
+    checkUrl: observation.checkUrl,
+    observedAt: observation.observedAt,
   }));
 }

@@ -68,6 +68,27 @@ export interface DetailEvidence {
   is_expired: boolean;
 }
 
+/**
+ * How we came to know this company exists.
+ *
+ * Every discovery has been written to `search_observations` since the miner was
+ * built, and nothing has ever read it back: a rep could see that an Account was
+ * "discovered" and never what the search was, where the company sat on the page or
+ * what its ad actually said. That last one is the sentence a rep opens a call with,
+ * and it was in the database the whole time.
+ */
+export interface DetailDiscovery {
+  observation_id: string;
+  provider: string;
+  query: string | null;
+  result_type: string | null;
+  position: number | null;
+  ad_headline: string | null;
+  advertised_service: string | null;
+  landing_url: string | null;
+  observed_at: Date;
+}
+
 export interface TimelineEvent {
   activity_id: number;
   activity_type: string;
@@ -85,6 +106,7 @@ export interface AccountDetail {
   accountEndpoints: DetailEndpoint[];
   hypotheses: Record<string, any>[];
   evidence: DetailEvidence[];
+  discoveries: DetailDiscovery[];
   timeline: TimelineEvent[];
   followUps: Record<string, any>[];
   suppressions: Record<string, any>[];
@@ -158,7 +180,7 @@ export async function getAccountDetail(
   if (!account) return null;
 
   const [
-    locations, contactRows, endpointRows, hypotheses, evidence, timeline, followUps,
+    locations, contactRows, endpointRows, hypotheses, evidence, discoveries, timeline, followUps,
     suppressions, ownershipEvents,
   ] = await Promise.all([
     query('select * from locations where account_id = $1 order by is_headquarters desc, created_at', [accountId]),
@@ -202,6 +224,15 @@ export async function getAccountDetail(
         where account_id = any(select account_id from merged_chain($1))
           and contradicted_by_evidence_id is null
         order by observed_at desc limit 60`,
+      [accountId],
+    ),
+    query<DetailDiscovery>(
+      `select observation_id, provider, query, result_type, position, ad_headline,
+              advertised_service, landing_url, observed_at
+         from search_observations
+        where account_id = any(select account_id from merged_chain($1))
+          and source_type = 'discovery'
+        order by observed_at desc limit 12`,
       [accountId],
     ),
     query<TimelineEvent>(
@@ -250,6 +281,7 @@ export async function getAccountDetail(
     accountEndpoints,
     hypotheses: hypotheses.rows,
     evidence: evidence.rows,
+    discoveries: discoveries.rows,
     timeline: timeline.rows,
     followUps: followUps.rows,
     suppressions: suppressions.rows,

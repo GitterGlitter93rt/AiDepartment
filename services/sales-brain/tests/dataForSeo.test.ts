@@ -157,7 +157,13 @@ test('a discovered business carries its provider evidence, and no invented locat
 
   assert.equal(found.status, 'OK');
   assert.equal(found.businesses.length, 2, 'only results identifying a business become candidates');
-  assert.equal(found.businesses[0]!.name, 'Northgate Air & Heating');
+  // The domain, not the ad's headline. This fixture's text ad happens to be titled
+  // with the company's name; a real one is as likely to be titled "Same-Day AC
+  // Repair -- 24/7 Emergency Service", and there is no way to tell the two apart
+  // from the row. The domain is the part we actually know, and the headline is kept
+  // as ad copy rather than lost.
+  assert.equal(found.businesses[0]!.name, 'northgateair.com');
+  assert.equal(found.businesses[0]!.adHeadline, 'Northgate Air & Heating');
   assert.equal(found.businesses[0]!.website, 'https://northgateair.com');
   assert.equal(found.businesses[0]!.resultType, 'PAID_SEARCH_TEXT');
   assert.equal(found.businesses[0]!.city, null, 'a city the provider did not give is not guessed');

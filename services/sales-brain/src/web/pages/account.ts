@@ -160,7 +160,8 @@ function contactBlock(contact: DetailContact, isPrimary: boolean): RawHtml {
 }
 
 export function renderAccountBody(detail: AccountDetail, user: SessionUser): RawHtml {
-  const { account, contacts, accountEndpoints, hypotheses, evidence, timeline, followUps } = detail;
+  const { account, contacts, accountEndpoints, hypotheses, evidence, timeline, followUps,
+    discoveries } = detail;
   const primaryHypothesis = hypotheses[0];
   // A claim we hold *and disbelieve* is the most dangerous thing to render neutrally:
   // a rep who reads "Decision Maker Name" as a signal opens the call with the wrong
@@ -232,6 +233,41 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </div>
   </div>
 
+  ${discoveries.length > 0 ? html`
+  <div class="section">
+    <h3>How we found them</h3>
+    ${discoveries.map((found) => html`
+      <div class="callout" style="margin-bottom:8px">
+        <div>
+          ${found.query
+            ? html`Searched <strong>${found.query}</strong>`
+            : html`Found by <strong>${found.provider}</strong>`}
+          ${found.result_type
+            ? html`<span class="badge ${found.result_type === 'paid_search'
+                || found.result_type === 'local_service_ad'
+                || found.result_type === 'sponsored_local' ? 'badge-good' : ''}"
+                     style="margin-left:6px">${discoveryPlacement(found.result_type)}</span>`
+            : ''}
+          ${typeof found.position === 'number'
+            ? html`<span class="muted small" style="margin-left:6px">position ${String(found.position)}</span>`
+            : ''}
+        </div>
+        ${found.ad_headline
+          // The one line a rep can actually open with: their own ad, in their own
+          // words. Shown as a quotation because that is what it is.
+          ? html`<div style="margin-top:4px">&ldquo;${found.ad_headline}&rdquo;</div>`
+          : ''}
+        <div class="micro muted" style="margin-top:4px">
+          Seen ${relativeTime(found.observed_at)} via ${found.provider}${
+            found.landing_url ? html` &middot; ${found.landing_url}` : ''}
+        </div>
+      </div>`)}
+    <p class="micro muted">
+      This is where the company came from, not what they told us. An ad seen once is
+      an ad seen once &mdash; check the date before saying &ldquo;currently&rdquo;.
+    </p>
+  </div>` : ''}
+
   <div class="section">
     <h3>Signals</h3>
     ${currentEvidence.length === 0 && staleEvidence.length === 0
@@ -294,6 +330,23 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
 }
 
 /** Drawer body: the head block is lifted into the sticky drawer header by portal.js. */
+/**
+ * The stored result type in words a rep uses. "paid_search" is our vocabulary, not
+ * theirs, and a badge that says it teaches nobody anything.
+ */
+function discoveryPlacement(resultType: string): string {
+  switch (resultType) {
+    case 'paid_search': return 'Paid ad';
+    case 'local_service_ad': return 'Local Services ad';
+    case 'sponsored_local': return 'Sponsored map result';
+    case 'local_result': return 'Map result';
+    case 'organic': return 'Organic result';
+    case 'directory_result': return 'Directory listing';
+    case 'transparency_ad': return 'Ad library record';
+    default: return titleCase(resultType);
+  }
+}
+
 export function renderAccountPanel(detail: AccountDetail, user: SessionUser): string {
   const { account } = detail;
   return html`
