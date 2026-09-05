@@ -136,27 +136,52 @@ export const HEARTBEAT_INTERVAL_MS = Number(process.env['WORKER_HEARTBEAT_MS'] ?
 export const HEARTBEAT_STALE_AFTER_MS = HEARTBEAT_INTERVAL_MS * 3;
 
 export async function recordHeartbeat(input: {
-  processed?: number; lastJobAt?: Date | null;
+  processed?: number; lastJobAt?: Date | null; currentJobId?: string | null;
 } = {}): Promise<void> {
   await query(
     `insert into worker_instances (worker_id, hostname, pid, handlers, last_heartbeat_at,
-                                   jobs_processed, last_job_at)
-     values ($1, $2, $3, $4, now(), $5, $6)
+                                   jobs_processed, last_job_at, draining_since, current_job_id)
+     values ($1, $2, $3, $4, now(), $5, $6, $7, $8)
      on conflict (worker_id) do update set
        last_heartbeat_at = now(),
        handlers = excluded.handlers,
        jobs_processed = greatest(worker_instances.jobs_processed, excluded.jobs_processed),
        last_job_at = coalesce(excluded.last_job_at, worker_instances.last_job_at),
+       -- Draining is sticky: once asked to stop, a worker does not go back to
+       -- running just because its next heartbeat fires.
+       draining_since = coalesce(worker_instances.draining_since, excluded.draining_since),
+       current_job_id = excluded.current_job_id,
        stopped_at = null`,
     [workerId, hostname(), process.pid, [...handlers.keys()],
-     input.processed ?? 0, input.lastJobAt ?? null],
+     input.processed ?? 0, input.lastJobAt ?? null,
+     stopping ? new Date() : null, input.currentJobId ?? null],
   );
 }
 
 /** Marks this worker as stopped on purpose, so a clean shutdown is not an outage. */
 export async function recordWorkerStopped(): Promise<void> {
   await query(
-    'update worker_instances set stopped_at = now() where worker_id = $1', [workerId]);
+    `update worker_instances set stopped_at = now(), draining_since = null,
+            current_job_id = null
+      where worker_id = $1`, [workerId]);
+}
+
+/**
+ * Records that this worker has been asked to stop and is finishing what it holds.
+ *
+ * Between the signal and the exit a worker is neither running normally nor stopped.
+ * It takes no new work, so the queue behind it is going nowhere, and without this
+ * the operations panel read it as perfectly healthy.
+ */
+export async function recordWorkerDraining(): Promise<void> {
+  await query(
+    `update worker_instances set draining_since = coalesce(draining_since, now())
+      where worker_id = $1`, [workerId]);
+}
+
+/** True once this worker has been asked to stop. */
+export function isDraining(): boolean {
+  return stopping;
 }
 
 export const HOUSEKEEPING_INTERVAL_MS = 60 * 60 * 1000;
@@ -226,6 +251,8 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
     }
 
     const startedAt = Date.now();
+    await recordHeartbeat({ processed, lastJobAt, currentJobId: job.job_id })
+      .catch(() => { /* a heartbeat is not worth failing a job over */ });
     try {
       const progress = await handler(job);
       await completeJob(job.job_id, progress);
@@ -249,6 +276,9 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
 
 export function stopWorker(): void {
   stopping = true;
+  // Say so immediately rather than at the next heartbeat: the whole point of the
+  // state is that somebody watching a restart can see it happening.
+  void recordWorkerDraining().catch(() => { /* the process is stopping anyway */ });
 }
 
 export function isRunning(): boolean {

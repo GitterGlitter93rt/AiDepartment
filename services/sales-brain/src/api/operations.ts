@@ -54,6 +54,11 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        (select count(*)::int from worker_instances
          where stopped_at is null
            and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval) as workers_online,
+       -- Alive, heartbeating, and taking no new work. The queue behind a draining
+       -- worker is going nowhere, and it used to read as perfectly healthy.
+       (select count(*)::int from worker_instances
+         where stopped_at is null and draining_since is not null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval) as workers_draining,
        (select count(*)::int from worker_instances) as workers_known,
        (select max(last_heartbeat_at) from worker_instances) as last_heartbeat_at,
        (select coalesce(extract(epoch from (now() - max(last_heartbeat_at))), -1)::int
@@ -183,14 +188,26 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   const heartbeatAge = number('heartbeat_age_seconds');
   const stranded = number('jobs_stranded');
 
+  const draining = number('workers_draining');
+
+  // A worker that is draining is alive and is not going to pick anything up. With
+  // work waiting behind it that is a blockage, not a healthy queue.
   const workerState: HealthState =
-    online > 0 ? (stranded > 0 ? 'ATTENTION' : 'OK')
+    online > 0 && draining >= online
+      ? (queued > 0 ? 'BLOCKED' : 'ATTENTION')
+    : online > 0 ? (stranded > 0 ? 'ATTENTION' : 'OK')
     : known === 0 ? (queued > 0 ? 'BLOCKED' : 'UNKNOWN')
     : queued > 0 ? 'BLOCKED' : 'ATTENTION';
 
   add('worker', 'Is a worker running?', workerState,
-    online > 0 ? `${online} online` : known === 0 ? 'never seen' : 'offline',
     online > 0
+      ? (draining > 0 ? `${online} online, ${draining} draining` : `${online} online`)
+      : known === 0 ? 'never seen' : 'offline',
+    online > 0 && draining >= online
+      ? `Every worker has been asked to stop and is finishing what it holds. Nothing `
+        + `new is being picked up, so the ${queued} queued job(s) are waiting for a `
+        + 'worker to come back.'
+    : online > 0
       ? `Last heartbeat ${heartbeatAge}s ago. ${stranded} job(s) hold an expired lease.`
       : known === 0
         ? 'No worker has ever reported in on this database. Jobs will queue and stay '
