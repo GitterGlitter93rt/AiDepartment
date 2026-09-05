@@ -315,6 +315,12 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const pendingTaskIds: string[] = [];
   const discoveryNotes: string[] = [];
 
+  // Before any provider is asked: does another run fit under today's ceiling?
+  // Refused before the money is spent, never after.
+  const { spendPosition, budgetRefusalReason } = await import('../miner/spend.js');
+  const spend = await spendPosition();
+  const budgetExhausted = adapters.length > 0 && spend.wouldExceed;
+
   if (adapters.length === 0) {
     discoveryNotes.push(
       'No discovery adapter is available: new-business discovery needs an approved search '
@@ -338,7 +344,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     miningMode: request.miningMode,
   });
 
-  for (const adapter of adapters) {
+  for (const adapter of budgetExhausted ? [] : adapters) {
     let result: DiscoveryResult;
     // Set when a task's results are in hand but not yet in inventory.
     let collected: string | null = null;
@@ -450,6 +456,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    */
   const outcome: JobOutcome =
     adapters.length === 0 ? 'DISCOVERY_BLOCKED'
+    // Our own ceiling stopping the call is a blocked search, not an empty market.
+    : budgetExhausted ? 'DISCOVERY_BLOCKED'
     : statuses.every((status) => status === 'PENDING') ? 'PROVIDER_PENDING'
     : answered === 0 ? 'PROVIDER_UNAVAILABLE'
     : failed > 0 ? 'PARTIAL'
@@ -458,7 +466,9 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
 
   const failureSummary = discoveryNotes.length > 0 ? ` ${discoveryNotes.join('; ')}` : '';
   const outcomeReason =
-    outcome === 'DISCOVERY_BLOCKED'
+    outcome === 'DISCOVERY_BLOCKED' && budgetExhausted
+      ? budgetRefusalReason(spend)
+    : outcome === 'DISCOVERY_BLOCKED'
       ? 'No search provider is configured, so no new business could be found. '
         + `${plan.queued} existing account(s) were queued for refresh.`
     : outcome === 'PROVIDER_PENDING'
@@ -515,6 +525,9 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     providersFailed: failed,
     providerTaskIds: pendingTaskIds,
     costUsd: costKnown ? Number(costUsd.toFixed(4)) : null,
+    spentTodayUsd: spend.spentTodayUsd,
+    dailyBudgetUsd: spend.budgetUsd || null,
+    budgetExhausted,
     notes: discoveryNotes,
   };
 });

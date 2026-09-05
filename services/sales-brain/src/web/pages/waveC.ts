@@ -603,7 +603,8 @@ function operationsPanel(snapshot: OperationalSnapshot | null): RawHtml {
   const DIMENSION_LABEL: Record<string, string> = {
     DATABASE: 'Database', SCHEMA: 'Schema', WORKER: 'Worker', QUEUE: 'Queue',
     DISCOVERY_PROVIDER: 'Discovery provider', PROVIDER_TASKS: 'Provider tasks',
-    RESEARCH: 'Research', SAVED_MARKETS: 'Saved markets', INVENTORY: 'Inventory',
+    RESEARCH: 'Research', SAVED_MARKETS: 'Saved markets', SPEND: 'Spend',
+    INVENTORY: 'Inventory',
     SALES: 'Sales', COMPLIANCE: 'Compliance',
   };
   const worst = new Map<string, string>();

@@ -67,7 +67,7 @@ test('every check belongs to a named dimension', async () => {
   }
   const dimensions = new Set(snapshot.checks.map((check) => check.dimension));
   for (const required of ['DATABASE', 'SCHEMA', 'WORKER', 'QUEUE', 'DISCOVERY_PROVIDER',
-    'PROVIDER_TASKS', 'RESEARCH', 'SAVED_MARKETS'] as HealthDimension[]) {
+    'PROVIDER_TASKS', 'RESEARCH', 'SAVED_MARKETS', 'SPEND'] as HealthDimension[]) {
     assert.ok(dimensions.has(required), `nothing answers for ${required}`);
   }
 });
@@ -181,7 +181,7 @@ test('the page shows one answer per dimension, and the panel cannot say all is w
 
   const page = await healthPage();
   for (const label of ['Database', 'Schema', 'Worker', 'Queue', 'Discovery provider',
-    'Provider tasks', 'Research', 'Saved markets']) {
+    'Provider tasks', 'Research', 'Saved markets', 'Spend']) {
     assert.ok(page.includes(label), `${label} is not on the page`);
   }
   assert.ok(!/Nothing needs attention/.test(page),
@@ -194,6 +194,25 @@ test('the summary counts every state that needs a human', async () => {
     (check) => check.state === 'ATTENTION' || check.state === 'BLOCKED').length;
   assert.equal(snapshot.counts.ATTENTION + snapshot.counts.BLOCKED, needing,
     'the summary and the rows disagree about how much is wrong');
+});
+
+test('an unset budget does not make a working provider look unavailable', async () => {
+  // "Can we search" and "may we afford to" are different questions. Filing spend
+  // under the provider axis made a configured, working provider read as not-OK
+  // purely because no ceiling was set.
+  registerDiscoveryAdapter({
+    name: 'configured-two', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return { status: 'ZERO_RESULTS' as const, businesses: [], providerRows: 0,
+        rejectedRows: 0, duplicateRows: 0 };
+    },
+  });
+
+  const snapshot = await operationalSnapshot();
+  assert.equal(dimensionState(snapshot.checks, 'DISCOVERY_PROVIDER'), 'OK');
+  assert.equal(dimensionState(snapshot.checks, 'SPEND'), 'UNKNOWN',
+    'and the absence of a spending limit is still said out loud, on its own axis');
 });
 
 test('a configured provider moves only its own dimension', async () => {

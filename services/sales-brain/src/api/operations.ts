@@ -29,7 +29,8 @@ export type HealthState = 'OK' | 'ATTENTION' | 'BLOCKED' | 'UNKNOWN';
  */
 export type HealthDimension =
   | 'DATABASE' | 'SCHEMA' | 'WORKER' | 'QUEUE' | 'DISCOVERY_PROVIDER'
-  | 'PROVIDER_TASKS' | 'RESEARCH' | 'SAVED_MARKETS' | 'INVENTORY' | 'SALES' | 'COMPLIANCE';
+  | 'PROVIDER_TASKS' | 'RESEARCH' | 'SAVED_MARKETS' | 'SPEND' | 'INVENTORY' | 'SALES'
+  | 'COMPLIANCE';
 
 export interface OperationalCheck {
   id: string;
@@ -163,7 +164,18 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        (select count(*)::int from saved_markets where enabled and blocker_reason is not null)
          as markets_blocked,
        (select count(*)::int from saved_markets where enabled and consecutive_failures > 0)
-         as markets_failing`,
+         as markets_failing,
+
+       -- Today's provider spend, and how much of it is estimated rather than
+       -- confirmed: a day whose cost is mostly estimated is a day nobody can hold
+       -- the provider to.
+       (select coalesce(sum(coalesce(actual_cost_usd, estimated_cost_usd)), 0)
+          from provider_usage where requested_at >= date_trunc('day', now()))
+         as provider_spend_today,
+       (select coalesce(sum(case when actual_cost_usd is null
+                                 then estimated_cost_usd else 0 end), 0)
+          from provider_usage where requested_at >= date_trunc('day', now()))
+         as provider_spend_today_estimated`,
     [String(HEARTBEAT_STALE_AFTER_MS)],
   );
   const row = rows[0]!;
@@ -175,7 +187,11 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
     discovery: 'DISCOVERY_PROVIDER', provider_tasks: 'PROVIDER_TASKS',
     research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
     inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
-    imports: 'INVENTORY', spend: 'DISCOVERY_PROVIDER',
+    imports: 'INVENTORY',
+    // Its own axis, not the provider's. "Can we search" and "may we afford to" are
+    // different questions, and an unset budget must not make a working provider
+    // look unavailable.
+    spend: 'SPEND',
     replies: 'SALES', followups: 'SALES', bookings: 'SALES', reps: 'SALES',
     outbound_ai: 'COMPLIANCE',
   };
@@ -303,9 +319,29 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
     'A failed provider call never marks research fresh, so a silent outage shows up '
       + 'here rather than as confident stale data.');
 
-  add('spend', 'Are we near a spend cap?', 'OK',
-    `$${Number(row['provider_spend_30d'] ?? 0).toFixed(2)} in 30 days`,
-    'No provider is configured yet, so this is what has been recorded, not a forecast.');
+  // Today against the ceiling, not thirty days against nothing. A 24/7 miner that
+  // searches correctly and cheaply can still spend a great deal by morning, and the
+  // person who finds out should not be whoever reads the invoice.
+  const spentToday = Number(row['provider_spend_today'] ?? 0);
+  const estimatedToday = Number(row['provider_spend_today_estimated'] ?? 0);
+  const budget = Number(process.env['DISCOVERY_DAILY_BUDGET_USD'] ?? '0');
+  const spendState: HealthState = budget <= 0 ? 'UNKNOWN'
+    : spentToday >= budget ? 'BLOCKED'
+    : spentToday >= budget * 0.8 ? 'ATTENTION' : 'OK';
+
+  add('spend', 'Are we near a spend cap?', spendState,
+    budget > 0
+      ? `$${spentToday.toFixed(2)} of $${budget.toFixed(2)} today`
+      : `$${spentToday.toFixed(2)} today, no cap set`,
+    budget <= 0
+      ? 'No daily provider budget is configured, so nothing stops a run of searches '
+        + 'from costing whatever they cost. Set DISCOVERY_DAILY_BUDGET_USD.'
+      : spentToday >= budget
+        ? 'The daily budget is spent. Market searches are refused until midnight, and '
+          + 'a refused search is reported as blocked rather than as an empty market.'
+        : `$${(budget - spentToday).toFixed(2)} left today.${estimatedToday > 0
+            ? ` $${estimatedToday.toFixed(2)} of today's figure is estimated rather than `
+              + 'confirmed by the provider.' : ''}`);
 
   // --- imports -----------------------------------------------------------------
   const importsStuck = number('imports_stuck');
