@@ -1,7 +1,7 @@
 # YAD Business Problem Series
 
 Status: Active creative-development system
-Updated: 2026-09-04
+Updated: 2026-09-05
 
 ## Purpose
 
@@ -28,13 +28,14 @@ The story illustrates the workflow; it is not proof of a result. Avoid invented 
 9. Each substantive revision gets its own local and Dropbox folder.
 10. Every final asset should be remotely verified after upload.
 11. Human review outranks metrics for voice naturalness, familiar sound recognition, acting, and overall ad credibility.
+12. Do not synthesize continuous office ambience from procedural white/pink/brown/shaped noise. Clean narration plus discrete believable sound events is safer than fake static.
 
 ## Series status
 
 | # | Creative | Problem | Core message | Status |
 |---|---|---|---|---|
 | 1 | Front Desk Capacity | Multiple important demands hit one employee at once | Same team. More capacity. | Master direction locked at V3 |
-| 2 | Follow-Up Leak | Opportunities require repeated attention over time | You already paid for the opportunity. Keep follow-up moving. | V2 candidate master complete; human review pending |
+| 2 | Follow-Up Leak | Opportunities require repeated attention over time | You already paid for the opportunity. Keep follow-up moving. | V2.1 candidate; static corrected; minor human-review items remain |
 | 3 | After-Hours Opportunity | Demand arrives when the office is closed | Your office can close without every opportunity waiting until morning. | Script + Claude production prompt ready |
 | 4 | Double Entry | Staff retypes the same information across disconnected systems | This may be a systems problem, not a staffing problem. | Script ready |
 | 5 | Attribution Blind Spot | Marketing creates leads but revenue attribution disappears downstream | Do not stop measuring at the lead. | Script ready |
@@ -94,13 +95,16 @@ Why next: introduces internal AI and knowledge systems. Shows YAD can improve em
 - Avoid words that repeatedly fail TTS/Seedance pronunciation when a natural synonym exists.
 - Telephone scenes require causal visual proof: initiation, ringback, no answer, logging, etc.
 - Familiar sounds must remain semantically recognizable; do not optimize a meter at the expense of what a human hears.
-- Background office audio should support the story and remain audible on a phone speaker.
+- Background audio must be evaluated as sound, not just RMS. Matching level does not mean matching ambience.
+- Never create office room tone from continuous procedural white/pink/brown/shaped noise.
+- Clean narration plus discrete keyboard, paper, ringback, incoming ring, and other believable events is preferable to synthetic static.
 - Do not accept robotic sighing, repeated nodding, vacant pauses, or generic "busy" acting. Give actors purposeful tasks.
 - Avoid generated floating AR/UI artifacts; exact interfaces belong in deterministic post.
 - Progressive cards must use active-content optical centering and causal reveal order.
 - Keep narration conversational. Graphics carry lists and process detail.
 - Semantic overlays may only label actions actually supported by visible footage.
 - Hard semantic timing ceilings outrank soft dwell/clamp heuristics.
+- Do not treat an automated QA count such as `124/124 PASS` as creative approval. Human listening and normal-speed viewing remain mandatory gates.
 
 ## Folder/version convention
 
