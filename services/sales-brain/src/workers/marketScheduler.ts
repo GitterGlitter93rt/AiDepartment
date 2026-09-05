@@ -45,7 +45,6 @@ export function backoffHours(consecutiveFailures: number): number {
 
 export type SkipReason =
   | 'ALREADY_RUNNING'
-  | 'PROVIDER_TASK_OUTSTANDING'
   | 'IN_FLIGHT_LIMIT'
   | 'BATCH_LIMIT';
 
@@ -57,6 +56,12 @@ export interface SchedulerResult {
   skipped: { marketId: string; reason: SkipReason }[];
   /** True when no provider is configured, so nothing was scheduled at all. */
   discoveryBlocked: boolean;
+  /**
+   * Of the queued runs, how many exist to collect a search already paid for rather
+   * than to buy a new one. An operator watching spend needs the difference: these
+   * cost nothing and the rest do.
+   */
+  collecting: number;
 }
 
 interface DueMarket {
@@ -102,7 +107,8 @@ export async function scheduleDueMarkets(options: {
               || 'for new businesses.'`);
     const { rows } = await query<{ n: number }>(
       `select count(*)::int as n from saved_markets where enabled`);
-    return { due: rows[0]?.n ?? 0, queued: 0, skipped: [], discoveryBlocked: true };
+    return { due: rows[0]?.n ?? 0, queued: 0, skipped: [], discoveryBlocked: true,
+      collecting: 0 };
   }
 
   // How many are already moving. A market in flight is one the worker is spending
@@ -128,6 +134,8 @@ export async function scheduleDueMarkets(options: {
   );
 
   let queued = 0;
+  /** Runs queued to fetch a search already paid for, rather than to buy a new one. */
+  let collecting = 0;
   for (const market of due) {
     if (queued >= batchSize) {
       skipped.push({ marketId: market.market_id, reason: 'BATCH_LIMIT' });
@@ -149,8 +157,19 @@ export async function scheduleDueMarkets(options: {
       continue;
     }
 
-    // A provider task still owed to us is a search already paid for. Buying another
-    // is the most expensive mistake this scheduler could make.
+    // A provider task still owed to us is a search already paid for, and buying
+    // another would be the most expensive mistake this scheduler could make. But
+    // skipping the market entirely was worse, and this ran that way: collection
+    // happens inside the market_mine job, so refusing to queue one meant the task
+    // was never collected, never abandoned, and the market never refreshed again.
+    // One PENDING answer retired a saved market permanently, and the search we had
+    // paid for was never read. It took thirty simulated days to see, because a
+    // single cycle looks perfectly correct.
+    //
+    // The job is queued precisely because a task is outstanding: its first action is
+    // to collect one. Buying twice is already prevented inside the handler, which
+    // collects before it submits, and the ALREADY_RUNNING check above stops two jobs
+    // for one market.
     const fingerprint = discoveryFingerprint({
       marketId: market.market_id,
       verticalProfileId: market.vertical_profile_id,
@@ -162,10 +181,7 @@ export async function scheduleDueMarkets(options: {
     for (const adapter of adapters) {
       if (await openProviderTask(adapter.name, fingerprint)) { outstanding = true; break; }
     }
-    if (outstanding) {
-      skipped.push({ marketId: market.market_id, reason: 'PROVIDER_TASK_OUTSTANDING' });
-      continue;
-    }
+    if (outstanding) collecting += 1;
 
     const result = await enqueueMarketResearch({
       verticalProfileId: market.vertical_profile_id,
@@ -191,7 +207,7 @@ export async function scheduleDueMarkets(options: {
     if (result.created) { queued += 1; inFlight += 1; }
   }
 
-  return { due: due.length, queued, skipped, discoveryBlocked: false };
+  return { due: due.length, queued, skipped, discoveryBlocked: false, collecting };
 }
 
 /**

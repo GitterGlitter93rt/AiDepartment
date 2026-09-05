@@ -121,11 +121,37 @@ test('a market with a search already running is not queued again', async () => {
   assert.equal(rows[0]!.n, 1, 'the same market was searched twice at once');
 });
 
-test('a market with a provider task still owed is never re-bought', async () => {
-  // The most expensive mistake this scheduler could make.
-  registerDiscoveryAdapter(workingAdapter());
-  const marketId = await market('Owed Market', { zip: '32095' });
+test('a market with a provider task still owed is collected, not re-bought', async () => {
+  // This test used to assert that such a market is not *queued*, which is not the
+  // same thing and was actively harmful: collection happens inside the market_mine
+  // job, so a market the scheduler refused to queue never had its paid-for task
+  // collected, never reached the abandonment ceiling, and never refreshed again. One
+  // PENDING answer retired a saved market for good. A thirty-day rehearsal found it;
+  // a single pass cannot, because a single pass is exactly what looks right.
+  //
+  // The property worth protecting is that the money is not spent twice, and that is
+  // enforced where it belongs -- the handler collects before it submits.
+  let discovers = 0;
+  let collects = 0;
+  clearDiscoveryAdapters();
+  registerDiscoveryAdapter({
+    name: 'scheduler-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      discovers += 1;
+      return { status: 'ZERO_RESULTS' as const, businesses: [], providerRows: 0,
+        rejectedRows: 0, duplicateRows: 0 };
+    },
+    async collect(providerTaskId) {
+      collects += 1;
+      return { status: 'OK' as const,
+        businesses: [{ name: 'owed.invalid', website: 'https://owed.invalid', phone: null,
+          city: null, state: null, postalCode: null }],
+        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId };
+    },
+  });
 
+  const marketId = await market('Owed Market', { zip: '32095' });
   await recordProviderTask({
     provider: 'scheduler-provider',
     providerNativeId: 'still-working',
@@ -136,8 +162,14 @@ test('a market with a provider task still owed is never re-bought', async () => 
   });
 
   const result = await scheduleDueMarkets();
-  assert.equal(result.queued, 0);
-  assert.deepEqual(result.skipped, [{ marketId, reason: 'PROVIDER_TASK_OUTSTANDING' }]);
+  assert.equal(result.queued, 1, 'the market was not queued, so nobody will collect its task');
+  assert.equal(result.collecting, 1,
+    'the operator cannot tell a run that collects a paid search from one that buys a new one');
+  assert.deepEqual(result.skipped, []);
+
+  await drainQueue();
+  assert.equal(collects, 1, 'the search already paid for was never collected');
+  assert.equal(discovers, 0, 'a second search was bought while the provider still owed us one');
 });
 
 test('a disabled market is never scheduled', async () => {

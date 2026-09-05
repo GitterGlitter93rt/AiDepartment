@@ -437,7 +437,16 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         // the ceiling refuses work, and it refuses it before the money is spent.
         result = refusedDiscovery('BUDGET_EXHAUSTED', budgetRefusalReason(spend));
       } else {
+        // What the provider has cost today is read from provider_usage, and only
+        // adapters write to it. So the daily ceiling protects us from exactly the
+        // providers that remember to record their own spending, and not at all from
+        // one that forgets -- which is the failure mode of the next adapter somebody
+        // writes, not of the one that exists. The counter below closes that: the
+        // orchestrator knows a call was made and what the result says it cost, and
+        // records it when the adapter did not.
+        const before = await providerUsageRows(adapter.name);
         result = await adapter.discover(request);
+        await recordUnbilledRun(adapter.name, before, result, job.job_id);
 
         // A task the provider accepted is remembered before this job ends. Without
         // this row the id dies with the process and the search is bought again.
@@ -678,6 +687,52 @@ const OBSERVATION_RESULT_TYPE: Record<string, string> = {
 export function storedResultType(value: string | null | undefined): string | null {
   if (!value) return null;
   return OBSERVATION_RESULT_TYPE[value] ?? null;
+}
+
+const { assumedRunCostUsd } = await import('../miner/spend.js');
+
+/** How many usage rows this provider has written today. */
+async function providerUsageRows(provider: string): Promise<number> {
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_usage
+      where provider = $1 and requested_at >= date_trunc('day', now())`, [provider]);
+  return rows[0]?.n ?? 0;
+}
+
+/**
+ * The backstop for an adapter that spends money and does not say so.
+ *
+ * Recording usage is the adapter's job, and the DataForSEO one does it properly with
+ * the operation and the error code, which is detail the orchestrator cannot supply.
+ * But the daily ceiling reads provider_usage, so an adapter that skips it is an
+ * adapter with no ceiling at all -- and nothing would show that until an invoice
+ * arrived. Here the orchestrator knows a call happened and what the result claims it
+ * cost, so it writes the row the adapter did not.
+ *
+ * Only when the count did not move: a well-behaved adapter must not be billed twice
+ * for one call.
+ */
+async function recordUnbilledRun(
+  provider: string, rowsBefore: number, result: DiscoveryResult, jobId: string,
+): Promise<void> {
+  const rowsAfter = await providerUsageRows(provider);
+  if (rowsAfter > rowsBefore) return;
+
+  const answered = providerAnswered(result.status);
+  await query(
+    `insert into provider_usage (provider, operation, mining_job_id, requested_at,
+                                 completed_at, units, estimated_cost_usd, actual_cost_usd,
+                                 status, error_code)
+     values ($1, 'serp.discover', null, now(), now(), 1, $2, $3, $4, $5)`,
+    [provider,
+     // With no cost from the adapter, the assumed worst case is used: a ceiling that
+     // counts an unknown call as free is not a ceiling.
+     result.costUsd ?? assumedRunCostUsd(),
+     result.costUsd ?? null,
+     answered ? 'OK' : 'FAILED',
+     answered ? null : `UNBILLED_${result.status}`],
+  );
+  void jobId;
 }
 
 /** Resolves discovered businesses into canonical Accounts. Dedupe is not optional. */
