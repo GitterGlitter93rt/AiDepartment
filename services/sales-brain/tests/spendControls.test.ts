@@ -6,7 +6,7 @@ import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { drainQueue } from '../src/workers/runner.js';
 import '../src/workers/marketMiner.js';
 import {
-  registerDiscoveryAdapter, clearDiscoveryAdapters, type DiscoveryResult,
+  registerDiscoveryAdapter, clearDiscoveryAdapters, refusedDiscovery, type DiscoveryResult,
 } from '../src/workers/marketMiner.js';
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { scheduleDueMarkets } from '../src/workers/marketScheduler.js';
@@ -249,4 +249,109 @@ test('a refused search does not mark the market as covered', async () => {
     [rows[0]!.market_id]);
   assert.equal(market.rows[0]!.last_success_at, null,
     'a market nobody searched was recorded as successfully searched');
+});
+
+// --------------------------------------------------- BH: the ceiling stops buying --
+
+test('a market we already paid for is still collected when the budget is gone', async () => {
+  // The ceiling used to skip the whole adapter loop, so a run that could not buy also
+  // would not go back for a task it had already bought. The provider charges on
+  // submission and answers for free: the money was spent, the answer was waiting, and
+  // we declined to fetch it. Worse, the collection counter only moves when we try, so
+  // a market could sit that way until the provider expired the task.
+  const ops = await makeUser(`Budget Collect ${Date.now()}`, 'RESEARCH_OPS');
+  clearDiscoveryAdapters();
+
+  let submitted = 0;
+  let collections = 0;
+  registerDiscoveryAdapter({
+    name: 'pending-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      submitted += 1;
+      return { ...refusedDiscovery('PENDING', 'accepted, not ready'),
+        providerTaskId: 'paid-task-1' };
+    },
+    async collect() {
+      collections += 1;
+      return {
+        status: 'OK' as const,
+        businesses: [{ name: 'Collected Air', website: 'https://collectedair.invalid',
+          phone: '904-555-0311', city: 'St. Augustine', state: 'FL', postalCode: '32095' }],
+        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
+        reason: 'collected', providerTaskId: 'paid-task-1',
+      };
+    },
+  });
+
+  // Run one: the search is submitted and the provider owes us a result.
+  process.env['DISCOVERY_DAILY_BUDGET_USD'] = '';
+  const first = await enqueueMarketResearch({
+    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32095',
+    marketId: null, requestedBy: ops.userId });
+  await drainQueue();
+  assert.equal(submitted, 1);
+  const firstJob = await query<{ outcome: string }>(
+    'select outcome from jobs where job_id = $1', [first.jobId]);
+  assert.equal(firstJob.rows[0]!.outcome, 'PROVIDER_PENDING');
+
+  // Now the ceiling is gone. The task is already bought.
+  process.env['DISCOVERY_DAILY_BUDGET_USD'] = '0.01';
+  await query(
+    `insert into provider_usage (provider, operation, requested_at, completed_at, units,
+                                 estimated_cost_usd, actual_cost_usd, status)
+     values ('pending-provider', 'serp.discover', now(), now(), 1, 0, 5.00, 'OK')`);
+
+  const second = await enqueueMarketResearch({
+    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32095',
+    marketId: null, requestedBy: ops.userId });
+  await drainQueue();
+
+  assert.equal(collections, 1, 'a search already paid for was abandoned because the budget was spent');
+  assert.equal(submitted, 1, 'the ceiling did not stop a new purchase');
+
+  const secondJob = await query<{ outcome: string; outcome_reason: string }>(
+    'select outcome, outcome_reason from jobs where job_id = $1', [second.jobId]);
+  assert.notEqual(secondJob.rows[0]!.outcome, 'DISCOVERY_BLOCKED',
+    'a run that did collect a market was reported as blocked, hiding the businesses it found');
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from accounts where canonical_name = 'Collected Air'`);
+  assert.equal(rows[0]!.n, 1, 'the businesses we paid for never reached inventory');
+  process.env['DISCOVERY_DAILY_BUDGET_USD'] = '';
+  clearDiscoveryAdapters();
+});
+
+test('with nothing outstanding, the ceiling still refuses to buy', async () => {
+  const ops = await makeUser(`Budget Refuse ${Date.now()}`, 'RESEARCH_OPS');
+  clearDiscoveryAdapters();
+  let submitted = 0;
+  registerDiscoveryAdapter({
+    name: 'eager-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      submitted += 1;
+      return { status: 'OK' as const, businesses: [], providerRows: 0, rejectedRows: 0,
+        duplicateRows: 0 };
+    },
+  });
+
+  process.env['DISCOVERY_DAILY_BUDGET_USD'] = '0.01';
+  await query(
+    `insert into provider_usage (provider, operation, requested_at, completed_at, units,
+                                 estimated_cost_usd, actual_cost_usd, status)
+     values ('eager-provider', 'serp.discover', now(), now(), 1, 0, 5.00, 'OK')`);
+
+  const job = await enqueueMarketResearch({
+    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32099',
+    marketId: null, requestedBy: ops.userId });
+  await drainQueue();
+
+  assert.equal(submitted, 0, 'the ceiling was crossed rather than respected');
+  const { rows } = await query<{ outcome: string; outcome_reason: string }>(
+    'select outcome, outcome_reason from jobs where job_id = $1', [job.jobId]);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+  assert.match(rows[0]!.outcome_reason, /budget/i);
+  process.env['DISCOVERY_DAILY_BUDGET_USD'] = '';
+  clearDiscoveryAdapters();
 });

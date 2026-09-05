@@ -375,7 +375,16 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     miningMode: request.miningMode,
   });
 
-  for (const adapter of budgetExhausted ? [] : adapters) {
+  // The ceiling stops *buying*, not collecting.
+  //
+  // This used to skip the whole loop, so a run that hit the ceiling also refused to
+  // go back for tasks it had already paid for. The provider charges on submission
+  // and answers for free, so the money was gone, the answer was sitting at the
+  // provider, and we declined to fetch it -- and because the collection counter only
+  // advances when we try, a market could sit like that until the provider expired
+  // the task and the search was simply lost. The budget belongs on the branch that
+  // spends, which is the one below that calls discover().
+  for (const adapter of adapters) {
     let result: DiscoveryResult;
     // Set when a task's results are in hand but not yet in inventory.
     let collected: string | null = null;
@@ -423,6 +432,10 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         result = refusedDiscovery('PENDING',
           `${adapter.name} accepted this search earlier and cannot be asked for it again, `
           + 'so no second search was submitted.');
+      } else if (budgetExhausted) {
+        // Nothing outstanding to collect and no room to buy: this is the one place
+        // the ceiling refuses work, and it refuses it before the money is spent.
+        result = refusedDiscovery('BUDGET_EXHAUSTED', budgetRefusalReason(spend));
       } else {
         result = await adapter.discover(request);
 
@@ -487,8 +500,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    */
   const outcome: JobOutcome =
     adapters.length === 0 ? 'DISCOVERY_BLOCKED'
-    // Our own ceiling stopping the call is a blocked search, not an empty market.
-    : budgetExhausted ? 'DISCOVERY_BLOCKED'
+    // Our own ceiling stopping the call is a blocked search, not an empty market --
+    // but only when it actually stopped one. A run that collected a task bought
+    // earlier under the ceiling did search this market, and reporting it as blocked
+    // would hide businesses that are now in inventory.
+    : budgetExhausted && answered === 0 ? 'DISCOVERY_BLOCKED'
     : statuses.every((status) => status === 'PENDING') ? 'PROVIDER_PENDING'
     : answered === 0 ? 'PROVIDER_UNAVAILABLE'
     : failed > 0 ? 'PARTIAL'

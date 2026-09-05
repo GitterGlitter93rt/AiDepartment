@@ -1,6 +1,7 @@
 import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { pool, query, withTransaction } from '../src/db/pool.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
@@ -298,4 +299,49 @@ test('a rule can never award more than it is worth, whatever is asserted', () =>
     assert.equal(component.pointsAwarded, rule.points, component.ruleId);
   }
   assert.equal(result.totalPoints, MAX_POINTS);
+});
+
+// ------------------------------------------- BU: quality is not contactability --
+
+test('how good a company is does not move because we found a phone number', async () => {
+  // Two dimensions that must stay apart. A company worth calling that we cannot yet
+  // reach is a research problem; a company we can reach that is not worth calling is
+  // a waste of a rep's morning. Blending them produces a list where neither question
+  // can be answered, and the blend is easy to introduce by accident because both
+  // live on the same Account.
+  const accountId = await account();
+  await evidence(accountId, 'active_google_search_ad');
+  await evidence(accountId, 'active_meta_ad');
+  const before = await scoreAccount(accountId);
+
+  await query(
+    `insert into contact_endpoints
+       (account_id, endpoint_type, display_value, normalized_value, endpoint_role,
+        quality_state, endpoint_source, is_active)
+     values ($1, 'PHONE', '(904) 555-0410', '+19045550410', 'MAIN_BUSINESS_LINE',
+             'CURRENT_BUSINESS_CONFIRMED', 'COMPANY_WEBSITE', true)`,
+    [accountId]);
+  const withPhone = await scoreAccount(accountId);
+  assert.equal(withPhone.totalPoints, before.totalPoints,
+    'finding a phone number raised the company’s score');
+
+  await query(
+    `update contact_endpoints set is_suppressed = true, quality_state = 'DISCONNECTED'
+      where account_id = $1`, [accountId]);
+  const suppressed = await scoreAccount(accountId);
+  assert.equal(suppressed.totalPoints, before.totalPoints,
+    'losing the phone number lowered a company that is exactly as good as it was');
+});
+
+test('no scoring rule reads an endpoint, by construction', () => {
+  // The assertion above proves today's behaviour; this one is what stops it being
+  // reintroduced by a well-meaning recognizer.
+  const sources = ['model.ts', 'recognize.ts', 'score.ts', 'explain.ts']
+    .map((file) => readFileSync(new URL(`../src/scoring/${file}`, import.meta.url), 'utf8'))
+    .join('\n');
+  for (const forbidden of ['contact_endpoints', 'contactability', 'is_suppressed']) {
+    assert.doesNotMatch(sources, new RegExp(forbidden),
+      `scoring reads ${forbidden}: how reachable a company is has started to change `
+      + 'how good it is');
+  }
 });
