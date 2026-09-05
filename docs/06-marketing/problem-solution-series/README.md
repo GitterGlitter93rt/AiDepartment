@@ -27,14 +27,15 @@ The story illustrates the workflow; it is not proof of a result. Avoid invented 
 8. Exact UI, workflow stages, brand text, domains, and claims should be deterministic post-production whenever possible.
 9. Each substantive revision gets its own local and Dropbox folder.
 10. Every final asset should be remotely verified after upload.
+11. Human review outranks metrics for voice naturalness, familiar sound recognition, acting, and overall ad credibility.
 
 ## Series status
 
 | # | Creative | Problem | Core message | Status |
 |---|---|---|---|---|
 | 1 | Front Desk Capacity | Multiple important demands hit one employee at once | Same team. More capacity. | Master direction locked at V3 |
-| 2 | Follow-Up Leak | Opportunities require repeated attention over time | You already paid for the opportunity. Keep follow-up moving. | V2 in production |
-| 3 | After-Hours Opportunity | Demand arrives when the office is closed | Your office can close without every opportunity waiting until morning. | Script ready |
+| 2 | Follow-Up Leak | Opportunities require repeated attention over time | You already paid for the opportunity. Keep follow-up moving. | V2 candidate master complete; human review pending |
+| 3 | After-Hours Opportunity | Demand arrives when the office is closed | Your office can close without every opportunity waiting until morning. | Script + Claude production prompt ready |
 | 4 | Double Entry | Staff retypes the same information across disconnected systems | This may be a systems problem, not a staffing problem. | Script ready |
 | 5 | Attribution Blind Spot | Marketing creates leads but revenue attribution disappears downstream | Do not stop measuring at the lead. | Script ready |
 | 6 | Appointment No-Show / Recovery | Booked appointments still require confirmation, reminders, and rescheduling | Booking is not the finish line. | Script ready |
@@ -92,11 +93,14 @@ Why next: introduces internal AI and knowledge systems. Shows YAD can improve em
 - Prefer full-track voice replacement over isolated word patches.
 - Avoid words that repeatedly fail TTS/Seedance pronunciation when a natural synonym exists.
 - Telephone scenes require causal visual proof: initiation, ringback, no answer, logging, etc.
+- Familiar sounds must remain semantically recognizable; do not optimize a meter at the expense of what a human hears.
 - Background office audio should support the story and remain audible on a phone speaker.
 - Do not accept robotic sighing, repeated nodding, vacant pauses, or generic "busy" acting. Give actors purposeful tasks.
 - Avoid generated floating AR/UI artifacts; exact interfaces belong in deterministic post.
 - Progressive cards must use active-content optical centering and causal reveal order.
 - Keep narration conversational. Graphics carry lists and process detail.
+- Semantic overlays may only label actions actually supported by visible footage.
+- Hard semantic timing ceilings outrank soft dwell/clamp heuristics.
 
 ## Folder/version convention
 
@@ -119,6 +123,7 @@ A new substantive revision must never be silently placed inside a prior revision
 
 ## Script files
 
+- `creative-02-follow-up-leak.md`
 - `creative-03-after-hours-opportunity.md`
 - `creative-04-double-entry.md`
 - `creative-05-attribution-blind-spot.md`
@@ -126,4 +131,8 @@ A new substantive revision must never be silently placed inside a prior revision
 - `creative-07-dormant-lead-reactivation.md`
 - `creative-08-manager-knowledge-bottleneck.md`
 
-These are creative briefs and approved working scripts, not automatic authorization to spend on generation.
+## Production prompts
+
+- `production-prompts/creative-03-after-hours-opportunity-claude.md`
+
+These are creative briefs and production instructions, not automatic authorization to spend on generation unless the human operator explicitly authorizes the generation.
