@@ -1,6 +1,7 @@
 import { query } from '../db/pool.js';
 import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
 import { schemaState } from '../db/migrate.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 
 /**
  * One query that answers the questions an operator actually has.
@@ -175,8 +176,13 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        (select coalesce(sum(case when actual_cost_usd is null
                                  then estimated_cost_usd else 0 end), 0)
           from provider_usage where requested_at >= date_trunc('day', now()))
-         as provider_spend_today_estimated`,
-    [String(HEARTBEAT_STALE_AFTER_MS)],
+         as provider_spend_today_estimated,
+
+       -- Scores produced under a ruleset this build no longer runs.
+       (select count(*)::int from accounts
+         where manual_tier is not null and merged_into_account_id is null
+           and (score_version is null or score_version <> $2)) as scores_stale_policy`,
+    [String(HEARTBEAT_STALE_AFTER_MS), SCORE_VERSION],
   );
   const row = rows[0]!;
   const number = (key: string): number => Number(row[key] ?? 0);
@@ -186,6 +192,7 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
     database: 'DATABASE', schema: 'SCHEMA', worker: 'WORKER', queue: 'QUEUE',
     discovery: 'DISCOVERY_PROVIDER', provider_tasks: 'PROVIDER_TASKS',
     research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
+    score_policy: 'RESEARCH',
     inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
     imports: 'INVENTORY',
     // Its own axis, not the provider's. "Can we search" and "may we afford to" are
@@ -282,6 +289,17 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
       : `${strandedResearch} discovered compan(ies) have never been researched and have nothing `
         + 'queued. They are a name and a phone number until the sweep picks them up, '
         + 'which happens on the worker\'s fifteen-minute cycle.');
+
+  // Scores produced under a ruleset we no longer run.
+  const staleScores = number('scores_stale_policy');
+  add('score_policy', 'Are any scores from an older ruleset?',
+    staleScores === 0 ? 'OK' : staleScores > 500 ? 'ATTENTION' : 'OK',
+    staleScores === 0 ? 'all current' : `${staleScores} to recompute`,
+    staleScores === 0
+      ? 'Every score was produced by the ruleset this build runs.'
+      : `${staleScores} Account(s) were scored under an older policy and are being `
+        + 'recomputed on the worker sweep. Until then, comparing two of them compares '
+        + 'two different rulesets.');
 
   const queueAge = number('queue_age_seconds');
   add('queue', 'Are jobs backing up?',

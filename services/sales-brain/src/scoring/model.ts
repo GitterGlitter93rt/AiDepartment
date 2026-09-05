@@ -14,7 +14,20 @@
  * to the screen.
  */
 
-export const SCORE_VERSION = 'module-4c-v1';
+/**
+ * Which ruleset produced a score.
+ *
+ * Not decoration. The four recognizers added in `5b68f29` changed what the same
+ * evidence is worth -- an HVAC advertiser that scored eight now scores fourteen --
+ * so every score written before that was produced under different rules. Without a
+ * version on the row, yesterday's eight and today's eight are indistinguishable, and
+ * a rep comparing two prospects would be comparing two different policies.
+ *
+ * Bump this whenever the rules, their points, or what a recognizer accepts as
+ * qualifying evidence change. `scoringRulesFingerprint()` and its pinned test make
+ * forgetting hard: changing the rule set without bumping the version fails the suite.
+ */
+export const SCORE_VERSION = 'module-4c-v2';
 
 export type ScoreRuleId =
   | 'google_paid_search_confirmed'
@@ -71,6 +84,17 @@ export const RULE_POINTS: Record<ScoreRuleId, number> = Object.fromEntries(
 ) as Record<ScoreRuleId, number>;
 
 export const MAX_POINTS = SCORE_RULES.reduce((total, rule) => total + rule.points, 0);
+
+/**
+ * A stable summary of the rule set, so a change to it cannot pass unnoticed.
+ *
+ * Covers the rule ids and their point values -- the things that make two scores
+ * incomparable. A recognizer becoming stricter about evidence is not visible here,
+ * which is why the version is bumped by hand and this only catches the coarse case.
+ */
+export function scoringRulesFingerprint(): string {
+  return SCORE_RULES.map((rule) => `${rule.id}:${rule.points}`).sort().join('|');
+}
 
 export type Tier = 'A' | 'B' | 'C' | 'D';
 

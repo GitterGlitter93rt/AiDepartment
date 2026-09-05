@@ -52,9 +52,10 @@ export async function scoreAccount(
     // The projection the search and the pages read. Kept in step with the ledger
     // row above rather than being a second opinion.
     await client.query(
-      `update accounts set manual_score = $2, manual_tier = $3, updated_at = now()
+      `update accounts set manual_score = $2, manual_tier = $3, score_version = $4,
+              updated_at = now()
         where account_id = $1`,
-      [accountId, result.totalPoints, result.tier],
+      [accountId, result.totalPoints, result.tier, SCORE_VERSION],
     );
   });
 

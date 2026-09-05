@@ -29,7 +29,7 @@ console.log(
 const SWEEP_INTERVAL_MS = Number(process.env.REFRESH_SWEEP_INTERVAL_MS ?? 15 * 60_000);
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
-const { reconcileMissingResearch } = await import('../workers/researchReconcile.js');
+const { reconcileMissingResearch, recomputeStaleScores } = await import('../workers/researchReconcile.js');
 const { scheduleDueMarkets } = await import('../workers/marketScheduler.js');
 const sweep = setInterval(async () => {
   try {
@@ -43,6 +43,15 @@ const sweep = setInterval(async () => {
     const stranded = await reconcileMissingResearch();
     if (stranded.queued > 0) {
       console.log(`[worker] queued research for ${stranded.queued} stranded account(s)`);
+    }
+
+    // Scores produced under a ruleset we no longer run. A policy change makes every
+    // existing score historical, and a rep comparing two prospects would otherwise
+    // be comparing two different policies.
+    const rescored = await recomputeStaleScores();
+    if (rescored.recomputed > 0) {
+      console.log(`[worker] recomputed ${rescored.recomputed} of ${rescored.stale} `
+        + 'score(s) under the current policy');
     }
 
     // Saved markets that are due. Bounded per pass, so a reboot with ninety stale

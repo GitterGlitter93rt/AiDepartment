@@ -174,3 +174,58 @@ export async function strandedResearchCount(): Promise<number> {
   );
   return rows[0]?.stranded ?? 0;
 }
+
+
+/**
+ * Accounts scored under a ruleset that is no longer the one we run.
+ *
+ * A policy change makes every existing score historical. Recomputing a hundred
+ * thousand of them inside a request is not an option, and recomputing them all at
+ * once inside one transaction is barely better -- so it is a sweep like the others:
+ * bounded per pass, oldest first, safe to interrupt at any point because each
+ * Account is scored in its own transaction and the projection carries the version
+ * that produced it.
+ *
+ * Resumable by construction: the query is "whose version is not the current one",
+ * so a worker killed halfway simply finds fewer of them next time. Idempotent for
+ * the same reason -- an Account already recomputed no longer matches.
+ */
+export async function recomputeStaleScores(options: {
+  limit?: number;
+} = {}): Promise<{ stale: number; recomputed: number }> {
+  const { SCORE_VERSION } = await import('../scoring/model.js');
+
+  const { rows: counts } = await query<{ n: number }>(
+    `select count(*)::int as n from accounts
+      where manual_tier is not null
+        and merged_into_account_id is null
+        and (score_version is null or score_version <> $1)`,
+    [SCORE_VERSION],
+  );
+
+  const { rows } = await query<{ account_id: string }>(
+    `select account_id from accounts
+      where manual_tier is not null
+        and merged_into_account_id is null
+        and (score_version is null or score_version <> $1)
+      -- Oldest score first: the ones that have been wrong longest are corrected
+      -- first, and the order is stable so a restart resumes rather than reshuffles.
+      order by updated_at asc
+      limit ${Math.max(1, Math.min(1000, options.limit ?? 100))}`,
+    [SCORE_VERSION],
+  );
+
+  const { scoreAccount } = await import('../scoring/score.js');
+  let recomputed = 0;
+  for (const row of rows) {
+    try {
+      await scoreAccount(row.account_id);
+      recomputed += 1;
+    } catch {
+      // One Account that cannot be scored must not stop the rest of the sweep. It
+      // keeps its old version and is picked up again next pass.
+    }
+  }
+
+  return { stale: counts[0]?.n ?? 0, recomputed };
+}
