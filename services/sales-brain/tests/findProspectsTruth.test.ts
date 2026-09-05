@@ -258,3 +258,33 @@ test('a failed discovery job is not read as a completed empty search', async () 
   assert.equal(result.discovery!.state, 'PROVIDER_UNAVAILABLE');
   assert.notEqual(result.discovery!.state, 'ZERO_RESULTS');
 });
+
+test('a company with a branch in the ZIP is in that market', async () => {
+  // The view exposes one primary location per Account, so a ZIP search through it
+  // missed a company whose head office is elsewhere and whose branch is here. The
+  // miner's refresh scope has always used an existence test; the rep's search now
+  // agrees with it.
+  const { withTransaction } = await import('../src/db/pool.js');
+  const { upsertAccount } = await import('../src/domain/accounts.js');
+  const { searchProspects } = await import('../src/domain/search.js');
+  const { makeUser } = await import('./helpers.js');
+  const viewer = await makeUser('Branch Viewer', 'SALES_MANAGER');
+
+  const { accountId } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Two Location Roofing',
+    website: 'https://twolocation.invalid',
+    phone: '904-555-2401',
+    city: 'Jacksonville', state: 'FL', postalCode: '32256',
+  }, { discoverySource: 'market_miner:dataforseo' }));
+
+  await query(
+    `insert into locations (account_id, city, state_region, postal_code, is_active,
+                            location_type)
+     values ($1, 'St. Augustine', 'FL', '32095', true, 'physical')`, [accountId]);
+
+  const found = await searchProspects(
+    { geography: { type: 'zip_zcta', value: '32095' }, pageSize: 50 }, viewer);
+  assert.equal(found.results.length, 1,
+    'a company operating in the ZIP was invisible because its head office is elsewhere');
+  assert.equal(found.total, 1, 'the count and the rows disagree');
+});

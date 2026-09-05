@@ -58,6 +58,26 @@ export type SortKey =
   | 'recommended_priority' | 'manual_score' | 'advertiser_strength' | 'research_freshness'
   | 'claimed_at' | 'follow_up_due' | 'company_name';
 
+/**
+ * The same orders, expressed against `accounts` rather than the view.
+ *
+ * Only the keys whose columns actually live on accounts. `follow_up_due` reads a
+ * lateral, so a search sorted by it still pages through the view -- correctly, and
+ * more slowly, which is the right trade for the rarer sort.
+ */
+const SORT_SQL_ACCOUNTS: Partial<Record<SortKey, string>> = {
+  recommended_priority:
+    `case a.manual_tier when 'A' then 1 when 'B' then 2 when 'C' then 3 when 'D' then 4 else 5 end asc,
+     a.manual_score desc nulls last, a.last_researched_at desc nulls last`,
+  manual_score: 'a.manual_score desc nulls last',
+  advertiser_strength:
+    `case a.advertiser_strength when 'STRONG' then 1 when 'MODERATE' then 2 when 'WEAK' then 3
+      when 'NONE' then 4 else 5 end asc, a.manual_score desc nulls last`,
+  research_freshness: 'a.last_researched_at desc nulls last',
+  claimed_at: 'a.claimed_at desc nulls last',
+  company_name: 'a.canonical_name asc',
+};
+
 const SORT_SQL: Record<SortKey, string> = {
   // Tier first, then score, then advertiser evidence — with unscored rows last
   // rather than pretending an unknown score is a zero.
@@ -278,21 +298,49 @@ function buildWhere(
 
   const geography = request.geography;
   if (geography && geography.value) {
+    // On the accounts target this is an existence test against locations, which is
+    // an index lookup. Through the view it forced every lateral to be evaluated for
+    // every account in scope -- and "HVAC in 32095" is the query this product is
+    // built around, so it was the slowest thing a rep does most often.
+    // One deliberate behaviour change comes with this. The view exposes a single
+    // primary location per Account -- headquarters if flagged, else the oldest -- so
+    // a ZIP search through it missed a company whose head office is elsewhere and
+    // whose branch is in the ZIP. The existence test finds it. That is the broader
+    // and more useful reading of "businesses in 32095", and it is the same scope
+    // planMarketRefresh has always used, so the rep's search and the miner's refresh
+    // now cover the same companies instead of disagreeing.
+    const onAccounts = target === 'accounts';
+    const geoExists = (predicate: string): string =>
+      `exists (select 1 from locations gl
+                where gl.account_id = a.account_id and gl.is_active and ${predicate})`;
     switch (geography.type) {
       case 'zip_zcta':
-        needsView();
-        clauses.push(`postal_code = ${push(geography.value.trim())}`);
+        if (onAccounts) clauses.push(geoExists(`gl.postal_code = ${push(geography.value.trim())}`));
+        else { needsView(); clauses.push(`postal_code = ${push(geography.value.trim())}`); }
         break;
-      case 'city':
-        needsView();
-        clauses.push(`lower(city) = lower(${push(geography.value.trim())})`);
-        // A city name qualified by a state stays qualified. There is a Jacksonville
-        // in Florida and one in Texas.
-        if (geography.state) clauses.push(`state_region = upper(${push(geography.state)})`);
+      case 'city': {
+        const city = push(geography.value.trim());
+        if (onAccounts) {
+          const state = geography.state ? push(geography.state) : null;
+          clauses.push(geoExists(state
+            ? `lower(gl.city) = lower(${city}) and gl.state_region = upper(${state})`
+            : `lower(gl.city) = lower(${city})`));
+        } else {
+          needsView();
+          clauses.push(`lower(city) = lower(${city})`);
+          // A city name qualified by a state stays qualified. There is a
+          // Jacksonville in Florida and one in Texas.
+          if (geography.state) clauses.push(`state_region = upper(${push(geography.state)})`);
+        }
         break;
+      }
       case 'state':
-        needsView();
-        clauses.push(`state_region = upper(${push(geography.value.trim())})`);
+        if (onAccounts) {
+          clauses.push(geoExists(`gl.state_region = upper(${push(geography.value.trim())})`));
+        } else {
+          needsView();
+          clauses.push(`state_region = upper(${push(geography.value.trim())})`);
+        }
         break;
       default:
         break;
@@ -394,12 +442,15 @@ export async function searchProspects(
   // Counting through the view means evaluating three of its lateral subqueries for
   // every row, which was 435 ms of the 485 ms an unfiltered page cost at 100,000
   // accounts, for a number the page shows as "25,000 results".
-  const countBuild = clauses.length > 0 && build.accountOnly
-    ? buildWhere(request, viewer, 'accounts')
-    : null;
+  // Decided by what the accounts target can answer, not by what the view build
+  // needed. Geography is a lateral column in the view and an index lookup against
+  // locations on the base tables, so asking the view whether the fast path applies
+  // ruled it out for every ZIP search -- the query this product is built around.
+  const accountsBuild = clauses.length > 0 ? buildWhere(request, viewer, 'accounts') : null;
+  const countBuild = accountsBuild?.accountOnly ? accountsBuild : null;
   const countResult = countBuild
     ? await query<{ total: number }>(
-      `select count(*)::bigint as total from accounts where ${countBuild.clauses.join(' and ')}`,
+      `select count(*)::bigint as total from accounts a where ${countBuild.clauses.join(' and ')}`,
       countBuild.values)
     : await query<{ total: number }>(
       `select count(*)::bigint as total from prospect_inventory ${where}`, values);
@@ -418,12 +469,25 @@ export async function searchProspects(
   // materialised and the view is then scanned again to join against it, so all seven
   // laterals run twice over the whole table. Measured at 2.2 seconds. Two round trips
   // it is.
-  const pageResult = await query<{ account_id: string }>(
-    `select account_id from prospect_inventory ${where}
-      order by ${SORT_SQL[sortKey]}, account_id
-      limit $${values.length + 1} offset $${values.length + 2}`,
-    [...values, pageSize, (page - 1) * pageSize],
-  );
+  //
+  // Phase one runs on accounts whenever the filter and the sort both live there,
+  // which includes the query this product is built around: a vertical and a ZIP.
+  // Through the view that filter forced every lateral to be evaluated for every
+  // account in the market before fifty could be picked.
+  const accountsSort = SORT_SQL_ACCOUNTS[sortKey];
+  const pageResult = countBuild && accountsSort
+    ? await query<{ account_id: string }>(
+      `select a.account_id from accounts a where ${countBuild.clauses.join(' and ')}
+        order by ${accountsSort}, a.account_id
+        limit $${countBuild.values.length + 1} offset $${countBuild.values.length + 2}`,
+      [...countBuild.values, pageSize, (page - 1) * pageSize],
+    )
+    : await query<{ account_id: string }>(
+      `select account_id from prospect_inventory ${where}
+        order by ${SORT_SQL[sortKey]}, account_id
+        limit $${values.length + 1} offset $${values.length + 2}`,
+      [...values, pageSize, (page - 1) * pageSize],
+    );
   const ids = pageResult.rows.map((row) => row.account_id);
 
   const rowsResult = ids.length === 0
@@ -474,41 +538,52 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     };
   }
 
-  const conditions: string[] = ['not is_suppressed'];
+  const conditions: string[] = ['not a.is_suppressed', 'a.merged_into_account_id is null'];
   const values: unknown[] = [];
   if (verticalProfileId) {
     values.push(verticalProfileId);
-    conditions.push(`primary_vertical_profile_id = $${values.length}`);
+    conditions.push(`a.primary_vertical_profile_id = $${values.length}`);
   }
   if (geography?.type === 'zip_zcta' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`postal_code = $${values.length}`);
+    conditions.push(locationExists(`l.postal_code = $${values.length}`));
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`lower(city) = lower($${values.length})`);
+    const cityClause = `lower(l.city) = lower($${values.length})`;
     if (geography.state) {
       values.push(geography.state);
-      conditions.push(`state_region = upper($${values.length})`);
+      conditions.push(locationExists(
+        `${cityClause} and l.state_region = upper($${values.length})`));
+    } else {
+      conditions.push(locationExists(cityClause));
     }
   } else if (geography?.type === 'state' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`state_region = upper($${values.length})`);
+    conditions.push(locationExists(`l.state_region = upper($${values.length})`));
   }
   if (marketId) {
     values.push(marketId);
     conditions.push(
-      `account_id in (select account_id from account_market_membership where market_id = $${values.length})`,
+      `a.account_id in (select account_id from account_market_membership where market_id = $${values.length})`,
     );
   }
 
+  // Counted from the base tables, not through prospect_inventory.
+  //
+  // Every column this needs -- suppression, ownership, research freshness, the
+  // location -- lives on accounts and locations. Counting through the view made
+  // PostgreSQL evaluate its lateral subqueries for every row in scope: 297ms at a
+  // hundred thousand accounts, for four numbers, on every render of Find Prospects
+  // and every poll of the coverage endpoint. Geography is an `exists` rather than a
+  // join so an Account with two locations in one ZIP is still one Account.
   const { rows } = await query<{
     researched: number; unclaimed: number; fresh: number; last_researched: Date | null;
   }>(
     `select count(*)::bigint as researched,
-            count(*) filter (where ownership_state = 'UNCLAIMED')::bigint as unclaimed,
-            count(*) filter (where research_fresh_until > now())::bigint as fresh,
-            max(last_researched_at) as last_researched
-       from prospect_inventory where ${conditions.join(' and ')}`,
+            count(*) filter (where a.ownership_state = 'UNCLAIMED')::bigint as unclaimed,
+            count(*) filter (where a.research_fresh_until > now())::bigint as fresh,
+            max(a.last_researched_at) as last_researched
+       from accounts a where ${conditions.join(' and ')}`,
     values,
   );
   const summary = rows[0]!;
@@ -634,33 +709,47 @@ export async function discoveryCoverageFor(input: {
 }
 
 /**
+ * Geography as an existence test rather than a join.
+ *
+ * An Account with two locations in one ZIP is still one Account, and a join would
+ * count it twice.
+ */
+function locationExists(predicate: string): string {
+  return `exists (select 1 from locations l
+                   where l.account_id = a.account_id and l.is_active and ${predicate})`;
+}
+
+/**
  * How many Accounts in this market the tier filter is hiding for want of a tier.
  *
  * Counted with the same geography and vertical the search used, so the number is
  * about the market the rep is looking at rather than the whole database.
  */
 async function countUnscoredInScope(request: SearchRequest): Promise<number> {
-  const conditions: string[] = ['not is_suppressed', 'manual_tier is null'];
+  // Base tables, for the same reason as the coverage counts above: nothing here
+  // needs a column the view derives.
+  const conditions: string[] = [
+    'not a.is_suppressed', 'a.merged_into_account_id is null', 'a.manual_tier is null'];
   const values: unknown[] = [];
   const geography = request.geography;
 
   if (request.verticalProfileId) {
     values.push(request.verticalProfileId);
-    conditions.push(`primary_vertical_profile_id = $${values.length}`);
+    conditions.push(`a.primary_vertical_profile_id = $${values.length}`);
   }
   if (geography?.type === 'zip_zcta' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`postal_code = $${values.length}`);
+    conditions.push(locationExists(`l.postal_code = $${values.length}`));
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`lower(city) = lower($${values.length})`);
+    conditions.push(locationExists(`lower(l.city) = lower($${values.length})`));
   } else if (geography?.type === 'state' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`state_region = upper($${values.length})`);
+    conditions.push(locationExists(`l.state_region = upper($${values.length})`));
   }
 
   const { rows } = await query<{ n: number }>(
-    `select count(*)::int as n from prospect_inventory where ${conditions.join(' and ')}`,
+    `select count(*)::int as n from accounts a where ${conditions.join(' and ')}`,
     values,
   );
   return rows[0]?.n ?? 0;

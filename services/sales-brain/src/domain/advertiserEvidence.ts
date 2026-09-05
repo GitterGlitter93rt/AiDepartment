@@ -165,34 +165,41 @@ export async function unknownAdvertiserCount(scope: {
   verticalProfileId?: string | null;
   geography?: { type?: string; value?: string } | null;
 }): Promise<number> {
+  // Counted from accounts rather than through prospect_inventory: the view derives
+  // columns this does not need, and evaluating them per row costs a quarter of a
+  // second at a hundred thousand accounts on every render that sets an ad filter.
   const conditions = [
-    'not is_suppressed',
+    'not a.is_suppressed',
+    'a.merged_into_account_id is null',
     // Never checked on any channel: no evidence at all, current or expired.
     `not exists (
        select 1 from evidence_records ev
-        where ev.account_id = prospect_inventory.account_id
+        where ev.account_id = a.account_id
           and ev.claim_key in ('active_google_search_ad','active_local_service_ad','active_meta_ad'))`,
   ];
   const values: unknown[] = [];
 
   if (scope.verticalProfileId) {
     values.push(scope.verticalProfileId);
-    conditions.push(`primary_vertical_profile_id = $${values.length}`);
+    conditions.push(`a.primary_vertical_profile_id = $${values.length}`);
   }
   const geography = scope.geography;
+  const inLocation = (predicate: string): string =>
+    `exists (select 1 from locations l
+              where l.account_id = a.account_id and l.is_active and ${predicate})`;
   if (geography?.type === 'zip_zcta' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`postal_code = $${values.length}`);
+    conditions.push(inLocation(`l.postal_code = $${values.length}`));
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`lower(city) = lower($${values.length})`);
+    conditions.push(inLocation(`lower(l.city) = lower($${values.length})`));
   } else if (geography?.type === 'state' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(`state_region = upper($${values.length})`);
+    conditions.push(inLocation(`l.state_region = upper($${values.length})`));
   }
 
   const { rows } = await query<{ n: number }>(
-    `select count(*)::int as n from prospect_inventory where ${conditions.join(' and ')}`,
+    `select count(*)::int as n from accounts a where ${conditions.join(' and ')}`,
     values,
   );
   return rows[0]?.n ?? 0;
