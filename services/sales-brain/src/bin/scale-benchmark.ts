@@ -228,7 +228,7 @@ if (sample.opportunity) {
 }
 if (sample.booking) {
   cases.push({ id: 'meeting.detail', page: 'Meetings', budget: REP_DETAIL,
-    run: async () => ({ rows: (await getMeeting(sample.booking!)) ? 1 : 0 }) });
+    run: async () => ({ rows: (await getMeeting(sample.booking!, managerViewer)) ? 1 : 0 }) });
 }
 if (sample.call) {
   cases.push({ id: 'call.detail', page: 'Call Review', budget: REP_DETAIL,

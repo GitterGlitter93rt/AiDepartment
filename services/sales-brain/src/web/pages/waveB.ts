@@ -599,10 +599,38 @@ function meetingStatusPill(meeting: MeetingRow): RawHtml {
 
 export function renderMeetingDetailPage(input: {
   user: SessionUser; counts: NavCounts; meeting: any; brief: any | null;
+  flash?: string | null;
 }): string {
-  const { user, counts, meeting, brief } = input;
+  const { user, counts, meeting, brief, flash } = input;
+
+  // The outcome is asked for, never inferred. A meeting whose time has passed has
+  // not been attended; it has only passed.
+  const hasStarted = new Date(meeting.requested_start).getTime() <= Date.now();
+  const outcomeRecorded = meeting.attended_state && meeting.attended_state !== 'UNKNOWN';
+  const askOutcome = hasStarted && !outcomeRecorded && meeting.status === 'CONFIRMED';
 
   const body = html`
+    ${flash ? html`<div class="coverage-note info" role="status" style="margin-bottom:16px">${flash}</div>` : ''}
+    ${askOutcome ? html`
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><h2>Did this meeting happen?</h2></div>
+        <div class="card-pad">
+          <p class="muted small">Nothing else records this. Until you say, the meeting counts
+            as booked and nothing more — it is not counted as attended and not counted as a
+            no-show.</p>
+          <form method="post" action="/meetings/${meeting.booking_id}/outcome" class="row"
+                style="gap:10px;align-items:flex-end;margin-top:10px">
+            <label class="field" style="flex:1">
+              <span>Note (optional)</span>
+              <input type="text" name="notes" maxlength="300" placeholder="Anything worth keeping">
+            </label>
+            <button class="btn btn-primary" type="submit" name="outcome" value="ATTENDED">
+              They turned up</button>
+            <button class="btn btn-secondary" type="submit" name="outcome" value="NO_SHOW">
+              No-show</button>
+          </form>
+        </div>
+      </div>` : ''}
     <div class="grid" style="grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);align-items:start">
       <div class="card card-pad">
         ${!brief

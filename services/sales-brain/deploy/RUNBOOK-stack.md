@@ -65,6 +65,33 @@ systemctl --user restart yad-sales-worker
 - A clean stop marks the worker stopped rather than leaving it looking crashed.
 - After a reboot with lingering enabled, both services come back without a login.
 
+## Signing in
+
+The sign-in form counts wrong passwords: eight for one address, thirty from one
+source, inside a fifteen-minute window. Past that it answers 429 with a
+`Retry-After` header and stops checking passwords at all, so a locked form is not
+a timing oracle and spends no hashing time on an attacker's behalf.
+
+A correct password clears that address's budget, so a rep who mistyped a few
+times and then signed in is not locked out by another typo later.
+
+To clear a lockout for somebody who is genuinely stuck, without waiting:
+
+```bash
+docker exec yad-sales-postgres psql -U "$POSTGRES_USER" -d yad_sales -c \
+  "delete from login_attempts where email_normalized = 'them@example.com' and not succeeded"
+```
+
+The counters live in the database, not in process memory, so restarting the API
+does not clear a lockout and two API processes count the same attempts.
+
+## Housekeeping
+
+The worker runs three cleanups hourly, on its own timer: expired sessions,
+abandoned import uploads, and sign-in attempts older than a day. Nothing else
+owned them, so all three tables only ever grew. A stopped worker means they stop;
+`stack.sh status` is the check for that.
+
 ## Do not
 
 Do not start a worker per click, and do not run `npm run worker` in a terminal as

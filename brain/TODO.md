@@ -33,6 +33,16 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **ASM-002 — Preserve and validate the deterministic long-assessment engine.** The 64-question engine is present as an internal/noindex route. **Next action:** verify authorization/handoff from paid Cal.com booking, version it explicitly, and run the full test suite after source synchronization.
 - [ ] **MKT-001 — Finalize the Facebook Page identity and initial Meta creative set.** The recovered Gradient Y direction is selected; the exact Facebook profile, cover, and Page copy package is prepared under `assets/social/facebook-page/`. **Next action:** upload it to Facebook, verify desktop/mobile crops, then build campaign graphics, hooks, copy, CTAs, and naming for the selected vertical.
 
+- [ ] **SB-QA1 — Live Sales Portal bug hunt (GitHub Issue #2).** Michael's operator
+  walk-through on the EdgeXpert exposed defects that were each true of the code and
+  false of what the screen said. The campaign covers startup/recovery, authorization,
+  search, mining, ownership, follow-ups, opportunities and meetings, the pilot control
+  plane, imports and merges, analytics truth, security and input handling, and
+  performance. **Next action:** work the A–L matrices in Issue #2; every defect gets a
+  reproducible case and a regression test before its fix. **Completion gate:** each
+  matrix is green, every defect found has a regression test, and remaining limitations
+  are written down rather than implied.
+
 ## ⚪ Next
 
 - [ ] **LEAD-001 — Confirm and document the production lead destination.** Record the actual server-side delivery/storage, notifications, spam controls, consent, retention, and deletion workflow used by the live short assessment and contact form.

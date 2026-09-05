@@ -59,17 +59,53 @@ const TOGGLES = new Set([
   'auto_book_enabled', 'warm_transfer_enabled', 'max_concurrency',
 ]);
 
+const OUTBOUND_MODES: OutboundMode[] = ['OFF', 'INTERNAL_TEST', 'CONTROLLED_PILOT', 'ENABLED_BY_POLICY'];
+
+/**
+ * What each switch will accept.
+ *
+ * Without this the value went to PostgreSQL and a typo came back as a check
+ * constraint violation -- a 500 and an error page, where the operator wanted the
+ * control panel and a sentence. A control plane refuses in its own words.
+ */
+function rejectValue(field: string, value: string): string | null {
+  if (field === 'outbound_mode') {
+    return OUTBOUND_MODES.includes(value as OutboundMode) ? null
+      : `Outbound mode must be one of ${OUTBOUND_MODES.join(', ')}.`;
+  }
+  if (field === 'max_concurrency') {
+    return /^\d{1,2}$/.test(value) && Number(value) <= 20 ? null
+      : 'Concurrency must be a whole number between 0 and 20.';
+  }
+  return value === 'true' || value === 'false' ? null : 'That switch is on or off.';
+}
+
 export async function setPilotSwitch(input: {
   field: string; value: string; actorUserId: string; reason: string;
 }): Promise<{ ok: boolean; message?: string }> {
   if (!TOGGLES.has(input.field)) return { ok: false, message: 'Unknown setting.' };
   if (!input.reason.trim()) return { ok: false, message: 'A reason is required for an operator change.' };
+  const invalid = rejectValue(input.field, input.value);
+  if (invalid) return { ok: false, message: invalid };
 
   return withTransaction(async (client) => {
     const before = await client.query<Record<string, unknown>>(
-      `select ${input.field} as value from voice_pilot_state where singleton for update`,
+      `select ${input.field} as value, outbound_mode
+         from voice_pilot_state where singleton for update`,
     );
     const oldValue = String(before.rows[0]?.['value'] ?? '');
+
+    // Arming the dialler under an OFF mode is the same unsafe state that turning the
+    // mode off exists to clear, reached from the other direction. The mode is the
+    // outer control: it is raised first, deliberately, or the dialler stays down.
+    if (input.field === 'outbound_dial_enabled' && input.value === 'true'
+        && String(before.rows[0]?.['outbound_mode'] ?? 'OFF') === 'OFF') {
+      return {
+        ok: false,
+        message: 'Outbound mode is OFF. Raise the mode first; a dialler armed under an '
+          + 'OFF mode is exactly the state the mode switch exists to prevent.',
+      };
+    }
 
     // Turning outbound off must also stop dial creation: leaving the dialler armed
     // under an OFF mode is the failure this switch exists to prevent.
@@ -180,9 +216,10 @@ export async function addCandidate(input: {
 }): Promise<{ ok: boolean; message?: string; pilotCandidateId?: string }> {
   const { rows } = await query<{
     endpoint_id: string | null; contact_id: string | null; suppressed: boolean;
+    merged_into_account_id: string | null;
   }>(
     `select e.endpoint_id, e.contact_id,
-            a.is_suppressed as suppressed
+            a.is_suppressed as suppressed, a.merged_into_account_id
        from accounts a
        left join contacts c on c.account_id = a.account_id
        left join contact_endpoints e on e.contact_id = c.contact_id and e.endpoint_type = 'PHONE'
@@ -193,6 +230,13 @@ export async function addCandidate(input: {
   );
   const row = rows[0];
   if (!row) return { ok: false, message: 'Account not found.' };
+  // A tombstone is a redirect, not a company to call.
+  if (row.merged_into_account_id) {
+    return {
+      ok: false,
+      message: 'That record was merged into another account. Add the surviving one instead.',
+    };
+  }
   if (row.suppressed) return { ok: false, message: 'This account is suppressed and cannot be called.' };
 
   const decision = row.endpoint_id

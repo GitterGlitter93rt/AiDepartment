@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { SYNTHETIC_SOURCES } from './waveCQueries.js';
 
 /** Read models for Campaigns, Analytics and Call Review. */
 
@@ -229,7 +230,10 @@ export async function analyticsFunnel(filters: AnalyticsFilters) {
        select distinct a.account_id
          from accounts a
          left join account_market_membership am on am.account_id = a.account_id
-        where ($1::date is null or a.created_at >= $1::date)
+        -- A merged tombstone is not a second company. Counting it inflates every
+        -- stage of the funnel by the number of merges the team has done.
+        where a.merged_into_account_id is null
+          and ($1::date is null or a.created_at >= $1::date)
           and ($2::date is null or a.created_at < ($2::date + interval '1 day'))
           and ($3::uuid is null or a.current_owner_user_id = $3::uuid)
           and ($4::text is null or a.primary_vertical_profile_id = $4::text)
@@ -275,9 +279,18 @@ export async function analyticsFunnel(filters: AnalyticsFilters) {
          where b.attended_state = 'ATTENDED') as attended,
        (select count(distinct sp.account_id)::int from suppressions sp
           join scoped s on s.account_id = sp.account_id
-         where sp.is_active) as suppressed`,
+         where sp.is_active) as suppressed,
+       -- Synthetic and demo Accounts are inside the same scope as real ones and read
+       -- exactly like them. Every number on this page was computed over a demo seed
+       -- on the operator's first walk-through, and nothing on the page said so.
+       (select count(*)::int from scoped s
+         where exists (select 1 from activities act
+                        where act.account_id = s.account_id
+                          and act.activity_type = 'DISCOVERED'
+                          and act.source_system = any($9::text[]))) as synthetic`,
     [filters.fromDate, filters.toDate, filters.ownerUserId, filters.verticalProfileId,
-     filters.marketId, filters.channel, filters.hook, filters.outcome],
+     filters.marketId, filters.channel, filters.hook, filters.outcome,
+     SYNTHETIC_SOURCES as unknown as string[]],
   );
   return rows[0];
 }
@@ -289,18 +302,21 @@ export async function analyticsBreakdown(dimension: 'vertical' | 'owner' | 'mark
                       count(*) filter (where a.ownership_state = 'CLAIMED')::int as claimed
                  from accounts a
                  left join vertical_profiles v on v.vertical_profile_id = a.primary_vertical_profile_id
+                where a.merged_into_account_id is null
                 group by 1 order by accounts desc limit 12`,
     owner: `select coalesce(u.display_name, 'Unclaimed') as label,
                    count(*)::int as accounts,
                    count(*) filter (where a.relationship_state <> 'NONE')::int as claimed
               from accounts a
               left join users u on u.user_id = a.current_owner_user_id
+             where a.merged_into_account_id is null
              group by 1 order by accounts desc limit 12`,
     market: `select m.name as label, count(*)::int as accounts,
                     count(*) filter (where a.ownership_state = 'CLAIMED')::int as claimed
                from account_market_membership am
                join saved_markets m on m.market_id = am.market_id
                join accounts a on a.account_id = am.account_id
+              where a.merged_into_account_id is null
               group by 1 order by accounts desc limit 12`,
     hypothesis: `select coalesce(h.offer_family, 'Unclassified') as label,
                         count(distinct h.account_id)::int as accounts,
@@ -452,11 +468,20 @@ export async function globalSearch(
          from opportunities o
         where lower(o.title) like $2 and o.stage not in ('CLOSED_WON','CLOSED_LOST')
      ),
-     best as (
-       select distinct on (h.account_id)
-              h.account_id, h.matched_on, h.matched_value, h.rank
+     -- Every hit resolves to the record the company is now. Without this a merged
+     -- tombstone came back as its own result, carrying the owner and the suppression
+     -- flag it held before the merge -- so a company put under Do Not Contact could
+     -- appear twice, once correctly marked and once not.
+     resolved as (
+       select coalesce(surviving_account(h.account_id), h.account_id) as account_id,
+              h.matched_on, h.matched_value, h.rank
          from hits h
-        order by h.account_id, h.rank, h.matched_on
+     ),
+     best as (
+       select distinct on (r.account_id)
+              r.account_id, r.matched_on, r.matched_value, r.rank
+         from resolved r
+        order by r.account_id, r.rank, r.matched_on
      )
      select b.account_id, b.matched_on, b.matched_value, b.rank,
             a.canonical_name as company_name, a.is_suppressed,
@@ -464,7 +489,14 @@ export async function globalSearch(
             u.display_name as owner_name
        from best b
        join accounts a on a.account_id = b.account_id
-       left join locations l on l.account_id = a.account_id and l.is_headquarters
+       -- One location, chosen, rather than every row that happens to be flagged as
+       -- headquarters: a plain join returned the same company once per flagged row.
+       left join lateral (
+         select l.city, l.state_region from locations l
+          where l.account_id = a.account_id and l.is_active
+          order by l.is_headquarters desc, l.created_at asc, l.location_id asc
+          limit 1
+       ) l on true
        left join users u on u.user_id = a.current_owner_user_id
       -- Best match first, then the searcher's own book, then the ones anyone can act
       -- on. A rep looking for a company they claimed this morning should not have to

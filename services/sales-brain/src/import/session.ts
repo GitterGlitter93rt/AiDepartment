@@ -131,14 +131,59 @@ export async function getSession(sessionId: string, userId: string): Promise<{
   };
 }
 
+/**
+ * The states from which an operator may still change the import.
+ *
+ * A session that is RUNNING, CONFIRMED, CANCELLED or EXPIRED is finished with as far
+ * as editing goes. Without this list, re-mapping a RUNNING session set its status
+ * back to MAPPED, which handed the confirm claim -- the guard that stops a second
+ * press starting a second import -- a session that looked untouched. Confirm, map,
+ * confirm was a double import of the same file with the rows still in place.
+ */
+const EDITABLE_STATUSES = ['UPLOADED', 'MAPPED', 'PREVIEWED'] as const;
+
+export type SessionEditReject = 'NOT_FOUND' | 'NOT_EDITABLE';
+
 export async function setColumnMap(
   sessionId: string, userId: string, columnMap: ColumnMap, defaultVertical: string | null,
-): Promise<void> {
-  await query(
+): Promise<{ ok: boolean; reason?: SessionEditReject }> {
+  const { rowCount } = await query(
     `update import_sessions set column_map = $3, default_vertical_profile_id = $4, status = 'MAPPED'
-      where import_session_id = $1 and created_by = $2`,
-    [sessionId, userId, JSON.stringify(columnMap), defaultVertical],
+      where import_session_id = $1 and created_by = $2 and status = any($5)`,
+    [sessionId, userId, JSON.stringify(columnMap), defaultVertical, EDITABLE_STATUSES as unknown as string[]],
   );
+  if (rowCount) return { ok: true };
+  return { ok: false, reason: await sessionEditReject(sessionId, userId) };
+}
+
+/**
+ * Discards an upload the operator has not committed.
+ *
+ * Cancelling is only meaningful before the import runs. Cancelling a CONFIRMED
+ * session used to rewrite its status, so the history page reported an import that
+ * really created Accounts as "Cancelled" -- a ledger that disagreed with what
+ * happened.
+ */
+export async function cancelSession(
+  sessionId: string, userId: string,
+): Promise<{ ok: boolean; reason?: SessionEditReject }> {
+  const { rowCount } = await query(
+    `update import_sessions set status = 'CANCELLED', raw_rows = null
+      where import_session_id = $1 and created_by = $2 and status = any($3)`,
+    [sessionId, userId, EDITABLE_STATUSES as unknown as string[]],
+  );
+  if (rowCount) return { ok: true };
+  return { ok: false, reason: await sessionEditReject(sessionId, userId) };
+}
+
+/** Distinguishes "no such session of yours" from "that session is past editing". */
+async function sessionEditReject(
+  sessionId: string, userId: string,
+): Promise<SessionEditReject> {
+  const { rows } = await query<{ status: string }>(
+    'select status from import_sessions where import_session_id = $1 and created_by = $2',
+    [sessionId, userId]);
+  return rows[0] ? 'NOT_EDITABLE' : 'NOT_FOUND';
 }
 
 /**

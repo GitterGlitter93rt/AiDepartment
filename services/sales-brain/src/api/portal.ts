@@ -28,6 +28,7 @@ import {
   createOpportunity, getOpportunity, listOpportunities, transitionOpportunity, type Stage,
 } from '../domain/opportunities.js';
 import { buildPrepBrief } from '../booking/brief.js';
+import { recordMeetingOutcome } from '../booking/service.js';
 import {
   renderMarketDetailPage, renderMeetingDetailPage, renderMeetingsPage,
   renderOpportunitiesPage, renderOpportunityDetailPage, renderRepliesPage,
@@ -37,7 +38,8 @@ import {
 } from '../web/pages/waveC.js';
 import { miningJobs, miningKpis, researchExceptions, researchHealthMetrics } from './waveCQueries.js';
 import {
-  buildPreview, confirmSession, createSession, getSession, listImportHistory, setColumnMap,
+  buildPreview, cancelSession, confirmSession, createSession, getSession, listImportHistory,
+  setColumnMap,
 } from '../import/session.js';
 import {
   renderAnalyticsPage, renderAuditPage, renderCallListPage, renderCallReviewPage,
@@ -69,6 +71,20 @@ const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  */
 function validId(id: string, reply: FastifyReply): boolean {
   if (UUID_SHAPE.test(id)) return true;
+  reply.code(404).type('text/html').send('<p>Not found.</p>');
+  return false;
+}
+
+/**
+ * The same guard for the tables whose key is a number rather than a uuid.
+ *
+ * Follow-ups and activities are bigserial. Sending their ids through the uuid guard
+ * refused every one of them: "Mark done" on the Follow-ups page answered 404 for a
+ * perfectly valid follow-up, and no follow-up could be completed from the portal at
+ * all.
+ */
+function validNumericId(id: string, reply: FastifyReply): boolean {
+  if (/^[0-9]{1,18}$/.test(id)) return true;
   reply.code(404).type('text/html').send('<p>Not found.</p>');
   return false;
 }
@@ -197,19 +213,26 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     }));
   });
 
-  app.get('/follow-ups', async (request, reply) => {
+  app.get<{ Querystring: { flash?: string } }>('/follow-ups', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     const [counts, followUps] = await Promise.all([navCountsFull(user.userId, user.role), followUpsFor(user.userId)]);
-    return reply.type('text/html').send(renderFollowUpsPage({ user, counts, ...followUps }));
+    return reply.type('text/html').send(renderFollowUpsPage({
+      user, counts, ...followUps, flash: request.query.flash ?? null,
+    }));
   });
 
   app.post<{ Params: { id: string } }>('/follow-ups/:id/complete', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    if (!validId(request.params.id, reply)) return;
-    await completeFollowUp(Number(request.params.id), user);
-    return reply.redirect('/follow-ups');
+    if (!validNumericId(request.params.id, reply)) return;
+    const result = await completeFollowUp(Number(request.params.id), user);
+    // Silence after a refused completion looks exactly like a completion that
+    // worked, except the row is still there.
+    const flash = result.ok ? 'Follow-up marked done.'
+      : result.reason === 'NOT_OWNER' ? 'That follow-up belongs to another rep.'
+        : 'That follow-up is no longer open.';
+    return reply.redirect(`/follow-ups?flash=${encodeURIComponent(flash)}`);
   });
 
   // --------------------------------------------------------------- accounts --
@@ -266,6 +289,9 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
 
   app.get<{ Params: { id: string } }>('/accounts/:id/panel', async (request, reply) => {
     if (!request.user) return reply.code(401).send('');
+    if (!UUID_SHAPE.test(request.params.id)) {
+      return reply.code(404).send('<p class="muted">Account not found.</p>');
+    }
     const detail = await getAccountDetail(request.params.id, request.user);
     if (!detail) return reply.code(404).send('<p class="muted">Account not found.</p>');
     return reply.type('text/html').send(renderAccountPanel(detail, request.user));
@@ -438,10 +464,15 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       for (const [key, value] of Object.entries(request.body ?? {})) {
         if (key.startsWith('map_') && value) columnMap[key.slice(4)] = value;
       }
-      await setColumnMap(
+      const mapped = await setColumnMap(
         request.params.id, user.userId, columnMap as never,
         request.body?.['defaultVertical'] || null,
       );
+      if (!mapped.ok) {
+        return reply.redirect(`/imports?error=${encodeURIComponent(mapped.reason === 'NOT_FOUND'
+          ? 'That upload is not yours or no longer exists.'
+          : 'That upload has already been confirmed or is running. Columns can no longer be changed.')}`);
+      }
       await buildPreview(request.params.id, user.userId);
       return reply.redirect(`/imports/${request.params.id}`);
     },
@@ -465,10 +496,12 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     const user = requireOps(request, reply);
     if (!user) return;
     if (!validId(request.params.id, reply)) return;
-    await import('../db/pool.js').then((m) => m.query(
-      `update import_sessions set status = 'CANCELLED', raw_rows = null
-        where import_session_id = $1 and created_by = $2`,
-      [request.params.id, user.userId]));
+    const cancelled = await cancelSession(request.params.id, user.userId);
+    if (!cancelled.ok) {
+      return reply.redirect(`/imports?error=${encodeURIComponent(cancelled.reason === 'NOT_FOUND'
+        ? 'That upload is not yours or no longer exists.'
+        : 'That upload has already been confirmed or is running. It cannot be discarded.')}`);
+    }
     return reply.redirect('/imports?flash=Upload+discarded.');
   });
 
@@ -484,7 +517,7 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     }));
   });
 
-  app.get<{ Params: { id: string } }>('/team/:id', async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { error?: string } }>('/team/:id', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     if (!validId(request.params.id, reply)) return;
@@ -499,7 +532,9 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       { ownership: 'MINE', pageSize: 200 },
       { userId: rep.user_id, role: user.role },
     );
-    return reply.type('text/html').send(renderRepBookPage({ user, counts, rep, response, reps }));
+    return reply.type('text/html').send(renderRepBookPage({
+      user, counts, rep, response, reps, error: request.query.error ?? null,
+    }));
   });
 
   app.post<{ Params: { id: string }; Body: { accountIds?: string; newOwnerUserId?: string; reason?: string } }>(
@@ -514,6 +549,17 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       const reason = (request.body?.reason ?? '').trim();
       if (!newOwner || !reason || accountIds.length === 0) {
         return reply.redirect(`/team/${request.params.id}`);
+      }
+      // Ids arrive as a comma-separated form field, so one bad entry used to take the
+      // whole reassignment down with a database cast error partway through -- some
+      // accounts moved, some not, and no message saying which.
+      if (!UUID_SHAPE.test(newOwner) || !accountIds.every((id) => UUID_SHAPE.test(id))) {
+        return reply.redirect(`/team/${request.params.id}?error=${encodeURIComponent(
+          'That selection could not be read. Nothing was reassigned.')}`);
+      }
+      if (accountIds.length > 200) {
+        return reply.redirect(`/team/${request.params.id}?error=${encodeURIComponent(
+          'Reassign at most 200 accounts at a time.')}`);
       }
       for (const accountId of accountIds) {
         await reassignAccount(accountId, newOwner, user, reason);
@@ -630,25 +676,53 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     }));
   });
 
-  app.get<{ Params: { id: string } }>('/meetings/:id', async (request, reply) => {
-    const user = requireUser(request, reply);
-    if (!user) return;
-    if (!validId(request.params.id, reply)) return;
-    const meeting = await getMeeting(request.params.id);
-    if (!meeting) return reply.code(404).type('text/html').send('<p>Meeting not found.</p>');
-    const [counts, brief] = await Promise.all([
-      navCountsFull(user.userId, user.role),
-      meeting.prep_brief ? Promise.resolve(meeting.prep_brief) : buildPrepBrief(request.params.id),
-    ]);
-    return reply.type('text/html').send(renderMeetingDetailPage({ user, counts, meeting, brief }));
-  });
+  app.get<{ Params: { id: string }; Querystring: { flash?: string } }>(
+    '/meetings/:id', async (request, reply) => {
+      const user = requireUser(request, reply);
+      if (!user) return;
+      if (!validId(request.params.id, reply)) return;
+      const meeting = await getMeeting(request.params.id, user);
+      if (!meeting) return reply.code(404).type('text/html').send('<p>Meeting not found.</p>');
+      const [counts, brief] = await Promise.all([
+        navCountsFull(user.userId, user.role),
+        meeting.prep_brief ? Promise.resolve(meeting.prep_brief) : buildPrepBrief(request.params.id),
+      ]);
+      return reply.type('text/html').send(renderMeetingDetailPage({
+        user, counts, meeting, brief, flash: request.query.flash ?? null,
+      }));
+    });
+
+  app.post<{ Params: { id: string }; Body: { outcome?: string; notes?: string } }>(
+    '/meetings/:id/outcome', async (request, reply) => {
+      const user = requireUser(request, reply);
+      if (!user) return;
+      if (!validId(request.params.id, reply)) return;
+      const outcome = request.body?.outcome;
+      if (outcome !== 'ATTENDED' && outcome !== 'NO_SHOW') {
+        return reply.redirect(`/meetings/${request.params.id}?flash=${encodeURIComponent(
+          'Say whether they turned up.')}`);
+      }
+      const result = await recordMeetingOutcome({
+        bookingId: request.params.id, outcome, notes: request.body?.notes ?? null, actor: user,
+      });
+      const flash = result.ok
+        ? (outcome === 'ATTENDED' ? 'Recorded as attended.' : 'Recorded as a no-show.')
+        : result.message ?? 'Could not record that outcome.';
+      if (!result.ok && result.reason === 'NOT_OWNER') {
+        return reply.code(404).type('text/html').send('<p>Meeting not found.</p>');
+      }
+      return reply.redirect(`/meetings/${request.params.id}?flash=${encodeURIComponent(flash)}`);
+    });
 
   // ---------------------------------------------------------------- booking --
 
   /** Real availability only. An unreadable calendar returns zero slots and a reason. */
   app.get('/api/booking/availability', async (request, reply) => {
-    const user = requireUser(request, reply);
-    if (!user) return;
+    // A JSON route answers 401. Redirecting a fetch() to the sign-in form hands the
+    // caller a page of HTML where it expected slots, and it parses as a failure with
+    // no reason attached.
+    if (!request.user) return reply.code(401).send({ ok: false, message: 'Not signed in' });
+    const user = request.user;
     const offer = await getAvailability();
     return reply.send({
       ok: offer.ok,

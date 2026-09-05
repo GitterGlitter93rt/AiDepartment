@@ -346,6 +346,12 @@ export async function getOpportunity(
   const opportunity = rows[0];
   if (!opportunity) return null;
 
+  // The list shows a rep their own opportunities. The detail page must answer the
+  // same question, or a rep who guesses a URL reads another rep's deal -- the
+  // prospect's own words, the timeline, the value. Not found, rather than
+  // forbidden: "you may not see this one" confirms the id is real.
+  if (opportunity.owner_user_id !== viewer.userId && !isManager(viewer.role)) return null;
+
   const [stageEvents, timeline, statements] = await Promise.all([
     query(
       `select e.*, u.display_name as actor_name from opportunity_stage_events e

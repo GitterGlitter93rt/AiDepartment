@@ -11,6 +11,8 @@ import { ingestBookingWebhook, verifySignature } from '../booking/webhooks.js';
 import { handleSmartleadWebhook } from '../email/smartleadWebhook.js';
 import { rescheduleStrategyCall, cancelStrategyCall } from '../booking/service.js';
 import { buildPrepBrief } from '../booking/brief.js';
+import { canViewBooking } from '../domain/bookingAccess.js';
+import { isUuid, validUuid } from './ids.js';
 import { config } from '../config.js';
 import { withTransaction } from '../db/pool.js';
 import { marketCards, navCountsFor } from './queries.js';
@@ -43,6 +45,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/accounts/:id/claim', async (request, reply) => {
       const user = requirePermission(request, reply, 'claim_accounts');
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       const outcome = await claimAccount(
         request.params.id, user, request.body?.searchContextId ?? null,
       );
@@ -63,6 +66,9 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       if (accountIds.length > 200) {
         return reply.code(400).send({ ok: false, message: 'Claim at most 200 accounts at a time.' });
       }
+      if (!accountIds.every(isUuid)) {
+        return reply.code(400).send({ ok: false, message: 'That selection contains something that is not an account.' });
+      }
       return claimAccounts(accountIds, user, request.body?.searchContextId ?? null);
     },
   );
@@ -71,6 +77,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/accounts/:id/release', async (request, reply) => {
       const user = requireApiUser(request, reply);
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       return releaseAccount(request.params.id, user, request.body?.reason ?? null);
     },
   );
@@ -79,10 +86,14 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/accounts/:id/reassign', async (request, reply) => {
       const user = requirePermission(request, reply, 'reassign_accounts');
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       const newOwner = request.body?.newOwnerUserId;
       const reason = (request.body?.reason ?? '').trim();
       if (!newOwner || !reason) {
         return reply.code(400).send({ ok: false, message: 'A new owner and a reason are both required.' });
+      }
+      if (!isUuid(newOwner)) {
+        return reply.code(400).send({ ok: false, message: 'That is not a valid user.' });
       }
       return reassignAccount(request.params.id, newOwner, user, reason);
     },
@@ -91,6 +102,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>('/api/accounts/:id', async (request, reply) => {
     const user = requireApiUser(request, reply);
     if (!user) return;
+    if (!validUuid(request.params.id, reply)) return;
     const detail = await getAccountDetail(request.params.id, user);
     if (!detail) return reply.code(404).send({ ok: false, message: 'Not found' });
     return detail;
@@ -149,15 +161,19 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/bookings/:id/reschedule', async (request, reply) => {
       const user = requireApiUser(request, reply);
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       const start = request.body?.start ? new Date(request.body.start) : null;
       const end = request.body?.end ? new Date(request.body.end) : null;
       const reason = (request.body?.reason ?? '').trim();
       if (!start || !end || !reason) {
         return reply.code(400).send({ ok: false, message: 'A new time and a reason are both required.' });
       }
-      return rescheduleStrategyCall({
-        bookingId: request.params.id, newStart: start, newEnd: end, reason, actorUserId: user.userId,
+      const result = await rescheduleStrategyCall({
+        bookingId: request.params.id, newStart: start, newEnd: end, reason,
+        actorUserId: user.userId, actor: user,
       });
+      if (!result.ok && result.reason === 'NOT_OWNER') return reply.code(403).send(result);
+      return result;
     },
   );
 
@@ -165,15 +181,26 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/bookings/:id/cancel', async (request, reply) => {
       const user = requireApiUser(request, reply);
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       const reason = (request.body?.reason ?? '').trim();
       if (!reason) return reply.code(400).send({ ok: false, message: 'A reason is required.' });
-      return cancelStrategyCall({ bookingId: request.params.id, reason, actorUserId: user.userId });
+      const result = await cancelStrategyCall({
+        bookingId: request.params.id, reason, actorUserId: user.userId, actor: user,
+      });
+      if (!result.ok && result.reason === 'NOT_OWNER') return reply.code(403).send(result);
+      return result;
     },
   );
 
   app.get<{ Params: { id: string } }>('/api/bookings/:id/brief', async (request, reply) => {
     const user = requireApiUser(request, reply);
     if (!user) return;
+    if (!validUuid(request.params.id, reply)) return;
+    // A prep brief carries what the prospect actually said. It is readable by the
+    // people who can see the meeting, not by anyone holding the booking id.
+    if (!(await canViewBooking(request.params.id, user))) {
+      return reply.code(404).send({ ok: false, message: 'Booking not found.' });
+    }
     const brief = await buildPrepBrief(request.params.id);
     if (!brief) return reply.code(404).send({ ok: false, message: 'Booking not found.' });
     return brief;
@@ -195,6 +222,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   }>('/api/accounts/:id/activities/disposition', async (request, reply) => {
     const user = requirePermission(request, reply, 'create_disposition');
     if (!user) return;
+    if (!validUuid(request.params.id, reply)) return;
 
     const disposition = request.body?.disposition as Disposition | undefined;
     if (!disposition) return reply.code(400).send({ ok: false, message: 'A disposition is required.' });
@@ -223,6 +251,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/accounts/:id/notes', async (request, reply) => {
       const user = requireApiUser(request, reply);
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       const note = (request.body?.note ?? '').trim();
       if (!note) return reply.code(400).send({ ok: false, message: 'Note text is required.' });
       return addNote(request.params.id, note, user);
@@ -233,6 +262,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/accounts/:id/contact-research', async (request, reply) => {
       const user = requirePermission(request, reply, 'request_contact_research');
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       return enqueueContactResearch(request.params.id, user.userId);
     },
   );
@@ -248,9 +278,13 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     '/api/accounts/:id/start-call', async (request, reply) => {
       const user = requirePermission(request, reply, 'work_owned_accounts');
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
 
       const endpointId = request.body?.endpointId;
       if (!endpointId) return reply.code(400).send({ ok: false, message: 'An endpoint is required.' });
+      if (!isUuid(endpointId)) {
+        return reply.code(404).send({ ok: false, message: 'That phone number is not on this account.' });
+      }
 
       const preflight = await preflightCall(endpointId, 'HUMAN_MANUAL_CALL');
       if (!preflight.allowed) {
@@ -299,6 +333,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       // so it is a compliance action rather than ordinary rep work.
       const user = requirePermission(request, reply, 'rescreen_channel_eligibility');
       if (!user) return;
+      if (!validUuid(request.params.id, reply)) return;
       return { ok: true, evaluated: await evaluateAccount(request.params.id) };
     },
   );
@@ -312,6 +347,10 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   }>('/api/mining/jobs', async (request, reply) => {
     const user = requirePermission(request, reply, 'request_market_refresh');
     if (!user) return;
+    const marketId = request.body?.marketId;
+    if (marketId != null && marketId !== '' && !isUuid(marketId)) {
+      return reply.code(400).send({ ok: false, message: 'That market does not exist.' });
+    }
     return enqueueMarketResearch({
       verticalProfileId: request.body?.verticalProfileId ?? null,
       geographyType: request.body?.geography?.type ?? null,

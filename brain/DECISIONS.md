@@ -234,3 +234,61 @@ A question about price or what we sell is answered from launch-decisions.md, and
 scored against the company's own vocabulary for those things rather than only the
 words the asker used — otherwise "how much do we charge", which shares no word with
 that document, is answered from the manual's examples.
+
+
+## 2026-09-04 — Sales Portal live QA (GitHub Issue #2)
+
+Decisions taken while working the operator bug hunt. Each closed a defect that was
+visible on Michael's screen during the first real walk-through.
+
+### A job records what it achieved, separately from whether it ran
+
+`jobs.status` is the queue's business. `jobs.outcome` is the operator's, and it
+distinguishes a search that found nothing from a search that could not happen:
+DISCOVERY_BLOCKED, PROVIDER_UNAVAILABLE, PARTIAL, ZERO_RESULTS, NOTHING_TO_DO. A
+provider outage is never reported as an empty market — turning an outage into a zero
+is the same lie in a different place.
+
+### Every operator counter names what produced it
+
+"Accounts added today" counted every Account created by any means and sat on the
+Mining page, where it read as mining output; all of them were demo seed rows.
+Provenance now comes from the DISCOVERED activity written at creation, and the
+Analytics page says in words how many of the accounts in scope are fixture data.
+A number whose source is not stated is not a measurement.
+
+### Worker liveness is asserted, not inferred
+
+A queue with nobody serving it has no stranded jobs, because a job nobody picked up
+has no lease to expire. Workers write a heartbeat on their own timer, so a worker
+inside a long job still reports, and the operations panel reads that rather than
+inferring health from the absence of a symptom.
+
+### Each detail view answers the same question as the list it is reached from
+
+The meetings list hid other reps' meetings; the meeting page showed any of them to
+anyone holding the id. Same for opportunities and the prep brief. A record a rep
+cannot see in a list is not readable by guessing its URL, and "not yours" reads as
+"not found", because being told the difference teaches an attacker that an id is
+real.
+
+### Input the server cannot read produces a 4xx in the product's own words
+
+A malformed id used to reach PostgreSQL and come back as 'invalid input syntax for
+type uuid' with a 500 attached — a database error message in a browser, and a genuine
+outage made invisible among them. Ids are shape-checked at the route, and one error
+handler turns anything that still escapes into a sentence.
+
+### A tombstone is a redirect, never a row in a count
+
+A merged Account keeps its id so old links still work. Lists already dropped them;
+the counters did not, so the search total disagreed with the rows beneath it and the
+analytics funnel was inflated by the number of merges the team had done. Global
+search resolves every hit forward through the merge chain, so a company that was
+merged appears once, with the state it has now.
+
+### The sign-in form counts wrong passwords
+
+Durably, per address and per source, before the portal goes behind a public hostname.
+The counters live in the database rather than in process memory: two workers behind a
+proxy must count the same attempts, and a restart must not clear a lockout.

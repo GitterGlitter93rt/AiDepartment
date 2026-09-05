@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import type { Role } from './auth.js';
+import { isUuid } from './ids.js';
 
 /**
  * Inventory search over the canonical durable inventory.
@@ -9,6 +10,11 @@ import type { Role } from './auth.js';
  * Reads the database first and never blocks on live mining. Sort keys are
  * whitelisted; nothing from the request is interpolated into SQL.
  */
+
+/** True when a filter id is a uuid we can safely send to PostgreSQL. */
+function isUuidish(value: string | null | undefined): value is string {
+  return isUuid(value);
+}
 
 export type OwnershipFilter = 'UNCLAIMED' | 'MINE' | 'CLAIMED_BY_OTHER' | 'ANY_VISIBLE';
 export type ContactFilter =
@@ -176,6 +182,11 @@ function buildWhere(
   // important filter in the system (SALES-TEAM-ACCESS-CURRENT.md §19).
   clauses.push('not is_suppressed');
 
+  // A merged Account is a tombstone: a redirect, not a company. prospect_inventory
+  // drops them, so the rows never showed one -- but the fast count path reads
+  // `accounts` directly, and counted them. "1,001 results" above a thousand rows.
+  if (target === 'accounts') clauses.push('merged_into_account_id is null');
+
   const ownership: OwnershipFilter = request.ownership ?? 'UNCLAIMED';
   if (request.myProspectsFilter !== undefined && request.myProspectsFilter !== null) {
     clauses.push(`current_owner_user_id = ${push(viewer.userId)}`);
@@ -190,6 +201,8 @@ function buildWhere(
     clauses.push(`current_owner_user_id is not null and current_owner_user_id <> ${push(viewer.userId)}`);
   }
 
+  // A vertical profile is keyed by a slug, so any text is a legal parameter and an
+  // unknown one simply matches nothing.
   if (request.verticalProfileId) {
     clauses.push(`primary_vertical_profile_id = ${push(request.verticalProfileId)}`);
   }
@@ -214,10 +227,15 @@ function buildWhere(
     }
   }
 
-  if (request.marketId) {
+  // A market id is a uuid, so a filter that cannot be one names no market. Sending
+  // it to PostgreSQL instead turns a typo in the URL bar into a 500 carrying a
+  // database error message.
+  if (isUuidish(request.marketId)) {
     clauses.push(
       `account_id in (select account_id from account_market_membership where market_id = ${push(request.marketId)})`,
     );
+  } else if (request.marketId) {
+    clauses.push('false');
   }
 
   if (request.minimumTier) {
@@ -356,7 +374,12 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
   const discoveryAvailable = availableDiscoveryAdapters().length > 0;
 
-  if (!geography?.value && !request.marketId) {
+  // Same rule as the search itself: a market id that cannot be a uuid is not a
+  // filter, it is a typo, and it must not reach the database.
+  const verticalProfileId = request.verticalProfileId ?? null;
+  const marketId = isUuidish(request.marketId) ? request.marketId : null;
+
+  if (!geography?.value && !marketId) {
     return {
       state: 'FRESH', researchedCount: 0, unclaimedCount: 0, lastMinedAt: null,
       activeJobId: null, discoveryAvailable, activeJobScope: null,
@@ -365,8 +388,8 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
 
   const conditions: string[] = ['not is_suppressed'];
   const values: unknown[] = [];
-  if (request.verticalProfileId) {
-    values.push(request.verticalProfileId);
+  if (verticalProfileId) {
+    values.push(verticalProfileId);
     conditions.push(`primary_vertical_profile_id = $${values.length}`);
   }
   if (geography?.type === 'zip_zcta' && geography.value) {
@@ -379,8 +402,8 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     values.push(geography.value.trim());
     conditions.push(`state_region = upper($${values.length})`);
   }
-  if (request.marketId) {
-    values.push(request.marketId);
+  if (marketId) {
+    values.push(marketId);
     conditions.push(
       `account_id in (select account_id from account_market_membership where market_id = $${values.length})`,
     );
@@ -444,7 +467,7 @@ export async function recordSearchContext(
         contactability: request.contactability ?? [],
         advertising: request.advertising ?? [],
         research: request.research ?? [],
-        marketId: request.marketId ?? null,
+        marketId: isUuidish(request.marketId) ? request.marketId : null,
       }),
       request.sort ?? 'recommended_priority', resultCount,
     ],

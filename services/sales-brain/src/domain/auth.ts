@@ -101,25 +101,106 @@ export async function revokeSession(token: string | undefined): Promise<void> {
 export interface LoginResult {
   ok: boolean;
   user?: SessionUser;
-  reason?: 'INVALID_CREDENTIALS' | 'DISABLED';
+  reason?: 'INVALID_CREDENTIALS' | 'DISABLED' | 'RATE_LIMITED';
+  /** When a locked-out caller may try again. */
+  retryAfterSeconds?: number;
 }
 
-export async function authenticate(email: string, password: string): Promise<LoginResult> {
+/**
+ * How many wrong passwords are allowed before the form stops answering.
+ *
+ * Per address and per source, because the two attacks are different: one address
+ * guessed many times, and many addresses guessed from one place. The window is short
+ * enough that a person who mistyped their password twice is not locked out of their
+ * afternoon, and short enough that an attacker gets a few dozen guesses an hour
+ * rather than a few million.
+ */
+export const LOGIN_MAX_FAILURES_PER_EMAIL = 8;
+export const LOGIN_MAX_FAILURES_PER_IP = 30;
+export const LOGIN_WINDOW_MINUTES = 15;
+
+async function recentFailures(emailNormalized: string, ip: string | null): Promise<{
+  byEmail: number; byIp: number; oldest: Date | null;
+}> {
+  const { rows } = await query<{ by_email: number; by_ip: number; oldest: Date | null }>(
+    `select
+       count(*) filter (where email_normalized = $1)::int as by_email,
+       count(*) filter (where $2::text is not null and ip = $2)::int as by_ip,
+       min(attempted_at) filter (where email_normalized = $1) as oldest
+     from login_attempts
+     where not succeeded
+       and attempted_at > now() - ($3 || ' minutes')::interval
+       and (email_normalized = $1 or ($2::text is not null and ip = $2))`,
+    [emailNormalized, ip, String(LOGIN_WINDOW_MINUTES)],
+  );
+  const row = rows[0]!;
+  return { byEmail: row.by_email, byIp: row.by_ip, oldest: row.oldest };
+}
+
+async function recordLoginAttempt(
+  emailNormalized: string, ip: string | null, succeeded: boolean,
+): Promise<void> {
+  await query(
+    'insert into login_attempts (email_normalized, ip, succeeded) values ($1, $2, $3)',
+    [emailNormalized, ip, succeeded]);
+}
+
+/** Drops attempts older than the window so the table cannot grow without bound. */
+export async function purgeOldLoginAttempts(): Promise<number> {
+  const result = await pool.query(
+    `delete from login_attempts where attempted_at < now() - interval '1 day'`);
+  return result.rowCount ?? 0;
+}
+
+export async function authenticate(
+  email: string, password: string, meta: { ip?: string | null } = {},
+): Promise<LoginResult> {
+  const emailNormalized = email.trim().toLowerCase();
+  const ip = meta.ip ?? null;
+
+  const failures = await recentFailures(emailNormalized, ip);
+  if (failures.byEmail >= LOGIN_MAX_FAILURES_PER_EMAIL
+      || failures.byIp >= LOGIN_MAX_FAILURES_PER_IP) {
+    const oldest = failures.oldest ?? new Date();
+    const retryAfterSeconds = Math.max(
+      30,
+      Math.ceil((oldest.getTime() + LOGIN_WINDOW_MINUTES * 60_000 - Date.now()) / 1000),
+    );
+    // No password check at all: a locked form must not remain a timing oracle for
+    // which addresses exist, and must not spend scrypt time on an attacker's behalf.
+    return { ok: false, reason: 'RATE_LIMITED', retryAfterSeconds };
+  }
+
   const { rows } = await query<{
     user_id: string; email: string; display_name: string; role: Role;
     password_hash: string | null; is_active: boolean; active_claim_target: number | null;
   }>(
     `select user_id, email, display_name, role, password_hash, is_active, active_claim_target
        from users where email_normalized = $1`,
-    [email.trim().toLowerCase()],
+    [emailNormalized],
   );
   const row = rows[0];
 
   // Always run a verify so a missing user and a wrong password cost the same time.
   const passwordOk = await verifyPassword(password, row?.password_hash ?? null);
-  if (!row || !passwordOk) return { ok: false, reason: 'INVALID_CREDENTIALS' };
-  if (!row.is_active) return { ok: false, reason: 'DISABLED' };
+  if (!row || !passwordOk) {
+    await recordLoginAttempt(emailNormalized, ip, false);
+    return { ok: false, reason: 'INVALID_CREDENTIALS' };
+  }
+  if (!row.is_active) {
+    // A disabled account counts as a failed attempt: it is a real address, and
+    // guessing at it should exhaust the same budget.
+    await recordLoginAttempt(emailNormalized, ip, false);
+    return { ok: false, reason: 'DISABLED' };
+  }
 
+  // A correct password clears this address's budget. Otherwise a rep who mistyped
+  // their password five times this morning is locked out by three typos this
+  // afternoon, having signed in successfully in between.
+  await query(
+    'delete from login_attempts where email_normalized = $1 and not succeeded',
+    [emailNormalized]);
+  await recordLoginAttempt(emailNormalized, ip, true);
   return {
     ok: true,
     user: {

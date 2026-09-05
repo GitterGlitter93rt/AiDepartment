@@ -157,6 +157,21 @@ export async function recordWorkerStopped(): Promise<void> {
     'update worker_instances set stopped_at = now() where worker_id = $1', [workerId]);
 }
 
+export const HOUSEKEEPING_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Bounded-growth maintenance. Safe to call at any time; each step is independent. */
+export async function runHousekeeping(): Promise<{
+  sessions: number; uploads: number; loginAttempts: number;
+}> {
+  const { purgeExpiredSessions, purgeOldLoginAttempts } = await import('../domain/auth.js');
+  const { expireStaleSessions } = await import('../import/session.js');
+  return {
+    sessions: await purgeExpiredSessions(),
+    uploads: await expireStaleSessions(),
+    loginAttempts: await purgeOldLoginAttempts(),
+  };
+}
+
 export async function runWorker(log: (message: string, meta?: unknown) => void = console.log): Promise<void> {
   running = true;
   stopping = false;
@@ -173,6 +188,14 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
     });
   }, HEARTBEAT_INTERVAL_MS);
   heartbeat.unref?.();
+
+  // Housekeeping that nothing else owns: expired sessions, abandoned uploads and old
+  // sign-in attempts. Each is a table that only ever grew, on a schedule that did not
+  // exist. Hourly is often enough for all three and cheap enough to ignore.
+  const housekeeping = setInterval(() => {
+    void runHousekeeping().catch((error: unknown) => log('[worker] housekeeping failed', error));
+  }, HOUSEKEEPING_INTERVAL_MS);
+  housekeeping.unref?.();
 
   try {
   while (!stopping) {
@@ -214,6 +237,7 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
   }
   } finally {
     clearInterval(heartbeat);
+    clearInterval(housekeeping);
     await recordWorkerStopped().catch(() => { /* the process is going anyway */ });
   }
 

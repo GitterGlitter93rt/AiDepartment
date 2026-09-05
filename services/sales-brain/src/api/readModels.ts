@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { isManager, type Role } from '../domain/auth.js';
+import { canViewBooking } from '../domain/bookingAccess.js';
 
 /**
  * Purpose-built read models for the CRM pages.
@@ -208,7 +209,16 @@ export async function listMeetings(
   return rows;
 }
 
-export async function getMeeting(bookingId: string): Promise<any | null> {
+/**
+ * One booking, for a viewer who is allowed to see it.
+ *
+ * The viewer predicate is the same one listMeetings applies. Without it the list
+ * hid other reps' meetings and this function handed them over to anyone with the id.
+ */
+export async function getMeeting(
+  bookingId: string, viewer: { userId: string; role: Role },
+): Promise<any | null> {
+  if (!(await canViewBooking(bookingId, viewer))) return null;
   const { rows } = await query(
     `select b.*, a.canonical_name as company_name, a.canonical_domain,
             pi.geography_summary as geography, pi.manual_tier, pi.manual_score,

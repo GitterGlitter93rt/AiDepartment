@@ -764,6 +764,7 @@ export function renderAnalyticsPage(input: {
 }): string {
   const { user, counts, funnel, breakdowns, filters, options } = input;
   const researched = Number(funnel?.researched ?? 0);
+  const synthetic = Number(funnel?.synthetic ?? 0);
 
   const active = [
     filters.fromDate && `from ${filters.fromDate}`,
@@ -819,6 +820,16 @@ export function renderAnalyticsPage(input: {
             Showing everything researched. Narrow the scope to compare like with like.
           </p>`}
     </div>
+
+    ${synthetic > 0
+      ? html`<div class="coverage-note warn" role="status" style="margin-top:18px">
+          <strong>${synthetic} of the ${researched} accounts in this scope are demo or
+          synthetic fixture data.</strong>
+          Every rate below is computed over both. Fixture accounts were created to
+          exercise the product, so nothing on this page is a measurement of real
+          performance until they are out of the scope.
+        </div>`
+      : ''}
 
     <div style="height:18px"></div>
 

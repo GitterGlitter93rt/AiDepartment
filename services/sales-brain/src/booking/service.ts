@@ -8,6 +8,8 @@ import {
 import type { CalendarAdapter, TimeSlot } from './types.js';
 import { microsoftGraphAdapter } from './graphAdapter.js';
 import { calDotComAdapter } from './calcomAdapter.js';
+import { canViewBooking } from '../domain/bookingAccess.js';
+import type { Role } from '../domain/auth.js';
 
 /**
  * Strategy-call booking.
@@ -177,6 +179,25 @@ export interface BookingRequest {
   sourceChannel?: 'portal' | 'ai_call' | 'human_rep' | 'email' | 'inbound';
 }
 
+export type BookingActor = { userId: string; role: Role };
+
+/**
+ * Refuses a booking action a signed-in person may not take.
+ *
+ * "Not yours" reads the same as "does not exist", because a rep who is told the
+ * difference has learned that a booking id is real.
+ */
+async function denyIfNotTheirBooking(
+  bookingId: string, actor: BookingActor | null | undefined,
+): Promise<BookingResult | null> {
+  if (!actor) return null;
+  if (await canViewBooking(bookingId, actor)) return null;
+  return {
+    ok: false, reason: 'NOT_OWNER', spokenConfirmation: '',
+    error: 'That meeting belongs to another rep.',
+  };
+}
+
 export interface BookingResult {
   ok: boolean;
   bookingId?: string;
@@ -186,7 +207,7 @@ export interface BookingResult {
   spokenConfirmation: string;
   followUpId?: number;
   reason?: 'NOT_AGREED' | 'SLOT_EXPIRED' | 'NOT_CONFIGURED' | 'ALREADY_BOOKED'
-    | 'PROVIDER_FAILED' | 'NO_LONGER_FREE' | 'ACCOUNT_SUPPRESSED';
+    | 'PROVIDER_FAILED' | 'NO_LONGER_FREE' | 'ACCOUNT_SUPPRESSED' | 'NOT_OWNER';
   error?: string;
 }
 
@@ -471,7 +492,18 @@ export async function rescheduleStrategyCall(input: {
   newEnd: Date;
   reason: string;
   actorUserId?: string | null;
+  /**
+   * The signed-in person, when a person is doing this. Moving somebody else's
+   * meeting is a rep-facing action, not a system one, so the check lives here and
+   * not only on the route: a future caller that forgets the check gets refused
+   * rather than trusted. A system caller (a provider webhook, the voice runtime)
+   * passes no actor and is not subject to a rep's ownership.
+   */
+  actor?: BookingActor | null;
 }): Promise<BookingResult> {
+  const denied = await denyIfNotTheirBooking(input.bookingId, input.actor);
+  if (denied) return denied;
+
   const { rows } = await query<{
     account_id: string; contact_id: string | null; owner_user_id: string | null;
     provider_event_id: string | null; calendar_upn: string; attendee_email: string | null;
@@ -536,9 +568,84 @@ export async function rescheduleStrategyCall(input: {
 }
 
 /** Cancels through the provider and mirrors the state locally. */
+export type MeetingOutcome = 'ATTENDED' | 'NO_SHOW';
+
+/**
+ * Records what actually happened at a meeting.
+ *
+ * Nothing wrote `attended_state`, so the Completed tab was permanently empty and the
+ * funnel's attended stage was permanently zero -- a number that could only ever be
+ * zero, printed beside numbers that could not. It is still never inferred: a meeting
+ * whose time has passed has not been attended, it has only passed, and only a person
+ * who was there can say which.
+ */
+export async function recordMeetingOutcome(input: {
+  bookingId: string;
+  outcome: MeetingOutcome;
+  notes?: string | null;
+  actor: BookingActor;
+}): Promise<{ ok: boolean; reason?: 'NOT_OWNER' | 'NOT_FOUND' | 'NOT_YET' | 'NOT_CONFIRMED';
+             message?: string }> {
+  if (!(await canViewBooking(input.bookingId, input.actor))) {
+    return { ok: false, reason: 'NOT_OWNER', message: 'That meeting belongs to another rep.' };
+  }
+
+  const { rows } = await query<{
+    account_id: string; contact_id: string | null; owner_user_id: string | null;
+    status: string; requested_start: Date;
+  }>(
+    `select account_id, contact_id, owner_user_id, status, requested_start
+       from meeting_bookings where booking_id = $1`,
+    [input.bookingId],
+  );
+  const booking = rows[0];
+  if (!booking) return { ok: false, reason: 'NOT_FOUND' };
+  if (booking.status !== 'CONFIRMED') {
+    return {
+      ok: false, reason: 'NOT_CONFIRMED',
+      message: 'Only a confirmed meeting has an outcome to record.',
+    };
+  }
+  if (booking.requested_start.getTime() > Date.now()) {
+    return {
+      ok: false, reason: 'NOT_YET',
+      message: 'That meeting has not started yet.',
+    };
+  }
+
+  await withTransaction(async (client) => {
+    await client.query(
+      'update meeting_bookings set attended_state = $2, updated_at = now() where booking_id = $1',
+      [input.bookingId, input.outcome]);
+    await client.query(
+      `insert into activities (account_id, contact_id, activity_type, channel, actor_user_id,
+                               owner_user_id, notes, payload)
+       values ($1,$2,'MEETING_OUTCOME','system',$3,$4,$5,$6)`,
+      [
+        booking.account_id, booking.contact_id, input.actor.userId,
+        booking.owner_user_id ?? input.actor.userId,
+        (input.notes ?? '').trim() || null,
+        JSON.stringify({ booking_id: input.bookingId, outcome: input.outcome }),
+      ],
+    );
+    await client.query(
+      `insert into audit_log (actor_user_id, action, subject_type, subject_id, detail)
+       values ($1, 'meeting.outcome', 'meeting_booking', $2, $3::jsonb)`,
+      [input.actor.userId, input.bookingId, JSON.stringify({ outcome: input.outcome })],
+    );
+  });
+
+  return { ok: true };
+}
+
 export async function cancelStrategyCall(input: {
   bookingId: string; reason: string; actorUserId?: string | null;
-}): Promise<{ ok: boolean; error?: string }> {
+  /** See rescheduleStrategyCall: a person may only cancel a meeting they can see. */
+  actor?: BookingActor | null;
+}): Promise<{ ok: boolean; error?: string; reason?: 'NOT_OWNER' }> {
+  if (input.actor && !(await canViewBooking(input.bookingId, input.actor))) {
+    return { ok: false, reason: 'NOT_OWNER', error: 'That meeting belongs to another rep.' };
+  }
   const { rows } = await query<{
     provider_event_id: string | null; calendar_upn: string; account_id: string;
     contact_id: string | null; status: string;

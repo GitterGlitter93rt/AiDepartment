@@ -6,7 +6,8 @@ import { upsertAccount } from '../src/domain/accounts.js';
 import { claimAccount } from '../src/domain/ownership.js';
 import { recordDisposition } from '../src/domain/activities.js';
 import {
-  buildPreview, confirmSession, createSession, getSession, setColumnMap, expireStaleSessions,
+  buildPreview, cancelSession, confirmSession, createSession, getSession, setColumnMap,
+  expireStaleSessions,
 } from '../src/import/session.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { resetDatabase, makeUser } from './helpers.js';
@@ -266,4 +267,112 @@ test('the upload endpoint is manager/ops only', async () => {
   } finally {
     await app.close();
   }
+});
+
+
+// ------------------------------------------------------ session state machine --
+
+/**
+ * An import session's status is a ledger entry, not a label.
+ *
+ * Two routes wrote it without asking what it already said. Re-mapping the columns of
+ * a RUNNING session set it back to MAPPED, which handed the confirm claim -- the
+ * guard that stops a second press starting a second import -- a session that looked
+ * untouched, with its rows still in place. Cancelling a CONFIRMED session rewrote a
+ * completed import as "Cancelled" on the history page.
+ */
+
+test('columns cannot be re-mapped once the import is confirmed', async () => {
+  const session = await createSession({
+    content: CSV, fileName: 'list.csv', sourceName: 'airtable-test', createdBy: ops.userId,
+  });
+  const confirmed = await confirmSession(session.importSessionId, ops.userId);
+  assert.ok(confirmed.ok);
+
+  const remap = await setColumnMap(
+    session.importSessionId, ops.userId, { company_name: 'Company Name' } as never, null);
+  assert.equal(remap.ok, false);
+  assert.equal(remap.reason, 'NOT_EDITABLE');
+
+  const { rows } = await query<{ status: string }>(
+    'select status from import_sessions where import_session_id = $1', [session.importSessionId]);
+  assert.equal(rows[0]!.status, 'CONFIRMED', 'the ledger still says what happened');
+});
+
+test('re-mapping a running session cannot re-open the confirm claim', async () => {
+  const session = await createSession({
+    content: CSV, fileName: 'list.csv', sourceName: 'airtable-test', createdBy: ops.userId,
+  });
+  // Stand the session in the state a first confirm leaves it in while it works.
+  await query(
+    `update import_sessions set status = 'RUNNING', confirm_started_at = now()
+      where import_session_id = $1`, [session.importSessionId]);
+
+  const remap = await setColumnMap(
+    session.importSessionId, ops.userId, { company_name: 'Company Name' } as never, null);
+  assert.equal(remap.ok, false, 'a running import is not editable');
+
+  const second = await confirmSession(session.importSessionId, ops.userId);
+  assert.equal(second.ok, false, 'and the second confirm is still refused');
+  assert.match(second.message ?? '', /already being confirmed/);
+
+  const batches = await query('select import_batch_id from import_batches');
+  assert.equal(batches.rows.length, 0, 'no second import of the same file ran');
+});
+
+test('a confirmed import cannot be discarded after the fact', async () => {
+  const session = await createSession({
+    content: CSV, fileName: 'list.csv', sourceName: 'airtable-test', createdBy: ops.userId,
+  });
+  const confirmed = await confirmSession(session.importSessionId, ops.userId);
+  assert.ok(confirmed.ok);
+  const created = confirmed.report!.created;
+  assert.ok(created > 0);
+
+  const cancelled = await cancelSession(session.importSessionId, ops.userId);
+  assert.equal(cancelled.ok, false);
+  assert.equal(cancelled.reason, 'NOT_EDITABLE');
+
+  const { rows } = await query<{ status: string }>(
+    'select status from import_sessions where import_session_id = $1', [session.importSessionId]);
+  assert.equal(rows[0]!.status, 'CONFIRMED');
+
+  const accounts = await query('select account_id from accounts');
+  assert.equal(accounts.rows.length, created, 'and the accounts it created are still there');
+});
+
+test('an upload that has not been committed can still be discarded', async () => {
+  const session = await createSession({
+    content: CSV, fileName: 'list.csv', sourceName: 'airtable-test', createdBy: ops.userId,
+  });
+  const cancelled = await cancelSession(session.importSessionId, ops.userId);
+  assert.equal(cancelled.ok, true);
+
+  const { rows } = await query<{ status: string; raw_rows: unknown }>(
+    'select status, raw_rows from import_sessions where import_session_id = $1',
+    [session.importSessionId]);
+  assert.equal(rows[0]!.status, 'CANCELLED');
+  assert.equal(rows[0]!.raw_rows, null, 'the uploaded rows are dropped with it');
+
+  const second = await confirmSession(session.importSessionId, ops.userId);
+  assert.equal(second.ok, false, 'a discarded upload cannot then be confirmed');
+});
+
+test('another rep cannot discard or re-map somebody else\'s upload', async () => {
+  const session = await createSession({
+    content: CSV, fileName: 'list.csv', sourceName: 'airtable-test', createdBy: ops.userId,
+  });
+
+  const cancelled = await cancelSession(session.importSessionId, rep.userId);
+  assert.equal(cancelled.ok, false);
+  assert.equal(cancelled.reason, 'NOT_FOUND', 'and is not told the session exists');
+
+  const remap = await setColumnMap(
+    session.importSessionId, rep.userId, { company_name: 'Company Name' } as never, null);
+  assert.equal(remap.ok, false);
+  assert.equal(remap.reason, 'NOT_FOUND');
+
+  const { rows } = await query<{ status: string }>(
+    'select status from import_sessions where import_session_id = $1', [session.importSessionId]);
+  assert.equal(rows[0]!.status, 'MAPPED', 'the owner\'s session is untouched');
 });

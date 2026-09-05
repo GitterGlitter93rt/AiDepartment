@@ -17,6 +17,12 @@ import { registerApiRoutes } from './routes.js';
 const SESSION_COOKIE = 'yad_sales_session';
 const assetsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'web', 'assets');
 
+/** The error page renders one sentence; it still escapes it. */
+function escapeHtmlText(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] as string));
+}
+
 declare module 'fastify' {
   interface FastifyRequest {
     user?: SessionUser;
@@ -95,6 +101,46 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerPortalRoutes(app);
   await registerApiRoutes(app);
 
+  /**
+   * One place where a thrown error becomes a response.
+   *
+   * Without this, a bad id in the URL bar reached PostgreSQL, and Fastify's default
+   * handler answered with the database's own words -- 'invalid input syntax for type
+   * uuid: "abc"' -- which tells a visitor the column type, the driver and that their
+   * input reached SQL. The real error is logged; the browser gets a sentence.
+   */
+  app.setErrorHandler((raw, request, reply) => {
+    const error = raw as Error & { statusCode?: number; code?: string };
+    const status = typeof error.statusCode === 'number' && error.statusCode >= 400
+      && error.statusCode < 500 ? error.statusCode : 500;
+    const pgCode = error.code;
+
+    // A malformed id or number is the caller's mistake, not a server fault, and it
+    // must not be logged as an outage or answered with a 500.
+    const badInput = pgCode === '22P02' || pgCode === '22003' || pgCode === '22001';
+    const code = badInput ? 400 : status;
+
+    if (code >= 500) {
+      request.log.error({ err: error, url: request.url }, 'unhandled request error');
+    } else {
+      request.log.warn({ err: error.message, code: pgCode, url: request.url }, 'rejected request');
+    }
+
+    const message = badInput
+      ? 'That request contained something this page cannot read.'
+      : code >= 500
+        ? 'Something went wrong on our side. It has been logged.'
+        : error.message;
+
+    if (reply.sent) return;
+    if (request.url.startsWith('/api/')) {
+      reply.code(code).send({ ok: false, message });
+      return;
+    }
+    reply.code(code).type('text/html')
+      .send(`<p>${escapeHtmlText(message)}</p><p><a href="/">Go to the portal</a>.</p>`);
+  });
+
   app.setNotFoundHandler((request, reply) => {
     if (request.url.startsWith('/api/')) {
       reply.code(404).send({ ok: false, message: 'Not found' });
@@ -118,9 +164,18 @@ function registerAuthRoutes(app: FastifyInstance): void {
     const email = String(request.body?.email ?? '');
     const password = String(request.body?.password ?? '');
 
-    const result = await authenticate(email, password);
+    const result = await authenticate(email, password, { ip: request.ip });
     if (!result.ok || !result.user) {
       request.log.warn({ email, ip: request.ip, reason: result.reason }, 'failed sign-in');
+      if (result.reason === 'RATE_LIMITED') {
+        const minutes = Math.ceil((result.retryAfterSeconds ?? 60) / 60);
+        reply.header('Retry-After', String(result.retryAfterSeconds ?? 60));
+        return reply.code(429).type('text/html').send(renderLogin({
+          error: `Too many sign-in attempts. Try again in about ${minutes} minute`
+            + `${minutes === 1 ? '' : 's'}.`,
+          email,
+        }));
+      }
       // The same message for a bad password and a disabled account: a sign-in form
       // should not confirm which addresses exist.
       return reply.code(401).type('text/html').send(

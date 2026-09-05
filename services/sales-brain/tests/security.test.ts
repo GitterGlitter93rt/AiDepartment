@@ -344,3 +344,104 @@ test('an unsigned provider webhook is refused', async () => {
   const rows = await query<{ n: number }>(`select count(*)::int as n from meeting_bookings`);
   assert.equal(rows.rows[0]!.n, 0, 'a forged webhook created a booking');
 });
+
+
+// --- sign-in rate limiting -----------------------------------------------------
+
+/**
+ * The portal is about to sit behind a public hostname.
+ *
+ * Until now the sign-in form accepted an unlimited number of guesses at a password,
+ * as fast as the machine could hash them, and the only trace was a log line.
+ * Authority: Issue #2 section K.
+ */
+
+test('the sign-in form stops answering after a run of wrong passwords', async () => {
+  await createUser({
+    email: 'target@sec.local', displayName: 'Target', role: 'SALES_REP', password: PASSWORD });
+
+  let firstLockout = -1;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const response = await app.inject({
+      method: 'POST', url: '/login',
+      payload: { email: 'target@sec.local', password: `guess-${attempt}` } });
+    if (response.statusCode === 429) { firstLockout = attempt; break; }
+    assert.equal(response.statusCode, 401, `attempt ${attempt}`);
+  }
+
+  assert.ok(firstLockout > 0, 'the form never stopped answering');
+  assert.ok(firstLockout <= 10, `it took ${firstLockout} guesses to lock`);
+
+  // And the correct password is refused too while the lockout stands: a limiter that
+  // lets the right password through is a limiter an attacker can walk past.
+  const correct = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: 'target@sec.local', password: PASSWORD } });
+  assert.equal(correct.statusCode, 429);
+  assert.ok(correct.headers['retry-after'], 'the caller is told when to come back');
+  assert.equal(correct.cookies.find((c) => c.name === 'yad_sales_session'), undefined);
+});
+
+test('a lockout does not reveal whether the address exists', async () => {
+  await createUser({
+    email: 'real@sec.local', displayName: 'Real', role: 'SALES_REP', password: PASSWORD });
+
+  const bodies: string[] = [];
+  for (const email of ['real@sec.local', 'nobody-at-all@sec.local']) {
+    let body = '';
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const response = await app.inject({
+        method: 'POST', url: '/login', payload: { email, password: `guess-${attempt}` } });
+      if (response.statusCode === 429) { body = response.body; break; }
+    }
+    assert.ok(body, `${email} was never locked out`);
+    bodies.push(body.replace(email, 'ADDRESS'));
+  }
+
+  assert.equal(bodies[0], bodies[1],
+    'the locked form answered differently for an address that exists');
+});
+
+test('a successful sign-in clears the failures behind it', async () => {
+  await createUser({
+    email: 'typist@sec.local', displayName: 'Typist', role: 'SALES_REP', password: PASSWORD });
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await app.inject({
+      method: 'POST', url: '/login',
+      payload: { email: 'typist@sec.local', password: 'wrong' } });
+    assert.equal(response.statusCode, 401);
+  }
+
+  const good = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: 'typist@sec.local', password: PASSWORD } });
+  assert.equal(good.statusCode, 302);
+
+  // A rep who mistyped five times this morning and signed in must not be locked out
+  // by three more typos this afternoon.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await app.inject({
+      method: 'POST', url: '/login',
+      payload: { email: 'typist@sec.local', password: 'wrong' } });
+    assert.equal(response.statusCode, 401, `attempt ${attempt} after a good sign-in`);
+  }
+});
+
+test('a locked address does not lock the whole office out', async () => {
+  await createUser({
+    email: 'victim@sec.local', displayName: 'Victim', role: 'SALES_REP', password: PASSWORD });
+  await createUser({
+    email: 'colleague@sec.local', displayName: 'Colleague', role: 'SALES_REP', password: PASSWORD });
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await app.inject({
+      method: 'POST', url: '/login',
+      payload: { email: 'victim@sec.local', password: `guess-${attempt}` } });
+  }
+
+  const colleague = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: 'colleague@sec.local', password: PASSWORD } });
+  assert.equal(colleague.statusCode, 302, 'per-address failures must not be per-office');
+});

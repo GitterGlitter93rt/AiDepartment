@@ -164,8 +164,9 @@ export interface FollowUpRow {
 
 export function renderFollowUpsPage(input: {
   user: SessionUser; counts: NavCounts; overdue: FollowUpRow[]; upcoming: FollowUpRow[];
+  flash?: string | null;
 }): string {
-  const { user, counts, overdue, upcoming } = input;
+  const { user, counts, overdue, upcoming, flash } = input;
 
   const section = (title: string, rows: FollowUpRow[], tone: 'warn' | 'plain'): RawHtml => html`
     <div class="card" style="margin-bottom:16px">
@@ -203,7 +204,10 @@ export function renderFollowUpsPage(input: {
   return renderPage({
     title: 'Follow-Ups',
     subtitle: 'Commitments you made, in the order they are due.',
-    user, currentPath: '/follow-ups', counts, body: html`${body}`,
+    user, currentPath: '/follow-ups', counts,
+    body: html`${flash
+      ? html`<div class="coverage-note info" role="status" style="margin-bottom:16px">${flash}</div>`
+      : ''}${body}`,
   });
 }
 
@@ -279,10 +283,12 @@ export function renderTeamPage(input: {
 export function renderRepBookPage(input: {
   user: SessionUser; counts: NavCounts; rep: { user_id: string; display_name: string };
   response: SearchResponse; reps: { user_id: string; display_name: string }[];
+  error?: string | null;
 }): string {
-  const { user, counts, rep, response, reps } = input;
+  const { user, counts, rep, response, reps, error } = input;
 
   const body = html`
+    ${error ? html`<div class="coverage-note warn" role="alert" style="margin-bottom:16px">${error}</div>` : ''}
     <div class="card">
       <div class="card-head">
         <h2>${rep.display_name} · ${pluralize(response.total, 'prospect')}</h2>

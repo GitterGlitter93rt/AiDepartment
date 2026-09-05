@@ -210,6 +210,24 @@ export async function mergeAccounts(
        merged.research_fresh_until, merged.last_researched_at],
     );
 
+    // One company has one head office.
+    //
+    // Both records carried a location flagged as headquarters, and moving the child
+    // rows moved the flag with them, so the survivor ended up with two. Anything that
+    // joined locations on that flag rather than picking one then returned the Account
+    // twice -- global search showed the same company three times after a chain of two
+    // merges. The oldest headquarters wins; the rest become ordinary locations, which
+    // is what a second site is.
+    await client.query(
+      `update locations set is_headquarters = (location_id = (
+           select l.location_id from locations l
+            where l.account_id = $1
+            order by l.is_headquarters desc, l.created_at asc, l.location_id asc
+            limit 1))
+        where account_id = $1`,
+      [input.survivingAccountId],
+    );
+
     // The tombstone. Kept, not deleted: the id has been in URLs and in other
     // systems' records of us, and a dead link is a worse answer than a redirect.
     await client.query(

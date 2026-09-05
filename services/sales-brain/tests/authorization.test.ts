@@ -51,6 +51,8 @@ const ROUTES: RouteUnderTest[] = [
     minimum: 'any_authenticated' },
   { method: 'POST', path: '/opportunities/00000000-0000-0000-0000-000000000000/transition',
     minimum: 'any_authenticated' },
+  { method: 'POST', path: '/meetings/00000000-0000-0000-0000-000000000000/outcome',
+    minimum: 'any_authenticated' },
   { method: 'POST', path: '/api/accounts/ACCOUNT/claim', minimum: 'any_authenticated' },
   { method: 'POST', path: '/api/accounts/ACCOUNT/release', minimum: 'any_authenticated' },
   { method: 'POST', path: '/api/accounts/ACCOUNT/notes', minimum: 'any_authenticated' },

@@ -189,6 +189,54 @@ test('turning outbound off also disarms dial creation', async () => {
     'leaving the dialler armed under an OFF mode is the failure this switch prevents');
 });
 
+test('the dialler cannot be armed underneath an OFF mode', async () => {
+  const f = await fixture();
+  assert.equal((await readPilotState()).outboundMode, 'OFF');
+
+  const armed = await app.inject({
+    method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+    payload: { field: 'outbound_dial_enabled', value: 'true', reason: 'trying it on' },
+  });
+  assert.match(armed.headers.location as string, /error=/);
+
+  const state = await readPilotState();
+  assert.equal(state.outboundDialEnabled, false,
+    'arming the dialler under an OFF mode reaches the same unsafe state from the other side');
+
+  const events = await pool.query(
+    `select field from voice_pilot_state_events where field = 'outbound_dial_enabled'`);
+  assert.equal(events.rows.length, 0, 'and a refused change is not recorded as one that happened');
+});
+
+test('an operator switch refuses a value it cannot mean', async () => {
+  const f = await fixture();
+  const nonsense = [
+    { field: 'outbound_mode', value: 'ENABLED' },
+    { field: 'outbound_mode', value: "OFF'; drop table users; --" },
+    { field: 'max_concurrency', value: '9999999999999' },
+    { field: 'max_concurrency', value: '-1' },
+    { field: 'max_concurrency', value: 'lots' },
+    { field: 'auto_book_enabled', value: 'yes' },
+    { field: 'inbound_receptionist', value: '1' },
+  ];
+
+  for (const attempt of nonsense) {
+    const response = await app.inject({
+      method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
+      payload: { ...attempt, reason: 'testing the control plane' },
+    });
+    assert.equal(response.statusCode, 302, `${attempt.field}=${attempt.value}`);
+    assert.match(response.headers.location as string, /error=/,
+      `${attempt.field}=${attempt.value} was not refused in the product's own words`);
+  }
+
+  const state = await readPilotState();
+  assert.equal(state.outboundMode, 'OFF');
+  assert.equal(state.maxConcurrency, 1);
+  assert.equal(state.autoBookEnabled, false);
+  assert.equal(state.inboundReceptionist, true);
+});
+
 test('settings shows that a credential is set without showing the credential', async () => {
   const f = await fixture();
   const secret = 'sk-live-do-not-render-me-0000';
