@@ -596,6 +596,24 @@ function operationsPanel(snapshot: OperationalSnapshot | null): RawHtml {
   };
   const attention = snapshot.counts.ATTENTION + snapshot.counts.BLOCKED;
 
+  // The worst state on each axis, so an operator reads eight independent answers
+  // rather than one light that is true of nothing in particular. A green database
+  // has never meant a working miner.
+  const RANK: Record<string, number> = { OK: 0, UNKNOWN: 1, ATTENTION: 2, BLOCKED: 3 };
+  const DIMENSION_LABEL: Record<string, string> = {
+    DATABASE: 'Database', SCHEMA: 'Schema', WORKER: 'Worker', QUEUE: 'Queue',
+    DISCOVERY_PROVIDER: 'Discovery provider', PROVIDER_TASKS: 'Provider tasks',
+    RESEARCH: 'Research', SAVED_MARKETS: 'Saved markets', INVENTORY: 'Inventory',
+    SALES: 'Sales', COMPLIANCE: 'Compliance',
+  };
+  const worst = new Map<string, string>();
+  for (const check of snapshot.checks) {
+    const held = worst.get(check.dimension);
+    if (!held || (RANK[check.state] ?? 0) > (RANK[held] ?? 0)) {
+      worst.set(check.dimension, check.state);
+    }
+  }
+
   return html`
     <div class="card">
       <div class="card-head">
@@ -603,6 +621,15 @@ function operationsPanel(snapshot: OperationalSnapshot | null): RawHtml {
         <span class="muted small">${attention === 0
           ? 'Nothing needs attention.'
           : `${attention} thing${attention === 1 ? '' : 's'} need attention.`}</span>
+      </div>
+      <div class="card-pad" style="padding-bottom:0">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          ${[...worst.entries()].map(([dimension, state]) => html`<span
+            class="badge badge-${tone[state] === 'success' ? 'ok'
+              : tone[state] === 'destructive' ? 'bad' : tone[state] === 'warning' ? 'warn' : 'neutral'}"
+            title="${DIMENSION_LABEL[dimension] ?? dimension}: ${state.toLowerCase()}"
+            >${DIMENSION_LABEL[dimension] ?? dimension}: ${state.toLowerCase()}</span>`)}
+        </div>
       </div>
       <div class="table-wrap">
         <table class="data">

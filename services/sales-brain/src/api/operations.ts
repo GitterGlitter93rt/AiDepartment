@@ -18,8 +18,22 @@ import { schemaState } from '../db/migrate.js';
 
 export type HealthState = 'OK' | 'ATTENTION' | 'BLOCKED' | 'UNKNOWN';
 
+/**
+ * The independent axes an operator has to be able to read separately.
+ *
+ * A single light cannot be right about all of these at once. The database can be up
+ * while the schema is behind; a worker can be alive while the discovery provider is
+ * unusable; the queue can be empty because everything is fine or because nothing is
+ * scheduling work. Rolling them together produces a green light that is true of
+ * nothing in particular.
+ */
+export type HealthDimension =
+  | 'DATABASE' | 'SCHEMA' | 'WORKER' | 'QUEUE' | 'DISCOVERY_PROVIDER'
+  | 'PROVIDER_TASKS' | 'RESEARCH' | 'SAVED_MARKETS' | 'INVENTORY' | 'SALES' | 'COMPLIANCE';
+
 export interface OperationalCheck {
   id: string;
+  dimension: HealthDimension;
   question: string;
   state: HealthState;
   value: string;
@@ -131,19 +145,47 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        -- mining truthfulness: a job that could not do what was asked
        (select count(*)::int from jobs
          where outcome in ('DISCOVERY_BLOCKED','PROVIDER_UNAVAILABLE')
-           and completed_at > now() - interval '24 hours') as blocked_jobs_today`,
+           and completed_at > now() - interval '24 hours') as blocked_jobs_today,
+
+       -- Provider work outstanding. A task submitted and never collected is money
+       -- spent for nothing, and no other number on this page would show it.
+       (select count(*)::int from provider_tasks where status = 'PENDING')
+         as provider_tasks_pending,
+       (select count(*)::int from provider_tasks
+         where status = 'PENDING' and submitted_at < now() - interval '1 day')
+         as provider_tasks_aged,
+       (select count(*)::int from provider_tasks
+         where status = 'ABANDONED' and collected_at > now() - interval '1 day')
+         as provider_tasks_abandoned,
+
+       -- Saved markets, which are what makes inventory maintain itself.
+       (select count(*)::int from saved_markets where enabled) as markets_enabled,
+       (select count(*)::int from saved_markets where enabled and blocker_reason is not null)
+         as markets_blocked,
+       (select count(*)::int from saved_markets where enabled and consecutive_failures > 0)
+         as markets_failing`,
     [String(HEARTBEAT_STALE_AFTER_MS)],
   );
   const row = rows[0]!;
   const number = (key: string): number => Number(row[key] ?? 0);
 
   const checks: OperationalCheck[] = [];
+  const DIMENSION: Record<string, HealthDimension> = {
+    database: 'DATABASE', schema: 'SCHEMA', worker: 'WORKER', queue: 'QUEUE',
+    discovery: 'DISCOVERY_PROVIDER', provider_tasks: 'PROVIDER_TASKS',
+    research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
+    inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
+    imports: 'INVENTORY', spend: 'DISCOVERY_PROVIDER',
+    replies: 'SALES', followups: 'SALES', bookings: 'SALES', reps: 'SALES',
+    outbound_ai: 'COMPLIANCE',
+  };
   const add = (
     id: string, question: string, state: HealthState, value: string, detail?: string,
   ): void => {
+    const dimension = DIMENSION[id] ?? 'INVENTORY';
     checks.push(detail === undefined
-      ? { id, question, state, value }
-      : { id, question, state, value, detail });
+      ? { id, dimension, question, state, value }
+      : { id, dimension, question, state, value, detail });
   };
 
   // --- is anything broken -----------------------------------------------------
@@ -324,6 +366,44 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
 
   // --- duplicates -----------------------------------------------------------------
   const duplicates = number('duplicate_names');
+  // Work the provider owes us. A task submitted and never collected is money spent
+  // for nothing, and it is invisible in every other number on this page.
+  const tasksPending = number('provider_tasks_pending');
+  const tasksAged = number('provider_tasks_aged');
+  const tasksAbandoned = number('provider_tasks_abandoned');
+  add('provider_tasks', 'Is the provider holding work of ours?',
+    tasksAged > 0 ? 'BLOCKED' : tasksPending > 0 ? 'ATTENTION' : 'OK',
+    tasksPending === 0 ? 'none outstanding' : `${tasksPending} outstanding`,
+    tasksAged > 0
+      ? `${tasksAged} search(es) were submitted more than a day ago and have never been `
+        + 'collected. Those were paid for and have produced nothing.'
+      : tasksPending > 0
+        ? `${tasksPending} search(es) are with the provider and will be collected rather `
+          + 'than submitted again.'
+        : `Nothing is outstanding.${tasksAbandoned > 0
+            ? ` ${tasksAbandoned} were given up on in the last day.` : ''}`);
+
+  // Saved markets. A market that is enabled, due and not moving is the difference
+  // between inventory that maintains itself and a page that looks busy.
+  const marketsEnabled = number('markets_enabled');
+  const marketsBlocked = number('markets_blocked');
+  const marketsFailing = number('markets_failing');
+  add('markets', 'Are the saved markets being kept up?',
+    marketsEnabled === 0 ? 'UNKNOWN'
+      : marketsBlocked >= marketsEnabled ? 'BLOCKED'
+      : marketsFailing > 0 ? 'ATTENTION' : 'OK',
+    marketsEnabled === 0 ? 'none configured' : `${marketsEnabled} enabled`,
+    marketsEnabled === 0
+      ? 'No saved market is enabled, so nothing is being maintained on its own. '
+        + 'Inventory only grows when somebody searches by hand.'
+      : marketsBlocked >= marketsEnabled
+        ? `Every enabled market is blocked: ${marketsBlocked} of ${marketsEnabled}. `
+          + 'None of them is being refreshed.'
+        : marketsFailing > 0
+          ? `${marketsFailing} market(s) have failed at least once in a row and are being `
+            + 'backed off. They are still scheduled, just less often.'
+          : `${marketsEnabled} market(s) are scheduled and none is failing.`);
+
   add('duplicates', 'Are we generating duplicates?',
     accounts === 0 ? 'UNKNOWN'
       : duplicates / Math.max(1, accounts) < 0.03 ? 'OK' : 'ATTENTION',
