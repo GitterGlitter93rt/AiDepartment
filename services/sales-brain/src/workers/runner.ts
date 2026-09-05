@@ -22,7 +22,35 @@ export interface JobRecord {
   requested_by: string | null;
 }
 
-export type JobHandler = (job: JobRecord) => Promise<Record<string, unknown> | void>;
+/**
+ * What a job actually achieved, separate from whether the handler returned.
+ *
+ * A queue status answers "did this run". An operator looking at a mining page is
+ * asking "did the thing I wanted happen", and those are different questions: a
+ * market search with no discovery provider registered runs perfectly and discovers
+ * nothing, and reporting that as SUCCEEDED is how a person concludes their market
+ * has no businesses in it.
+ */
+export type JobOutcome =
+  | 'COMPLETED'
+  | 'DISCOVERY_BLOCKED'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'PARTIAL'
+  | 'NOTHING_TO_DO'
+  | 'ZERO_RESULTS'
+  | 'FAILED';
+
+/**
+ * A handler may return an outcome and a reason alongside its progress. Anything that
+ * does not is recorded as COMPLETED, which is the right default for work that has
+ * only one way to succeed.
+ */
+export interface JobResult extends Record<string, unknown> {
+  outcome?: JobOutcome;
+  outcomeReason?: string;
+}
+
+export type JobHandler = (job: JobRecord) => Promise<JobResult | void>;
 
 const handlers = new Map<string, JobHandler>();
 
@@ -56,12 +84,15 @@ async function leaseJob(): Promise<JobRecord | null> {
   return rows[0] ?? null;
 }
 
-async function completeJob(jobId: string, progress: Record<string, unknown> | void): Promise<void> {
+async function completeJob(jobId: string, progress: JobResult | void): Promise<void> {
+  const outcome = progress?.outcome ?? 'COMPLETED';
+  const reason = progress?.outcomeReason ?? null;
   await query(
     `update jobs set status = 'SUCCEEDED', completed_at = now(), leased_by = null,
-                     leased_until = null, last_error = null, progress = $2
+                     leased_until = null, last_error = null, progress = $2,
+                     outcome = $3, outcome_reason = $4
       where job_id = $1`,
-    [jobId, JSON.stringify(progress ?? {})],
+    [jobId, JSON.stringify(progress ?? {}), outcome, reason],
   );
 }
 
@@ -71,20 +102,79 @@ async function failJob(job: JobRecord, error: unknown): Promise<void> {
   await query(
     `update jobs set status = $2, last_error = $3, leased_by = null, leased_until = null,
                      completed_at = case when $2 = 'FAILED' then now() else null end,
+                     outcome = case when $2 = 'FAILED' then 'FAILED' else null end,
+                     outcome_reason = case when $2 = 'FAILED' then $5 else null end,
                      -- Back off geometrically so a broken source is not hammered.
                      run_after = now() + (least(power(3, $4::int), 900) || ' seconds')::interval
       where job_id = $1`,
-    [job.job_id, exhausted ? 'FAILED' : 'QUEUED', message.slice(0, 2000), job.attempts],
+    [job.job_id, exhausted ? 'FAILED' : 'QUEUED', message.slice(0, 2000), job.attempts,
+     message.slice(0, 400)],
   );
 }
 
 let running = false;
 let stopping = false;
 
+/**
+ * Worker liveness.
+ *
+ * A queue with nobody serving it is not healthy, and the absence of stranded jobs
+ * cannot tell the two apart: a job nobody has picked up has no expired lease
+ * because it has no lease at all. So the worker says it is here, repeatedly, and
+ * the operator surfaces read that rather than inferring health from silence.
+ */
+export const HEARTBEAT_INTERVAL_MS = Number(process.env['WORKER_HEARTBEAT_MS'] ?? '15000');
+
+/**
+ * How long after its last heartbeat a worker is presumed gone.
+ *
+ * Three intervals: one missed beat is a slow job or a busy box, three is a process
+ * that is not coming back.
+ */
+export const HEARTBEAT_STALE_AFTER_MS = HEARTBEAT_INTERVAL_MS * 3;
+
+export async function recordHeartbeat(input: {
+  processed?: number; lastJobAt?: Date | null;
+} = {}): Promise<void> {
+  await query(
+    `insert into worker_instances (worker_id, hostname, pid, handlers, last_heartbeat_at,
+                                   jobs_processed, last_job_at)
+     values ($1, $2, $3, $4, now(), $5, $6)
+     on conflict (worker_id) do update set
+       last_heartbeat_at = now(),
+       handlers = excluded.handlers,
+       jobs_processed = greatest(worker_instances.jobs_processed, excluded.jobs_processed),
+       last_job_at = coalesce(excluded.last_job_at, worker_instances.last_job_at),
+       stopped_at = null`,
+    [workerId, hostname(), process.pid, [...handlers.keys()],
+     input.processed ?? 0, input.lastJobAt ?? null],
+  );
+}
+
+/** Marks this worker as stopped on purpose, so a clean shutdown is not an outage. */
+export async function recordWorkerStopped(): Promise<void> {
+  await query(
+    'update worker_instances set stopped_at = now() where worker_id = $1', [workerId]);
+}
+
 export async function runWorker(log: (message: string, meta?: unknown) => void = console.log): Promise<void> {
   running = true;
+  stopping = false;
   log(`[worker] ${workerId} started; handlers: ${[...handlers.keys()].join(', ') || 'none'}`);
 
+  let processed = 0;
+  let lastJobAt: Date | null = null;
+  await recordHeartbeat({ processed, lastJobAt });
+  // The heartbeat is on its own timer rather than tied to the poll loop, so a worker
+  // stuck inside one long job still reports that it is alive.
+  const heartbeat = setInterval(() => {
+    void recordHeartbeat({ processed, lastJobAt }).catch((error: unknown) => {
+      log('[worker] heartbeat failed', error);
+    });
+  }, HEARTBEAT_INTERVAL_MS);
+  heartbeat.unref?.();
+
+  try {
   while (!stopping) {
     let job: JobRecord | null = null;
     try {
@@ -119,6 +209,12 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
       await failJob(job, error);
       log(`[worker] ${job.job_type} ${job.job_id} failed (attempt ${job.attempts}/${job.max_attempts})`, error);
     }
+    processed += 1;
+    lastJobAt = new Date();
+  }
+  } finally {
+    clearInterval(heartbeat);
+    await recordWorkerStopped().catch(() => { /* the process is going anyway */ });
   }
 
   running = false;

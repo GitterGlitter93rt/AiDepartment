@@ -220,14 +220,35 @@ export function emptyState(title: string, message: string, cta?: { href: string;
 
 export function coverageNote(coverage: {
   state: string; researchedCount: number; unclaimedCount: number; lastMinedAt: Date | null;
+  discoveryAvailable?: boolean; activeJobScope?: string | null;
 }, canResearch: boolean, geographyLabel: string): RawHtml {
-  // Never imply complete market coverage (browse-claim spec §10).
+  // Never imply complete market coverage (browse-claim spec §10), and never imply a
+  // search happened that could not have happened.
+  const canDiscover = coverage.discoveryAvailable !== false;
+
+  // The sentence an operator has to see before any of the others. Without a search
+  // provider, nothing in this market can be found that is not already here, and an
+  // empty result is not evidence about the market.
+  const blocked = canDiscover ? raw('') : html`
+    <div class="coverage-note warn">
+      <span class="dot"></span>
+      <span><strong>New-business search is unavailable.</strong> No search provider is
+      configured, so this page can only show companies already in inventory and a
+      refresh cannot add one. An empty result here does not mean
+      ${geographyLabel} has no businesses.</span>
+    </div>`;
+
   switch (coverage.state) {
     case 'NOT_YET_MINED':
-      return html`<div class="coverage-note">
+      return html`${blocked}<div class="coverage-note">
         <span class="dot"></span>
-        <span>No researched prospects yet for ${geographyLabel}. Market Miner has not covered this area.</span>
-        ${canResearch ? html`<button class="btn btn-secondary btn-sm js-research-more">Research this market</button>` : ''}
+        <span>${canDiscover
+          ? html`No researched prospects yet for ${geographyLabel}. Market Miner has not covered this area.`
+          : html`Nothing in inventory for ${geographyLabel} yet, and the system cannot
+                 search for any: this is what we hold, not what exists.`}</span>
+        ${canResearch && canDiscover
+          ? html`<button class="btn btn-secondary btn-sm js-research-more">Research this market</button>`
+          : ''}
       </div>`;
     case 'STALE':
       return html`<div class="coverage-note">
@@ -237,17 +258,26 @@ export function coverageNote(coverage: {
         ${canResearch ? html`<button class="btn btn-secondary btn-sm js-research-more">Refresh</button>` : ''}
       </div>`;
     case 'PARTIAL':
-      return html`<div class="coverage-note">
+      return html`${blocked}<div class="coverage-note">
         <span class="dot"></span>
         <span>More businesses may exist in ${geographyLabel}. Coverage here is partial, not complete.</span>
-        ${canResearch ? html`<button class="btn btn-secondary btn-sm js-research-more">Research more</button>` : ''}
+        ${canResearch && canDiscover
+          ? html`<button class="btn btn-secondary btn-sm js-research-more">Research more</button>`
+          : ''}
       </div>`;
     case 'REFRESHING':
-      return html`<div class="coverage-note info">
+      // "New ones will appear as they land" was the exact sentence a market search
+      // showed while no provider existed to find one.
+      return html`${blocked}<div class="coverage-note info">
         <span class="dot"></span>
-        <span>Researching ${geographyLabel} now. Existing results are shown below and new ones will appear as they land.</span>
+        <span>${coverage.activeJobScope === 'DISCOVER_NEW'
+          ? html`Searching ${geographyLabel} for new businesses now. Existing results
+                 are shown below and new ones will appear as they land.`
+          : html`Re-researching the companies already in inventory for
+                 ${geographyLabel}. This does not look for new businesses, so nothing
+                 new will appear.`}</span>
       </div>`;
     default:
-      return raw('');
+      return html`${blocked}`;
   }
 }

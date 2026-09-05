@@ -2,29 +2,123 @@ import { query } from '../db/pool.js';
 
 /** Read models for the Wave C operations pages. */
 
-export async function miningKpis() {
-  const { rows } = await query<{
-    active: number; queued: number; added_today: number; refreshed_today: number; failed: number;
-  }>(
+/**
+ * Where an Account came from, for the Mining page.
+ *
+ * These are the `source_system` values written on the DISCOVERED activity when an
+ * Account is first created. A miner discovery is the only one of them that is
+ * mining output; the rest are a rep, a spreadsheet, or a fixture.
+ */
+export const MINER_SOURCES = ['dataforseo', 'market_miner', 'serp'] as const;
+export const SYNTHETIC_SOURCES = ['SYNTHETIC_FIXTURE', 'DEMO_FIXTURE'] as const;
+
+export interface MiningKpis {
+  active: number;
+  queued: number;
+  failed: number;
+  /** Accounts a discovery provider actually found today. */
+  discoveredByMinerToday: number;
+  importedToday: number;
+  syntheticSeededToday: number;
+  manuallyAddedToday: number;
+  /** Every Account created today, whatever created it. The sum of the four above. */
+  createdTodayTotal: number;
+  /** Accounts a research job actually re-researched today. */
+  refreshedByWorkerToday: number;
+  /**
+   * Accounts whose research timestamp is recent for any reason, including a seed
+   * that wrote one. Reported beside the worker figure precisely so the two cannot be
+   * confused: on a freshly seeded database the second is large and the first is zero.
+   */
+  freshTimestampToday: number;
+  /** True when a discovery provider is registered and could actually find anything. */
+  discoveryAvailable: boolean;
+  discoveryBlockedJobsToday: number;
+}
+
+/**
+ * Mining KPIs, by provenance.
+ *
+ * "Accounts added today: 59" counted every Account created by any means and put it
+ * on the Mining page, where it reads as mining output. All 59 were demo seed rows.
+ * "Accounts refreshed: 58" counted a timestamp rather than a worker run, and a seed
+ * that writes last_researched_at inflates it to the size of the seed.
+ *
+ * Every number here names what produced it.
+ */
+export async function miningKpis(): Promise<MiningKpis> {
+  const { rows } = await query<Record<string, number | boolean>>(
     `select
        (select count(*)::int from jobs where status = 'RUNNING') as active,
        (select count(*)::int from jobs where status = 'QUEUED') as queued,
-       (select count(*)::int from accounts where created_at > now() - interval '1 day') as added_today,
+       (select count(*)::int from jobs where status = 'FAILED') as failed,
+
+       -- Provenance comes from the DISCOVERED activity written when the Account was
+       -- created, which is durable and cannot be confused with a later edit.
+       (select count(distinct act.account_id)::int from activities act
+         where act.activity_type = 'DISCOVERED'
+           and act.occurred_at > now() - interval '1 day'
+           and act.source_system = any($1::text[])) as discovered_by_miner_today,
+       (select count(distinct act.account_id)::int from activities act
+         where act.activity_type = 'DISCOVERED'
+           and act.occurred_at > now() - interval '1 day'
+           and act.source_system = 'import') as imported_today,
+       (select count(distinct act.account_id)::int from activities act
+         where act.activity_type = 'DISCOVERED'
+           and act.occurred_at > now() - interval '1 day'
+           and act.source_system = any($2::text[])) as synthetic_seeded_today,
+       (select count(*)::int from accounts a
+         where a.created_at > now() - interval '1 day'
+           and not exists (select 1 from activities act
+                            where act.account_id = a.account_id
+                              and act.activity_type = 'DISCOVERED'
+                              and (act.source_system = any($1::text[])
+                                or act.source_system = 'import'
+                                or act.source_system = any($2::text[])))) as manually_added_today,
        (select count(*)::int from accounts
-         where last_researched_at > now() - interval '1 day') as refreshed_today,
-       (select count(*)::int from jobs where status = 'FAILED') as failed`,
+         where created_at > now() - interval '1 day') as created_today_total,
+
+       -- A refresh is a research run that completed, not a timestamp somebody wrote.
+       (select count(distinct r.account_id)::int from research_runs r
+         where r.completed_at > now() - interval '1 day'
+           and r.status in ('completed','partial')) as refreshed_by_worker_today,
+       (select count(*)::int from accounts
+         where last_researched_at > now() - interval '1 day') as fresh_timestamp_today,
+
+       (select count(*)::int from jobs
+         where outcome = 'DISCOVERY_BLOCKED'
+           and completed_at > now() - interval '1 day') as discovery_blocked_jobs_today`,
+    [[...MINER_SOURCES], [...SYNTHETIC_SOURCES]],
   );
   const row = rows[0]!;
+  const number = (key: string): number => Number(row[key] ?? 0);
+
+  const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
+
   return {
-    active: row.active, queued: row.queued, addedToday: row.added_today,
-    refreshedToday: row.refreshed_today, failed: row.failed,
+    active: number('active'),
+    queued: number('queued'),
+    failed: number('failed'),
+    discoveredByMinerToday: number('discovered_by_miner_today'),
+    importedToday: number('imported_today'),
+    syntheticSeededToday: number('synthetic_seeded_today'),
+    manuallyAddedToday: number('manually_added_today'),
+    createdTodayTotal: number('created_today_total'),
+    refreshedByWorkerToday: number('refreshed_by_worker_today'),
+    freshTimestampToday: number('fresh_timestamp_today'),
+    discoveryAvailable: availableDiscoveryAdapters().length > 0,
+    discoveryBlockedJobsToday: number('discovery_blocked_jobs_today'),
   };
 }
 
 export async function miningJobs() {
   const { rows } = await query(
-    `select j.job_id, j.job_type, j.status, j.created_at, j.started_at, j.completed_at,
+    `select j.job_id, j.job_type, j.status, j.outcome, j.outcome_reason,
+            j.created_at, j.started_at, j.completed_at,
             j.attempts, j.max_attempts, j.last_error, j.progress,
+            coalesce((j.progress->>'discoveredNew')::int, 0) as discovered_new,
+            coalesce((j.progress->>'refreshQueued')::int, 0) as refresh_queued,
+            coalesce((j.progress->>'discoveryAvailable')::boolean, false) as discovery_available,
             m.name as market_name,
             j.payload->>'geography_value' as geography,
             u.display_name as requested_by_name

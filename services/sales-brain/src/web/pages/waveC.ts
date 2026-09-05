@@ -31,12 +31,49 @@ export function renderMiningPage(input: {
   const { user, counts, kpis, jobs } = input;
 
   const body = html`
+    ${discoveryBanner(kpis)}
     <div class="grid grid-kpi">
       ${kpiCard({ label: 'Active jobs', value: kpis.active, sub: `${kpis.queued} queued` })}
-      ${kpiCard({ label: 'Accounts added today', value: kpis.addedToday, tone: 'good' })}
-      ${kpiCard({ label: 'Accounts refreshed', value: kpis.refreshedToday, sub: 'in the last 24h' })}
+      ${kpiCard({ label: 'Discovered by the miner', value: kpis.discoveredByMinerToday,
+                  tone: kpis.discoveredByMinerToday > 0 ? 'good' : 'default',
+                  sub: 'new businesses found today' })}
+      ${kpiCard({ label: 'Re-researched by a worker', value: kpis.refreshedByWorkerToday,
+                  sub: 'completed research runs today' })}
       ${kpiCard({ label: 'Needs review', value: kpis.failed,
                   tone: kpis.failed > 0 ? 'attention' : 'default', sub: 'failed jobs' })}
+    </div>
+
+    <div style="height:14px"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Where today’s accounts came from</h2>
+        <span class="muted small">${kpis.createdTodayTotal} created in the last 24 hours</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Source</th><th>Accounts</th><th>Is this mining output?</th></tr></thead>
+          <tbody>
+            <tr><td>Discovered by a search provider</td>
+                <td><strong>${kpis.discoveredByMinerToday}</strong></td>
+                <td class="muted small">Yes.</td></tr>
+            <tr><td>Imported from a list</td>
+                <td>${kpis.importedToday}</td>
+                <td class="muted small">No. A person uploaded these.</td></tr>
+            <tr><td>Synthetic or demo fixture</td>
+                <td>${kpis.syntheticSeededToday}</td>
+                <td class="muted small">No. These are test data and are not prospects.</td></tr>
+            <tr><td>Created another way</td>
+                <td>${kpis.manuallyAddedToday}</td>
+                <td class="muted small">No. Added by hand or by another path.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-pad micro muted">
+        Research timestamps were refreshed on ${kpis.freshTimestampToday} account(s) in
+        the last 24 hours; ${kpis.refreshedByWorkerToday} of those came from a research
+        run that actually completed. A seeded or imported timestamp is not a refresh.
+      </div>
     </div>
 
     <div style="height:18px"></div>
@@ -56,7 +93,8 @@ export function renderMiningPage(input: {
             <table class="data">
               <thead><tr>
                 <th>Work</th><th>Market</th><th>Stage</th><th>Started</th>
-                <th>Result</th><th>Status</th><th>Requested by</th>
+                <th>New businesses</th><th>Existing refreshed</th>
+                <th>What happened</th><th>Requested by</th>
               </tr></thead>
               <tbody>
                 ${jobs.map((job: any) => html`<tr>
@@ -64,15 +102,18 @@ export function renderMiningPage(input: {
                   <td class="muted small">${job.market_name ?? job.geography ?? '—'}</td>
                   <td>${jobStagePill(job)}</td>
                   <td class="muted small">${job.started_at ? relativeTime(job.started_at) : 'not started'}</td>
-                  <td class="muted small">${describeJobResult(job)}</td>
-                  <td>${statusPill(titleCase(job.status),
-                    job.status === 'SUCCEEDED' ? 'success'
-                    : job.status === 'FAILED' ? 'destructive'
-                    : job.status === 'RUNNING' ? 'info' : 'neutral')}</td>
+                  <td>${discoveredCell(job)}</td>
+                  <td class="muted small">${job.refresh_queued ?? 0}</td>
+                  <td>${outcomePill(job)}</td>
                   <td class="muted small">${job.requested_by_name ?? 'system'}</td>
                 </tr>
+                ${job.outcome_reason ? html`<tr>
+                  <td colspan="8" class="micro muted" style="padding-top:0">
+                    ${job.outcome_reason}
+                  </td>
+                </tr>` : ''}
                 ${job.last_error ? html`<tr class="job-error-row">
-                  <td colspan="7" class="micro" style="color:var(--crimson)">
+                  <td colspan="8" class="micro" style="color:var(--crimson)">
                     ${job.last_error}
                     ${job.attempts < job.max_attempts
                       ? html`<span class="muted"> · will retry (${job.attempts}/${job.max_attempts})</span>`
@@ -99,14 +140,66 @@ function jobStagePill(job: any): RawHtml {
   return statusPill(titleCase(job.status), 'neutral');
 }
 
-function describeJobResult(job: any): string {
-  const progress = job.progress ?? {};
-  if (progress.discovered !== undefined) {
-    return `${progress.discovered} found · ${progress.refreshQueued ?? 0} refreshed`;
+/**
+ * What the job achieved, not whether it returned.
+ *
+ * "Succeeded" was true of every market search ever run, including the ones that
+ * could not search: with no provider registered there is nothing to ask, and a
+ * person reading "Succeeded — 0 found" concluded the market was empty.
+ */
+const JOB_OUTCOME_LABEL: Record<string, { label: string; tone: SemanticState }> = {
+  COMPLETED: { label: 'Found new businesses', tone: 'success' },
+  ZERO_RESULTS: { label: 'Searched, found nothing new', tone: 'neutral' },
+  NOTHING_TO_DO: { label: 'Nothing needed doing', tone: 'neutral' },
+  DISCOVERY_BLOCKED: { label: 'Could not search', tone: 'warning' },
+  PROVIDER_UNAVAILABLE: { label: 'Provider unavailable', tone: 'destructive' },
+  PARTIAL: { label: 'Partly searched', tone: 'warning' },
+  FAILED: { label: 'Failed', tone: 'destructive' },
+};
+
+function outcomePill(job: any): RawHtml {
+  if (job.status === 'RUNNING') return statusPill('Running', 'info');
+  if (job.status === 'QUEUED') return statusPill('Queued', 'neutral');
+  if (job.status === 'CANCELLED') return statusPill('Cancelled', 'neutral');
+  const outcome = job.outcome ? JOB_OUTCOME_LABEL[job.outcome] : null;
+  if (outcome) return statusPill(outcome.label, outcome.tone);
+  // A job that ran before outcomes existed. Saying "succeeded" is the thing this
+  // column was built to stop, so it says what it can honestly say.
+  return statusPill(job.status === 'FAILED' ? 'Failed' : 'Ran', 
+    job.status === 'FAILED' ? 'destructive' : 'neutral');
+}
+
+function discoveredCell(job: any): RawHtml {
+  if (job.job_type === 'zip_research') {
+    return html`<span class="muted small" title="This job only refreshes accounts we already hold.">not searched</span>`;
   }
-  if (progress.primaryPerson) return `contact: ${progress.primaryPerson}`;
-  if (progress.status) return String(progress.status);
-  return '—';
+  if (job.outcome === 'DISCOVERY_BLOCKED' || job.outcome === 'PROVIDER_UNAVAILABLE') {
+    return html`<span class="muted small">—</span>`;
+  }
+  return html`<strong>${job.discovered_new ?? 0}</strong>`;
+}
+
+/**
+ * The banner an operator needs above everything else on this page: whether the
+ * system can find a new business at all.
+ */
+function discoveryBanner(kpis: any): RawHtml {
+  if (kpis.discoveryAvailable) return raw('');
+  return html`
+    <div class="callout callout-warn">
+      <strong>New-business discovery is not available.</strong>
+      <p style="margin:6px 0 0">
+        No search provider is configured, so a market search can only re-research
+        companies already in inventory. It cannot find a business we do not already
+        have, and a market that returns nothing new is not evidence that the market
+        is empty.
+        ${kpis.discoveryBlockedJobsToday > 0
+          ? html`${kpis.discoveryBlockedJobsToday} job(s) in the last 24 hours were
+                 limited by this.`
+          : ''}
+      </p>
+    </div>
+    <div style="height:14px"></div>`;
 }
 
 // ----------------------------------------------------------- Research Health

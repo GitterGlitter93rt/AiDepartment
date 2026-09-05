@@ -8,6 +8,9 @@ import { createUser } from '../src/domain/auth.js';
 import { resetDatabase } from './helpers.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { operationalSnapshot } from '../src/api/operations.js';
+import {
+  recordHeartbeat, recordWorkerStopped, HEARTBEAT_STALE_AFTER_MS,
+} from '../src/workers/runner.js';
 
 /**
  * The questions an operator has on a Monday morning.
@@ -70,6 +73,77 @@ test('an empty database says unknown, not healthy', async () => {
   assert.equal(check(snapshot, 'database').state, 'OK');
 });
 
+// --- worker liveness, from a heartbeat --------------------------------------------
+
+test('a queue with no worker never reads healthy', async () => {
+  // The live defect: a mining job sat QUEUED, no worker process existed, and this
+  // page stayed green because "0 stranded" was read as healthy. A job nobody has
+  // picked up has no expired lease, because it has no lease.
+  const accountId = await makeAccount('No Worker Co');
+  await query(
+    `insert into jobs (job_type, payload, account_id, status)
+     values ('account_research', '{}'::jsonb, $1, 'QUEUED')`, [accountId]);
+
+  const snapshot = await operationalSnapshot();
+  const worker = check(snapshot, 'worker');
+  assert.equal(worker.state, 'BLOCKED',
+    'a queued job with no worker anywhere reported as healthy');
+  assert.equal(worker.value, 'never seen');
+  assert.match(worker.detail ?? '', /nothing is serving them/i);
+
+  const queue = check(snapshot, 'queue');
+  assert.equal(queue.state, 'BLOCKED');
+  assert.match(queue.detail ?? '', /Nothing is serving this queue/);
+});
+
+test('an empty queue with no worker is unknown, not healthy', async () => {
+  const snapshot = await operationalSnapshot();
+  const worker = check(snapshot, 'worker');
+  assert.equal(worker.state, 'UNKNOWN',
+    'a database no worker has ever touched reported as healthy');
+  assert.equal(worker.value, 'never seen');
+});
+
+test('a live heartbeat reads healthy, and a dead one does not', async () => {
+  await recordHeartbeat({ processed: 3 });
+  const live = await operationalSnapshot();
+  assert.equal(check(live, 'worker').state, 'OK');
+  assert.match(check(live, 'worker').value, /1 online/);
+  assert.match(check(live, 'worker').detail ?? '', /Last heartbeat/);
+
+  // The same worker, silent for long enough to be presumed gone.
+  await query(
+    `update worker_instances set last_heartbeat_at = now() - ($1::text || ' milliseconds')::interval`,
+    [String(HEARTBEAT_STALE_AFTER_MS * 2)]);
+  const accountId = await makeAccount('Dead Worker Co');
+  await query(
+    `insert into jobs (job_type, payload, account_id, status)
+     values ('account_research', '{}'::jsonb, $1, 'QUEUED')`, [accountId]);
+
+  const dead = await operationalSnapshot();
+  assert.equal(check(dead, 'worker').state, 'BLOCKED');
+  assert.equal(check(dead, 'worker').value, 'offline');
+  assert.match(check(dead, 'worker').detail ?? '', /going nowhere/);
+});
+
+test('a worker that stopped on purpose is not an outage', async () => {
+  await recordHeartbeat({ processed: 1 });
+  await recordWorkerStopped();
+  const snapshot = await operationalSnapshot();
+  const worker = check(snapshot, 'worker');
+  // Nothing is queued, so a clean shutdown is not a problem to shout about.
+  assert.notEqual(worker.state, 'BLOCKED');
+  assert.equal(worker.value, 'offline');
+});
+
+test('the operations panel says when the system cannot find a new business', async () => {
+  const snapshot = await operationalSnapshot();
+  const discovery = check(snapshot, 'discovery');
+  assert.equal(discovery.state, 'BLOCKED',
+    'no search provider reported as a working discovery capability');
+  assert.match(discovery.detail ?? '', /not evidence that the market is empty/);
+});
+
 test('a stranded job shows as a stranded job', async () => {
   const accountId = await makeAccount('Stranded Job Co');
   await query(
@@ -78,10 +152,13 @@ test('a stranded job shows as a stranded job', async () => {
      values ('account_research', '{}'::jsonb, $1, 'RUNNING', 'dead-worker',
              now() - interval '10 minutes', 1)`, [accountId]);
 
+  // A stranded lease matters only when a worker is alive to have left it; with no
+  // worker at all the answer is the louder one, tested above.
+  await recordHeartbeat({ processed: 1 });
   const snapshot = await operationalSnapshot();
   const worker = check(snapshot, 'worker');
   assert.equal(worker.state, 'ATTENTION');
-  assert.match(worker.value, /1 stranded/);
+  assert.match(worker.detail ?? '', /1 job\(s\) hold an expired lease/);
 });
 
 test('a queue that is backing up says how far behind it is', async () => {

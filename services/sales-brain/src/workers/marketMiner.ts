@@ -1,7 +1,7 @@
 import { config } from '../config.js';
 import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
-import { registerHandler, type JobRecord } from './runner.js';
+import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
 import { enqueueAccountResearch } from './enqueue.js';
 
 /**
@@ -64,6 +64,18 @@ const discoveryAdapters: DiscoveryAdapter[] = [];
 
 export function registerDiscoveryAdapter(adapter: DiscoveryAdapter): void {
   discoveryAdapters.push(adapter);
+}
+
+/**
+ * Removes every registered adapter.
+ *
+ * Registration is module-level, so a test that registers a fake provider would
+ * otherwise leak it into every test that runs afterwards -- and the tests that
+ * matter most here are the ones asserting what happens when there is no provider.
+ * Exported for that reason and no other; nothing in the product calls it.
+ */
+export function clearDiscoveryAdapters(): void {
+  discoveryAdapters.length = 0;
 }
 
 export function availableDiscoveryAdapters(): DiscoveryAdapter[] {
@@ -210,6 +222,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   await refreshAccountFreshness();
 
   let discovered = 0;
+  let providersQueried = 0;
+  let providersFailed = 0;
   const discoveryNotes: string[] = [];
 
   if (adapters.length === 0) {
@@ -219,16 +233,55 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     );
   } else {
     for (const adapter of adapters) {
-      const businesses = await adapter.discover({
-        verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
-        geographyType: (payload['geography_type'] as string | null) ?? null,
-        geographyValue: (payload['geography_value'] as string | null) ?? null,
-        miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
-        queryBudget: Number(payload['query_budget'] ?? 25),
-      });
-      discovered += await ingestDiscoveries(businesses, adapter.name, job);
+      try {
+        const businesses = await adapter.discover({
+          verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
+          geographyType: (payload['geography_type'] as string | null) ?? null,
+          geographyValue: (payload['geography_value'] as string | null) ?? null,
+          miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
+          queryBudget: Number(payload['query_budget'] ?? 25),
+        });
+        providersQueried += 1;
+        discovered += await ingestDiscoveries(businesses, adapter.name, job);
+      } catch (error) {
+        // A provider that threw is not a market with no businesses in it. Recording
+        // it as zero results is the exact lie this whole outcome field exists to
+        // stop.
+        providersFailed += 1;
+        discoveryNotes.push(
+          `${adapter.name} failed: ${(error as Error).message.slice(0, 200)}`);
+      }
     }
   }
+
+  /**
+   * What actually happened, in the operator's terms.
+   *
+   * "Succeeded" answered whether the handler returned. A person who typed a ZIP into
+   * Find Prospects and read "Succeeded — 0 found" concluded there are no businesses
+   * in that ZIP. There was no provider to ask.
+   */
+  const outcome: JobOutcome =
+    adapters.length === 0 ? 'DISCOVERY_BLOCKED'
+    : providersFailed > 0 && providersQueried === 0 ? 'PROVIDER_UNAVAILABLE'
+    : providersFailed > 0 ? 'PARTIAL'
+    : discovered > 0 ? 'COMPLETED'
+    : plan.queued > 0 ? 'ZERO_RESULTS'
+    : plan.accountsInScope === 0 ? 'ZERO_RESULTS'
+    : 'ZERO_RESULTS';
+
+  const outcomeReason =
+    outcome === 'DISCOVERY_BLOCKED'
+      ? 'No search provider is configured, so no new business could be found. '
+        + `${plan.queued} existing account(s) were queued for refresh.`
+    : outcome === 'PROVIDER_UNAVAILABLE'
+      ? `Every discovery provider failed: ${discoveryNotes.join('; ')}`
+    : outcome === 'PARTIAL'
+      ? `${providersQueried} provider(s) answered, ${providersFailed} failed: `
+        + discoveryNotes.join('; ')
+    : outcome === 'ZERO_RESULTS'
+      ? `${providersQueried} provider(s) were asked and returned no new business.`
+    : `${discovered} new business(es) discovered by ${providersQueried} provider(s).`;
 
   if (job.market_id) {
     await query(
@@ -241,16 +294,29 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   }
 
   return {
+    outcome,
+    outcomeReason,
+    // The two numbers a mining row has to keep apart. One is new businesses found in
+    // the world; the other is companies we already had, queued to be looked at again.
+    discoveredNew: discovered,
     refreshQueued: plan.queued,
     accountsInScope: plan.accountsInScope,
     staleAccounts: plan.staleAccounts,
     evidenceExpired: expired,
     discovered,
     discoveryAdapters: adapters.map((adapter) => adapter.name),
+    discoveryAvailable: adapters.length > 0,
+    providersQueried,
+    providersFailed,
     notes: discoveryNotes,
   };
 });
 
+/**
+ * A refresh of what we already hold. It does not look for new businesses and does
+ * not claim to: the outcome says REFRESH_ONLY so a mining row cannot be read as
+ * external coverage of a market.
+ */
 registerHandler('zip_research', async (job: JobRecord) => {
   const payload = job.payload ?? {};
   const plan = await planMarketRefresh({
@@ -259,7 +325,18 @@ registerHandler('zip_research', async (job: JobRecord) => {
     geographyValue: (payload['geography_value'] as string | null) ?? null,
     requestedBy: job.requested_by,
   });
-  return { ...plan };
+  return {
+    ...plan,
+    scope: 'REFRESH_EXISTING',
+    discoveredNew: 0,
+    refreshQueued: plan.queued,
+    outcome: plan.queued > 0 ? 'COMPLETED' : 'NOTHING_TO_DO',
+    outcomeReason: plan.queued > 0
+      ? `${plan.queued} existing account(s) queued for re-research. This job does not `
+        + 'look for new businesses.'
+      : 'Every account already in this market has fresh research. No new businesses '
+        + 'were looked for: this job only refreshes what we already hold.',
+  };
 });
 
 /** Resolves discovered businesses into canonical Accounts. Dedupe is not optional. */

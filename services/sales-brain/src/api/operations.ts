@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
 
 /**
  * One query that answers the questions an operator actually has.
@@ -31,6 +32,9 @@ export interface OperationalSnapshot {
 }
 
 export async function operationalSnapshot(): Promise<OperationalSnapshot> {
+  const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
+  const discoveryAvailable = availableDiscoveryAdapters().length > 0;
+
   const { rows } = await query<Record<string, string | number | boolean | null>>(
     `select
        -- inventory and staleness
@@ -41,6 +45,15 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        (select count(*)::int from accounts where not is_suppressed
           and merged_into_account_id is null
           and (research_fresh_until is null or research_fresh_until <= now())) as stale_research,
+
+       -- worker liveness, from a heartbeat rather than from the absence of trouble
+       (select count(*)::int from worker_instances
+         where stopped_at is null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval) as workers_online,
+       (select count(*)::int from worker_instances) as workers_known,
+       (select max(last_heartbeat_at) from worker_instances) as last_heartbeat_at,
+       (select coalesce(extract(epoch from (now() - max(last_heartbeat_at))), -1)::int
+          from worker_instances) as heartbeat_age_seconds,
 
        -- the queue
        (select count(*)::int from jobs where status = 'QUEUED') as jobs_queued,
@@ -104,7 +117,13 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
           select normalized_name from accounts where merged_into_account_id is null
            group by normalized_name having count(*) > 1) t) as duplicate_names,
        (select count(*)::int from account_merges
-          where occurred_at > now() - interval '7 days') as merges_this_week`,
+          where occurred_at > now() - interval '7 days') as merges_this_week,
+
+       -- mining truthfulness: a job that could not do what was asked
+       (select count(*)::int from jobs
+         where outcome in ('DISCOVERY_BLOCKED','PROVIDER_UNAVAILABLE')
+           and completed_at > now() - interval '24 hours') as blocked_jobs_today`,
+    [String(HEARTBEAT_STALE_AFTER_MS)],
   );
   const row = rows[0]!;
   const number = (key: string): number => Number(row[key] ?? 0);
@@ -122,18 +141,43 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   add('database', 'Is PostgreSQL answering?', 'OK', 'yes',
     'This snapshot came from it, so the answer is yes by construction.');
 
+  // Worker liveness, from a heartbeat.
+  //
+  // This used to be inferred from "0 stranded", which said a queue nobody had ever
+  // touched was healthy: a job that has never been picked up has no expired lease
+  // because it has no lease. The operator watched a job sit QUEUED while this page
+  // stayed green, and the only thing wrong was that no worker existed.
+  const online = number('workers_online');
+  const known = number('workers_known');
+  const queued = number('jobs_queued');
+  const heartbeatAge = number('heartbeat_age_seconds');
   const stranded = number('jobs_stranded');
-  add('worker', 'Is the worker picking work up?',
-    stranded === 0 ? 'OK' : 'ATTENTION', `${stranded} stranded`,
-    stranded === 0 ? 'No job is holding an expired lease.'
-      : 'A job holds a lease that expired: the worker that took it is gone. It will '
-        + 'be picked up again, but a growing number means the worker is dying.');
+
+  const workerState: HealthState =
+    online > 0 ? (stranded > 0 ? 'ATTENTION' : 'OK')
+    : known === 0 ? (queued > 0 ? 'BLOCKED' : 'UNKNOWN')
+    : queued > 0 ? 'BLOCKED' : 'ATTENTION';
+
+  add('worker', 'Is a worker running?', workerState,
+    online > 0 ? `${online} online` : known === 0 ? 'never seen' : 'offline',
+    online > 0
+      ? `Last heartbeat ${heartbeatAge}s ago. ${stranded} job(s) hold an expired lease.`
+      : known === 0
+        ? 'No worker has ever reported in on this database. Jobs will queue and stay '
+          + 'queued: nothing is serving them.'
+        : `No heartbeat for ${heartbeatAge}s. The worker process is not running, so `
+          + `the ${queued} queued job(s) are going nowhere.`);
 
   const queueAge = number('queue_age_seconds');
   add('queue', 'Are jobs backing up?',
-    queueAge < 300 ? 'OK' : queueAge < 3_600 ? 'ATTENTION' : 'BLOCKED',
-    `${number('jobs_queued')} queued, oldest ${Math.round(queueAge / 60)} min`,
-    `${number('jobs_running')} running, ${number('jobs_failed_today')} failed today.`);
+    // A queue with nobody serving it is blocked whatever its age, because the age
+    // will only grow.
+    online === 0 && queued > 0 ? 'BLOCKED'
+      : queueAge < 300 ? 'OK' : queueAge < 3_600 ? 'ATTENTION' : 'BLOCKED',
+    `${queued} queued, oldest ${Math.round(queueAge / 60)} min`,
+    online === 0 && queued > 0
+      ? 'Nothing is serving this queue.'
+      : `${number('jobs_running')} running, ${number('jobs_failed_today')} failed today.`);
 
   // --- is anything getting stale ----------------------------------------------
   const accounts = number('accounts');
@@ -209,6 +253,17 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   // --- people --------------------------------------------------------------------
   add('reps', 'How many reps are set up?', number('reps') > 0 ? 'OK' : 'UNKNOWN',
     `${number('reps')} active`, `${number('active_sessions')} live sessions.`);
+
+  // --- can the system do the thing it is being asked to do -------------------------
+  const blocked = number('blocked_jobs_today');
+  add('discovery', 'Can the system find a new business?',
+    discoveryAvailable ? 'OK' : 'BLOCKED',
+    discoveryAvailable ? 'a search provider is configured' : 'no search provider',
+    discoveryAvailable
+      ? undefined
+      : 'A market search can only re-research companies already in inventory. '
+        + `${blocked} job(s) in the last 24 hours were limited by this, and an empty `
+        + 'market result is not evidence that the market is empty.');
 
   // --- duplicates -----------------------------------------------------------------
   const duplicates = number('duplicate_names');

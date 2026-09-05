@@ -124,6 +124,17 @@ export interface CoverageSummary {
   unclaimedCount: number;
   lastMinedAt: Date | null;
   activeJobId: string | null;
+  /**
+   * Whether the system can find a business it does not already hold.
+   *
+   * Without this the page said "Researching 32095 now... new ones will appear as
+   * they land", and none could: with no search provider registered a market job can
+   * only re-research inventory we already have. The operator reasonably read that
+   * sentence as a search of the market.
+   */
+  discoveryAvailable: boolean;
+  /** What the running job can actually do, when one is running. */
+  activeJobScope: 'DISCOVER_NEW' | 'REFRESH_EXISTING' | null;
 }
 
 interface WhereBuild {
@@ -342,8 +353,14 @@ export async function searchProspects(
  */
 export async function coverageFor(request: SearchRequest): Promise<CoverageSummary> {
   const geography = request.geography;
+  const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
+  const discoveryAvailable = availableDiscoveryAdapters().length > 0;
+
   if (!geography?.value && !request.marketId) {
-    return { state: 'FRESH', researchedCount: 0, unclaimedCount: 0, lastMinedAt: null, activeJobId: null };
+    return {
+      state: 'FRESH', researchedCount: 0, unclaimedCount: 0, lastMinedAt: null,
+      activeJobId: null, discoveryAvailable, activeJobScope: null,
+    };
   }
 
   const conditions: string[] = ['not is_suppressed'];
@@ -381,14 +398,19 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   );
   const summary = rows[0]!;
 
-  const jobResult = await query<{ job_id: string }>(
-    `select job_id from jobs
+  const jobResult = await query<{ job_id: string; job_type: string }>(
+    `select job_id, job_type from jobs
       where status in ('QUEUED','RUNNING') and job_type in ('market_mine','zip_research')
         and payload->>'geography_value' = $1
       order by created_at desc limit 1`,
     [geography?.value ?? ''],
   );
   const activeJobId = jobResult.rows[0]?.job_id ?? null;
+  // A zip_research job never looks for new businesses, and a market_mine job can
+  // only do so when a provider exists. Either way the page must say which.
+  const activeJobScope: CoverageSummary['activeJobScope'] = !activeJobId ? null
+    : jobResult.rows[0]!.job_type === 'zip_research' || !discoveryAvailable
+      ? 'REFRESH_EXISTING' : 'DISCOVER_NEW';
 
   let state: CoverageSummary['state'];
   if (activeJobId) state = 'REFRESHING';
@@ -403,6 +425,8 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     unclaimedCount: summary.unclaimed,
     lastMinedAt: summary.last_researched,
     activeJobId,
+    discoveryAvailable,
+    activeJobScope,
   };
 }
 
