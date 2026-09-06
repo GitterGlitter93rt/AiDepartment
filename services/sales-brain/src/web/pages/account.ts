@@ -2,6 +2,7 @@ import { html, raw, type RawHtml } from '../html.js';
 import { renderPage, type NavCounts } from '../layout.js';
 import { tierBadge, adBadges, channelBadge } from '../components.js';
 import { formatDateTime, relativeTime, titleCase } from '../format.js';
+import { factStateLabel, type FactState } from '../../domain/researchFacts.js';
 import type { SessionUser } from '../../domain/auth.js';
 import { isManager } from '../../domain/auth.js';
 import {
@@ -269,6 +270,21 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
   </div>` : ''}
 
   <div class="section">
+    <h3>What we know</h3>
+    ${detail.research.facts.map((fact) => html`
+      <div class="row" style="gap:8px;align-items:baseline;margin-bottom:4px">
+        <span class="badge ${factTone(fact.state)}">${factStateLabel(fact.state)}</span>
+        <strong>${fact.label}</strong>
+        <span class="muted small">${fact.detail}</span>
+      </div>`)}
+    <p class="micro muted" style="margin-top:8px">
+      &ldquo;Looked, not found&rdquo; is one search on one day, not a fact about the
+      company. &ldquo;Never checked&rdquo; means nobody has looked yet &mdash; that is
+      a job to do, not a reason to skip them.
+    </p>
+  </div>
+
+  <div class="section">
     <h3>Signals</h3>
     ${currentEvidence.length === 0 && staleEvidence.length === 0
       && contradictedEvidence.length === 0
@@ -387,6 +403,22 @@ const DISPOSITIONS: { value: string; label: string }[] = [
   { value: 'WRONG_NUMBER', label: 'Wrong number' },
   { value: 'DO_NOT_CONTACT', label: 'Do not contact' },
 ];
+
+/**
+ * A badge tone per epistemic state.
+ *
+ * Only a confirmed fact gets the good tone. Every kind of not-knowing is neutral
+ * rather than bad, because a company nobody has researched is not a worse prospect
+ * -- it is an unresearched one, and colouring it red is how a rep learns to skip it.
+ */
+function factTone(state: FactState): string {
+  switch (state) {
+    case 'YES': return 'badge-good';
+    case 'CONFLICT': return 'badge-warn';
+    case 'UNKNOWN': return 'badge-stale';
+    default: return '';
+  }
+}
 
 export function renderAccountPage(
   detail: AccountDetail, user: SessionUser, counts: NavCounts, flash?: string,

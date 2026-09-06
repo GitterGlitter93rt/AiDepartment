@@ -1,3 +1,4 @@
+import { researchPictureFor, type ResearchPicture } from './researchFacts.js';
 import { query } from '../db/pool.js';
 import type { Role } from './auth.js';
 
@@ -106,6 +107,14 @@ export interface AccountDetail {
   accountEndpoints: DetailEndpoint[];
   hypotheses: Record<string, any>[];
   evidence: DetailEvidence[];
+  /**
+   * What we know and how well, in six states rather than two.
+   *
+   * The page used to render research as present-or-absent, and a rep cannot act on
+   * that: "we looked and found nothing" and "nobody has looked" need different next
+   * moves, and one of them is not skipping the company.
+   */
+  research: ResearchPicture;
   discoveries: DetailDiscovery[];
   timeline: TimelineEvent[];
   followUps: Record<string, any>[];
@@ -286,6 +295,7 @@ export async function getAccountDetail(
     followUps: followUps.rows,
     suppressions: suppressions.rows,
     ownershipEvents: ownershipEvents.rows,
+    research: await researchPictureFor(accountId),
     prohibitedClaims: await prohibitedClaimsFor(accountId, account.primary_vertical_profile_id),
     suggestedFirstQuestion: firstQuestion,
     canWork,
