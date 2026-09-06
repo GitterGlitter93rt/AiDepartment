@@ -1,4 +1,5 @@
 import { researchPictureFor, type ResearchPicture } from './researchFacts.js';
+import { readinessFor, type Readiness } from './repReady.js';
 import { query } from '../db/pool.js';
 import type { Role } from './auth.js';
 
@@ -115,6 +116,13 @@ export interface AccountDetail {
    * moves, and one of them is not skipping the company.
    */
   research: ResearchPicture;
+  /**
+   * Whether a rep can actually work this, and what is left if not.
+   *
+   * Discovery finding a company and research finishing with it are different events,
+   * and the portal treated the first as the second.
+   */
+  readiness: Readiness;
   discoveries: DetailDiscovery[];
   timeline: TimelineEvent[];
   followUps: Record<string, any>[];
@@ -271,6 +279,10 @@ export async function getAccountDetail(
     ),
   ]);
 
+  // Computed once and shared: readiness is largely a reading of the same facts, and
+  // building the picture twice per page view doubles the queries for one answer.
+  const research = await researchPictureFor(accountId);
+
   const contacts: DetailContact[] = contactRows.rows.map((contact) => ({
     ...contact,
     endpoints: endpointRows.rows.filter((endpoint) => endpoint.contact_id === contact.contact_id),
@@ -295,7 +307,8 @@ export async function getAccountDetail(
     followUps: followUps.rows,
     suppressions: suppressions.rows,
     ownershipEvents: ownershipEvents.rows,
-    research: await researchPictureFor(accountId),
+    research: research,
+    readiness: (await readinessFor(accountId, research))!,
     prohibitedClaims: await prohibitedClaimsFor(accountId, account.primary_vertical_profile_id),
     suggestedFirstQuestion: firstQuestion,
     canWork,

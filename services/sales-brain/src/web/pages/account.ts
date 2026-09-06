@@ -269,6 +269,19 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </p>
   </div>` : ''}
 
+  ${detail.readiness.state === 'REP_READY' ? '' : html`
+  <div class="section">
+    <div class="callout ${detail.readiness.state === 'NOT_WORKABLE' ? 'callout-warn' : ''}">
+      <strong>${detail.readiness.state === 'NOT_WORKABLE'
+        ? 'Not workable' : 'Research needed before this is worth a call'}</strong>
+      <div class="muted small" style="margin-top:4px">${detail.readiness.summary}</div>
+      <ul style="margin:8px 0 0;padding-left:18px">
+        ${detail.readiness.missing.map((requirement) => html`
+          <li><strong>${requirement.label}.</strong> ${requirement.detail}</li>`)}
+      </ul>
+    </div>
+  </div>`}
+
   <div class="section">
     <h3>What we know</h3>
     ${detail.research.facts.map((fact) => html`
