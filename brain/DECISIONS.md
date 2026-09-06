@@ -338,3 +338,96 @@ no research would ever touch. Newly created Accounts are enqueued for research. 
 are also given the searched geography as a service area when the provider gave no
 address -- a fact about how we found them, not a claim about their mailing address --
 because without it the business was invisible to the very search that discovered it.
+
+## 2026-09-05 — Overnight miner hardening decisions (GitHub Issue #3)
+
+Taken during the overnight execution of the Issue #2 campaign. Each follows from a defect found
+rather than from a preference, and the defect is recorded with it so the reasoning survives.
+
+### A score records the ruleset that produced it
+
+Four scoring recognizers landed that changed what the same evidence is worth: an HVAC advertiser
+that scored eight now scores fourteen. Every score written before that was produced under rules
+that no longer exist and looked exactly like a current one, so a rep comparing two prospects was
+comparing two policies without being told. `SCORE_VERSION` travels on both the `canonical_scores`
+row and the `accounts` projection, a pinned fingerprint of rule ids and point values fails the
+suite if the rules change without a version bump, and a bounded worker sweep recomputes anything
+older. A score under a superseded ruleset says so in those words.
+
+The fingerprint covers ids and points only. A recognizer growing stricter about the evidence it
+accepts changes scores without changing it, and the comment says so rather than implying more.
+
+### A provider's id for a search is not an identity for a business
+
+Account resolution matches on provider identity before domain or phone. The DataForSEO adapter
+fell back to the *task* id when a SERP row carried no id of its own -- which every real organic and
+paid row does, because `advertiser_id` is an Ads Transparency field. Every business in one search
+resolved onto the first, and the run reported the rest as "already in inventory". A twenty-result
+market search would have produced one prospect. No id for the business now means no identity
+claimed.
+
+### A paid ad's title is ad copy, not a company name
+
+The Account was being named "Same-Day AC Repair St. Augustine -- 24/7 Emergency Service". Nothing
+in a SERP row distinguishes a headline from a name, so the name comes from the highest-placed
+non-paid observation, then the domain, then the ad text only when there is nothing else. Local
+Services ads are outside the rule because Google shows the business name there. The headline is
+kept as ad copy either way.
+
+### The daily provider ceiling stops buying, not collecting
+
+The ceiling gated the whole adapter loop, so a run that could not buy also refused to collect a
+task it had already bought. The provider charges on submission and answers for free: the money was
+gone, the answer was waiting, and we declined to fetch it. The ceiling now sits on the branch that
+spends.
+
+### A market with an outstanding provider task is queued, not skipped
+
+The scheduler skipped any market with a task still owed, to avoid buying the same search twice.
+But collection happens inside the `market_mine` job, so the task was never collected, never
+abandoned, and the market never refreshed again -- one PENDING answer retired a saved market
+permanently. The job is queued precisely because a task is outstanding; not buying twice is
+enforced in the handler, which collects before it submits.
+
+### Spend accounting is not left to the adapter's honesty
+
+`provider_usage` is written by adapters and the ceiling reads it, so an adapter that forgets to
+record has no ceiling at all. That is the failure mode of the next adapter somebody writes. The
+orchestrator now records the row when the adapter did not, charging the assumed worst case when no
+cost came back.
+
+### Never researched and researched-a-while-ago are different states
+
+`researchedCount` counted every Account in scope, so a market discovered an hour ago fell through
+to STALE and Find Prospects said "81 researched prospects, but the research has aged past its
+freshness window. Treat advertising signals as historical." All three clauses false, and the last
+invites a rep to believe we once saw advertising we have never looked for. `NOT_YET_RESEARCHED`
+now says the true thing.
+
+### A preflight that cannot check something says so rather than passing it
+
+`npm run preflight` refuses to report the portal safe to expose while four checks are unchecked --
+TLS termination, whatever authenticates in front, what else a tunnel exposes, whether the last
+backup restores. All are facts about the machine and the proxy. A preflight that turns green on
+the subset it can run is how somebody opens a firewall on a partial answer.
+
+### A growth projection declines to project from data that cannot support one
+
+The first version printed "fills in about 13,592,230 days" from bytes-per-row measured on a table
+that is almost entirely empty pages. `npm run growth` now gives no rate below a thousand rows or a
+day of history, and names what it is waiting for.
+
+## Proposed — needs Michael, not decided
+
+### Retention policy for provenance and machine exhaust
+
+`search_observations.retention_class` is written `'transient'` on every row and read by nothing.
+Nothing prunes `jobs`, `search_observations`, `provider_usage`, `provider_tasks`, `research_runs`
+or `canonical_scores`; housekeeping clears sessions, abandoned uploads and sign-in attempts only.
+`search_observations` is the fastest grower -- one row per business per search, for ever -- and it
+carries the unread class.
+
+How long to keep the record of how a company was found, which is the provenance behind "you are
+running this ad", is a decision about what is worth keeping. It has deliberately not been taken;
+`npm run growth` names the gap.
+

@@ -33,6 +33,22 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **ASM-002 — Preserve and validate the deterministic long-assessment engine.** The 64-question engine is present as an internal/noindex route. **Next action:** verify authorization/handoff from paid Cal.com booking, version it explicitly, and run the full test suite after source synchronization.
 - [ ] **MKT-001 — Finalize the Facebook Page identity and initial Meta creative set.** The recovered Gradient Y direction is selected; the exact Facebook profile, cover, and Page copy package is prepared under `assets/social/facebook-page/`. **Next action:** upload it to Facebook, verify desktop/mobile crops, then build campaign graphics, hooks, copy, CTAs, and naming for the selected vertical.
 
+- [ ] **SB-QA2 — Overnight miner/search/worker hardening (GitHub Issue #3).** The
+  durable execution ledger for the overnight campaign under SB-QA1. Thirteen commits
+  on `feature/outbound-sales-brain`, suite 1311/1311 and identical in reverse file
+  order. Defects found that green tests did not: a provider search id used as a
+  business identity, so every company in one search collapsed into the first; a paid
+  ad's headline becoming the company name; one PENDING provider answer retiring a
+  saved market permanently; the daily ceiling refusing to collect searches already
+  paid for; Find Prospects claiming aged research on a market nobody had researched;
+  `create table if not exists` racing itself on a fresh install's first boot. Five
+  pieces of configuration found written and never read, `retention_class` the latest.
+  **Next action:** classification remains blocked on nothing safe to execute here —
+  the remaining canary gates need a real DataForSEO credential and Michael's
+  source-governance sign-off (SB-B3). **Completion gate:** not
+  `MINER_LIVE_CANARY_READY` until a credentialled canary runs against a real market
+  with the spend ceiling verified live.
+
 - [ ] **SB-QA1 — Live Sales Portal bug hunt (GitHub Issue #2).** Michael's operator
   walk-through on the EdgeXpert exposed defects that were each true of the code and
   false of what the screen said. The campaign covers startup/recovery, authorization,
@@ -63,6 +79,15 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **PROD-001 — Explore future proprietary products.** Assessment software, client dashboard, AI phone-agent appliance, and vertical solutions remain separate validation projects.
 
 ## 🚧 Blocked / input needed
+
+- [ ] **INPUT-006 — Retention policy for provenance and machine exhaust.** Nothing
+  prunes `jobs`, `search_observations`, `provider_usage`, `provider_tasks`,
+  `research_runs` or `canonical_scores`, and every observation carries a
+  `retention_class` that no code reads. `search_observations` is the fastest grower:
+  one row per business per search, for ever. How long to keep the record of how a
+  company was found — the provenance behind "you are running this ad" — is Michael's
+  call, not a report's. `npm run growth` names the gap and gives no date until there
+  is enough history to support one.
 
 - [ ] **INPUT-001 — Meta account and Dataset/Pixel details.** The Meta Dataset/Pixel ID, account ownership, access, consent settings, and current Events Manager state are not yet recorded.
 - [ ] **INPUT-003 — Lead backend and lifecycle truth.** The live assessment successfully calls a delivery adapter, but the destination, persistent storage, notification provider, retention, and deletion behavior are not recorded in the brain.

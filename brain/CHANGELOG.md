@@ -169,3 +169,43 @@ both false, and the preflight check fails if either changes.
 Five things now need Michael, tracked as SB-B1 to SB-B5 in `brain/TODO.md`: an Azure app
 registration for calendar booking, the real prospect lists, source-governance sign-off plus a search
 provider, HTTPS for `sales.youraidepartment.ai`, and a Smartlead key.
+
+## 2026-09-05 — Overnight miner hardening (GitHub Issue #3)
+
+Thirteen commits on `feature/outbound-sales-brain`. Suite 1311/1311, and identical in reverse file
+order. Typecheck, build and `npm audit --omit=dev` clean throughout. Migrations 040 and 041.
+
+Six defects that passing tests did not show, each found by asking a question the existing tests did
+not ask:
+
+- **Every company in one search collapsed into one Account.** The adapter fell back to the provider's
+  *search task* id when a SERP row carried no id of its own, and account resolution matches provider
+  identity before domain or phone. A twenty-result market search would have produced one prospect,
+  reporting the other nineteen as "already in inventory". Invisible to every existing fixture,
+  because they all set `advertiser_id` — a field real SERP rows do not carry.
+- **One PENDING provider answer retired a saved market for ever.** The scheduler skipped markets with
+  an outstanding task; collection happens inside the job it was refusing to queue. Found only by a
+  thirty-day simulated rehearsal.
+- **A paid ad's headline was becoming the company name** in the rep's list.
+- **The daily spend ceiling refused to collect searches already paid for**, and only protected
+  providers honest enough to record their own spending.
+- **Find Prospects claimed aged research on a market nobody had researched**, and told the rep to
+  treat as historical the advertising signals we had never looked for.
+- **`create table if not exists` races itself**, so on a fresh install — a first SiteGround boot —
+  the API and worker migrating together could leave one process dead with an error naming an
+  internal PostgreSQL catalogue index.
+
+Built alongside them: score policy versioning with a resumable recompute and full lineage from
+score to rule to evidence to provider; a realistic provider replay through the real registry and
+global fetch; an eighty-company golden market; a thirty-day shadow rehearsal; registration parity
+as an enforced invariant; build identity on the worker heartbeat so version skew is visible;
+`npm run preflight` and `npm run growth`, both of which refuse to answer what they cannot check.
+
+Five pieces of configuration were found written down carefully and never read by anything — the
+search taxonomy, the signal-to-score map, the business-model fields, the observation provenance
+columns, and `retention_class`. The pattern is worth naming: this codebase writes down more than it
+consults.
+
+Still not `MINER_LIVE_CANARY_READY`. Nothing was deployed, no live provider was called, no prospect
+was contacted, and `OUTBOUND_DIAL_ENABLED` remains false.
+
