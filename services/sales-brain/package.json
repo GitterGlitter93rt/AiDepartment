@@ -21,7 +21,8 @@
     "start:api": "node dist/bin/api.js",
     "start:worker": "node dist/bin/worker.js",
     "migrate:prod": "node dist/bin/migrate.js",
-    "roleplay": "tsx src/bin/roleplay.ts"
+    "roleplay": "tsx src/bin/roleplay.ts",
+    "test:isolation": "LOG_LEVEL=silent tsx --test --test-concurrency=1 $(ls tests/*.test.ts | tac | tr '\\n' ' ')"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

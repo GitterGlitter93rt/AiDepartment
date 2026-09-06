@@ -101,3 +101,54 @@ test('no assertion compares a value with itself', () => {
   }
   assert.deepEqual(tautologies, [], `assertions that cannot fail:\n${tautologies.join('\n')}`);
 });
+
+/**
+ * Isolation between test files.
+ * Authority: Issue #3 BJ.
+ *
+ * Each file spawns its own process, so a module-level registry cannot leak between
+ * them -- but the database is shared, and a file that reads state a previous file
+ * left behind passes in the suite and fails on its own. That is a test which reports
+ * on whatever ran before it.
+ *
+ * Checked here rather than by running the suite twice: the whole suite in reverse
+ * file order is `npm run test:isolation`, which is a several-minute proof and not
+ * something to run inside itself.
+ */
+
+test('every file that touches the database resets it, or says why not', () => {
+  // Two exemptions, both deliberate and both narrow. Neither reads product data.
+  const exempt = new Set([
+    // Builds and drops its own scratch databases; resetting the shared one would
+    // destroy the very state it compares a fresh install against.
+    'migrationHistory.test.ts',
+    // Reads source files and the adapter registry. Its one database call is the
+    // pool being closed.
+    'registrationParity.test.ts',
+  ]);
+
+  const unreset: string[] = [];
+  for (const file of TEST_FILES) {
+    if (exempt.has(file)) continue;
+    const text = readFileSync(join(TESTS_DIR, file), 'utf8');
+    if (!text.includes('db/pool.js')) continue;
+    if (!text.includes('resetDatabase')) unreset.push(file);
+  }
+
+  assert.deepEqual(unreset, [],
+    'these files use the database and never reset it, so they pass or fail on state '
+    + `left behind by whichever file ran before them:\n${unreset.join('\n')}`);
+});
+
+test('every file that opens the pool closes it', () => {
+  // A pool left open holds the process past its last test. Node then reports the
+  // file as passing while its connections sit in the database, and the next file's
+  // reset can block behind them.
+  const leaked: string[] = [];
+  for (const file of TEST_FILES) {
+    const text = readFileSync(join(TESTS_DIR, file), 'utf8');
+    if (!text.includes('db/pool.js')) continue;
+    if (!text.includes('pool.end()')) leaked.push(file);
+  }
+  assert.deepEqual(leaked, [], `these files never close the pool:\n${leaked.join('\n')}`);
+});
