@@ -431,3 +431,50 @@ How long to keep the record of how a company was found, which is the provenance 
 running this ad", is a decision about what is worth keeping. It has deliberately not been taken;
 `npm run growth` names the gap.
 
+## 2026-09-06 — Offline execution queue (Issue #3, items A–E)
+
+### A count of searches is a count of searches
+
+`query_budget` meant "plan this many and buy the first one", so an operator asking for
+twenty-five got one and the job called it a completed market search. N now means N
+independent searches with their own keywords, provider tasks, fingerprints, accounting and
+outcomes. Planning moved from the adapter to the orchestrator, which owns those things.
+
+**The default is one, not twenty-five.** Making the count real without moving the default
+would have turned every scheduled market refresh into twenty-five paid searches. Raising it
+is an operator's decision, per run.
+
+### Six ways of not knowing, kept apart
+
+Every research fact resolves through one model: observed, absent, looked-and-not-found,
+never-checked, aged-out, sources-disagree. `NO` is a state we essentially never earn -- we
+can prove a company advertises and cannot prove it does not. Data nothing collects (ratings,
+review counts) is `NOT_CHECKED` with the reason stated, never a zero.
+
+### Found is not researched, and researched is not workable
+
+Nine machine-evaluable readiness requirements, each explaining itself. Readiness is
+deliberately **not a score**: a rep needs to know which requirement is missing, because the
+next step differs in every case. `NOT_WORKABLE` (suppressed, DNC-listed, a merge tombstone)
+is separate from `RESEARCH_NEEDED`, because no amount of research fixes the first kind and
+mixing them costs a rep a morning.
+
+A named decision-maker is not required; **having looked** is.
+
+### A vertical, a service and an event are three different things
+
+The live `hail damage roof 32095` came from an alphabetical tie-break among equal-intent
+roofing queries. The distinction that fixes it is not "does the query mention an event" --
+"water damage restoration" is a year-round service line -- but whether the query still makes
+sense in a week with no weather. `cause` is explicit on the query; `inherent_causes` on the
+vertical says when the event is the trade. Cause-neutral by default, event terms opt-in and
+named rather than silently dropped.
+
+### Exclusions are applied to the answer, not the question
+
+Every profile's `negative_terms` had been written and never read, so roofing searches handed
+supply houses and trade schools to reps. Now filtered at ingestion rather than pushed into
+the provider query, which would change what the engine ranks. Whole-word matching, because
+rejecting a real prospect is worse than admitting a supply house: nobody ever learns it
+happened.
+

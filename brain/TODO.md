@@ -33,6 +33,17 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **ASM-002 — Preserve and validate the deterministic long-assessment engine.** The 64-question engine is present as an internal/noindex route. **Next action:** verify authorization/handoff from paid Cal.com booking, version it explicitly, and run the full test suite after source synchronization.
 - [ ] **MKT-001 — Finalize the Facebook Page identity and initial Meta creative set.** The recovered Gradient Y direction is selected; the exact Facebook profile, cover, and Page copy package is prepared under `assets/social/facebook-page/`. **Next action:** upload it to Facebook, verify desktop/mobile crops, then build campaign graphics, hooks, copy, CTAs, and naming for the selected vertical.
 
+- [ ] **SB-QA3 — Offline execution queue A–I then J–W (GitHub Issue #3).** Work that
+  does not need a live provider, ahead of the credentialled canary. Done: A (a count
+  of searches is a count of searches — `query_budget` meant "plan N, buy one"),
+  B (six epistemic states, so "we looked and found nothing" stops reading as "nobody
+  looked"), C (a REP_READY contract — found is not researched), E (vertical, service
+  and event separated; the `hail damage roof 32095` mechanism found and fixed, and
+  the `negative_terms` every profile declared and nothing read now applied).
+  **Next action:** D, then F–I, then J–W. **Completion gate:** each item has
+  regression tests, and the remaining canary gates are named as needing a credential
+  rather than left implied.
+
 - [ ] **SB-QA2 — Overnight miner/search/worker hardening (GitHub Issue #3).** The
   durable execution ledger for the overnight campaign under SB-QA1. Thirteen commits
   on `feature/outbound-sales-brain`, suite 1311/1311 and identical in reverse file
