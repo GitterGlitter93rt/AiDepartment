@@ -61,6 +61,11 @@ business_model:
   estimate_proposal_dependence: high
   field_service_dependence: very_high
 
+# The event this trade exists for. A cause listed here is the business
+# rather than an assumption that it happened this week, so it is searched
+# by default; every other cause is opt-in.
+inherent_causes:
+  - hail
 search_taxonomy:
   core_queries:
     - query: paintless dent repair
@@ -71,12 +76,14 @@ search_taxonomy:
       recommended_for_places_gap_fill: true
     - query: auto hail repair
       family: hail
+      cause: hail
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true
       recommended_for_places_gap_fill: true
     - query: hail damage repair
       family: hail
+      cause: hail
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true
@@ -84,18 +91,21 @@ search_taxonomy:
   high_intent_queries:
     - query: auto hail repair
       family: hail
+      cause: hail
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true
       recommended_for_places_gap_fill: true
     - query: hail damage car repair
       family: hail
+      cause: hail
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true
       recommended_for_places_gap_fill: true
     - query: PDR hail repair
       family: hail
+      cause: hail
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true

@@ -91,12 +91,14 @@ search_taxonomy:
       recommended_for_places_gap_fill: true
     - query: hail damage roof
       family: storm
+      cause: hail
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true
       recommended_for_places_gap_fill: true
     - query: storm damage roof
       family: storm
+      cause: storm
       intent_weight: 5
       priority: 1
       recommended_for_paid_serp: true

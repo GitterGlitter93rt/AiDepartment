@@ -30,6 +30,8 @@ export interface PlannedSearch {
   intentWeight: number;
   /** Whether advertisers are known to bid on this term. */
   advertiserTerm: boolean;
+  /** The event this query assumes, when it assumes one. Null for a year-round service. */
+  cause: string | null;
   /** What the provider is actually asked, geography included. */
   keyword: string;
   /** The place name the provider can geocode. */
@@ -46,6 +48,15 @@ export interface SearchPlan {
   available: number;
   /** Null when nothing trimmed the plan. */
   limitedBy: 'TAXONOMY' | 'PROVIDER_CEILING' | 'REQUEST' | null;
+  /**
+   * Cause-qualified queries held back because nobody asked for that event.
+   *
+   * Reported rather than silently dropped: an operator looking for storm-chasing
+   * roofers needs to know the terms exist and how to ask for them.
+   */
+  causesAvailable: string[];
+  /** Causes this run was asked to include. */
+  causesRequested: string[];
   /** Set when no plan could be built at all. */
   refusal: { status: 'NOT_CONFIGURED'; reason: string } | null;
   geography: NormalizedGeography | null;
@@ -60,6 +71,15 @@ export interface SearchPlanRequest {
   count: number;
   /** The provider's own ceiling on calls per run, when it has one. */
   providerMaxQueries?: number;
+  /**
+   * Damage or weather events to include, on top of the vertical's own.
+   *
+   * Empty by default, deliberately. A rep who picks Roofing and a ZIP is asking for
+   * roofers in that ZIP; searching for hail damage instead answers a question they
+   * did not ask, finds a narrower slice, and does it silently. Storm work is a real
+   * campaign an operator runs on purpose, so it is opt-in rather than a default.
+   */
+  causes?: string[];
   /** Included in every fingerprint so two markets never share a search identity. */
   marketId?: string | null;
 }
@@ -120,6 +140,7 @@ export function searchFingerprintPrefix(input: {
 export async function planDiscoverySearches(request: SearchPlanRequest): Promise<SearchPlan> {
   const empty = (reason: string): SearchPlan => ({
     searches: [], requested: request.count, available: 0, limitedBy: null,
+    causesAvailable: [], causesRequested: [],
     refusal: { status: 'NOT_CONFIGURED', reason }, geography: null,
   });
 
@@ -143,10 +164,22 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
       + 'there is nothing to ask a provider.');
   }
 
+  // Cause-neutral by default, plus whatever this trade exists for, plus whatever was
+  // explicitly asked for.
+  const { inherentCausesFor } = await import('./searchTaxonomy.js');
+  const inherent = await inherentCausesFor(request.verticalProfileId);
+  const asked = new Set((request.causes ?? []).map((cause) => cause.trim().toLowerCase()));
+  const allowed = new Set([...inherent, ...asked]);
+  const usable = all.filter((entry) => entry.cause === null || allowed.has(entry.cause));
+  const heldBack = [...new Set(
+    all.filter((entry) => entry.cause !== null && !allowed.has(entry.cause))
+      .map((entry) => entry.cause!))].sort();
+
   const requested = Math.max(0, Math.floor(request.count));
   if (requested === 0) {
     return {
-      searches: [], requested: 0, available: all.length, limitedBy: 'REQUEST',
+      searches: [], requested: 0, available: usable.length, limitedBy: 'REQUEST',
+      causesAvailable: heldBack, causesRequested: [...asked].sort(),
       refusal: { status: 'NOT_CONFIGURED',
         reason: 'This run was asked for zero searches, so no provider was called.' },
       geography,
@@ -154,18 +187,19 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
   }
 
   const ceiling = request.providerMaxQueries ?? Number.MAX_SAFE_INTEGER;
-  const take = Math.min(requested, all.length, ceiling);
+  const take = Math.min(requested, usable.length, ceiling);
 
   // The place the provider can geocode, resolved once for the whole plan: it is a
   // fact about the geography, not about any one term.
   const target = await providerTargetFor(geography);
 
-  const searches: PlannedSearch[] = all.slice(0, take).map((entry, offset) => ({
+  const searches: PlannedSearch[] = usable.slice(0, take).map((entry, offset) => ({
     index: offset + 1,
     term: entry.query,
     family: entry.family,
     intentWeight: entry.intentWeight,
     advertiserTerm: entry.recommendedForPaidSerp,
+    cause: entry.cause,
     keyword: [entry.query, target.keywordSuffix].filter(Boolean).join(' '),
     locationName: target.locationName,
     fingerprint: searchFingerprint({
@@ -181,10 +215,12 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
   return {
     searches,
     requested,
-    available: all.length,
+    available: usable.length,
     limitedBy: take < requested
-      ? (all.length <= ceiling ? 'TAXONOMY' : 'PROVIDER_CEILING')
+      ? (usable.length <= ceiling ? 'TAXONOMY' : 'PROVIDER_CEILING')
       : null,
+    causesAvailable: heldBack,
+    causesRequested: [...asked].sort(),
     refusal: null,
     geography,
   };
@@ -208,6 +244,11 @@ export function renderSearchPlan(plan: SearchPlan): string {
     lines.push(`      ${search.fingerprint}`);
   }
 
+  if (plan.causesAvailable.length > 0) {
+    lines.push('', `Not searched: ${plan.causesAvailable.join(', ')} damage. Those terms `
+      + 'find companies advertising for that event, which is a different question from '
+      + 'who works in this trade here. Ask for them explicitly to include them.');
+  }
   if (plan.limitedBy === 'TAXONOMY') {
     lines.push('', `Asked for ${plan.requested}; the ${''}vertical defines ${plan.available} `
       + 'distinct terms, so that is what will run. Nothing was invented to fill the gap.');

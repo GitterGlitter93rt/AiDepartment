@@ -358,6 +358,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
 
   const funnel: IngestionCounts = {
     candidates: 0, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
+    excludedByVertical: 0, exclusionReasons: [],
   };
   let providerRows = 0;
   let providerRejected = 0;
@@ -573,6 +574,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       funnel.matchedExisting += counts.matchedExisting;
       funnel.created += counts.created;
       funnel.researchQueued += counts.researchQueued;
+      funnel.excludedByVertical += counts.excludedByVertical;
+      funnel.exclusionReasons.push(...counts.exclusionReasons);
       const record = perSearch[perSearch.length - 1]!;
       record.created = counts.created;
       record.matchedExisting = counts.matchedExisting;
@@ -680,6 +683,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     providersQueried: answered,
     providersFailed: failed,
     providerTaskIds: pendingTaskIds,
+    excludedByVertical: funnel.excludedByVertical,
+    exclusionReasons: funnel.exclusionReasons.slice(0, 20),
     // What each search actually did. An aggregate cannot say that four of five
     // searches found nothing and the fifth found everything, and that difference is
     // the whole reason for running more than one.
@@ -741,6 +746,15 @@ export interface IngestionCounts {
   created: number;
   /** Newly created Accounts queued for research. */
   researchQueued: number;
+  /**
+   * Rows that named a real business the vertical is not looking for -- a supply
+   * house, a trade school, a manufacturer. Counted apart from `rejected` because
+   * they are different findings: one is a row with nothing in it, the other is a
+   * company we deliberately did not want.
+   */
+  excludedByVertical: number;
+  /** Which company matched which exclusion, so the filter can be checked. */
+  exclusionReasons: string[];
 }
 
 /**
@@ -848,7 +862,8 @@ async function ingestDiscoveries(
 ): Promise<IngestionCounts> {
   const { upsertAccount } = await import('../domain/accounts.js');
   const counts: IngestionCounts = {
-    candidates: businesses.length, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
+    candidates: businesses.length, rejected: 0, matchedExisting: 0, created: 0,
+    researchQueued: 0, excludedByVertical: 0, exclusionReasons: [],
   };
   const createdAccountIds: string[] = [];
 
@@ -860,8 +875,28 @@ async function ingestDiscoveries(
   const searchedGeographyType = (job.payload['geography_type'] as string | null) ?? null;
   const searchedGeography = (job.payload['geography_value'] as string | null) ?? null;
 
+  // What this vertical is not. Every profile has declared these since it was
+  // written -- "roofing supply", "HVAC school", "dental lab only" -- and nothing
+  // read them, so a roofing search put supply houses and training providers in
+  // front of a rep. Applied to the answer rather than stuffed into the query: a
+  // negative term in the search changes what the engine ranks, which is a different
+  // and worse thing than filtering what comes back.
+  const { negativeTermsFor, matchesNegativeTerm } = await import('../miner/searchTaxonomy.js');
+  const verticalProfileId = (job.payload['vertical_profile_id'] as string | null) ?? null;
+  const negativeTerms = verticalProfileId ? await negativeTermsFor(verticalProfileId) : [];
+
   for (const business of businesses) {
     if (!isUsableBusiness(business)) { counts.rejected += 1; continue; }
+
+    const excluded = negativeTerms.length > 0
+      ? matchesNegativeTerm(business.name, business.website ?? null, negativeTerms)
+      : null;
+    if (excluded) {
+      counts.rejected += 1;
+      counts.excludedByVertical += 1;
+      counts.exclusionReasons.push(`${business.name}: "${excluded}"`);
+      continue;
+    }
 
     await withTransaction(async (client) => {
       const result = await upsertAccount(

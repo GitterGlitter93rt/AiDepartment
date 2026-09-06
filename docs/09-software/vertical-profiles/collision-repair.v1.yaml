@@ -101,6 +101,7 @@ search_taxonomy:
       recommended_for_places_gap_fill: true
     - query: hail damage repair
       family: hail
+      cause: hail
       intent_weight: 5
       priority: 2
       recommended_for_paid_serp: true
