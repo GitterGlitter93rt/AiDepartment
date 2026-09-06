@@ -253,21 +253,42 @@ export async function researchPictureFor(accountId: string): Promise<ResearchPic
     });
   }
 
-  // --- what nothing collects ---------------------------------------------------
+  // --- what a listings source knows --------------------------------------------
   //
-  // Named rather than omitted. A rep who sees no rating assumes we checked and the
-  // company has none; a rep told nothing collects it knows to look it up. Adding a
-  // zero here would be worse than either.
-  for (const [key, label] of [
-    ['google_business_profile', 'Google Business Profile'],
-    ['rating_and_reviews', 'Rating and review count'],
-  ] as const) {
-    facts.push({
-      key, label, state: 'NOT_CHECKED', observedAt: null, canStateAsFact: false,
-      detail: 'Nothing in this system collects this yet. It is not zero and it is not '
-        + 'missing — it has never been looked at.',
-    });
-  }
+  // These were "nothing collects this" until a business-listings adapter existed.
+  // The state still distinguishes the three cases that matter: a listings source has
+  // run and gave us a number, one has run and gave us none, or none has ever run.
+  // A rating that is absent from a provider's answer is not a company with no
+  // reviews, and a zero here would be worse than either.
+  const { latestListingFacts } = await import('../miner/listingsIngest.js');
+  const listing = await latestListingFacts(accountId);
+
+  facts.push({
+    key: 'business_listing', label: 'Business listing',
+    state: listing ? 'YES' : 'NOT_CHECKED',
+    observedAt: listing?.observedAt ?? null,
+    canStateAsFact: Boolean(listing),
+    detail: listing
+      ? `Listed as "${listing.category ?? 'an uncategorised business'}" by `
+        + `${listing.provider}.`
+      : 'No business-listings source has looked this company up.',
+  });
+
+  facts.push({
+    key: 'rating_and_reviews', label: 'Rating and review count',
+    state: !listing ? 'NOT_CHECKED'
+      : listing.rating === null && listing.reviewCount === null ? 'NOT_OBSERVED' : 'YES',
+    observedAt: listing?.observedAt ?? null,
+    canStateAsFact: Boolean(listing && listing.rating !== null),
+    detail: !listing
+      ? 'Nothing has looked this company up in a business-listings source. It is not '
+        + 'zero and it is not missing — it has never been looked at.'
+      : listing.rating === null && listing.reviewCount === null
+        ? `${listing.provider} returned this listing without a rating. That is a gap in `
+          + 'their record, not a company with no reviews.'
+        : `${listing.rating ?? 'no'} stars from ${listing.reviewCount ?? 'an unstated '
+          + 'number of'} review(s), per ${listing.provider}.`,
+  });
 
   return {
     facts,

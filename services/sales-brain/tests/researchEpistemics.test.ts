@@ -179,15 +179,20 @@ test('a checked channel with no ad is about the search, not the company', async 
 
 // ------------------------------------------------------ what nothing collects ---
 
-test('data nothing collects is never a zero', async () => {
+test('data no source has collected is never a zero', async () => {
+  // `google_business_profile` became `business_listing` when the listings adapter
+  // framework landed: the fact is that a listings source knows this company, and
+  // naming it after one provider was wrong before a second existed. The property
+  // being asserted is unchanged -- a fact nobody has collected is never a count.
   const accountId = await account();
   await markResearched(accountId, 5);
   const picture = await researchPictureFor(accountId);
 
-  for (const key of ['google_business_profile', 'rating_and_reviews']) {
+  for (const key of ['business_listing', 'rating_and_reviews']) {
     const item = fact(picture, key);
-    assert.equal(item.state, 'NOT_CHECKED');
-    assert.match(item.detail, /never been looked at/);
+    assert.equal(item.state, 'NOT_CHECKED',
+      `${key} claimed to know something no source has looked up`);
+    assert.match(item.detail, /never been looked (at|up)|has looked this company up/);
     assert.doesNotMatch(item.detail, /\b0\b/, 'a fact nothing collects was given a count');
   }
 });
