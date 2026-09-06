@@ -22,7 +22,8 @@
     "start:worker": "node dist/bin/worker.js",
     "migrate:prod": "node dist/bin/migrate.js",
     "roleplay": "tsx src/bin/roleplay.ts",
-    "test:isolation": "LOG_LEVEL=silent tsx --test --test-concurrency=1 $(ls tests/*.test.ts | tac | tr '\\n' ' ')"
+    "test:isolation": "LOG_LEVEL=silent tsx --test --test-concurrency=1 $(ls tests/*.test.ts | tac | tr '\\n' ' ')",
+    "preflight": "tsx src/bin/exposure-preflight.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
