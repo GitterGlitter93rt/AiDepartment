@@ -92,6 +92,23 @@ export async function pendingProviderTasks(provider?: string): Promise<ProviderT
 }
 
 /** Notes one more attempt at collecting a task that is not ready. */
+/**
+ * Whether any search of this market is still owed by the provider.
+ *
+ * A run buys N independent searches and each has its own task, so "is this market
+ * waiting on the provider" is a question about a family of fingerprints rather than
+ * one. Matched on the prefix the family shares.
+ */
+export async function hasOpenProviderTaskForMarket(
+  provider: string, fingerprintPrefix: string,
+): Promise<boolean> {
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks
+      where provider = $1 and status = 'PENDING' and fingerprint like $2 || '%'`,
+    [provider, fingerprintPrefix]);
+  return (rows[0]?.n ?? 0) > 0;
+}
+
 export async function recordCollectionAttempt(providerTaskId: string): Promise<number> {
   const { rows } = await query<{ poll_attempts: number }>(
     `update provider_tasks

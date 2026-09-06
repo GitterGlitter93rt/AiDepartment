@@ -1,7 +1,4 @@
 import { query } from '../db/pool.js';
-import { normalizeGeography } from './geography.js';
-import { planSearchQueries } from './searchTaxonomy.js';
-import { providerTargetFor } from './providerLocation.js';
 import {
   refusedDiscovery,
   type DiscoveredBusiness, type DiscoveryAdapter, type DiscoveryQuery,
@@ -411,47 +408,27 @@ export function createDataForSeoAdapter(options: {
           'The query budget for this run is zero, so no search was made.');
       }
 
-      // What to search for, and where.
+      // The one search this call is for.
       //
-      // This used to be the strategy name, the internal vertical id and the raw
-      // geography joined with spaces: "advertiser_first hvac 32095". Nobody searches
-      // for that, and a provider asked for it returns whatever it can make of it.
-      // The vertical profiles have carried a real search taxonomy all along --
-      // "AC repair", "HVAC replacement", with an intent weight and a flag for
-      // whether advertisers bid on it -- and the geography needs to be a place the
-      // provider recognises, not whatever was typed.
-      const geography = normalizeGeography(request.geographyType, request.geographyValue);
-      if (!geography.ok) {
+      // The adapter used to plan for itself: read the taxonomy, order it, slice it
+      // to the budget, then ask the provider for element zero. Two things were wrong
+      // with that. A budget of twenty-five bought exactly one search, so a market was
+      // judged on one question. And the orchestrator, which owns fingerprints and
+      // provider tasks, could not know which words were bought -- so N searches could
+      // never have had N task lifecycles even if N had run.
+      //
+      // Planning now happens once, in the orchestrator, before any money moves.
+      const search = request.search;
+      if (!search) {
         await recordProviderUsage({
-          operation: 'serp.discover', units: 0, status: 'REFUSED', errorCode: 'BAD_GEOGRAPHY' });
-        return refusedDiscovery('NOT_CONFIGURED', geography.message);
-      }
-
-      const planned = await planSearchQueries({
-        verticalProfileId: request.verticalProfileId,
-        strategy: request.miningMode === 'broad_local' ? 'BROAD_LOCAL' : 'ADVERTISER_FIRST',
-        budget: budget,
-      });
-      if (planned.length === 0) {
-        await recordProviderUsage({
-          operation: 'serp.discover', units: 0, status: 'REFUSED', errorCode: 'NO_SEARCH_TERMS' });
+          operation: 'serp.discover', units: 0, status: 'REFUSED', errorCode: 'NO_SEARCH_PLANNED' });
         return refusedDiscovery('NOT_CONFIGURED',
-          request.verticalProfileId
-            ? `The ${request.verticalProfileId} profile defines no search queries, so there is `
-              + 'nothing to ask a provider.'
-            : 'Pick a vertical: a market search needs to know what kind of business to '
-              + 'look for.');
+          'This adapter was called without a planned search. Discovery plans its queries '
+          + 'before it spends, so a call with no query is a bug rather than an empty market.');
       }
 
-      // One query per run for now: the highest-intent one the strategy chose. Running
-      // the whole taxonomy multiplies the spend, and that is a budget decision an
-      // operator makes rather than a default.
-      //
-      // The provider takes a place name, not a ZIP. A ZIP is resolved against our own
-      // inventory and kept in the query text as well, because the city it sits in is
-      // wider than the ZIP and the query is what narrows it back.
-      const target = await providerTargetFor(geography);
-      const keyword = [planned[0]!.query, target.keywordSuffix].filter(Boolean).join(' ');
+      const keyword = search.keyword;
+      const target = { locationName: search.locationName };
       const auth = Buffer.from(`${config.login}:${config.password}`).toString('base64');
       const headers = {
         authorization: `Basic ${auth}`, 'content-type': 'application/json',

@@ -1,7 +1,8 @@
 import { query } from '../db/pool.js';
-import { enqueueMarketResearch, discoveryFingerprint } from './enqueue.js';
+import { enqueueMarketResearch } from './enqueue.js';
 import { availableDiscoveryAdapters } from './marketMiner.js';
-import { openProviderTask } from '../miner/providerTasks.js';
+import { hasOpenProviderTaskForMarket } from '../miner/providerTasks.js';
+import { searchFingerprintPrefix } from '../miner/searchPlan.js';
 
 /**
  * Saved markets that maintain themselves.
@@ -170,16 +171,22 @@ export async function scheduleDueMarkets(options: {
     // to collect one. Buying twice is already prevented inside the handler, which
     // collects before it submits, and the ALREADY_RUNNING check above stops two jobs
     // for one market.
-    const fingerprint = discoveryFingerprint({
+    const fingerprint = searchFingerprintPrefix({
       marketId: market.market_id,
       verticalProfileId: market.vertical_profile_id,
       geographyType: market.geography_type,
       geographyValue: geographyValueOf(market),
       miningMode: market.mining_mode,
     });
+    // A run buys N independent searches, each with its own provider task, so the
+    // question is whether *any* search of this market is still owed -- a family of
+    // fingerprints sharing a prefix rather than the single job-level key this used
+    // to look for.
     let outstanding = false;
     for (const adapter of adapters) {
-      if (await openProviderTask(adapter.name, fingerprint)) { outstanding = true; break; }
+      if (await hasOpenProviderTaskForMarket(adapter.name, fingerprint)) {
+        outstanding = true; break;
+      }
     }
     if (outstanding) collecting += 1;
 

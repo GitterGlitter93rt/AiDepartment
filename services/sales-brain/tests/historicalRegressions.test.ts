@@ -16,7 +16,7 @@ import { operationalSnapshot } from '../src/api/operations.js';
 import { createDataForSeoAdapter, type DataForSeoConfig } from '../src/miner/dataForSeoAdapter.js';
 import { pendingProviderTasks } from '../src/miner/providerTasks.js';
 import { reconcileMissingResearch } from '../src/workers/researchReconcile.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser , plannedRequest } from './helpers.js';
 
 /**
  * The failures we actually had.
@@ -197,10 +197,7 @@ test('8. the provider is not asked for "advertiser_first hvac 32095"', async () 
     sleep: async () => {},
   });
 
-  await provider.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertiser_first', queryBudget: 5,
-  });
+  await provider.discover(await plannedRequest({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }) as any);
 
   assert.equal(captured.length, 1);
   assert.ok(!/advertiser_first/.test(captured[0].keyword),

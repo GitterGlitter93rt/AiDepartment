@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { pool, query, withTransaction } from '../src/db/pool.js';
 import { buildServer } from '../src/api/server.js';
 import { createUser } from '../src/domain/auth.js';
+import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { resetDatabase, makeUser } from './helpers.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { drainQueue } from '../src/workers/runner.js';
@@ -38,6 +39,7 @@ before(async () => { app = await buildServer(); });
 after(async () => { await app.close(); await pool.end(); });
 beforeEach(async () => {
   await resetDatabase();
+  await syncVerticalProfiles();
   // Adapters are registered into a module-level array, so a test that registers one
   // must not leak it into the next -- least of all into the tests asserting what
   // happens when there is no provider at all.
@@ -94,7 +96,7 @@ function fakeAdapter(input: {
 async function runMarketJob(geographyValue = '32095'): Promise<Record<string, unknown>> {
   const ops = await makeUser(`Mining Ops ${++sequence}`, 'RESEARCH_OPS');
   const job = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue,
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue,
     marketId: null, requestedBy: ops.userId,
   });
   await drainQueue();

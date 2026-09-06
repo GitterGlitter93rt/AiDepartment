@@ -7,7 +7,8 @@ import { normalizeGeography } from '../src/miner/geography.js';
 import { providerTargetFor, cityForPostalCode } from '../src/miner/providerLocation.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, plannedRequest } from './helpers.js';
+import { planDiscoverySearches } from '../src/miner/searchPlan.js';
 
 /**
  * Exactly what goes on the wire.
@@ -69,10 +70,13 @@ async function seedAccountIn(city: string, state: string, postalCode: string): P
 async function discoverWith(geographyType: string, geographyValue: string) {
   const { transport, calls } = capturingTransport();
   const adapter = createDataForSeoAdapter({ config: READY, transport, sleep: async () => {} });
-  await adapter.discover({
+  // Planned through the real planner: the geography is resolved to a provider place
+  // name there now, so building the request by hand would test a shape the product
+  // does not produce.
+  await adapter.discover(await plannedRequest({
     verticalProfileId: 'hvac', geographyType, geographyValue,
     miningMode: 'advertiser_first', queryBudget: 5,
-  });
+  }) as any);
   return calls;
 }
 
@@ -164,10 +168,7 @@ test('the queued-task request carries the same body plus the queue priority', as
   const { transport, calls } = capturingTransport();
   const adapter = createDataForSeoAdapter({
     config: { ...READY, mode: 'standard' }, transport, sleep: async () => {} });
-  await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertiser_first', queryBudget: 5,
-  });
+  await adapter.discover(await plannedRequest({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }) as any);
 
   const posted = calls.find((call) => call.url.includes('task_post'))!;
   assert.ok(posted, 'standard mode must post a task');
@@ -189,38 +190,46 @@ test('the depth requested stays inside what the provider accepts', async () => {
     const { transport, calls } = capturingTransport();
     const adapter = createDataForSeoAdapter({
       config: { ...READY, resultDepth: configured }, transport, sleep: async () => {} });
-    await adapter.discover({
-      verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-      miningMode: 'advertiser_first', queryBudget: 5,
-    });
+    await adapter.discover(await plannedRequest({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }) as any);
     assert.equal(calls[0]!.body[0].depth, expected, `depth ${configured}`);
   }
 });
 
 test('a market we cannot express is refused before the money is spent', async () => {
+  // The refusal moved: planning decides what can be searched, and it happens before
+  // any adapter is reached. Asserted where the decision now lives, plus the thing
+  // that actually matters -- no request went out.
+  const plan = await planDiscoverySearches({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: 'not-a-zip',
+    miningMode: 'advertiser_first', count: 5,
+  });
+  assert.deepEqual(plan.searches, []);
+  assert.match(plan.refusal?.reason ?? '', /ZIP/);
+
   const { transport, calls } = capturingTransport();
   const adapter = createDataForSeoAdapter({ config: READY, transport, sleep: async () => {} });
-
   const result = await adapter.discover({
     verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: 'not-a-zip',
     miningMode: 'advertiser_first', queryBudget: 5,
   });
-
   assert.equal(calls.length, 0, 'an unreadable market must not become a paid request');
   assert.notEqual(result.status, 'ZERO_RESULTS');
-  assert.match(result.reason ?? '', /ZIP/);
 });
 
 test('a vertical with no taxonomy spends nothing', async () => {
+  const plan = await planDiscoverySearches({
+    verticalProfileId: null, geographyType: 'city', geographyValue: 'Jacksonville, FL',
+    miningMode: 'advertiser_first', count: 5,
+  });
+  assert.deepEqual(plan.searches, []);
+  assert.match(plan.refusal?.reason ?? '', /vertical/);
+
   const { transport, calls } = capturingTransport();
   const adapter = createDataForSeoAdapter({ config: READY, transport, sleep: async () => {} });
-
   const result = await adapter.discover({
     verticalProfileId: null, geographyType: 'city', geographyValue: 'Jacksonville, FL',
     miningMode: 'advertiser_first', queryBudget: 5,
   });
-
   assert.equal(calls.length, 0);
   assert.notEqual(result.status, 'ZERO_RESULTS');
-  assert.match(result.reason ?? '', /vertical/);
 });

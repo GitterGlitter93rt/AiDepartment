@@ -54,3 +54,44 @@ export async function makeUser(
 }
 
 export { pool, pg, execSync };
+
+/**
+ * A discovery request with its one search already planned.
+ *
+ * Planning moved out of the adapter and into the orchestrator, which owns the
+ * fingerprint and the provider task. An adapter called with no plan refuses, so a
+ * test that calls `discover()` directly has to plan first -- the same way the miner
+ * does, through the same planner, rather than hand-building a shape the product no
+ * longer produces.
+ */
+export async function plannedRequest(overrides: {
+  verticalProfileId?: string | null;
+  geographyType?: string;
+  geographyValue?: string;
+  miningMode?: string;
+  queryBudget?: number;
+} = {}): Promise<Record<string, unknown>> {
+  const { planDiscoverySearches } = await import('../src/miner/searchPlan.js');
+  const base = {
+    verticalProfileId: 'hvac' as string | null,
+    geographyType: 'zip_zcta',
+    geographyValue: '32256',
+    miningMode: 'advertisers_first',
+    queryBudget: 5,
+    ...overrides,
+  };
+  const plan = await planDiscoverySearches({
+    verticalProfileId: base.verticalProfileId,
+    geographyType: base.geographyType,
+    geographyValue: base.geographyValue,
+    miningMode: base.miningMode,
+    count: 1,
+  });
+  const first = plan.searches[0];
+  return first
+    ? { ...base, search: {
+        keyword: first.keyword, locationName: first.locationName, term: first.term,
+        fingerprint: first.fingerprint, index: first.index } }
+    : base;
+}
+

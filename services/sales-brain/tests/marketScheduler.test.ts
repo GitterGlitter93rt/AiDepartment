@@ -14,7 +14,7 @@ import {
   MAX_MARKETS_PER_PASS, MAX_MARKETS_IN_FLIGHT, DEFAULT_REFRESH_INTERVAL_HOURS,
 } from '../src/workers/marketScheduler.js';
 import { recordProviderTask } from '../src/miner/providerTasks.js';
-import { discoveryFingerprint } from '../src/workers/enqueue.js';
+import { planDiscoverySearches } from '../src/miner/searchPlan.js';
 import { resetDatabase, makeUser } from './helpers.js';
 
 /**
@@ -152,13 +152,17 @@ test('a market with a provider task still owed is collected, not re-bought', asy
   });
 
   const marketId = await market('Owed Market', { zip: '32095' });
+  // A task is owed for one *search*, not for the whole market: a run buys N
+  // independent searches and each has its own provider task. Recording this under
+  // the job's fingerprint would describe a thing the miner no longer looks for.
+  const plan = await planDiscoverySearches({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32095',
+    miningMode: 'advertiser_first', count: 1, marketId,
+  });
   await recordProviderTask({
     provider: 'scheduler-provider',
     providerNativeId: 'still-working',
-    fingerprint: discoveryFingerprint({
-      marketId, verticalProfileId: 'hvac', geographyType: 'zip_zcta',
-      geographyValue: '32095', miningMode: 'advertiser_first',
-    }),
+    fingerprint: plan.searches[0]!.fingerprint,
   });
 
   const result = await scheduleDueMarkets();

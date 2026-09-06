@@ -13,6 +13,7 @@ import {
   planMarketRefresh, expireStaleEvidence, availableDiscoveryAdapters, registerDiscoveryAdapter,
 } from '../src/workers/marketMiner.js';
 import '../src/workers/contactResearch.js';
+import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { resetDatabase, makeUser } from './helpers.js';
 
 /**
@@ -35,7 +36,10 @@ async function seedMarketAccounts(count: number, zip = '32256'): Promise<string[
           website: `https://riverbend${i}.example.com`,
           phone: `904-555-${String(1000 + i).slice(0, 4)}`,
           city: 'Jacksonville', state: 'FL', postalCode: zip,
-          verticalProfileId: null,
+          // The same vertical the mining jobs below ask for, so a refresh plan
+          // scoped to a vertical still finds them. Discovery plans its search terms
+          // from the profile, so a market job carries one.
+          verticalProfileId: 'hvac',
         },
         { discoverySource: 'test' },
       ),
@@ -87,7 +91,7 @@ test('coverage reports honestly rather than implying complete market coverage', 
 
   // A running job is reported as refreshing, not as complete.
   await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32256',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
     marketId: null, requestedBy: rep.userId,
   });
   coverage = await coverageFor({ geography: { type: 'zip_zcta', value: '32256' } });
@@ -177,7 +181,7 @@ test('a market_mine job with no discovery adapter still refreshes and says why',
   assert.equal(availableDiscoveryAdapters().length, 0, 'none is configured by default');
 
   const job = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32256',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
     marketId: null, requestedBy: rep.userId,
   });
   await drainQueue(1);
@@ -197,7 +201,7 @@ test('a refresh done because no provider exists is not a searched market', async
   await query(`update accounts set research_fresh_until = now() - interval '1 day'`);
 
   const job = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32256',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
     marketId: null, requestedBy: rep.userId,
   });
   await drainQueue(1);
@@ -256,7 +260,7 @@ test('discovered businesses dedupe into existing Accounts and keep ownership', a
   });
 
   const job = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32256',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
     marketId: null, requestedBy: rep.userId,
   });
   await drainQueue(1);

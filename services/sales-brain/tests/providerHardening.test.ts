@@ -2,7 +2,7 @@ import './setup.js';
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query } from '../src/db/pool.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, plannedRequest } from './helpers.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import {
   createDataForSeoAdapter, dedupeCandidates, normalizeResponse,
@@ -31,7 +31,14 @@ import { upsertAccount, upsertEndpoint } from '../src/domain/accounts.js';
  */
 
 after(async () => { await pool.end(); });
-beforeEach(async () => { await resetDatabase(); await syncVerticalProfiles(); });
+beforeEach(async () => {
+  await resetDatabase();
+  await syncVerticalProfiles();
+  REQUEST = await plannedRequest({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
+    miningMode: 'advertisers_first', queryBudget: 5,
+  });
+});
 
 const BASE: DataForSeoConfig = {
   login: 'login', password: 'password', baseUrl: 'https://provider.test/v3',
@@ -62,12 +69,15 @@ async function seedEndpoint(endpointRole: string): Promise<{ accountId: string; 
   });
 }
 
-const REQUEST = {
-  // 'postal_code' was never a geography type this system searches: the miner uses
-  // 'zip_zcta', and the adapter passed whatever it was given straight to the provider.
-  verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
-  miningMode: 'advertisers_first', queryBudget: 5,
-};
+// 'postal_code' was never a geography type this system searches: the miner uses
+// 'zip_zcta', and the adapter passed whatever it was given straight to the provider.
+//
+// Built through the real planner rather than by hand, because the adapter no longer
+// plans for itself and a request with no planned search is refused.
+// Rebuilt after every reset: the planner reads the vertical taxonomy from the
+// database, so a request built once at import time would be planned against an
+// empty schema and carry no search at all.
+let REQUEST: any;
 
 function taskCreated(id = 'task-1'): ProviderResponse {
   return { status_code: 20000, cost: 0.0031, tasks: [{ id, status_code: 20100 }] };

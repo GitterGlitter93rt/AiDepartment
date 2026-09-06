@@ -2,7 +2,7 @@ import { config } from '../config.js';
 import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
 import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
-import { discoveryFingerprint, enqueueAccountResearch } from './enqueue.js';
+import { enqueueAccountResearch } from './enqueue.js';
 import {
   closeProviderTask, openProviderTask, recordCollectionAttempt, recordProviderTask,
   MAX_TASK_COLLECTIONS,
@@ -36,6 +36,28 @@ export interface DiscoveryQuery {
   miningMode: string;
   /** Hard ceiling on provider calls for this run. */
   queryBudget: number;
+  /**
+   * The one search this call is for: its words, its place and its identity.
+   *
+   * Planning moved out of the adapter. It used to read the vertical taxonomy, order
+   * it, slice it to the budget and then ask the provider for element zero -- so a
+   * budget of twenty-five bought one search, and no two searches could ever have
+   * separate provider tasks because they shared the job's fingerprint. The
+   * orchestrator now plans, because it is the thing that owns fingerprints, task
+   * lifecycle and accounting, and it hands the adapter one concrete search at a
+   * time.
+   */
+  search?: {
+    /** What to ask the provider, geography included. */
+    keyword: string;
+    /** A place name the provider can geocode. */
+    locationName: string;
+    /** The taxonomy term without the geography. */
+    term: string;
+    /** Identity of this search, for the provider task lifecycle. */
+    fingerprint: string;
+    index: number;
+  };
 }
 
 export interface DiscoveredBusiness {
@@ -345,6 +367,13 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const statuses: DiscoveryStatus[] = [];
   const pendingTaskIds: string[] = [];
   const discoveryNotes: string[] = [];
+  /** One row per search actually attempted, so N outcomes stay N outcomes. */
+  const perSearch: {
+    index: number; term: string; keyword: string; fingerprint: string;
+    status: DiscoveryStatus; providerRows: number; usableRows: number;
+    duplicateRows: number; rejectedRows: number; costUsd: number | null;
+    providerTaskId: string | null; created: number; matchedExisting: number;
+  }[] = [];
 
   // Before any provider is asked: does another run fit under today's ceiling?
   // Refused before the money is spent, never after.
@@ -365,15 +394,39 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     geographyType: (payload['geography_type'] as string | null) ?? null,
     geographyValue: (payload['geography_value'] as string | null) ?? null,
     miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
-    queryBudget: Number(payload['query_budget'] ?? 25),
+    // One unless an operator asks for more.
+    //
+    // This was 25, and it meant "plan 25, buy 1". Making the count real without
+    // moving the default would have turned every scheduled market refresh into
+    // twenty-five paid searches while nobody was watching -- a spend decision
+    // dressed up as a bug fix. Raising it is an operator's call, per run.
+    queryBudget: Number(payload['query_budget'] ?? 1),
   };
-  const fingerprint = discoveryFingerprint({
-    marketId: job.market_id,
+  // What this run will buy, decided before any of it is bought.
+  //
+  // `query_budget` used to mean "plan this many and run the first one", so a market
+  // was judged on a single question whatever the budget said. A count is now a count
+  // of independent searches, each with its own words, provider task, fingerprint,
+  // accounting and outcome.
+  //
+  // The default is one. Making N real without moving the default would have turned
+  // every scheduled market refresh into twenty-five paid searches overnight, which
+  // is a spend decision rather than a bug fix.
+  const { planDiscoverySearches } = await import('../miner/searchPlan.js');
+  const searchPlan = await planDiscoverySearches({
     verticalProfileId: request.verticalProfileId,
     geographyType: request.geographyType,
     geographyValue: request.geographyValue,
     miningMode: request.miningMode,
+    count: request.queryBudget,
+    marketId: job.market_id,
   });
+  if (searchPlan.limitedBy === 'TAXONOMY') {
+    discoveryNotes.push(
+      `${request.queryBudget} search(es) were asked for and the `
+      + `${request.verticalProfileId} profile defines ${searchPlan.available}, so `
+      + `${searchPlan.available} ran. Nothing was invented to fill the gap.`);
+  }
 
   // The ceiling stops *buying*, not collecting.
   //
@@ -384,7 +437,34 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   // advances when we try, a market could sit like that until the provider expired
   // the task and the search was simply lost. The budget belongs on the branch that
   // spends, which is the one below that calls discover().
+  // A plan that could not be built still has to produce an answer per adapter.
+  //
+  // With no vertical there are no terms, so there is nothing to buy -- and asking a
+  // provider for "businesses in 32095" with no category is not a search worth paying
+  // for. But silently running zero searches leaves no status at all, and an empty
+  // list of statuses makes every `every()` below vacuously true: a run that never
+  // asked anybody anything reported itself as waiting on the provider. The refusal
+  // is recorded as the outcome of the attempt it prevented.
+  const attempts: (typeof searchPlan.searches[number] | null)[] =
+    searchPlan.searches.length > 0 ? searchPlan.searches : [null];
+
   for (const adapter of adapters) {
+   for (const planned of attempts) {
+    if (!planned) {
+      const reason = searchPlan.refusal?.reason
+        ?? 'No searches could be planned for this market.';
+      statuses.push('NOT_CONFIGURED');
+      discoveryNotes.push(`${adapter.name}: ${reason}`);
+      continue;
+    }
+    const fingerprint = planned.fingerprint;
+    const searchRequest: DiscoveryQuery = {
+      ...request,
+      search: {
+        keyword: planned.keyword, locationName: planned.locationName,
+        term: planned.term, fingerprint, index: planned.index,
+      },
+    };
     let result: DiscoveryResult;
     // Set when a task's results are in hand but not yet in inventory.
     let collected: string | null = null;
@@ -398,7 +478,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       const outstanding = await openProviderTask(adapter.name, fingerprint);
       if (outstanding && adapter.collect) {
         const attempts = await recordCollectionAttempt(outstanding.provider_task_id);
-        result = await adapter.collect(outstanding.provider_native_id, request);
+        result = await adapter.collect(outstanding.provider_native_id, searchRequest);
 
         if (result.status === 'PENDING') {
           if (attempts >= MAX_TASK_COLLECTIONS) {
@@ -445,7 +525,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         // orchestrator knows a call was made and what the result says it cost, and
         // records it when the adapter did not.
         const before = await providerUsageRows(adapter.name);
-        result = await adapter.discover(request);
+        result = await adapter.discover(searchRequest);
         await recordUnbilledRun(adapter.name, before, result, job.job_id);
 
         // A task the provider accepted is remembered before this job ends. Without
@@ -454,7 +534,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
           await recordProviderTask({
             provider: adapter.name, providerNativeId: result.providerTaskId,
             fingerprint, jobId: job.job_id,
-            request: request as unknown as Record<string, unknown>,
+            request: searchRequest as unknown as Record<string, unknown>,
           });
         }
       }
@@ -472,7 +552,19 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     providerDuplicates += result.duplicateRows;
     if (typeof result.costUsd === 'number') { costUsd += result.costUsd; costKnown = true; }
     if (result.providerTaskId) pendingTaskIds.push(result.providerTaskId);
-    if (result.reason) discoveryNotes.push(`${adapter.name}: ${result.reason}`);
+    if (result.reason) {
+      discoveryNotes.push(searchPlan.searches.length > 1
+        ? `${adapter.name} "${planned.term}": ${result.reason}`
+        : `${adapter.name}: ${result.reason}`);
+    }
+    perSearch.push({
+      index: planned.index, term: planned.term, keyword: planned.keyword,
+      fingerprint, status: result.status, providerRows: result.providerRows,
+      usableRows: result.businesses.length, duplicateRows: result.duplicateRows,
+      rejectedRows: result.rejectedRows, costUsd: result.costUsd ?? null,
+      providerTaskId: result.providerTaskId ?? null,
+      created: 0, matchedExisting: 0,
+    });
 
     if (result.businesses.length > 0) {
       const counts = await ingestDiscoveries(result.businesses, adapter.name, job);
@@ -481,6 +573,9 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       funnel.matchedExisting += counts.matchedExisting;
       funnel.created += counts.created;
       funnel.researchQueued += counts.researchQueued;
+      const record = perSearch[perSearch.length - 1]!;
+      record.created = counts.created;
+      record.matchedExisting = counts.matchedExisting;
     }
 
     // The task is only finished with once its results are in inventory. A crash
@@ -490,6 +585,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       await closeProviderTask({
         providerTaskId: collected, status: 'COLLECTED', costUsd: result.costUsd ?? null });
     }
+   }
   }
 
   const answered = statuses.filter(providerAnswered).length;
@@ -509,6 +605,10 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    */
   const outcome: JobOutcome =
     adapters.length === 0 ? 'DISCOVERY_BLOCKED'
+    // Nothing was attempted, so nothing can be concluded. Guarded explicitly rather
+    // than left to the branches below, where `[].every(...)` is true and would
+    // report a run that asked nobody anything as one waiting for an answer.
+    : statuses.length === 0 ? 'DISCOVERY_BLOCKED'
     // Our own ceiling stopping the call is a blocked search, not an empty market --
     // but only when it actually stopped one. A run that collected a task bought
     // earlier under the ceiling did search this market, and reporting it as blocked
@@ -580,6 +680,13 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     providersQueried: answered,
     providersFailed: failed,
     providerTaskIds: pendingTaskIds,
+    // What each search actually did. An aggregate cannot say that four of five
+    // searches found nothing and the fifth found everything, and that difference is
+    // the whole reason for running more than one.
+    searchesPlanned: searchPlan.searches.length,
+    searchesRequested: searchPlan.requested,
+    searchTermsAvailable: searchPlan.available,
+    perSearch,
     costUsd: costKnown ? Number(costUsd.toFixed(4)) : null,
     spentTodayUsd: spend.spentTodayUsd,
     dailyBudgetUsd: spend.budgetUsd || null,

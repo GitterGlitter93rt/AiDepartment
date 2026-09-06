@@ -9,6 +9,7 @@ import {
   type DataForSeoConfig, type ProviderResponse, type Transport,
 } from '../src/miner/dataForSeoAdapter.js';
 import { availableDiscoveryAdapters, registerDiscoveryAdapter } from '../src/workers/marketMiner.js';
+import { planDiscoverySearches } from '../src/miner/searchPlan.js';
 
 /**
  * DataForSEO discovery adapter, against fixtures rather than the provider.
@@ -57,6 +58,38 @@ function transportReturning(response: ProviderResponse, ok = true, status = 200)
   return async () => ({ ok, status, json: async () => response });
 }
 
+
+/**
+ * A discovery request with its search already planned.
+ *
+ * Planning moved out of the adapter: the orchestrator decides which words to buy,
+ * because it is the thing that owns the fingerprint and the provider task. An
+ * adapter called without a plan refuses, so these tests plan the same way the miner
+ * does rather than asserting against a shape the product no longer uses.
+ */
+async function planned(overrides: Partial<{
+  verticalProfileId: string | null; geographyType: string; geographyValue: string;
+  miningMode: string; queryBudget: number;
+}> = {}) {
+  const base = {
+    verticalProfileId: 'hvac' as string | null, geographyType: 'city',
+    geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5,
+    ...overrides,
+  };
+  const plan = await planDiscoverySearches({
+    verticalProfileId: base.verticalProfileId, geographyType: base.geographyType,
+    geographyValue: base.geographyValue, miningMode: base.miningMode, count: 1,
+  });
+  const first = plan.searches[0];
+  return {
+    ...base,
+    ...(first ? { search: {
+      keyword: first.keyword, locationName: first.locationName, term: first.term,
+      fingerprint: first.fingerprint, index: first.index,
+    } } : {}),
+  };
+}
+
 test('an unmapped provider block never becomes ad evidence', () => {
   assert.equal(normalizeResultType('paid'), 'PAID_SEARCH_TEXT');
   assert.equal(normalizeResultType('local_services'), 'LOCAL_SERVICES_AD');
@@ -97,10 +130,7 @@ test('the adapter refuses to run before the source governance review', async () 
   });
   assert.equal(adapter.isConfigured(), false);
 
-  const found = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 5,
-  });
+  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
   assert.deepEqual(found.businesses, []);
   assert.equal(found.status, 'GOVERNANCE_BLOCKED',
     'an unreviewed source is blocked, not a market with nothing in it');
@@ -119,10 +149,7 @@ test('a credential alone does not start traffic', async () => {
     transport: () => { throw new Error('the provider must not be called'); },
   });
   assert.equal(adapter.isConfigured(), false);
-  const refused = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 5,
-  });
+  const refused = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
   assert.deepEqual(refused.businesses, []);
   assert.equal(refused.status, 'NOT_CONFIGURED');
 });
@@ -150,10 +177,7 @@ test('a discovered business carries its provider evidence, and no invented locat
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE),
   });
-  const found = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 5,
-  });
+  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
 
   assert.equal(found.status, 'OK');
   assert.equal(found.businesses.length, 2, 'only results identifying a business become candidates');
@@ -177,10 +201,7 @@ test('a discovered business carries its provider evidence, and no invented locat
 
 test('provider cost is recorded from the response, and a failure is still recorded', async () => {
   const ok = createDataForSeoAdapter({ config: READY, transport: transportReturning(RESPONSE) });
-  await ok.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 5,
-  });
+  await ok.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
   const success = await pool.query(
     `select status, actual_cost_usd from provider_usage where provider = 'dataforseo'`);
   assert.equal(success.rows[0]!.status, 'OK');
@@ -190,10 +211,7 @@ test('provider cost is recorded from the response, and a failure is still record
   await syncVerticalProfiles();
   const failing = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE, false, 402) });
-  const found = await failing.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 5,
-  });
+  const found = await failing.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
   assert.deepEqual(found.businesses, []);
   assert.notEqual(found.status, 'ZERO_RESULTS',
     'a provider that failed must never be reported as a market with nothing in it');
@@ -208,10 +226,7 @@ test('provider cost is recorded from the response, and a failure is still record
 test('an unclassified block is observed but never becomes a company', async () => {
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
-  const found = await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 5,
-  });
+  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
   assert.equal(found.businesses.some((row) => row.name === 'Mystery Block'), false,
     'a block we could not classify has nothing entity resolution can work with');
 
@@ -383,10 +398,7 @@ test('recorded spend is read back from usage, not held in memory', async () => {
 
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
-  await adapter.discover({
-    verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 1,
-  });
+  await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 1 }));
   assert.equal(await providerSpendUsd('dataforseo'), 0.0031,
     'the ceiling is checked against what was actually charged');
 });

@@ -287,7 +287,7 @@ test('a market we already paid for is still collected when the budget is gone', 
   // Run one: the search is submitted and the provider owes us a result.
   process.env['DISCOVERY_DAILY_BUDGET_USD'] = '';
   const first = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32095',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32095',
     marketId: null, requestedBy: ops.userId });
   await drainQueue();
   assert.equal(submitted, 1);
@@ -303,7 +303,7 @@ test('a market we already paid for is still collected when the budget is gone', 
      values ('pending-provider', 'serp.discover', now(), now(), 1, 0, 5.00, 'OK')`);
 
   const second = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32095',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32095',
     marketId: null, requestedBy: ops.userId });
   await drainQueue();
 
@@ -343,7 +343,7 @@ test('with nothing outstanding, the ceiling still refuses to buy', async () => {
      values ('eager-provider', 'serp.discover', now(), now(), 1, 0, 5.00, 'OK')`);
 
   const job = await enqueueMarketResearch({
-    verticalProfileId: null, geographyType: 'zip_zcta', geographyValue: '32099',
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32099',
     marketId: null, requestedBy: ops.userId });
   await drainQueue();
 

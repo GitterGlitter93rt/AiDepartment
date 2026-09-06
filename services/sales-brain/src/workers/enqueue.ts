@@ -113,6 +113,15 @@ export async function enqueueMarketResearch(input: {
   marketId: string | null;
   requestedBy: string;
   miningMode?: string | null;
+  /**
+   * How many independent searches this run should buy. One unless asked.
+   *
+   * It is not part of the idempotency key: asking for more searches of a market
+   * already queued should not create a second job for it. The queued job keeps the
+   * count it was created with, which is the conservative reading -- a second click
+   * must never silently multiply what the first one is already spending.
+   */
+  queryBudget?: number;
 }): Promise<EnqueueResult> {
   // The payload carries the normalized geography, so the worker filters and searches
   // on the same value the fingerprint was built from.
@@ -129,6 +138,7 @@ export async function enqueueMarketResearch(input: {
       geography_display: geography.ok ? geography.display : input.geographyValue,
       mining_mode: input.miningMode ?? 'advertiser_first',
       market_id: input.marketId,
+      query_budget: Math.max(1, Math.floor(input.queryBudget ?? 1)),
     },
     requestedBy: input.requestedBy,
     marketId: input.marketId,
