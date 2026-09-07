@@ -38,6 +38,15 @@ export const MAX_MARKETS_PER_PASS = Number(process.env['MARKET_SCHEDULER_BATCH']
 /** The ceiling on markets in flight at once, however many are due. */
 export const MAX_MARKETS_IN_FLIGHT = Number(process.env['MARKET_SCHEDULER_IN_FLIGHT'] ?? '3');
 
+/**
+ * How soon a market comes back after we declined to search it.
+ *
+ * Long enough not to spin through the scheduler all evening on a spent budget, short
+ * enough that a market is due again once the day resets. Not a backoff: nothing is
+ * wrong with the market.
+ */
+export const DECLINED_RETRY_HOURS = 4;
+
 /** Backoff after consecutive failures, in hours. Capped so it recovers eventually. */
 export function backoffHours(consecutiveFailures: number): number {
   if (consecutiveFailures <= 0) return 0;
@@ -234,6 +243,21 @@ export async function recordMarketOutcome(input: {
   const answered = input.outcome === 'COMPLETED' || input.outcome === 'ZERO_RESULTS';
   const pending = input.outcome === 'PROVIDER_PENDING';
 
+  // A search we declined to make is not a market that failed.
+  //
+  // DISCOVERY_BLOCKED counted as a failure, so a day when the daily budget ran out
+  // incremented `consecutive_failures` on every market that came up and pushed each
+  // one's next turn out by an exponential backoff. Five quiet days and a perfectly
+  // healthy market was deprioritised by a full day plus its interval -- and the
+  // markets we had refused were then the *least* likely to be due when the money
+  // came back. Our own ceiling, and the absence of a credential, were being recorded
+  // as the market's fault and compounding.
+  //
+  // Re-dued soon rather than immediately: the budget resets at midnight and a market
+  // that comes straight back would spin through the scheduler all evening for
+  // nothing.
+  const weDeclined = input.outcome === 'DISCOVERY_BLOCKED';
+
   await query(
     `update saved_markets
         set last_outcome = $2,
@@ -243,12 +267,18 @@ export async function recordMarketOutcome(input: {
               when $4 then 0
               -- A pending task is not a failure. The provider took the work.
               when $5 then consecutive_failures
+              -- Neither is a search we declined to make.
+              when $8 then consecutive_failures
               else consecutive_failures + 1 end,
             next_refresh_at = case
               when $4 or $5
                 then now() + (coalesce(refresh_interval_hours, $6) || ' hours')::interval
+              -- Back soon, not backed off: nothing is wrong with this market.
+              when $8 then now() + ($9 || ' hours')::interval
               else now() + ((coalesce(refresh_interval_hours, $6)
                              + $7) || ' hours')::interval end,
+            -- The reason is still shown, because an operator needs to know why a
+            -- market is not being searched even when it is our decision.
             blocker_reason = case when $4 or $5 then null else $3 end
       where market_id = $1`,
     [
@@ -256,10 +286,11 @@ export async function recordMarketOutcome(input: {
       DEFAULT_REFRESH_INTERVAL_HOURS,
       // The backoff for the failure that just happened, not the one before it.
       backoffHours(1),
+      weDeclined, String(DECLINED_RETRY_HOURS),
     ],
   );
 
-  if (!answered && !pending) {
+  if (!answered && !pending && !weDeclined) {
     // Grow the backoff from the new failure count, which the update above set.
     await query(
       `update saved_markets

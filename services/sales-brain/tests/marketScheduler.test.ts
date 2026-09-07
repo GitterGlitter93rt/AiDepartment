@@ -15,6 +15,7 @@ import {
 } from '../src/workers/marketScheduler.js';
 import { recordProviderTask } from '../src/miner/providerTasks.js';
 import { planDiscoverySearches } from '../src/miner/searchPlan.js';
+import { DECLINED_RETRY_HOURS } from '../src/workers/marketScheduler.js';
 import { resetDatabase, makeUser } from './helpers.js';
 
 /**
@@ -402,4 +403,99 @@ test('scheduling twice in a row queues nothing the second time', async () => {
   const { rows } = await query<{ n: number }>(
     `select count(*)::int as n from jobs where job_type = 'market_mine'`);
   assert.equal(rows[0]!.n, 1);
+});
+
+// ------------------------------------------- our ceiling is not their failure ----
+
+test('a budget we declined to spend is not recorded as the market failing', async () => {
+  // DISCOVERY_BLOCKED counted as a failure, so a day when the daily budget ran out
+  // incremented consecutive_failures on every market that came up and pushed each
+  // one's next turn out by an exponential backoff. Five quiet days and a healthy
+  // market was deprioritised by a day plus its interval -- and the markets we had
+  // refused were then the least likely to be due when the money came back.
+  const marketId = await market('Declined Market', { zip: '32095' });
+
+  await recordMarketOutcome({
+    marketId, outcome: 'DISCOVERY_BLOCKED',
+    outcomeReason: 'The daily provider budget of $5.00 is spent.',
+  });
+
+  const { rows } = await query<{
+    consecutive_failures: number; next_refresh_at: Date; blocker_reason: string | null;
+  }>(`select consecutive_failures, next_refresh_at, blocker_reason
+        from saved_markets where market_id = $1`, [marketId]);
+
+  assert.equal(rows[0]!.consecutive_failures, 0,
+    'a search we chose not to make was counted against the market');
+  // Back soon rather than backed off.
+  const hoursAway = (rows[0]!.next_refresh_at.getTime() - Date.now()) / 3_600_000;
+  assert.ok(hoursAway > 0 && hoursAway <= DECLINED_RETRY_HOURS + 0.5,
+    `the market comes back in ${hoursAway.toFixed(1)}h, which is a backoff rather than a retry`);
+  // And the operator is still told why nothing happened.
+  assert.match(rows[0]!.blocker_reason!, /budget/i,
+    'the market says nothing about why it was not searched');
+});
+
+test('repeated budget refusals never compound into a backoff', async () => {
+  const marketId = await market('Repeatedly Declined', { zip: '32084' });
+  for (let day = 0; day < 6; day += 1) {
+    await recordMarketOutcome({
+      marketId, outcome: 'DISCOVERY_BLOCKED',
+      outcomeReason: 'No search provider is configured.',
+    });
+  }
+
+  const { rows } = await query<{ consecutive_failures: number; next_refresh_at: Date }>(
+    'select consecutive_failures, next_refresh_at from saved_markets where market_id = $1',
+    [marketId]);
+  assert.equal(rows[0]!.consecutive_failures, 0,
+    'six days of us not spending money made the market look six times broken');
+  const hoursAway = (rows[0]!.next_refresh_at.getTime() - Date.now()) / 3_600_000;
+  assert.ok(hoursAway <= DECLINED_RETRY_HOURS + 0.5,
+    `after six refusals the market is ${hoursAway.toFixed(1)}h away`);
+});
+
+test('a market that genuinely fails is still backed off', async () => {
+  // The distinction has to cut both ways, or a dead provider is retried for ever.
+  const marketId = await market('Really Failing', { zip: '32086' });
+  await recordMarketOutcome({
+    marketId, outcome: 'PROVIDER_UNAVAILABLE', outcomeReason: 'No provider answered.' });
+  await recordMarketOutcome({
+    marketId, outcome: 'PROVIDER_UNAVAILABLE', outcomeReason: 'No provider answered.' });
+
+  const { rows } = await query<{ consecutive_failures: number; next_refresh_at: Date }>(
+    'select consecutive_failures, next_refresh_at from saved_markets where market_id = $1',
+    [marketId]);
+  assert.equal(rows[0]!.consecutive_failures, 2,
+    'a provider that could not answer twice was not counted as failing');
+  const hoursAway = (rows[0]!.next_refresh_at.getTime() - Date.now()) / 3_600_000;
+  assert.ok(hoursAway > DECLINED_RETRY_HOURS,
+    'a genuinely failing market was retried as though we had merely declined');
+});
+
+test('every market gets a turn when the budget only covers some of them', async () => {
+  // Fairness under scarcity. The scheduler marks a market attempted when it queues
+  // it, so a refused market still moves to the back of the rotation -- otherwise the
+  // same few markets would absorb every refusal and the rest would never be tried.
+  const ids: string[] = [];
+  for (let index = 0; index < 4; index += 1) {
+    ids.push(await market(`Rotation ${index}`, { zip: `3209${index}` }));
+  }
+  registerDiscoveryAdapter(workingAdapter());
+
+  const seen = new Set<string>();
+  for (let pass = 0; pass < 4; pass += 1) {
+    const result = await scheduleDueMarkets({ batchSize: 1 });
+    const { rows } = await query<{ market_id: string }>(
+      `select market_id from jobs where job_type = 'market_mine'
+        and status = 'QUEUED' and market_id is not null`);
+    for (const row of rows) seen.add(row.market_id);
+    await drainQueue();
+    // Every market becomes due again, as a fresh day would make them.
+    await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'`);
+    assert.ok(result.queued <= 1);
+  }
+
+  assert.equal(seen.size, 4,
+    `only ${seen.size} of 4 markets were ever scheduled: the rotation starves the rest`);
 });
