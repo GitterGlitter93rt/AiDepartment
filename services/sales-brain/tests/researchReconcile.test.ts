@@ -416,3 +416,39 @@ test('the back-fill leaves suppressed and merged companies alone', async () => {
     assert.equal(row.tier, null, 'scoring reached a company it must not touch');
   }
 });
+
+test('a score with no ledger row behind it is named, not counted as a real score', async () => {
+  // Found on the live box: 49 companies with a tier and zero rows in
+  // canonical_scores. The scorer writes both in one transaction, so none of them
+  // came from the scorer -- they were written by a seed. A score with no ledger row
+  // cannot answer "why this score", because the page reads the ledger.
+  const accountId = await discoveredAccount('Seeded Tier Roofing');
+  await query(
+    `update accounts set manual_tier = 'A', manual_score = 13, last_researched_at = now()
+      where account_id = $1`, [accountId]);
+
+  const { captureDiagnostics, diagnose } = await import('../src/release/doctor.js');
+  const state = await captureDiagnostics();
+  assert.ok(state.scoring.scoredWithoutLedger >= 1,
+    'a score the product never produced was counted as one it did');
+  assert.ok(diagnose(state).some((item) => /no ledger row behind it/.test(item.finding)));
+
+  // And the explanation really is missing, which is the consequence being reported.
+  const { latestScore } = await import('../src/scoring/score.js');
+  assert.equal(await latestScore(accountId), null);
+});
+
+test('a score the scorer produced has its ledger row and is not reported', async () => {
+  const accountId = await discoveredAccount('Properly Scored Roofing');
+  await query(
+    `update accounts set last_researched_at = now() where account_id = $1`, [accountId]);
+  const { scoreAccount } = await import('../src/scoring/score.js');
+  await scoreAccount(accountId);
+
+  const { rows } = await query<{ n: number }>(
+    'select count(*)::int as n from canonical_scores where account_id = $1', [accountId]);
+  assert.equal(rows[0]!.n, 1, 'the scorer wrote a projection with no ledger row');
+
+  const { captureDiagnostics } = await import('../src/release/doctor.js');
+  assert.equal((await captureDiagnostics()).scoring.scoredWithoutLedger, 0);
+});

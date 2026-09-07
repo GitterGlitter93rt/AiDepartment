@@ -83,6 +83,22 @@ with an unrelated "1 has fresh research" -- an operator sent to fix a
 scoring step that had never run for them. The finding now counts the
 companies its advice applies to, and correctly disappeared.
 
+**Two more from running each operator tool and reading it.** Coverage
+with no arguments printed a market-shaped report about the whole
+database -- every company held, and a saturation state for a market
+nobody had named -- and said "none: every term has been asked" when zero
+terms had been asked, because zero unasked out of zero defined satisfies
+the same branch. The vacuous truth again, this time in prose.
+
+And 49 companies carried a score with no row in `canonical_scores`
+behind it. The scorer writes the ledger and the projection in one
+transaction, so none of them came from the scorer: the seed writes the
+tier directly, and stamps `last_researched_at` while it is there. The
+consequence is concrete -- the Account page reads the ledger, so not one
+of those scores can answer "why this score". The doctor names it now.
+The seed was left alone: it writes fixed demo tiers on purpose, and
+computing them from evidence would change what the demo is for.
+
 The recurring shape, for the fourteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

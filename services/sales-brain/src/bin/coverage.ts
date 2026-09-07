@@ -35,6 +35,20 @@ if (marketId) {
   location = location ?? String(rows[0].geography_definition?.['value'] ?? '');
 }
 
+// A market has to be named. Without one this printed a market-shaped report about
+// the whole database -- every company held, and a saturation state for a market
+// nobody had asked about -- which reads as a finding rather than as a missing
+// argument.
+if (!marketId && !vertical && !location) {
+  process.stderr.write('\nName a market.\n\n'
+    + '  npm run coverage -- --vertical roofing --location 32095\n'
+    + '  npm run coverage -- --market <market-id>\n\n'
+    + 'Without one, the numbers below would be the whole database wearing a '
+    + "market's name.\n\n");
+  await closePool();
+  process.exit(2);
+}
+
 const coverage = await marketCoverage({ vertical, location, marketId });
 process.stdout.write(renderMarketCoverage(coverage));
 

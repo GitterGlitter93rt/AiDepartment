@@ -52,6 +52,13 @@ export interface Diagnostics {
      * fix a scoring step for companies no scoring step has reached.
      */
     researchedUnscored: number;
+    /**
+     * Companies carrying a score with no row in `canonical_scores` behind it. The
+     * scorer writes both in one transaction, so this can only be a score something
+     * else wrote -- and a score with no ledger row cannot answer "why", because the
+     * page reads the ledger, not the projection.
+     */
+    scoredWithoutLedger: number;
   };
   readiness: { sampled: number; repReady: number; researchNeeded: number; notWorkable: number };
 }
@@ -143,13 +150,17 @@ export async function captureDiagnostics(): Promise<Diagnostics> {
   const { SCORE_VERSION } = await import('../scoring/model.js');
   const { rows: scoreRows } = await query<{
     scored: number; unscored: number; old: number; researched_unscored: number;
+    scored_without_ledger: number;
   }>(
     `select count(*) filter (where manual_tier is not null)::int as scored,
             count(*) filter (where manual_tier is null)::int as unscored,
             count(*) filter (where manual_tier is not null
               and (score_version is null or score_version <> $1))::int as old,
             count(*) filter (where manual_tier is null
-              and last_researched_at is not null)::int as researched_unscored
+              and last_researched_at is not null)::int as researched_unscored,
+            count(*) filter (where manual_tier is not null and not exists (
+              select 1 from canonical_scores c where c.account_id = accounts.account_id
+            ))::int as scored_without_ledger
        from accounts where merged_into_account_id is null and not is_suppressed`,
     [SCORE_VERSION]);
 
@@ -215,6 +226,7 @@ export async function captureDiagnostics(): Promise<Diagnostics> {
       scored: scoreRows[0]!.scored, unscored: scoreRows[0]!.unscored,
       underOldPolicy: scoreRows[0]!.old,
       researchedUnscored: scoreRows[0]!.researched_unscored,
+      scoredWithoutLedger: scoreRows[0]!.scored_without_ledger,
     },
     readiness,
   };
@@ -334,6 +346,18 @@ export function diagnose(state: Diagnostics): Diagnosis[] {
         + 'never sees it.',
       action: 'The worker back-fills these on its sweep. If the count is static, look '
         + 'at the scoring step of the research job.',
+    });
+  }
+  if (state.scoring.scoredWithoutLedger > 0) {
+    found.push({
+      category: 'SCORING_FAILED',
+      finding: `${state.scoring.scoredWithoutLedger} compan(ies) carry a score with no `
+        + 'ledger row behind it. The scorer writes the ledger and the projection in '
+        + 'one transaction, so these came from somewhere else — a seed or a demo '
+        + 'fixture — and the Account page cannot say why any of them scored what they '
+        + 'did, because it reads the ledger.',
+      action: 'The recompute sweep replaces these with real scores as it reaches them. '
+        + 'If the count is static, no worker is running.',
     });
   }
   if (state.scoring.underOldPolicy > 0) {

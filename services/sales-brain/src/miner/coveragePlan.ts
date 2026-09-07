@@ -279,7 +279,13 @@ export function renderMarketCoverage(coverage: MarketCoverage): string {
 
   lines.push(`  not asked (${coverage.termsNotAsked.length} terms, `
     + `~$${coverage.estimatedCostUsd.toFixed(3)} to run)`);
-  lines.push(coverage.nextSearches.length === 0 ? '     none — every term has been asked'
+  lines.push(coverage.nextSearches.length === 0
+    // Zero unasked terms out of zero defined is not the same as having asked them
+    // all. Without a vertical there is no taxonomy, and "every term has been asked"
+    // is vacuously true -- it reads as complete coverage of a market nobody searched.
+    ? (coverage.termsDefined === 0
+      ? '     none — this market has no term list, so there is nothing to ask'
+      : '     none — every term has been asked')
     : coverage.nextSearches.map((search) => `     "${search.keyword}"`).join('\n'));
   lines.push('');
   lines.push(`  ${coverage.denominatorNote}`);

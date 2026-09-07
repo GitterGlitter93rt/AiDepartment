@@ -256,3 +256,40 @@ test('a suppressed company is not counted as coverage', async () => {
   assert.equal(coverage.inventory, 0,
     'a company we may not contact was counted as market coverage');
 });
+
+// ------------------------------------------ a market nobody named --------------
+
+test('"every term has been asked" is not said when there are no terms', async () => {
+  // Zero unasked out of zero defined is not the same as having asked them all.
+  // Without a vertical there is no taxonomy, and the vacuous reading of that line is
+  // complete coverage of a market nobody searched.
+  const coverage = await marketCoverage({ vertical: null, location: '32095', marketId: null });
+  assert.equal(coverage.termsDefined, 0, 'the fixture no longer tests the empty case');
+
+  const rendered = renderMarketCoverage(coverage);
+  assert.doesNotMatch(rendered, /every term has been asked/,
+    'a market with no term list was reported as fully asked');
+  assert.match(rendered, /no term list, so there is nothing to ask/);
+});
+
+test('a real market still reports its unasked terms', async () => {
+  const coverage = await marketCoverage(
+    { vertical: 'roofing', location: '32095', marketId: null });
+  assert.ok(coverage.termsDefined > 0);
+  const rendered = renderMarketCoverage(coverage);
+  assert.doesNotMatch(rendered, /no term list/);
+  assert.match(rendered, /not asked \(\d+ terms/);
+});
+
+test('the coverage command refuses a market nobody named', async () => {
+  // It printed a market-shaped report about the whole database: every company held,
+  // and a saturation state for a market nobody had asked about. That reads as a
+  // finding rather than as a missing argument.
+  const { spawnSync } = await import('node:child_process');
+  const run = spawnSync('npx', ['tsx', 'src/bin/coverage.ts'],
+    { encoding: 'utf8', timeout: 120_000 });
+  assert.equal(run.status, 2, run.stdout + run.stderr);
+  assert.match(run.stderr, /Name a market/);
+  assert.doesNotMatch(run.stdout, /MARKET COVERAGE/,
+    'a report was printed for a market that was never named');
+});
