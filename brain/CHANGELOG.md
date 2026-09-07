@@ -66,6 +66,23 @@ every test stayed green, because the wrong behaviour was to say nothing.
   reports PARTIAL with a redacted reason now, on the job itself, where
   the doctor and the support bundle can see it.
 
+**And one the audit found by running the tool it had just fixed.** The
+doctor told an operator "the worker back-fills these on its sweep" for a
+researched company with no score, and nothing did. Two sweeps exist --
+one for companies with no research at all, one for scores under an older
+ruleset -- and a company researched and then not scored fell between
+them and stayed there, unranked, so no rep ever saw it. That gap is the
+ordinary outcome of a scoring fault rather than an exotic one: scoring
+runs after the research transaction commits on purpose, so that a
+scoring fault cannot roll back a crawl.
+
+The same finding had a second half. The doctor counted *every* Account
+without a tier and described them as researched companies with no score.
+On this box that was six companies nothing had ever looked at, paired
+with an unrelated "1 has fresh research" -- an operator sent to fix a
+scoring step that had never run for them. The finding now counts the
+companies its advice applies to, and correctly disappeared.
+
 The recurring shape, for the fourteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

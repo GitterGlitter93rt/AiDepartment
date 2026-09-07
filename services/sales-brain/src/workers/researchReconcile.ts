@@ -199,6 +199,53 @@ export async function strandedResearchCount(): Promise<number> {
  * so a worker killed halfway simply finds fewer of them next time. Idempotent for
  * the same reason -- an Account already recomputed no longer matches.
  */
+/**
+ * Companies we researched and never scored.
+ *
+ * The doctor tells an operator "the worker back-fills these on its sweep", and
+ * nothing did. `reconcileMissingResearch` covers Accounts with no research at all;
+ * `recomputeStaleScores` covers Accounts that already have a tier under an older
+ * ruleset. An Account that was researched and whose scoring then failed fell between
+ * them, and stayed there: unranked, so no rep ever sees it, and invisible to the two
+ * sweeps that exist to catch exactly this.
+ *
+ * That failure has a known cause -- scoring runs after the research transaction
+ * commits, deliberately, so a scoring fault cannot roll back a crawl. Which means the
+ * gap it leaves is the normal outcome of a fault, not an exotic one.
+ */
+export async function scoreUnscoredResearched(options: {
+  limit?: number;
+} = {}): Promise<{ unscored: number; scored: number }> {
+  const WHERE = `
+      from accounts
+     where manual_tier is null
+       and last_researched_at is not null
+       and merged_into_account_id is null
+       and not is_suppressed`;
+
+  const { rows: counts } = await query<{ n: number }>(
+    `select count(*)::int as n ${WHERE}`);
+
+  const { rows } = await query<{ account_id: string }>(
+    `select account_id ${WHERE}
+      -- Longest unranked first, and a stable order so a restart resumes.
+      order by last_researched_at asc
+      limit ${Math.max(1, Math.min(1000, options.limit ?? 100))}`);
+
+  const { scoreAccount } = await import('../scoring/score.js');
+  let scored = 0;
+  for (const row of rows) {
+    try {
+      await scoreAccount(row.account_id);
+      scored += 1;
+    } catch {
+      // One Account that cannot be scored must not stop the rest of the sweep.
+    }
+  }
+
+  return { unscored: counts[0]?.n ?? 0, scored };
+}
+
 export async function recomputeStaleScores(options: {
   limit?: number;
 } = {}): Promise<{ stale: number; recomputed: number }> {

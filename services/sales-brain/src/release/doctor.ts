@@ -43,7 +43,16 @@ export interface Diagnostics {
     accountsTotal: number; neverResearched: number; researchedFresh: number;
     researchJobsQueued: number; researchJobsFailed24h: number; strandedNoResearch: number;
   };
-  scoring: { scored: number; unscored: number; underOldPolicy: number };
+  scoring: {
+    scored: number; unscored: number; underOldPolicy: number;
+    /**
+     * Researched and still unscored. The number the back-fill sweep acts on, which
+     * `unscored` is not: that counts every Account without a tier, including the
+     * ones nothing has researched yet, and an operator reading it would be told to
+     * fix a scoring step for companies no scoring step has reached.
+     */
+    researchedUnscored: number;
+  };
   readiness: { sampled: number; repReady: number; researchNeeded: number; notWorkable: number };
 }
 
@@ -132,11 +141,15 @@ export async function captureDiagnostics(): Promise<Diagnostics> {
        from accounts where merged_into_account_id is null`);
 
   const { SCORE_VERSION } = await import('../scoring/model.js');
-  const { rows: scoreRows } = await query<{ scored: number; unscored: number; old: number }>(
+  const { rows: scoreRows } = await query<{
+    scored: number; unscored: number; old: number; researched_unscored: number;
+  }>(
     `select count(*) filter (where manual_tier is not null)::int as scored,
             count(*) filter (where manual_tier is null)::int as unscored,
             count(*) filter (where manual_tier is not null
-              and (score_version is null or score_version <> $1))::int as old
+              and (score_version is null or score_version <> $1))::int as old,
+            count(*) filter (where manual_tier is null
+              and last_researched_at is not null)::int as researched_unscored
        from accounts where merged_into_account_id is null and not is_suppressed`,
     [SCORE_VERSION]);
 
@@ -201,6 +214,7 @@ export async function captureDiagnostics(): Promise<Diagnostics> {
     scoring: {
       scored: scoreRows[0]!.scored, unscored: scoreRows[0]!.unscored,
       underOldPolicy: scoreRows[0]!.old,
+      researchedUnscored: scoreRows[0]!.researched_unscored,
     },
     readiness,
   };
@@ -312,12 +326,12 @@ export function diagnose(state: Diagnostics): Diagnosis[] {
     });
   }
 
-  if (state.scoring.unscored > 0 && state.research.researchedFresh > 0) {
+  if (state.scoring.researchedUnscored > 0) {
     found.push({
       category: 'SCORING_FAILED',
-      finding: `${state.scoring.unscored} Account(s) have no tier while `
-        + `${state.research.researchedFresh} have fresh research. A researched company `
-        + 'with no score is not ranked, so a rep never sees it.',
+      finding: `${state.scoring.researchedUnscored} Account(s) were researched and `
+        + 'never scored. A researched company with no score is not ranked, so a rep '
+        + 'never sees it.',
       action: 'The worker back-fills these on its sweep. If the count is static, look '
         + 'at the scoring step of the research job.',
     });

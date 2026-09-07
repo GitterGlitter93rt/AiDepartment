@@ -14,7 +14,7 @@ import {
 } from '../src/workers/marketMiner.js';
 import { enqueueMarketResearch, enqueueAccountResearch } from '../src/workers/enqueue.js';
 import {
-  reconcileMissingResearch, strandedResearchCount,
+  reconcileMissingResearch, strandedResearchCount, scoreUnscoredResearched,
   STRANDED_AFTER_MINUTES, RETRY_AFTER_FAILURE_HOURS,
 } from '../src/workers/researchReconcile.js';
 import { researchTrigger } from '../src/workers/contactResearch.js';
@@ -338,4 +338,81 @@ test('an imported company is still the operator’s decision, not the sweep’s'
   assert.equal(rows[0]!.n, 0,
     'the sweep queued research for a company an operator chose to add themselves');
   assert.ok(result.stranded >= 0);
+});
+
+// ------------------------------------------ researched, and never scored -------
+
+/**
+ * The gap between the two sweeps.
+ *
+ * `reconcileMissingResearch` covers Accounts with no research at all.
+ * `recomputeStaleScores` covers Accounts that already have a tier under an older
+ * ruleset. An Account researched and then not scored fell between them and stayed
+ * there -- unranked, so no rep ever saw it -- while the doctor told the operator the
+ * worker would back-fill it on its sweep. Nothing did.
+ *
+ * Scoring runs after the research transaction commits, deliberately, so a scoring
+ * fault cannot roll back a crawl. The gap is the ordinary outcome of that fault.
+ */
+async function researchedAccount(name: string): Promise<string> {
+  const accountId = await discoveredAccount(name);
+  await query(
+    `update accounts set last_researched_at = now(),
+            research_fresh_until = now() + interval '30 days'
+      where account_id = $1`, [accountId]);
+  return accountId;
+}
+
+test('a company we researched and never scored is picked up and scored', async () => {
+  const accountId = await researchedAccount('Unscored Roofing');
+  const before = await query<{ tier: string | null }>(
+    'select manual_tier as tier from accounts where account_id = $1', [accountId]);
+  assert.equal(before.rows[0]!.tier, null, 'the fixture is already scored');
+
+  const result = await scoreUnscoredResearched();
+  assert.ok(result.unscored >= 1);
+  assert.ok(result.scored >= 1, 'nothing back-filled the score the doctor promises');
+
+  const after = await query<{ tier: string | null; version: string | null }>(
+    'select manual_tier as tier, score_version as version from accounts where account_id = $1',
+    [accountId]);
+  assert.ok(after.rows[0]!.tier, 'the Account is still unranked, so no rep will see it');
+  assert.ok(after.rows[0]!.version, 'a score with no policy version cannot be compared');
+});
+
+test('a company nothing has researched is not counted as a scoring failure', async () => {
+  // The other half, and the one the live box was actually in: the doctor counted
+  // every Account without a tier and called them researched companies with no score.
+  // Six of them had never been looked at. A false alarm sends an operator to fix a
+  // scoring step for companies no scoring step has reached.
+  await discoveredAccount('Never Researched Roofing');
+
+  const result = await scoreUnscoredResearched();
+  assert.equal(result.unscored, 0, 'an unresearched company was queued for scoring');
+
+  const { captureDiagnostics, diagnose } = await import('../src/release/doctor.js');
+  const state = await captureDiagnostics();
+  assert.ok(state.scoring.unscored > 0, 'the fixture no longer tests the distinction');
+  assert.equal(state.scoring.researchedUnscored, 0);
+  assert.ok(!diagnose(state).some((item) => item.category === 'SCORING_FAILED'),
+    'a company nobody has researched was reported as a scoring failure');
+});
+
+test('the back-fill leaves suppressed and merged companies alone', async () => {
+  const suppressed = await researchedAccount('Suppressed Roofing');
+  await query('update accounts set is_suppressed = true where account_id = $1', [suppressed]);
+  const merged = await researchedAccount('Merged Roofing');
+  const survivor = await researchedAccount('Survivor Roofing');
+  await query('update accounts set merged_into_account_id = $2 where account_id = $1',
+    [merged, survivor]);
+
+  const result = await scoreUnscoredResearched();
+  assert.equal(result.unscored, 1, 'a suppressed or merged company was queued for scoring');
+
+  const { rows } = await query<{ tier: string | null }>(
+    'select manual_tier as tier from accounts where account_id = any($1)',
+    [[suppressed, merged]]);
+  for (const row of rows) {
+    assert.equal(row.tier, null, 'scoring reached a company it must not touch');
+  }
 });

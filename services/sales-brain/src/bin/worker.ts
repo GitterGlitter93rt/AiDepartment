@@ -29,7 +29,8 @@ console.log(
 const SWEEP_INTERVAL_MS = numeric('REFRESH_SWEEP_INTERVAL_MS', 15 * 60_000, { min: 1000 });
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
-const { reconcileMissingResearch, recomputeStaleScores } = await import('../workers/researchReconcile.js');
+const { reconcileMissingResearch, recomputeStaleScores, scoreUnscoredResearched } =
+  await import('../workers/researchReconcile.js');
 const { scheduleDueMarkets } = await import('../workers/marketScheduler.js');
 const sweep = setInterval(async () => {
   try {
@@ -52,6 +53,16 @@ const sweep = setInterval(async () => {
     if (rescored.recomputed > 0) {
       console.log(`[worker] recomputed ${rescored.recomputed} of ${rescored.stale} `
         + 'score(s) under the current policy');
+    }
+
+    // Researched and never scored, which is what a scoring fault leaves behind.
+    // Scoring runs after the research transaction commits on purpose, so this gap is
+    // the ordinary outcome of that fault rather than an exotic one -- and until this
+    // ran, the doctor promised a back-fill that nothing performed.
+    const backfilled = await scoreUnscoredResearched();
+    if (backfilled.scored > 0) {
+      console.log(`[worker] scored ${backfilled.scored} of ${backfilled.unscored} `
+        + 'researched account(s) that had no tier');
     }
 
     // Saved markets that are due. Bounded per pass, so a reboot with ninety stale
