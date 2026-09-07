@@ -23,7 +23,13 @@ function configuredSecrets(env: NodeJS.ProcessEnv = process.env): string[] {
   const secrets: string[] = [];
   for (const [key, value] of Object.entries(env)) {
     if (!value || value.length < 8) continue;
-    if (!/KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|DSN|DATABASE_URL/i.test(key)) continue;
+    // A service's login is half a credential, and it is often a person's email
+    // address. `DATAFORSEO_LOGIN` is worth redacting; the shell's own `USER` is not,
+    // because it appears in every file path an error quotes and blanking it would
+    // turn a readable stack trace into nonsense. So the login half has to be
+    // namespaced to a service to count.
+    const secretish = /KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|DSN|DATABASE_URL/i.test(key);
+    if (!secretish && !/._(LOGIN|USERNAME|USER)$/i.test(key)) continue;
     secrets.push(value);
     // A connection string's password is a secret in its own right, and an error is
     // far more likely to quote that than the whole URL.

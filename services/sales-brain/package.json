@@ -30,7 +30,8 @@
     "retention:plan": "tsx src/bin/retention-plan.ts",
     "coverage": "tsx src/bin/coverage.ts",
     "scale:bench:recent": "tsx src/bin/scale-benchmark-recent.ts",
-    "manifest": "tsx src/bin/manifest.ts"
+    "manifest": "tsx src/bin/manifest.ts",
+    "support": "tsx src/bin/support-bundle.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
