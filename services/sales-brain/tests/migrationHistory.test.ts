@@ -232,3 +232,111 @@ test('migration filenames are ordered and unique', () => {
     + `of the filename: ${FILES.join(', ')}`);
   assert.deepEqual([...numbers].sort(), numbers, 'migration numbers are not in order');
 });
+
+// ------------------------------------------------ upgrading from where you are ---
+
+test('a database that stopped anywhere in its history can still reach today', async () => {
+  // Three schemas were covered: a fresh install, this box, and two processes racing.
+  // The one that was not is the stale install -- a machine last migrated months ago,
+  // which is what a restored backup and a long-idle environment both are. Twelve
+  // migrations landed in this campaign alone, so "stopped at 032" is a real state.
+  //
+  // Each stop point is upgraded the rest of the way and compared against a schema
+  // built in one pass. A migration that only works against the state its author
+  // happened to have passes every other test here.
+  const stops = [10, 20, 30, 35, 40].filter((stop) => stop < FILES.length);
+  assert.ok(stops.length >= 3, `only ${FILES.length} migrations exist`);
+
+  const reference = await schemaOf(SCRATCH);
+  const divergences: string[] = [];
+
+  for (const stop of stops) {
+    const database = `${SCRATCH}_from_${stop}`;
+    await withClient('postgres', async (admin) => {
+      await admin.query(`drop database if exists ${database}`);
+      await admin.query(`create database ${database}`);
+    });
+
+    await withClient(database, async (client) => {
+      // Stop where the historical box stopped.
+      for (const filename of FILES.slice(0, stop)) {
+        await client.query(readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'));
+      }
+      // Then upgrade the rest of the way, as `npm run migrate` would.
+      for (const filename of FILES.slice(stop)) {
+        await client.query(readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'));
+      }
+    });
+
+    const upgraded = await schemaOf(database);
+    const onlyUpgraded = upgraded.filter((line) => !reference.includes(line));
+    const onlyReference = reference.filter((line) => !upgraded.includes(line));
+    if (onlyUpgraded.length > 0 || onlyReference.length > 0) {
+      divergences.push(`stopped at ${stop} then upgraded:\n`
+        + onlyUpgraded.map((line) => `  extra:   ${line}`).join('\n')
+        + onlyReference.map((line) => `  missing: ${line}`).join('\n'));
+    }
+
+    await withClient('postgres',
+      (admin) => admin.query(`drop database if exists ${database}`));
+  }
+
+  assert.deepEqual(divergences, [],
+    `upgrading from a historical point does not reach the same schema as a fresh `
+    + `install:\n${divergences.join('\n')}`);
+});
+
+test('an upgrade from a historical point leaves the newest tables usable', async () => {
+  // The schema comparison catches a missing column. It does not catch a table that
+  // exists and cannot be written to, which is what a constraint or default applied in
+  // the wrong order produces.
+  const stop = Math.min(30, FILES.length - 1);
+  const database = `${SCRATCH}_usable`;
+  await withClient('postgres', async (admin) => {
+    await admin.query(`drop database if exists ${database}`);
+    await admin.query(`create database ${database}`);
+  });
+
+  await withClient(database, async (client) => {
+    for (const filename of FILES) {
+      await client.query(readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'));
+    }
+
+    // The tables this campaign added, written to as the product writes them.
+    const { rows: account } = await client.query<{ account_id: string }>(
+      `insert into accounts (canonical_name, normalized_name)
+       values ('Upgrade Co', 'upgrade co') returning account_id`);
+    const accountId = account[0]!.account_id;
+
+    await client.query(
+      `insert into search_observations (provider, source_type, observed_name, account_id,
+                                        result_type, retention_class, category, rating,
+                                        review_count)
+       values ('fixture', 'listings', 'Upgrade Co', $1, 'local_result', 'transient',
+               'HVAC contractor', 4.6, 91)`, [accountId]);
+
+    await client.query(
+      `insert into duplicate_reviews (account_a_id, account_b_id, candidate_rule)
+       select least($1::uuid, a2.account_id), greatest($1::uuid, a2.account_id),
+              'same_name_same_place'
+         from (select account_id from accounts
+                where account_id <> $1 limit 1) a2`, [accountId]);
+
+    await client.query(
+      `insert into retention_runs (policy_approved_by, policy_snapshot)
+       values ('rehearsal', '{}'::jsonb)`);
+
+    await client.query(
+      `insert into worker_instances (worker_id, hostname, pid, build_sha,
+                                      migrations_expected)
+       values ('rehearsal:1', 'rehearsal', 1, 'abc1234', $1)`, [FILES.length]);
+
+    await client.query(
+      `update accounts set score_version = 'module-4c-v2', last_researched_at = now()
+        where account_id = $1`, [accountId]);
+  });
+
+  await withClient('postgres',
+    (admin) => admin.query(`drop database if exists ${database}`));
+  void stop;
+});
