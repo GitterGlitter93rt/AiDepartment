@@ -1,6 +1,7 @@
 import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { pool, query, withTransaction } from '../src/db/pool.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
@@ -272,4 +273,69 @@ test('a discovered company is researched under the trigger that discovered it', 
   assert.equal(rows.length, 1, 'the discovered company was never researched');
   assert.equal(rows[0]!.trigger, 'newly_discovered',
     'a nightly sweep, a discovery and a rep pressing a button all recorded the same way');
+});
+
+// ------------------------------------------------- every automated source -------
+
+test('a company found by business listings is rescued, not stranded for ever', async () => {
+  // The sweep matched 'market_miner:%' alone. When business listings became a second
+  // discovery source, a company it found and failed to queue research for was
+  // invisible to the very sweep that exists to catch exactly that -- the crash
+  // window reopened for the new source, in silence.
+  const { accountId } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Listings Stranded Co', website: 'https://listingsstranded.invalid',
+    phone: '904-555-9401', city: 'St. Augustine', state: 'FL', postalCode: '32095',
+    verticalProfileId: 'hvac',
+  }, { discoverySource: 'listings:fixture' }));
+  await query(
+    `update accounts set created_at = now() - interval '2 hours' where account_id = $1`,
+    [accountId]);
+
+  const result = await reconcileMissingResearch();
+  assert.ok(result.stranded >= 1,
+    'a company discovered by a listings source was never seen by the sweep');
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from jobs
+      where account_id = $1 and job_type in ('account_research','contact_research')`,
+    [accountId]);
+  assert.equal(rows[0]!.n, 1, 'no research was queued for the stranded company');
+});
+
+test('every automated discovery source the product writes is covered by the sweep', async () => {
+  // The durable half of the fix. A third source added later gets the same defect
+  // unless somebody remembers this predicate, so the prefixes are enumerated in code
+  // and checked against what the product actually writes.
+  const { AUTOMATED_DISCOVERY_PREFIXES } = await import('../src/workers/researchReconcile.js');
+  const sources = new Set<string>();
+  for (const file of ['../src/workers/marketMiner.ts', '../src/miner/listingsIngest.ts']) {
+    const text = readFileSync(new URL(file, import.meta.url), 'utf8');
+    for (const match of text.matchAll(/discoverySource: `([a-z_]+):/g)) {
+      sources.add(`${match[1]!}:`);
+    }
+  }
+  assert.ok(sources.size >= 2, `found only ${[...sources].join(', ')}`);
+
+  const uncovered = [...sources].filter(
+    (source) => !AUTOMATED_DISCOVERY_PREFIXES.includes(source));
+  assert.deepEqual(uncovered, [],
+    `these discovery sources create Accounts the stranded-research sweep will never `
+    + `rescue: ${uncovered.join(', ')}`);
+});
+
+test('an imported company is still the operator’s decision, not the sweep’s', async () => {
+  const { accountId } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'Imported Co', website: 'https://importedco.invalid',
+    phone: '904-555-9402', city: 'St. Augustine', state: 'FL', postalCode: '32095',
+  }, { discoverySource: 'import' }));
+  await query(
+    `update accounts set created_at = now() - interval '2 hours' where account_id = $1`,
+    [accountId]);
+
+  const result = await reconcileMissingResearch();
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from jobs where account_id = $1`, [accountId]);
+  assert.equal(rows[0]!.n, 0,
+    'the sweep queued research for a company an operator chose to add themselves');
+  assert.ok(result.stranded >= 0);
 });

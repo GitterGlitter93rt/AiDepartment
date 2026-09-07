@@ -45,18 +45,39 @@ export interface ReconcileResult {
   scored: number;
 }
 
+/**
+ * Every automated discovery source, as a prefix on `activities.source_system`.
+ *
+ * An Account created by one of these was found by a machine and nobody has decided
+ * anything about it yet, so research being missing is a fault rather than a choice.
+ * An imported Account is different: an operator put it there on purpose.
+ */
+export const AUTOMATED_DISCOVERY_PREFIXES = ['market_miner:', 'listings:'];
+
+const DISCOVERY_SOURCE_PREDICATE = AUTOMATED_DISCOVERY_PREFIXES
+  .map((prefix) => `d.source_system like '${prefix}%'`)
+  .join(' or ');
+
 const STRANDED_SQL = `
   from accounts a
  where not a.is_suppressed
    and a.merged_into_account_id is null
    and a.last_researched_at is null
    and a.created_at < now() - ($1 || ' minutes')::interval
-   -- Only what a discovery provider created. An import is the operator's decision.
+   -- Only what an automated source created. An import is the operator's decision,
+   -- and a company they chose to add is theirs to research or not.
+   --
+   -- Matched on every automated prefix rather than on one. This read
+   -- 'market_miner:%' alone, so when business listings became a second discovery
+   -- source, a company it found and failed to queue research for was stranded for
+   -- ever -- invisible to the very sweep that exists to catch that. The prefixes are
+   -- listed in code beside a test that fails when a new source is added without
+   -- being covered here.
    and exists (
      select 1 from activities d
       where d.account_id = a.account_id
         and d.activity_type = 'DISCOVERED'
-        and d.source_system like 'market_miner:%')
+        and (${DISCOVERY_SOURCE_PREDICATE}))
    -- Nothing already on its way.
    and not exists (
      select 1 from jobs j
