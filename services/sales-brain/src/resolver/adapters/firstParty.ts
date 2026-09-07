@@ -20,6 +20,16 @@ export interface FirstPartyResult {
   people: PersonObservation[];
   endpoints: EndpointObservation[];
   pagesFetched: string[];
+  /**
+   * The readable text of each page, kept so business signals can be read from the
+   * same fetch rather than from a second one.
+   *
+   * The crawl already reads About, Contact and Locations pages -- the pages that say
+   * whether a company runs emergency cover, takes bookings online, has more than one
+   * branch or is hiring -- and threw the text away after looking for people. Every
+   * signal the scoring model weighs was on a page we had already downloaded.
+   */
+  pageText: { url: string; text: string }[];
   pagesBlocked: { url: string; reason: string }[];
   notes: string[];
 }
@@ -294,6 +304,31 @@ export function endpointsFromHtml(html: string, sourceReference: string): Endpoi
 
   const text = stripTags(html);
 
+  // A phone number printed in the page's own words.
+  //
+  // Only `tel:` links were captured, so a site that writes "Call (904) 555-0122" in
+  // prose -- which is most small-business sites -- produced no contact route at all.
+  // Readiness then said "research found no usable contact route" about a company
+  // whose number was on the page we had just read, and a rep would have skipped it.
+  //
+  // Captured as a company main line, never as a person's: the caution about personal
+  // attribution below is right and stays. A number in prose says how to reach the
+  // business, not who answers.
+  const printedPattern = /(?:^|[^\d])(\(?\d{3}\)?[\s.-]{1,2}\d{3}[\s.-]{1,2}\d{4})(?!\d)/g;
+  let printedMatch: RegExpExecArray | null;
+  while ((printedMatch = printedPattern.exec(text)) !== null) {
+    const normalized = normalizePhone(printedMatch[1]!);
+    if (!normalized) continue;
+    if (endpoints.some((e) => e.kind === 'PHONE' && normalizePhone(e.value) === normalized)) {
+      continue;
+    }
+    endpoints.push({
+      kind: 'PHONE', value: printedMatch[1]!.trim(), isMainLine: true,
+      explicitlyPersonal: false, sourceClass: 'COMPANY_FIRST_PARTY', sourceReference,
+      observedAt: now, freshness: 'FRESH',
+    });
+  }
+
   // An explicit personal-line statement is the one case where a company page can
   // establish a direct line (fixture `published_business_mobile_can_be_direct`).
   // Case-sensitive on purpose: the `i` flag would defeat the [A-Z] in NAME and let
@@ -370,7 +405,7 @@ export async function researchFirstParty(
   website: string, companyName?: string | null,
 ): Promise<FirstPartyResult> {
   const result: FirstPartyResult = {
-    people: [], endpoints: [], pagesFetched: [], pagesBlocked: [], notes: [],
+    people: [], endpoints: [], pagesFetched: [], pageText: [], pagesBlocked: [], notes: [],
   };
 
   let origin: string;
@@ -408,11 +443,13 @@ export async function researchFirstParty(
 
     result.pagesFetched.push(response.finalUrl);
     const reference = response.finalUrl;
+    const text = stripTags(response.body);
+    result.pageText.push({ url: reference, text });
 
     const jsonLd = peopleFromJsonLd(extractJsonLd(response.body), reference);
     result.people.push(...jsonLd.people);
     result.endpoints.push(...jsonLd.endpoints);
-    result.people.push(...peopleFromText(stripTags(response.body), reference, companyName));
+    result.people.push(...peopleFromText(text, reference, companyName));
     result.endpoints.push(...endpointsFromHtml(response.body, reference));
 
     if (!discovered) {

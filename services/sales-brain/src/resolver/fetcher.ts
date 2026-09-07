@@ -165,13 +165,13 @@ export async function politeFetch(url: string): Promise<FetchResult> {
     const declaredLength = Number(response.headers.get('content-length') ?? 0);
     if (declaredLength > MAX_BYTES) {
       return {
-        ok: false, status: response.status, url, finalUrl: response.url, contentType, body: '',
+        ok: false, status: response.status, url, finalUrl: response.url || url, contentType, body: '',
         blockedReason: 'too_large',
       };
     }
     if (contentType && !/text\/html|application\/xhtml|text\/plain|application\/json|application\/ld\+json/.test(contentType)) {
       return {
-        ok: false, status: response.status, url, finalUrl: response.url, contentType, body: '',
+        ok: false, status: response.status, url, finalUrl: response.url || url, contentType, body: '',
         blockedReason: 'not_html',
       };
     }
@@ -179,12 +179,12 @@ export async function politeFetch(url: string): Promise<FetchResult> {
     const body = (await response.text()).slice(0, MAX_BYTES);
     const blockedReason = detectWall(response.status, body);
     if (blockedReason) {
-      return { ok: false, status: response.status, url, finalUrl: response.url, contentType, body: '', blockedReason };
+      return { ok: false, status: response.status, url, finalUrl: response.url || url, contentType, body: '', blockedReason };
     }
 
     return {
       ok: response.ok, status: response.status, url,
-      finalUrl: response.url, contentType, body,
+      finalUrl: response.url || url, contentType, body,
     };
   } catch {
     return { ok: false, status: 0, url, finalUrl: url, contentType: '', body: '' };

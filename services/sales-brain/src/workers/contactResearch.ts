@@ -3,6 +3,7 @@ import { query, withTransaction } from '../db/pool.js';
 import { researchFirstParty } from '../resolver/adapters/firstParty.js';
 import { reconcile } from '../resolver/reconcile.js';
 import { persistResolution } from '../resolver/persist.js';
+import { recordEvidence } from '../domain/accounts.js';
 import type { EndpointObservation, PersonObservation } from '../resolver/types.js';
 import { registerHandler, type JobRecord } from './runner.js';
 
@@ -104,6 +105,7 @@ export async function runContactResearch(
   const people: PersonObservation[] = [];
   const endpoints: EndpointObservation[] = [];
   let pagesFetched = 0;
+  let pageText: { url: string; text: string }[] = [];
   let pagesBlocked = 0;
   const notes: string[] = [];
 
@@ -127,6 +129,7 @@ export async function runContactResearch(
     pagesFetched = firstParty.pagesFetched.length;
     pagesBlocked = firstParty.pagesBlocked.length;
     notes.push(...firstParty.notes);
+    pageText = firstParty.pageText;
   } else {
     stagesSkipped.push({ stage: 'A_company_first_party', reason: 'no website on record' });
   }
@@ -179,8 +182,43 @@ export async function runContactResearch(
   });
   resolution.notes.push(...notes);
 
+  // What the company's own pages say about how it operates.
+  //
+  // The profiles have declared these signals since they were written -- emergency
+  // cover, online booking, more than one branch, hiring, financing, membership plans
+  // -- each with the score rule it feeds. Nothing produced them: this worker read the
+  // very pages that state them and recorded only people and endpoints, so the
+  // scoring model was weighing signals no part of the system could ever observe.
+  const { extractFirstPartySignals } = await import('../resolver/signals.js');
+  const signals = pageText.length > 0
+    ? await extractFirstPartySignals({
+      verticalProfileId: account.primary_vertical_profile_id, pages: pageText,
+    })
+    : [];
+
   await withTransaction(async (client) => {
     await persistResolution(client, accountId, resolution, researchRunId);
+
+    for (const signal of signals) {
+      await recordEvidence(client, {
+        accountId,
+        researchRunId,
+        category: signal.category,
+        claimKey: signal.claimKey,
+        claimText: signal.claimText,
+        normalizedValue: 'yes',
+        // The company said it on its own site. That is the strongest kind of
+        // evidence for what a company offers, and the weakest for whether it is
+        // true -- so it is confirmed as an observation and safe to quote back,
+        // which is exactly how a rep would use it.
+        confidence: 'confirmed',
+        canStateAsFact: true,
+        sourceType: 'first_party',
+        sourceReference: signal.sourceReference,
+        expiresAt: new Date(Date.now() + signal.ttlHours * 3600_000),
+        precedenceRank: 2,
+      });
+    }
     await client.query(
       `update research_runs set status = $2, completed_at = now(), adapter_results = $3
         where research_run_id = $1`,
