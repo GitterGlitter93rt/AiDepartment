@@ -657,3 +657,41 @@ test('a result type nobody recognises is stored as unclassified, not guessed', a
   assert.equal(rows[0]!.result_type, null,
     'an unclassified observation is honest; a mislabelled paid placement is manufactured ad evidence');
 });
+
+test('a company found by business listings counts as mining, not as typed in by hand', async () => {
+  // The mining KPIs kept their own copy of "which sources are the miner", and when
+  // business listings became a second discovery source the copy did not know. A
+  // company a provider found fell through to "created another way", which on that
+  // page reads as somebody having entered it manually: the miner looked idle and a
+  // person looked busy, and both were false.
+  const { ingestListings } = await import('../src/miner/listingsIngest.js');
+  await ingestListings({
+    listings: [{
+      providerListingId: 'kpi-1', name: 'KPI Listings Co', domain: 'kpilistings.invalid',
+      phone: '+1 904-555-9500', address: '5 Main St', city: 'St. Augustine',
+      state: 'FL', postalCode: '32095', category: 'HVAC contractor',
+      rating: null, reviewCount: null, observedAt: new Date(),
+    }],
+    provider: 'fixture-listings', verticalProfileId: 'hvac',
+  });
+
+  const kpis = await miningKpis();
+  assert.equal(kpis.discoveredByMinerToday, 1,
+    'a company a provider found was not counted as mining output');
+  assert.equal(kpis.manuallyAddedToday, 0,
+    'a company a provider found was reported as manually added by a person');
+});
+
+test('every automated source the product writes is counted as mining', async () => {
+  const {
+    AUTOMATED_DISCOVERY_PREFIXES, automatedDiscoveryPredicate,
+  } = await import('../src/domain/discoverySources.js');
+
+  // The predicate the KPIs use is built from the shared list, so the two cannot
+  // drift. Asserted rather than assumed, because they drifted once already.
+  const predicate = automatedDiscoveryPredicate('x');
+  for (const prefix of AUTOMATED_DISCOVERY_PREFIXES) {
+    assert.ok(predicate.includes(`'${prefix}%'`),
+      `${prefix} is a discovery source the mining KPIs do not count`);
+  }
+});

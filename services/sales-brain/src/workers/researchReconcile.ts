@@ -1,3 +1,4 @@
+import { automatedDiscoveryPredicate } from '../domain/discoverySources.js';
 import { query } from '../db/pool.js';
 import { enqueueAccountResearch } from './enqueue.js';
 
@@ -45,18 +46,7 @@ export interface ReconcileResult {
   scored: number;
 }
 
-/**
- * Every automated discovery source, as a prefix on `activities.source_system`.
- *
- * An Account created by one of these was found by a machine and nobody has decided
- * anything about it yet, so research being missing is a fault rather than a choice.
- * An imported Account is different: an operator put it there on purpose.
- */
-export const AUTOMATED_DISCOVERY_PREFIXES = ['market_miner:', 'listings:'];
-
-const DISCOVERY_SOURCE_PREDICATE = AUTOMATED_DISCOVERY_PREFIXES
-  .map((prefix) => `d.source_system like '${prefix}%'`)
-  .join(' or ');
+const DISCOVERY_SOURCE_PREDICATE = automatedDiscoveryPredicate('d.source_system');
 
 const STRANDED_SQL = `
   from accounts a
@@ -67,12 +57,10 @@ const STRANDED_SQL = `
    -- Only what an automated source created. An import is the operator's decision,
    -- and a company they chose to add is theirs to research or not.
    --
-   -- Matched on every automated prefix rather than on one. This read
-   -- 'market_miner:%' alone, so when business listings became a second discovery
-   -- source, a company it found and failed to queue research for was stranded for
-   -- ever -- invisible to the very sweep that exists to catch that. The prefixes are
-   -- listed in code beside a test that fails when a new source is added without
-   -- being covered here.
+   -- Matched through the shared source list rather than a predicate of its own.
+   -- This read 'market_miner:%' alone, so when business listings became a second
+   -- discovery source, a company it found and failed to queue research for was
+   -- stranded for ever -- invisible to the very sweep that exists to catch that.
    and exists (
      select 1 from activities d
       where d.account_id = a.account_id

@@ -306,7 +306,7 @@ test('every automated discovery source the product writes is covered by the swee
   // The durable half of the fix. A third source added later gets the same defect
   // unless somebody remembers this predicate, so the prefixes are enumerated in code
   // and checked against what the product actually writes.
-  const { AUTOMATED_DISCOVERY_PREFIXES } = await import('../src/workers/researchReconcile.js');
+  const { AUTOMATED_DISCOVERY_PREFIXES } = await import('../src/domain/discoverySources.js');
   const sources = new Set<string>();
   for (const file of ['../src/workers/marketMiner.ts', '../src/miner/listingsIngest.ts']) {
     const text = readFileSync(new URL(file, import.meta.url), 'utf8');
@@ -317,7 +317,7 @@ test('every automated discovery source the product writes is covered by the swee
   assert.ok(sources.size >= 2, `found only ${[...sources].join(', ')}`);
 
   const uncovered = [...sources].filter(
-    (source) => !AUTOMATED_DISCOVERY_PREFIXES.includes(source));
+    (source) => !(AUTOMATED_DISCOVERY_PREFIXES as readonly string[]).includes(source));
   assert.deepEqual(uncovered, [],
     `these discovery sources create Accounts the stranded-research sweep will never `
     + `rescue: ${uncovered.join(', ')}`);

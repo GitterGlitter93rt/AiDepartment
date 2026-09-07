@@ -1,3 +1,7 @@
+import {
+  automatedDiscoveryPredicate,
+  SYNTHETIC_SOURCES as SYNTHETIC_SOURCES_LIST,
+} from '../domain/discoverySources.js';
 import { query } from '../db/pool.js';
 
 /** Read models for the Wave C operations pages. */
@@ -10,20 +14,18 @@ import { query } from '../db/pool.js';
  * mining output; the rest are a rep, a spreadsheet, or a fixture.
  */
 /**
- * The `source_system` values that mean a search provider found this company.
+ * Which activities count as mining output.
  *
- * The miner writes `market_miner:<provider>` -- `market_miner:dataforseo` -- so an
- * exact-match list of bare provider names matched none of them. The KPI that exists
- * to stop demo rows being counted as mining output was, in the other direction,
- * counting none of the real mining output either: every business a provider actually
- * discovered fell through to "created another way".
- *
- * Matched by prefix as well as by name, so a new provider is counted the day it is
- * added rather than the day somebody remembers to edit this list.
+ * Read from the shared source list rather than restated here. This file had its own
+ * copy, and when business listings became a second discovery source the copy did not
+ * know: a company a provider found was counted as "created another way", which on
+ * the Mining page reads as somebody having typed it in by hand. The miner looked
+ * idle and a person looked busy, and both were false.
  */
-export const MINER_SOURCES = ['dataforseo', 'market_miner', 'serp'] as const;
-export const MINER_SOURCE_PREFIX = 'market_miner:';
-export const SYNTHETIC_SOURCES = ['SYNTHETIC_FIXTURE', 'DEMO_FIXTURE'] as const;
+export {
+  AUTOMATED_DISCOVERY_EXACT as MINER_SOURCES,
+  SYNTHETIC_SOURCES,
+} from '../domain/discoverySources.js';
 
 export interface MiningKpis {
   active: number;
@@ -71,8 +73,7 @@ export async function miningKpis(): Promise<MiningKpis> {
        (select count(distinct act.account_id)::int from activities act
          where act.activity_type = 'DISCOVERED'
            and act.occurred_at > now() - interval '1 day'
-           and (act.source_system = any($1::text[])
-             or act.source_system like 'market_miner:%')) as discovered_by_miner_today,
+           and ${automatedDiscoveryPredicate('act.source_system')}) as discovered_by_miner_today,
        (select count(distinct act.account_id)::int from activities act
          where act.activity_type = 'DISCOVERED'
            and act.occurred_at > now() - interval '1 day'
@@ -80,16 +81,15 @@ export async function miningKpis(): Promise<MiningKpis> {
        (select count(distinct act.account_id)::int from activities act
          where act.activity_type = 'DISCOVERED'
            and act.occurred_at > now() - interval '1 day'
-           and act.source_system = any($2::text[])) as synthetic_seeded_today,
+           and act.source_system = any($1::text[])) as synthetic_seeded_today,
        (select count(*)::int from accounts a
          where a.created_at > now() - interval '1 day'
            and not exists (select 1 from activities act
                             where act.account_id = a.account_id
                               and act.activity_type = 'DISCOVERED'
-                              and (act.source_system = any($1::text[])
-                                or act.source_system like 'market_miner:%'
+                              and (${automatedDiscoveryPredicate('act.source_system')}
                                 or act.source_system = 'import'
-                                or act.source_system = any($2::text[])))) as manually_added_today,
+                                or act.source_system = any($1::text[])))) as manually_added_today,
        (select count(*)::int from accounts
          where created_at > now() - interval '1 day') as created_today_total,
 
@@ -103,7 +103,11 @@ export async function miningKpis(): Promise<MiningKpis> {
        (select count(*)::int from jobs
          where outcome = 'DISCOVERY_BLOCKED'
            and completed_at > now() - interval '1 day') as discovery_blocked_jobs_today`,
-    [[...MINER_SOURCES], [...SYNTHETIC_SOURCES]],
+    // The automated-source test is built from the shared list rather than passed in,
+    // so the two callers cannot drift apart again. Only the synthetic list is still a
+    // parameter, and an unreferenced one would leave PostgreSQL unable to infer its
+    // type at all.
+    [[...SYNTHETIC_SOURCES_LIST]],
   );
   const row = rows[0]!;
   const number = (key: string): number => Number(row[key] ?? 0);
