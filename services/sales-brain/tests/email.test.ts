@@ -240,10 +240,24 @@ test('§20.4 a hard bounce kills the address but keeps the Account', async () =>
   });
   assert.ok(result.actions.includes('endpoint_marked_hard_bounce'));
 
+  // The email endpoint specifically. The fixture gives this Account a phone as well,
+  // and this asked for every endpoint with no ordering and read row zero -- so which
+  // one it checked was whatever PostgreSQL happened to return first. It passed until
+  // the table's physical layout shifted, which is the worst kind of test: correct by
+  // luck, and failing later for a reason unrelated to whatever changed.
   const endpoint = await query<{ quality_state: string; is_active: boolean }>(
-    `select quality_state, is_active from contact_endpoints where account_id = $1`, [accountId]);
+    `select quality_state, is_active from contact_endpoints
+      where account_id = $1 and endpoint_type = 'EMAIL'`, [accountId]);
+  assert.equal(endpoint.rows.length, 1, 'the fixture no longer has exactly one email');
   assert.equal(endpoint.rows[0]!.quality_state, 'HARD_BOUNCE');
   assert.equal(endpoint.rows[0]!.is_active, false);
+
+  // And the phone is untouched: a dead email address is not a dead company.
+  const phone = await query<{ quality_state: string; is_active: boolean }>(
+    `select quality_state, is_active from contact_endpoints
+      where account_id = $1 and endpoint_type = 'PHONE'`, [accountId]);
+  assert.equal(phone.rows[0]!.is_active, true,
+    'a bounced email deactivated the phone number as well');
 
   const account = await query<{ is_suppressed: boolean; relationship_state: string }>(
     'select is_suppressed, relationship_state from accounts where account_id = $1', [accountId]);

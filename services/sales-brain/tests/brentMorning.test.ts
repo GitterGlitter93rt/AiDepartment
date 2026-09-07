@@ -92,11 +92,23 @@ function foundCompanies(): void {
   });
 }
 
-async function mine(zip: string, requestedBy: string): Promise<void> {
+/**
+ * Runs the market search. `researchToo` runs the research it queues as well.
+ *
+ * They were one step until research began stamping the Account as researched, at
+ * which point "found overnight and researched by nobody" could not be built by
+ * draining the whole queue -- because draining it does the research. The state this
+ * test is about is the gap between the two, which is exactly the window a crash or a
+ * slow night leaves open.
+ */
+async function mine(
+  zip: string, requestedBy: string, researchToo = true,
+): Promise<void> {
   await enqueueMarketResearch({
     verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: zip,
     marketId: null, requestedBy });
-  await drainQueue();
+  if (researchToo) await drainQueue();
+  else await drainQueue(1);
 }
 
 async function findPage(cookie: string, zip: string): Promise<string> {
@@ -111,7 +123,9 @@ async function findPage(cookie: string, zip: string): Promise<string> {
 test('found overnight, researched by nobody: the page says so and offers research', async () => {
   const ops = await opsUser();
   foundCompanies();
-  await mine('32095', ops);
+  // The mine only: the research it queued has not run yet, which is the state an
+  // operator finds when the night ended between the two.
+  await mine('32095', ops, false);
   const cookie = await brent();
 
   const page = await findPage(cookie, '32095');

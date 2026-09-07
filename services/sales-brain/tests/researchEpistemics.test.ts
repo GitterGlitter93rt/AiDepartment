@@ -207,17 +207,21 @@ test('sources that disagree are a conflict, not a quiet winner', async () => {
     `insert into evidence_records
        (account_id, category, claim_key, claim_text, normalized_value, confidence,
         can_state_as_fact, source_type, expires_at, freshness)
-     values ($1, 'operations', 'emergency_24_7_service', 'site says 24/7', 'yes',
+     values ($1, 'intake', 'online_quote_booking', 'site offers online booking', 'yes',
              'confirmed', true, 'first_party', now() + interval '30 days', 'fresh')
      returning evidence_id`, [accountId]);
   await query(
     `update evidence_records set contradicted_by_evidence_id = evidence_id
       where evidence_id = $1`, [rows[0]!.evidence_id]);
 
-  const emergency = fact(await researchPictureFor(accountId), 'emergency_24_7_service');
-  assert.equal(emergency.state, 'CONFLICT');
-  assert.equal(emergency.canStateAsFact, false);
-  assert.match(emergency.detail, /Ask on the call/);
+  // A signal the roofing profile actually declares. The fact model reads the
+  // vertical's declared signals now rather than a hard-coded three, so a key the
+  // profile does not ask for has no fact at all -- and roofing does not declare
+  // emergency cover, because storm work is its own signal there.
+  const booking = fact(await researchPictureFor(accountId), 'online_quote_booking');
+  assert.equal(booking.state, 'CONFLICT');
+  assert.equal(booking.canStateAsFact, false);
+  assert.match(booking.detail, /Ask on the call/);
 });
 
 // -------------------------------------------------------------- on the page ----

@@ -56,6 +56,32 @@ export const UNKNOWING: ReadonlySet<FactState> = new Set<FactState>([
   'NOT_OBSERVED', 'NOT_CHECKED', 'UNKNOWN', 'CONFLICT',
 ]);
 
+/** What a rep would call each signal, and what its absence honestly means. */
+const SIGNAL_LABELS: Record<string, string> = {
+  emergency_24_7_service: 'Emergency / 24-7 service',
+  online_quote_booking: 'Online booking or quote form',
+  multiple_locations: 'More than one location',
+  visible_growth_hiring: 'Hiring or expanding',
+  financing_promoted: 'Financing offered',
+  membership_program: 'Maintenance or membership plan',
+};
+
+const SIGNAL_ABSENT: Record<string, string> = {
+  emergency_24_7_service:
+    'Their site does not claim it. Plenty of companies offer it without saying so.',
+  online_quote_booking: 'None was found on the pages we read.',
+  multiple_locations: 'Only one location was found, which is what the pages showed.',
+  visible_growth_hiring: 'No hiring page or open roles were found on the pages we read.',
+  financing_promoted: 'Not mentioned on the pages we read. Many offer it without saying so.',
+  membership_program: 'No plan was mentioned on the pages we read.',
+};
+
+/** A readable label for a signal nobody has named yet. */
+function titleFromKey(key: string): string {
+  const words = key.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 const ADVERTISER_STATE: Record<AdvertiserState, FactState> = {
   CONFIRMED: 'YES',
   // Never NO. One search that did not show an ad is one search.
@@ -124,9 +150,12 @@ function factFromEvidence(
 export async function researchPictureFor(accountId: string): Promise<ResearchPicture> {
   const [accountRows, domainRows, evidenceRows, runRows, endpointRows, contactRows] =
     await Promise.all([
-      query<{ canonical_domain: string | null; last_researched_at: Date | null }>(
-        'select canonical_domain, last_researched_at from accounts where account_id = $1',
-        [accountId]),
+      query<{
+        canonical_domain: string | null; last_researched_at: Date | null;
+        primary_vertical_profile_id: string | null;
+      }>(
+        `select canonical_domain, last_researched_at, primary_vertical_profile_id
+           from accounts where account_id = $1`, [accountId]),
       query<{ hostname: string; canonical_url: string | null }>(
         `select hostname, canonical_url from account_domains
           where account_id = $1 and domain_role = 'primary' limit 1`, [accountId]),
@@ -229,15 +258,20 @@ export async function researchPictureFor(accountId: string): Promise<ResearchPic
   });
 
   // --- what they do ------------------------------------------------------------
-  for (const [key, label, absent] of [
-    ['emergency_24_7_service', 'Emergency / 24-7 service',
-      'Their site does not claim it. Plenty of companies offer it without saying so.'],
-    ['online_quote_booking', 'Online booking or quote form',
-      'None was found on the pages we read.'],
-    ['multiple_locations', 'More than one location',
-      'Only one location was found, which is what the pages showed.'],
-  ] as const) {
-    facts.push(factFromEvidence(key, label, evidence, everResearched, absent));
+  //
+  // Read from the vertical's own declared signals rather than a list here. This was
+  // three hard-coded keys while the extractor could record six and the profiles
+  // declare thirteen, so a financing or hiring signal was written to evidence and
+  // then reported by nothing -- present in the database, invisible on the page, and
+  // uncounted by completeness. The same mistake as every other list in this codebase
+  // that knew less than the configuration beside it.
+  const { readableSignalsFor } = await import('../resolver/signals.js');
+  const declared = await readableSignalsFor(account?.primary_vertical_profile_id ?? null);
+  for (const signal of declared) {
+    facts.push(factFromEvidence(
+      signal.claimKey, SIGNAL_LABELS[signal.claimKey] ?? titleFromKey(signal.claimKey),
+      evidence, everResearched,
+      SIGNAL_ABSENT[signal.claimKey] ?? 'Not found on the pages we read.'));
   }
 
   // --- advertising -------------------------------------------------------------

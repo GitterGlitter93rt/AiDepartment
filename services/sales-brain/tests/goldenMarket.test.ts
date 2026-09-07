@@ -270,6 +270,15 @@ test('no two companies in one market were merged into each other', async () => {
 /**
  * Evidence for a known slice of the market, written from the index so the expected
  * tiers are arithmetic rather than a guess.
+ *
+ * The research the mine queued is deliberately not run here. The crawler spaces
+ * requests 1.5 seconds apart per host, which is correct and must not be weakened for
+ * a test -- and eighty-one companies each crawling their own host is twelve minutes
+ * to prove something this file is not about. The research pipeline is exercised
+ * properly in researchFixtures and repDay, on a handful of companies with real page
+ * content. Here the Accounts are stamped as researched directly, in the same place
+ * and for the same reason the evidence is written by hand: the subject is dedupe,
+ * funnel arithmetic and ranking.
  */
 async function scoreTheMarket(): Promise<void> {
   const { rows } = await query<{ account_id: string; canonical_name: string }>(
@@ -291,6 +300,11 @@ async function scoreTheMarket(): Promise<void> {
     }
     await scoreAccount(account.account_id);
   }
+
+  await query(
+    `update accounts set last_researched_at = now(),
+            research_fresh_until = now() + interval '10 days'
+      where merged_into_account_id is null`);
 }
 
 test('the ranked list is the same list twice, and the top of it is the right top', async () => {
@@ -363,10 +377,11 @@ test('coverage and inventory tell the operator the same story', async () => {
   assert.equal(coverage.unclaimedCount, EXPECTED_ACCOUNTS,
     'a company was claimed by nobody’s action');
 
-  // Discovered, not yet researched. This must not read as research that has aged:
-  // "treat advertising signals as historical" said of a company nobody has looked
-  // at invites a rep to believe we once saw signals we have never seen.
-  assert.equal(coverage.researchedCount, 0);
-  assert.equal(coverage.state, 'NOT_YET_RESEARCHED',
-    `a market discovered and never researched reports as ${coverage.state}`);
+  // Discovered and then researched, because the run that found them queued research
+  // and the golden setup drains the queue. Research now stamps the Account, so these
+  // count as researched -- which is the point of the two numbers agreeing.
+  assert.equal(coverage.researchedCount, EXPECTED_ACCOUNTS,
+    `${coverage.researchedCount} of ${EXPECTED_ACCOUNTS} were recorded as researched`);
+  assert.equal(coverage.state, 'FRESH',
+    `a market researched moments ago reports as ${coverage.state}`);
 });

@@ -275,6 +275,30 @@ export async function runContactResearch(
     console.error('[research] scoring failed', { accountId, error });
   }
 
+  // The run happened, so the Account says so.
+  //
+  // Nothing in this product has ever written `last_researched_at`. Only seeds and
+  // fixtures did -- which is why every test that needed a researched Account set it
+  // by hand, and why the live box reads zero rep-ready with forty-eight stale
+  // scores. The research worker crawled the site, wrote evidence and scored the
+  // company, and then left no mark saying it had run.
+  //
+  // Everything downstream asks this column. The freshness projection marks an
+  // unstamped Account THIN; completeness keys its label on it; the fact model uses it
+  // to tell "we looked and found nothing" from "nobody has looked"; coverage counts
+  // researched companies with it; Find Prospects filters on the label it produces. All
+  // of them were reading null and answering honestly about the wrong thing.
+  //
+  // Freshness is thirty days: how long before the research should be re-run, which is
+  // a different question from how long a single piece of evidence stays current. Ad
+  // evidence expires in forty-eight hours, and using that here would call every
+  // researched company stale two days later.
+  await query(
+    `update accounts
+        set last_researched_at = now(),
+            research_fresh_until = now() + interval '30 days'
+      where account_id = $1`, [accountId]);
+
   // How much of what matters we now have an answer to.
   //
   // The only writer of this used to set THIN or STALE and nothing else, so a
