@@ -27,7 +27,8 @@
     "growth": "tsx src/bin/growth-report.ts",
     "miner:canary": "tsx src/bin/miner-canary.ts",
     "doctor": "tsx src/bin/doctor.ts",
-    "retention:plan": "tsx src/bin/retention-plan.ts"
+    "retention:plan": "tsx src/bin/retention-plan.ts",
+    "coverage": "tsx src/bin/coverage.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
