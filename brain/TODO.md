@@ -40,9 +40,16 @@ A task should appear in only one status section. Dependencies may be referenced 
   looked"), C (a REP_READY contract — found is not researched), E (vertical, service
   and event separated; the `hail damage roof 32095` mechanism found and fixed, and
   the `negative_terms` every profile declared and nothing read now applied).
-  **Next action:** D, then F–I, then J–W. **Completion gate:** each item has
-  regression tests, and the remaining canary gates are named as needing a credential
-  rather than left implied.
+  Also done: D (business listings as structured entity discovery, converging on one
+  canonical Account in every arrival order), F (`npm run miner:canary` — a market
+  search an operator can read before it costs anything; dry by default, live needs
+  the ceiling stated twice, and the live path is the ordinary queue), canonical
+  identity hardening (a shared word and a shared Facebook page are not one company),
+  and one shared discovery-source list after the same "which sources are the miner"
+  copy was found wrong for a third time.
+  **Next action:** research/scoring/readiness depth, then coverage/planner, then
+  operator diagnostics. **Completion gate:** each item has regression tests, and the
+  remaining canary gates are named as needing a credential rather than left implied.
 
 - [ ] **SB-QA2 — Overnight miner/search/worker hardening (GitHub Issue #3).** The
   durable execution ledger for the overnight campaign under SB-QA1. Thirteen commits

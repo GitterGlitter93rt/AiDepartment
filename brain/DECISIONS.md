@@ -478,3 +478,49 @@ the provider query, which would change what the engine ranks. Whole-word matchin
 rejecting a real prospect is worse than admitting a supply house: nobody ever learns it
 happened.
 
+## 2026-09-06 — Source architecture and identity (Issue #3, items D and F onward)
+
+### Listings discover who exists; SERP discovers who pays
+
+A SERP row's identity is weak -- a domain or a phone and nothing that stably names the
+business -- and that weakness already caused a mass collapse when the adapter fell back to
+the provider's search-task id. A business listing carries an id that means the same business
+tomorrow, so **a listing id is legitimate source identity and a search task id is not.**
+
+Listings, SERP, first-party research and imports all converge on one canonical Account.
+Whichever source arrives first creates it; the rest fill it in. Arrival order is an accident
+of scheduling, so rep ownership, suppression, call history, contacts, opportunities and
+meetings all survive a company being re-found. Mining may enrich a suppressed Account and
+may never unsuppress it.
+
+A structured-listing row without a stable id is not promoted to strong identity just because
+it arrived through that adapter.
+
+### A canary is a description before it is a run
+
+`npm run miner:canary` is dry by default. Live requires `--live` **and**
+`--confirm-spend-cents` repeating the ceiling, so a runbook command that somebody copies can
+never spend money. The live path enqueues an ordinary `market_mine` job: a canary with its
+own fast path would prove the canary works and say nothing about the system that will run.
+
+A cost no provider declared is reported as unknown, never as zero. A market where every
+result is a company we already hold is coverage, not `ZERO_RESULTS`.
+
+### Two companies are not one because they share a word or a platform
+
+A one-token name must match exactly. Overlap measured against the smaller name let "roofing"
+merge with "salazar roofing and repair" on a shared answering-service number.
+
+Platform domains -- social, directories, marketplaces, site-builder apexes -- are refused
+for identity and never stored as `canonical_domain`, because path stripping turns
+`facebook.com/salazarroofing` into `facebook.com`. A distinctive subdomain
+(`salazarroofing.wixsite.com`) is still identity; only the bare apex is refused.
+
+### One list of what counts as automated discovery
+
+`src/domain/discoverySources.ts` owns it and builds the SQL predicate. Three separate copies
+of this idea had each been wrong at some point: an exact-match list that matched none of the
+miner's output, a sweep that could not rescue listings-discovered Accounts, and KPIs that
+reported provider discoveries as typed in by hand. A new source is now counted, swept and
+reported the day it is added.
+
