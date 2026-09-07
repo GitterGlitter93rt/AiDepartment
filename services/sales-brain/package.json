@@ -29,7 +29,8 @@
     "doctor": "tsx src/bin/doctor.ts",
     "retention:plan": "tsx src/bin/retention-plan.ts",
     "coverage": "tsx src/bin/coverage.ts",
-    "scale:bench:recent": "tsx src/bin/scale-benchmark-recent.ts"
+    "scale:bench:recent": "tsx src/bin/scale-benchmark-recent.ts",
+    "manifest": "tsx src/bin/manifest.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

@@ -98,10 +98,31 @@ export async function runContactResearch(
   );
   const hypothesisCategory = hypothesisRows[0]?.category ?? null;
 
+  // Which profile produced this run's evidence.
+  //
+  // The column has existed since the table was written and was null on every row. A
+  // profile decides which terms are searched, which signals score and which results
+  // are excluded, so editing one changes all three -- and without this, "why did this
+  // company score differently last month" is unanswerable. The same problem the score
+  // policy version already solved, one layer over and unsolved.
+  //
+  // The content hash rather than `profile_version`: every profile in the repository
+  // still says 1.0.0, including the ones edited in this campaign, so the declared
+  // version would record a constant.
+  const { profileContentHash } = await import('../domain/verticals.js');
+  const { rows: profileRows } = await query<{ definition: unknown; profile_version: string }>(
+    'select definition, profile_version from vertical_profiles where vertical_profile_id = $1',
+    [account.primary_vertical_profile_id]);
+  const profileStamp = profileRows[0]
+    ? `${profileRows[0].profile_version}+${profileContentHash(profileRows[0].definition)}`
+    : null;
+
   const { rows: runRows } = await query<{ research_run_id: string }>(
-    `insert into research_runs (account_id, trigger, vertical_profile_id, status)
-     values ($1, $3, $2, 'running') returning research_run_id`,
-    [accountId, account.primary_vertical_profile_id, researchTrigger(trigger)],
+    `insert into research_runs (account_id, trigger, vertical_profile_id,
+                                vertical_profile_version, status)
+     values ($1, $3, $2, $4, 'running') returning research_run_id`,
+    [accountId, account.primary_vertical_profile_id, researchTrigger(trigger),
+      profileStamp],
   );
   const researchRunId = runRows[0]!.research_run_id;
 

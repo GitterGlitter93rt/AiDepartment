@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -64,6 +65,26 @@ export function loadVerticalProfilesFromRepo(): VerticalProfile[] {
     });
   }
   return profiles.sort((a, b) => a.priority - b.priority);
+}
+
+/**
+ * A hash of what a profile actually says.
+ *
+ * `profile_version` is a hand-maintained string and every profile in the repository
+ * still says 1.0.0 -- including the ones edited in this campaign to add causes and
+ * mark inherent events. So the version cannot tell anybody whether behaviour
+ * changed, and a research run recording it would record a constant.
+ *
+ * A profile decides which terms are searched, which signals score and which results
+ * are excluded. Editing one changes all three silently. The hash changes whenever the
+ * definition does, which is the fact worth keeping beside a run's evidence -- the
+ * same reason a score records its policy version.
+ */
+export function profileContentHash(definition: unknown): string {
+  return createHash('sha256')
+    .update(JSON.stringify(definition ?? null))
+    .digest('hex')
+    .slice(0, 12);
 }
 
 export async function syncVerticalProfiles(): Promise<number> {
