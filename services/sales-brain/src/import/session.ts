@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { query, withTransaction } from '../db/pool.js';
+import { query, withRollback, withTransaction } from '../db/pool.js';
 import { parseCsv, detectDelimiter } from './csv.js';
 import { applyColumnMap, inferColumnMap, verticalHintFor, type ColumnMap, type MappedRow } from './mapping.js';
-import { resolveAccountIdentity } from '../domain/accounts.js';
+import { resolveAccountIdentity, upsertAccount } from '../domain/accounts.js';
 import { importCsvContent, type ImportReport } from './importer.js';
 import { normalizeEmail, normalizePhone } from '../domain/normalize.js';
 
@@ -208,7 +208,19 @@ export async function buildPreview(sessionId: string, userId: string): Promise<I
   let missingEmail = 0;
   let missingWebsite = 0;
 
-  await withTransaction(async (client) => {
+  // The preview does the import and rolls it back.
+  //
+  // It used to resolve each row against the database and never against the rows
+  // above it, so three identical rows previewed as three new companies and confirmed
+  // as one. An operator approving "500 new companies" got three hundred and would
+  // reasonably think the import had broken. That was two implementations of one
+  // decision, and they drifted; this is one implementation run twice, which cannot.
+  //
+  // `withRollback` always rolls back, including on success. Nothing here can commit.
+  await withRollback(async (client) => {
+    /** Rows already previewed, so a duplicate inside the file is seen as one. */
+    const createdInFile = new Map<string, number>();
+
     for (let index = 0; index < Math.min(rawRows.length, MAX_PREVIEW_ROWS); index += 1) {
       const raw = rawRows[index]!;
       const mapped = applyColumnMap(raw, summary.columnMap);
@@ -245,8 +257,35 @@ export async function buildPreview(sessionId: string, userId: string): Promise<I
       };
 
       if (!existing) {
+        // Written into the rolled-back transaction, so the next row that names the
+        // same company resolves onto it rather than counting as another new one.
+        const created = await upsertAccount(
+          client,
+          {
+            canonicalName: mapped.company ?? mapped.domain!,
+            website: mapped.domain, phone: mapped.phone,
+            city: mapped.city, state: mapped.state, postalCode: mapped.postalCode,
+            verticalProfileId: hinted && knownVerticals.has(hinted) ? hinted : null,
+          },
+          { discoverySource: 'import' },
+        );
+        createdInFile.set(created.accountId, index + 2);
         rows.push({ ...base, outcome: 'CREATE', detail: 'New account' });
         totals.create += 1;
+        continue;
+      }
+
+      // A match on a row earlier in this same file is a different fact from a match
+      // on inventory, and the operator needs to know which: one means their list has
+      // duplicates in it, the other means we already hold the company.
+      const earlierLine = createdInFile.get(existing.accountId);
+      if (earlierLine !== undefined) {
+        rows.push({
+          ...base, outcome: 'MERGE',
+          detail: `The same company as line ${earlierLine} of this file, on `
+            + `${existing.matchRule.replace(/_/g, ' ')}. One Account, not two.`,
+        });
+        totals.merge += 1;
         continue;
       }
 

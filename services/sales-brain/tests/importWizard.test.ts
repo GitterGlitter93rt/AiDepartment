@@ -376,3 +376,124 @@ test('another rep cannot discard or re-map somebody else\'s upload', async () =>
     'select status from import_sessions where import_session_id = $1', [session.importSessionId]);
   assert.equal(rows[0]!.status, 'MAPPED', 'the owner\'s session is untouched');
 });
+
+// ------------------------------------- the preview and the outcome must agree ----
+
+test('duplicates inside one file are previewed as one company, not several', async () => {
+  // The preview resolved each row against the database and never against the rows
+  // above it, so three identical rows previewed as three new companies and confirmed
+  // as one. An operator approving "500 new companies" got three hundred and would
+  // reasonably conclude the import had broken.
+  const ops = await makeUser(`Dupe Preview ${Date.now()}`, 'RESEARCH_OPS');
+  const csv = [
+    'company,website,phone,city,state',
+    'Coastal Air,https://coastalair.invalid,904-555-0101,St. Augustine,FL',
+    'Coastal Air,https://coastalair.invalid,904-555-0101,St. Augustine,FL',
+    'Coastal Air LLC,https://coastalair.invalid,904-555-0102,St. Augustine,FL',
+  ].join('\n');
+
+  const session = await createSession({
+    content: csv, fileName: 'within-file-dupes.csv', sourceName: 'dupes',
+    createdBy: ops.userId });
+  const preview = (await buildPreview(session.importSessionId, ops.userId))!;
+
+  assert.equal(preview.totals.create, 1,
+    `the preview promised ${preview.totals.create} new companies from three rows of one`);
+  assert.equal(preview.totals.merge, 2);
+
+  // And it says which line, because "your list has duplicates in it" is a different
+  // fact from "we already hold this company".
+  const merged = preview.rows.filter((row) => row.outcome === 'MERGE');
+  assert.match(String(merged[0]!.detail), /line 2 of this file/,
+    'the operator is not told that the duplicate is inside their own file');
+  assert.match(String(merged[0]!.detail), /One Account, not two/);
+});
+
+test('the preview count is exactly what confirming produces', async () => {
+  const ops = await makeUser(`Exact Preview ${Date.now()}`, 'RESEARCH_OPS');
+  const csv = [
+    'company,website,phone,city,state',
+    'Alpha Roofing,https://alpharoofing.invalid,904-555-0201,St. Augustine,FL',
+    'Alpha Roofing,https://alpharoofing.invalid,904-555-0201,St. Augustine,FL',
+    'Beta Plumbing,https://betaplumbing.invalid,904-555-0202,St. Augustine,FL',
+    'Gamma Air,https://gammaair.invalid,904-555-0203,St. Augustine,FL',
+    'Gamma Air Inc,https://gammaair.invalid,904-555-0204,St. Augustine,FL',
+  ].join('\n');
+
+  const session = await createSession({
+    content: csv, fileName: 'exact.csv', sourceName: 'exact', createdBy: ops.userId });
+  const preview = (await buildPreview(session.importSessionId, ops.userId))!;
+  const promised = preview.totals.create;
+
+  const before = await query<{ n: number }>('select count(*)::int as n from accounts');
+  await confirmSession(session.importSessionId, ops.userId);
+  const after = await query<{ n: number }>('select count(*)::int as n from accounts');
+
+  assert.equal(after.rows[0]!.n - before.rows[0]!.n, promised,
+    `the preview promised ${promised} new companies and confirming created `
+    + `${after.rows[0]!.n - before.rows[0]!.n}`);
+});
+
+test('previewing writes nothing, however much it has to try', async () => {
+  // The preview now performs the import to answer honestly, and rolls it back. A
+  // preview that could commit by accident is worse than no preview at all.
+  const ops = await makeUser(`Rollback Preview ${Date.now()}`, 'RESEARCH_OPS');
+  const csv = [
+    'company,website,phone,city,state',
+    'Rollback Air,https://rollbackair.invalid,904-555-0301,St. Augustine,FL',
+    'Rollback Roofing,https://rollbackroofing.invalid,904-555-0302,St. Augustine,FL',
+  ].join('\n');
+
+  const session = await createSession({
+    content: csv, fileName: 'rollback.csv', sourceName: 'rollback',
+    createdBy: ops.userId });
+
+  const before = await query<{ accounts: number; activities: number; locations: number }>(
+    `select (select count(*)::int from accounts) as accounts,
+            (select count(*)::int from activities) as activities,
+            (select count(*)::int from locations) as locations`);
+  await buildPreview(session.importSessionId, ops.userId);
+  const after = await query<{ accounts: number; activities: number; locations: number }>(
+    `select (select count(*)::int from accounts) as accounts,
+            (select count(*)::int from activities) as activities,
+            (select count(*)::int from locations) as locations`);
+
+  assert.deepEqual(after.rows[0], before.rows[0],
+    'previewing an import wrote to the database');
+});
+
+test('previewing twice gives the same answer', async () => {
+  // It would not, if the first preview had committed anything.
+  const ops = await makeUser(`Twice Preview ${Date.now()}`, 'RESEARCH_OPS');
+  const csv = [
+    'company,website,phone,city,state',
+    'Twice Air,https://twiceair.invalid,904-555-0401,St. Augustine,FL',
+    'Twice Air,https://twiceair.invalid,904-555-0401,St. Augustine,FL',
+  ].join('\n');
+  const session = await createSession({
+    content: csv, fileName: 'twice.csv', sourceName: 'twice', createdBy: ops.userId });
+
+  const first = (await buildPreview(session.importSessionId, ops.userId))!;
+  const second = (await buildPreview(session.importSessionId, ops.userId))!;
+  assert.deepEqual(second.totals, first.totals,
+    'the second preview disagreed with the first, so the first left something behind');
+});
+
+test('a platform page in the website column does not merge two companies', async () => {
+  // Identity refuses a platform domain, and the preview shares that resolver rather
+  // than reimplementing it — so a purchased list whose website column is full of
+  // Facebook pages previews as separate companies, which is what confirming does.
+  const ops = await makeUser(`Platform Preview ${Date.now()}`, 'RESEARCH_OPS');
+  const csv = [
+    'company,website,phone,city,state',
+    'Facebook Air,https://facebook.com/facebookair,904-555-0501,St. Augustine,FL',
+    'Facebook Roofing,https://facebook.com/facebookroofing,904-555-0502,St. Augustine,FL',
+  ].join('\n');
+
+  const session = await createSession({
+    content: csv, fileName: 'platform.csv', sourceName: 'platform',
+    createdBy: ops.userId });
+  const preview = (await buildPreview(session.importSessionId, ops.userId))!;
+  assert.equal(preview.totals.create, 2,
+    'two companies sharing a social page were previewed as one');
+});

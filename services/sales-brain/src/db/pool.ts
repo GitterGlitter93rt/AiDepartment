@@ -140,6 +140,33 @@ export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
  * Runs `fn` inside a transaction, rolling back on any throw.
  * Every ownership-changing command goes through this.
  */
+/**
+ * Runs `fn` in a transaction and rolls it back, whatever it returns.
+ *
+ * For asking "what would this do" by doing it and undoing it. The import preview
+ * used to answer that question with a second implementation of the write path, and
+ * the two disagreed: three identical rows previewed as three new companies and
+ * confirmed as one, because the preview resolved each row against the database and
+ * never against the rows above it. An operator approving "500 new companies" got
+ * three hundred.
+ *
+ * Two implementations of one decision drift. One implementation, run twice, cannot.
+ */
+export async function withRollback<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    try {
+      return await fn(client);
+    } finally {
+      // Always. A preview that could commit by accident is worse than no preview.
+      await client.query('rollback').catch(() => { /* connection already gone */ });
+    }
+  } finally {
+    client.release();
+  }
+}
+
 export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
