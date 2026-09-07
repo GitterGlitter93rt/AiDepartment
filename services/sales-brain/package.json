@@ -28,7 +28,8 @@
     "miner:canary": "tsx src/bin/miner-canary.ts",
     "doctor": "tsx src/bin/doctor.ts",
     "retention:plan": "tsx src/bin/retention-plan.ts",
-    "coverage": "tsx src/bin/coverage.ts"
+    "coverage": "tsx src/bin/coverage.ts",
+    "scale:bench:recent": "tsx src/bin/scale-benchmark-recent.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

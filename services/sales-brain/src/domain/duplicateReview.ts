@@ -69,8 +69,67 @@ interface PairRow {
  * Bounded and ordered so this is a queue rather than a report: an operator works the
  * top of it, and the same pair is never presented twice.
  */
+/**
+ * Pairs worth a person's attention, with the case for and against each.
+ *
+ * The shape matters at scale. The first version built a `live` view of every
+ * unmerged Account -- three correlated subqueries each for city, state and phone --
+ * and self-joined it: at a hundred thousand Accounts that was 1.8 seconds, and every
+ * one of those subqueries ran for a row that could not possibly collide with
+ * anything.
+ *
+ * The colliding keys are cheap to find first. A name that appears once cannot be a
+ * duplicate of anything, and a phone on one Account cannot be shared. So the
+ * expensive view is built only for Accounts that already share a key with somebody,
+ * which on real inventory is a small fraction of it.
+ *
+ * The name-subset rule cannot be reduced to an equality key -- "roofing" inside
+ * "salazar roofing repair" is a pattern match, not a lookup -- so it is bounded
+ * instead: both Accounts must be in the same city, and the contained name must be
+ * short enough to be a plausible fragment rather than a coincidence.
+ */
 const CANDIDATE_SQL = `
-with live as (
+with eligible as (
+  select account_id, canonical_name, normalized_name, canonical_domain
+    from accounts
+   where merged_into_account_id is null and not is_suppressed
+),
+colliding_names as (
+  select normalized_name from eligible
+   group by normalized_name having count(*) > 1
+),
+colliding_phones as (
+  select e.normalized_value
+    from contact_endpoints e
+    join eligible a on a.account_id = e.account_id
+   where e.endpoint_type = 'PHONE' and e.is_active
+   group by e.normalized_value having count(distinct a.account_id) > 1
+),
+-- Only Accounts that already share a key with somebody. Everything below is built
+-- for these rather than for the whole inventory.
+narrowed as (
+  select account_id from eligible
+   where normalized_name in (select normalized_name from colliding_names)
+  union
+  select a.account_id
+    from eligible a
+    join contact_endpoints e on e.account_id = a.account_id
+   where e.endpoint_type = 'PHONE' and e.is_active
+     and e.normalized_value in (select normalized_value from colliding_phones)
+  union
+  -- The subset rule's short side only. The long side is reached through the city
+  -- index in the arm itself, so it does not need the expensive view.
+  --
+  -- Measured rather than guessed: a three-token bound admitted 80,858 of 97,009
+  -- Accounts, because company names average three words -- so the "prefilter" was
+  -- the whole table plus overhead, and made the sweep slower than no filter at all.
+  -- Two tokens admits 29,481, and is also the more honest rule: this exists to catch
+  -- a heading like "Roofing" absorbing a real company, and a three-word name inside
+  -- a longer one is far more often coincidence than duplication.
+  select account_id from eligible
+   where array_length(string_to_array(normalized_name, ' '), 1) <= 2
+),
+live as (
   select a.account_id, a.canonical_name, a.normalized_name, a.canonical_domain,
          (select l.city from locations l where l.account_id = a.account_id
            order by l.is_headquarters desc nulls last limit 1) as city,
@@ -79,8 +138,8 @@ with live as (
          (select e.normalized_value from contact_endpoints e
            where e.account_id = a.account_id and e.endpoint_type = 'PHONE'
              and e.is_active order by e.created_at limit 1) as phone
-    from accounts a
-   where a.merged_into_account_id is null and not a.is_suppressed
+    from eligible a
+   where a.account_id in (select account_id from narrowed)
 )
 -- Same name in the same place. The pair the operations count has always meant, and
 -- the most likely to be one company entered twice.
@@ -107,24 +166,34 @@ select x.account_id, y.account_id, x.canonical_name, y.canonical_name,
 union all
 -- One name is a word-subset of the other in the same place: "Roofing" beside
 -- "Salazar Roofing and Repair". Resolution keeps these apart on purpose.
+--
+-- Both directions, all three positions. Five of the six clauses were written and the
+-- sixth was not, so this was only caught when the shorter name happened to sort
+-- first by uuid -- which is to say, half the time, unreproducibly.
+--
+-- The short side comes from the narrowed view and the long side from the indexed
+-- city lookup, rather than both from the view. Narrowing it to Accounts that share a
+-- key broke this arm: only the short name qualified, so "Salazar Roofing Repair" was
+-- not in the view at all and the pair could not form. The long side needs a name and
+-- a city, which the locations city index already answers.
 select x.account_id, y.account_id, x.canonical_name, y.canonical_name,
-       x.canonical_domain, y.canonical_domain, x.city, y.city,
-       x.state_region, y.state_region, x.phone, y.phone,
+       x.canonical_domain, y.canonical_domain, x.city, ly.city,
+       x.state_region, ly.state_region, x.phone, null::text,
        'name_subset_same_place'
-  from live x join live y on x.account_id < y.account_id
- where x.normalized_name <> y.normalized_name
-   -- Both directions, all three positions. Five of the six clauses were written and
-   -- the sixth was not, so "Roofing" beside "Salazar Roofing Repair" was only caught
-   -- when the shorter name happened to sort first by uuid -- which is to say, half
-   -- the time, unreproducibly.
+  from live x
+  join locations lx on lx.account_id = x.account_id and lx.city is not null
+  join locations ly on lower(ly.city) = lower(lx.city) and ly.account_id <> x.account_id
+  join eligible y on y.account_id = ly.account_id
+ -- Not an a-before-b constraint: x is always the short side here, so demanding
+ -- it also sort first means the pair only forms when the shorter name happens to
+ -- have the lower uuid -- half the time, unreproducibly. That is the same asymmetry
+ -- bug this rule already had once, in a new guise. The pair is ordered below instead.
+ where x.account_id <> y.account_id
+   and array_length(string_to_array(x.normalized_name, ' '), 1) <= 2
+   and x.normalized_name <> y.normalized_name
    and (y.normalized_name like x.normalized_name || ' %'
      or y.normalized_name like '% ' || x.normalized_name
-     or y.normalized_name like '% ' || x.normalized_name || ' %'
-     or x.normalized_name like y.normalized_name || ' %'
-     or x.normalized_name like '% ' || y.normalized_name
-     or x.normalized_name like '% ' || y.normalized_name || ' %')
-   and x.city is not distinct from y.city
-   and x.city is not null
+     or y.normalized_name like '% ' || x.normalized_name || ' %')
 limit 500`;
 
 function evidenceFor(row: PairRow): string[] {
@@ -180,33 +249,65 @@ function evidenceAgainst(row: PairRow): string[] {
 export async function refreshDuplicateQueue(): Promise<{
   found: number; queued: number; alreadyDecided: number;
 }> {
-  const { rows } = await query<PairRow>(CANDIDATE_SQL);
-  let queued = 0;
-  let alreadyDecided = 0;
+  const found = await query<PairRow>(CANDIDATE_SQL);
+  if (found.rows.length === 0) return { found: 0, queued: 0, alreadyDecided: 0 };
 
-  for (const row of rows) {
-    const { rows: existing } = await query<{ status: string }>(
-      `select status from duplicate_reviews
-        where account_a_id = $1 and account_b_id = $2`, [row.a_id, row.b_id]);
-    if (existing[0]) {
-      if (existing[0].status !== 'OPEN') { alreadyDecided += 1; continue; }
-      await query(
-        `update duplicate_reviews set last_seen_at = now()
-          where account_a_id = $1 and account_b_id = $2`, [row.a_id, row.b_id]);
-      continue;
-    }
-
-    await query(
-      `insert into duplicate_reviews (account_a_id, account_b_id, candidate_rule,
-                                       evidence_for, evidence_against)
-       values ($1, $2, $3, $4::jsonb, $5::jsonb)
-       on conflict (account_a_id, account_b_id) do nothing`,
-      [row.a_id, row.b_id, row.rule,
-        JSON.stringify(evidenceFor(row)), JSON.stringify(evidenceAgainst(row))]);
-    queued += 1;
+  // One canonical ordering per pair, so (a,b) and (b,a) are the same review.
+  //
+  // The subset arm is deliberately asymmetric -- one side is the short name -- so it
+  // cannot carry the ordering constraint itself. Done here, and deduplicated, because
+  // two arms can propose the same pair.
+  const seen = new Set<string>();
+  const rows: PairRow[] = [];
+  for (const row of found.rows) {
+    const flip = row.b_id < row.a_id;
+    const ordered: PairRow = flip
+      ? {
+        ...row,
+        a_id: row.b_id, b_id: row.a_id,
+        a_name: row.b_name, b_name: row.a_name,
+        a_domain: row.b_domain, b_domain: row.a_domain,
+        a_city: row.b_city, b_city: row.a_city,
+        a_state: row.b_state, b_state: row.a_state,
+        a_phone: row.b_phone, b_phone: row.a_phone,
+      }
+      : row;
+    const key = `${ordered.a_id}:${ordered.b_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(ordered);
   }
 
-  return { found: rows.length, queued, alreadyDecided };
+  // One statement, not two per pair.
+  //
+  // This looped over the candidates asking about each and then inserting it: five
+  // hundred pairs meant a thousand round trips, which at a hundred thousand Accounts
+  // was 1.15 seconds of the sweep's 2.1 -- more than the query it was iterating.
+  // `xmax = 0` distinguishes a row this statement inserted from one it found, so the
+  // counts come back without a second pass.
+  const { rows: written } = await query<{ inserted: boolean; status: string }>(
+    `insert into duplicate_reviews (account_a_id, account_b_id, candidate_rule,
+                                     evidence_for, evidence_against)
+     select * from unnest($1::uuid[], $2::uuid[], $3::text[], $4::jsonb[], $5::jsonb[])
+     on conflict (account_a_id, account_b_id)
+       -- Touched, never resurrected: a pair somebody has judged keeps its status and
+       -- simply records that the rules proposed it again.
+       do update set last_seen_at = now()
+     returning (xmax = 0) as inserted, duplicate_reviews.status`,
+    [
+      rows.map((row) => row.a_id),
+      rows.map((row) => row.b_id),
+      rows.map((row) => row.rule),
+      rows.map((row) => JSON.stringify(evidenceFor(row))),
+      rows.map((row) => JSON.stringify(evidenceAgainst(row))),
+    ]);
+
+  return {
+    found: rows.length,
+    queued: written.filter((row) => row.inserted).length,
+    alreadyDecided: written.filter(
+      (row) => !row.inserted && row.status !== 'OPEN').length,
+  };
 }
 
 export async function openDuplicateCandidates(limit = 50): Promise<DuplicateCandidate[]> {
