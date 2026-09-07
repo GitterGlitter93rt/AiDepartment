@@ -29,6 +29,9 @@ export interface ContactResearchOutcome {
   /** Null when scoring could not run; the research itself still stands. */
   scoreTotal?: number | null;
   scoreTier?: string | null;
+  /** How much of what matters this run now has an answer to. */
+  completenessLabel?: string | null;
+  completenessScore?: number | null;
 }
 
 interface AccountRow {
@@ -251,6 +254,25 @@ export async function runContactResearch(
     console.error('[research] scoring failed', { accountId, error });
   }
 
+  // How much of what matters we now have an answer to.
+  //
+  // The only writer of this used to set THIN or STALE and nothing else, so a
+  // researched company's completeness stayed null for ever and three of the four
+  // filter options on Find Prospects matched nothing at all. Computed from the same
+  // fact model the Account page reads, so the filter and the page cannot disagree.
+  // Outside the transaction and after scoring, for the same reason scoring is: a
+  // completeness fault must not undo research that succeeded.
+  let completeness: { label: string; score: number } | null = null;
+  try {
+    const { computeCompleteness, storeCompleteness } =
+      await import('../domain/researchCompleteness.js');
+    const result = await computeCompleteness(accountId);
+    await storeCompleteness(accountId, result, researchRunId);
+    completeness = { label: result.label, score: result.score };
+  } catch (error) {
+    console.error('[research] completeness failed', { accountId, error });
+  }
+
   return {
     accountId,
     status: resolution.status,
@@ -262,6 +284,8 @@ export async function runContactResearch(
     stagesSkipped,
     scoreTotal: scored?.totalPoints ?? null,
     scoreTier: scored?.tier ?? null,
+    completenessLabel: completeness?.label ?? null,
+    completenessScore: completeness?.score ?? null,
   };
 }
 

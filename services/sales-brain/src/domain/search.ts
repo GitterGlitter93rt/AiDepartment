@@ -21,7 +21,15 @@ export type ContactFilter =
   | 'phone_available' | 'verified_business_phone' | 'email_available' | 'phone_and_email'
   | 'decision_maker_known' | 'direct_phone' | 'contact_research_needed';
 export type AdvertisingFilter = 'google_paid' | 'google_lsa' | 'meta_paid' | 'multichannel';
-export type ResearchFilter = 'COMPLETE' | 'GOOD' | 'PARTIAL' | 'STALE';
+/**
+ * The research states a rep can filter by.
+ *
+ * THIN was missing, and it was the only value besides STALE that anything ever
+ * wrote -- so the six companies in that state were unreachable by this filter while
+ * COMPLETE, GOOD and PARTIAL matched nothing at all. A filter whose options are
+ * mostly guaranteed-empty teaches a rep that the inventory is thinner than it is.
+ */
+export type ResearchFilter = 'COMPLETE' | 'GOOD' | 'PARTIAL' | 'THIN' | 'STALE';
 export type MyProspectsFilter =
   | 'NEWLY_CLAIMED' | 'NOT_CONTACTED' | 'CALL_READY' | 'EMAIL_READY' | 'CALL_AND_EMAIL'
   | 'CALLBACK_DUE' | 'POSITIVE_REPLY' | 'OPPORTUNITY';
