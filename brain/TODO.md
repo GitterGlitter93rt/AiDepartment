@@ -47,9 +47,14 @@ A task should appear in only one status section. Dependencies may be referenced 
   identity hardening (a shared word and a shared Facebook page are not one company),
   and one shared discovery-source list after the same "which sources are the miner"
   copy was found wrong for a third time.
-  **Next action:** research/scoring/readiness depth, then coverage/planner, then
-  operator diagnostics. **Completion gate:** each item has regression tests, and the
-  remaining canary gates are named as needing a credential rather than left implied.
+  A–I complete. Then J (market coverage without a denominator nobody has), K (a
+  duplicate review queue whose decisions stick), L (contact confidence that decays),
+  M (a completeness filter whose options could not match), N (our spending ceiling
+  was recorded as the market's failure), O (the duplicate sweep at 100k: 2092ms to
+  1007ms, and two of my own optimisations were wrong).
+  **Next action:** P (import mapper UX), then Q–W. **Completion gate:** each item has
+  regression tests, and the remaining canary gates are named as needing a credential
+  rather than left implied.
 
 - [ ] **SB-QA2 — Overnight miner/search/worker hardening (GitHub Issue #3).** The
   durable execution ledger for the overnight campaign under SB-QA1. Thirteen commits

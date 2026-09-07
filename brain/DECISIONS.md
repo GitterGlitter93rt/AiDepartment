@@ -524,3 +524,55 @@ miner's output, a sweep that could not rescue listings-discovered Accounts, and 
 reported provider discoveries as typed in by hand. A new source is now counted, swept and
 reported the day it is added.
 
+## 2026-09-07 — Operator truth and epistemics (Issue #3, items G–O)
+
+### A diagnosis, not a dump
+
+`npm run doctor` names which of eight layers the state looks like it broke in, and a cause is
+reported before its symptoms -- a starved queue also looks like research that never ran, and
+sending somebody to investigate research when no worker exists sends them to the wrong place.
+Ingestion is judged per run, never database-wide. A state that explains nothing reports
+healthy and says so rather than inventing a cause somebody would act on.
+
+### Retention: the machinery, never the policy
+
+`npm run retention:plan` ships with no periods set and **there is no code in the build that
+deletes a retained row** -- not a guarded flag, no path at all. INPUT-006 is Michael's
+decision. The protections are the substance: a stored score cites its evidence ids, so
+pruning that evidence leaves every lineage pointing at nothing; how a claimed or suppressed
+company was found answers "why did you call me"; a PENDING provider task is a search paid for
+and unread.
+
+### Coverage has no denominator, so it reports none
+
+Nobody knows how many roofers are in a ZIP, so any percentage would be a fraction with an
+invented denominator. Saturation carries its boundary in the value: saturated *for the terms
+asked* is a different state from saturated for the vertical.
+
+### A queue is finite only if its decisions stick
+
+"Not a duplicate" is remembered against the pair, so no rule raises it again. Merging goes
+through the manager gate rather than around it. Each candidate carries the case for **and
+against**, because a shared phone is a strip mall as often as a duplicate.
+
+### Contact confidence decays, and aged is not departed
+
+`refresh_due_at` had been written on every contact and read by nothing, so a name resolved
+eighteen months ago read as current and a rep asked for somebody who had left. AGED means
+nobody has checked; HISTORICAL means somebody said they are gone. An aged name is still
+handed over, hedged, with a fallback route -- withholding it throws away real information.
+Sixty days of grace, because a warning that fires too easily is one a rep learns to ignore.
+
+### Our own ceiling is not the market's failure
+
+A budget refusal used to increment a market's failure count and push an exponential backoff
+onto its next turn, so the markets we had refused became the least likely to be due when the
+money came back. A search we declined is now re-dued in four hours with no failure recorded.
+The distinction cuts both ways: a provider that genuinely could not answer still backs off.
+
+### Measure before optimising, and measure the loop as well as the query
+
+At 100k Accounts the duplicate sweep's cost was round trips, not SQL -- and a name-length
+prefilter I added admitted 80,858 of 97,009 rows and made it slower. `npm run
+scale:bench:recent` exists so the next batch of queries is measured rather than assumed.
+
