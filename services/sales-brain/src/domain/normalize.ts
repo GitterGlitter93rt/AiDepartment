@@ -136,6 +136,42 @@ export function normalizeHostname(input: string | null | undefined): string | nu
   return value;
 }
 
+/**
+ * Domains that name a platform rather than a business.
+ *
+ * A Maps listing very often carries a Facebook page, a directory profile or a site
+ * builder's apex as the company's website, and normalization strips the path -- so
+ * "facebook.com/salazarroofing" and "facebook.com/coastalair" both become
+ * "facebook.com". Identity matching on that merges every business in a market into
+ * whichever one arrived first, which is the same collapse a provider search id
+ * caused, through a different door.
+ *
+ * A distinctive subdomain is still identity: "salazarroofing.wixsite.com" names one
+ * business even though "wixsite.com" names none. Only the bare apex is refused.
+ */
+const PLATFORM_DOMAINS = new Set([
+  'facebook.com', 'fb.com', 'm.facebook.com', 'instagram.com', 'twitter.com', 'x.com',
+  'linkedin.com', 'youtube.com', 'tiktok.com', 'nextdoor.com',
+  'yelp.com', 'yellowpages.com', 'bbb.org', 'angi.com', 'angieslist.com', 'thumbtack.com',
+  'homeadvisor.com', 'porch.com', 'houzz.com', 'manta.com', 'mapquest.com',
+  'google.com', 'business.site', 'sites.google.com', 'goo.gl', 'maps.app.goo.gl',
+  'wixsite.com', 'wix.com', 'squarespace.com', 'weebly.com', 'godaddysites.com',
+  'wordpress.com', 'blogspot.com', 'myshopify.com', 'square.site', 'linktr.ee',
+]);
+
+/**
+ * True when this hostname names a platform rather than one company.
+ *
+ * Used to keep such a domain out of identity matching and out of `canonical_domain`.
+ * It is still worth recording as an observation -- a company's Facebook page is a
+ * real fact about them -- but it is not what makes them a distinct company.
+ */
+export function isPlatformDomain(hostname: string | null | undefined): boolean {
+  if (!hostname) return false;
+  const value = hostname.trim().toLowerCase().replace(/^www\./, '');
+  return PLATFORM_DOMAINS.has(value);
+}
+
 /** Registrable-ish domain: enough to tell one SMB site from another. */
 const MULTIPART_TLDS = new Set(['co.uk', 'com.au', 'co.nz', 'com.br', 'co.za', 'com.mx']);
 

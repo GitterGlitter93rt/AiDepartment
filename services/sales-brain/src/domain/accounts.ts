@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { query, withTransaction, type Queryable } from '../db/pool.js';
 import {
   classifyEmail, extractExtension, formatPhoneDisplay, normalizeCity, normalizeCompanyName,
+  isPlatformDomain,
   normalizeEmail, normalizeHostname, normalizePhone, normalizePostalCode, normalizeState,
   splitPersonName,
 } from './normalize.js';
@@ -69,7 +70,13 @@ export async function resolveAccountIdentity(
   }
 
   // 2. Exact normalized domain.
-  const hostname = normalizeHostname(input.website);
+  //
+  // A platform domain is not identity. A listing that gives a Facebook page as the
+  // website normalizes to "facebook.com" once the path is stripped, and matching on
+  // that would merge every business in a market into whichever arrived first -- the
+  // same collapse a provider search id caused, through a different door.
+  const rawHostname = normalizeHostname(input.website);
+  const hostname = isPlatformDomain(rawHostname) ? null : rawHostname;
   if (hostname) {
     const { rows } = await client.query<{ account_id: string }>(
       `select account_id from accounts where canonical_domain = $1
@@ -138,15 +145,28 @@ export async function resolveAccountIdentity(
   return null;
 }
 
-/** Compatible = identical, or one is a clean prefix-token subset of the other. */
+/**
+ * Compatible = identical, or a strong token overlap in both directions.
+ *
+ * The overlap is measured against the smaller name, which on its own let a
+ * single-token name match anything containing that token: "roofing" merged with
+ * "salazar roofing and repair", and "air" with "coastal air conditioning". Combined
+ * with a shared phone -- the strip-mall and answering-service case this guard exists
+ * for -- that is a false merge of two real companies, and a discovered heading like
+ * "Roofing" could absorb a genuine roofer.
+ *
+ * So a one-token name has to match exactly. One word is not enough evidence that two
+ * businesses on one phone line are the same business.
+ */
 function namesAreCompatible(a: string, b: string): boolean {
   if (!a || !b) return false;
   if (a === b) return true;
-  const tokensA = new Set(a.split(' '));
-  const tokensB = new Set(b.split(' '));
-  const shared = [...tokensA].filter((token) => tokensB.has(token)).length;
+  const tokensA = new Set(a.split(' ').filter(Boolean));
+  const tokensB = new Set(b.split(' ').filter(Boolean));
   const smaller = Math.min(tokensA.size, tokensB.size);
-  return smaller > 0 && shared / smaller >= 0.75;
+  if (smaller < 2) return false;
+  const shared = [...tokensA].filter((token) => tokensB.has(token)).length;
+  return shared >= 2 && shared / smaller >= 0.75;
 }
 
 export interface UpsertOptions {
@@ -168,7 +188,11 @@ export async function upsertAccount(
   options: UpsertOptions,
 ): Promise<ResolveResult> {
   const existing = await resolveAccountIdentity(client, input);
-  const hostname = normalizeHostname(input.website);
+  // A platform page is a real fact about a company and is not its website, so it is
+  // never written as the canonical domain. Recording it there would make the research
+  // run fetch Facebook and call the result the company's own pages.
+  const rawUpsertHostname = normalizeHostname(input.website);
+  const hostname = isPlatformDomain(rawUpsertHostname) ? null : rawUpsertHostname;
   const normalizedName = normalizeCompanyName(input.canonicalName) || input.canonicalName.toLowerCase();
 
   let accountId: string;
