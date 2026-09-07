@@ -206,6 +206,7 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
     research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
     score_policy: 'RESEARCH', build_identity: 'WORKER',
     inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
+    duplicate_queue: 'INVENTORY',
     imports: 'INVENTORY',
     // Its own axis, not the provider's. "Can we search" and "may we afford to" are
     // different questions, and an unset budget must not make a working provider
@@ -460,6 +461,24 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
         + 'market result is not evidence that the market is empty.');
 
   // --- duplicates -----------------------------------------------------------------
+  //
+  // The count used to stand alone, and a number an operator cannot act on is a
+  // number they stop reading: "7 possible duplicates" for ever, going nowhere. The
+  // queue is what makes it finite, so the check reports what is waiting for a
+  // decision rather than what merely looks alike.
+  const { duplicateQueueCounts } = await import('../domain/duplicateReview.js');
+  const queue = await duplicateQueueCounts();
+  add('duplicate_queue', 'Is anything waiting for somebody to judge it?',
+    queue.open > 20 ? 'ATTENTION' : 'OK',
+    queue.open === 0 ? 'nothing waiting' : `${queue.open} pair(s) to judge`,
+    queue.open === 0
+      ? `Nothing is waiting. ${queue.merged} pair(s) have been merged and `
+        + `${queue.notDuplicate} judged separate; a pair judged separate is never `
+        + 'asked about again.'
+      : `${queue.open} pair(s) look alike and identity resolution would not merge them `
+        + 'on its own. Each carries the case for and against. Deciding "not a '
+        + 'duplicate" is remembered, so the queue empties rather than resetting.');
+
   const duplicates = number('duplicate_names');
   // Work the provider owes us. A task submitted and never collected is money spent
   // for nothing, and it is invisible in every other number on this page.
