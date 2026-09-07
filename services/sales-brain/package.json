@@ -26,7 +26,8 @@
     "preflight": "tsx src/bin/exposure-preflight.ts",
     "growth": "tsx src/bin/growth-report.ts",
     "miner:canary": "tsx src/bin/miner-canary.ts",
-    "doctor": "tsx src/bin/doctor.ts"
+    "doctor": "tsx src/bin/doctor.ts",
+    "retention:plan": "tsx src/bin/retention-plan.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
