@@ -25,7 +25,8 @@
     "test:isolation": "LOG_LEVEL=silent tsx --test --test-concurrency=1 $(ls tests/*.test.ts | tac | tr '\\n' ' ')",
     "preflight": "tsx src/bin/exposure-preflight.ts",
     "growth": "tsx src/bin/growth-report.ts",
-    "miner:canary": "tsx src/bin/miner-canary.ts"
+    "miner:canary": "tsx src/bin/miner-canary.ts",
+    "doctor": "tsx src/bin/doctor.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
