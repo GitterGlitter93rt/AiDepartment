@@ -28,6 +28,9 @@ function pack(overrides: Partial<CallPack> = {}): CallPack {
     contactName: 'Dana Fielder',
     contactTitle: 'Director of Operations',
     contactIsRoleOnly: false,
+    contactConfidence: 'LIKELY_CURRENT',
+    contactGuidance: 'Named on a public source and likely still in the role.',
+    contactSafeToAskByName: true,
     askForRoute: null,
     confirmedFacts: [
       { claim: 'Site advertises 24/7 emergency service', source: 'company_website', observedAt: new Date(), canStateAsFact: true },

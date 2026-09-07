@@ -29,7 +29,10 @@ function pack(overrides: Partial<CallPack> = {}): CallPack {
   return {
     callPackId: null, accountId: 'acct-1',
     companyName: 'Northgate Air & Heating', geography: 'Jacksonville, FL', vertical: 'hvac',
-    contactName: 'Dana Fielder', contactTitle: 'Owner', contactIsRoleOnly: false, askForRoute: null,
+    contactName: 'Dana Fielder', contactTitle: 'Owner', contactIsRoleOnly: false,
+    contactConfidence: 'LIKELY_CURRENT',
+    contactGuidance: 'Named on a public source and likely still in the role.',
+    contactSafeToAskByName: true, askForRoute: null,
     confirmedFacts: [], importantUnknowns: [],
     primaryHypothesis: 'Paid emergency demand may arrive outside staffed hours.',
     primaryHypothesisCategory: 'after_hours',

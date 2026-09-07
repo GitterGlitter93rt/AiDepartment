@@ -206,7 +206,7 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
     research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
     score_policy: 'RESEARCH', build_identity: 'WORKER',
     inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
-    duplicate_queue: 'INVENTORY',
+    duplicate_queue: 'INVENTORY', contact_freshness: 'RESEARCH',
     imports: 'INVENTORY',
     // Its own axis, not the provider's. "Can we search" and "may we afford to" are
     // different questions, and an unset budget must not make a working provider
@@ -478,6 +478,24 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
       : `${queue.open} pair(s) look alike and identity resolution would not merge them `
         + 'on its own. Each carries the case for and against. Deciding "not a '
         + 'duplicate" is remembered, so the queue empties rather than resetting.');
+
+  // Named contacts nobody has re-checked.
+  //
+  // The resolver has set `refresh_due_at` on every contact since it was written and
+  // nothing ever read it, so confidence never decayed: a person resolved eighteen
+  // months ago read as current, and a rep asked the receptionist for somebody who
+  // left a year ago.
+  const { overdueContactCount } = await import('../domain/contactConfidence.js');
+  const contacts = await overdueContactCount();
+  add('contact_freshness', 'Are the names we hand reps still current?',
+    contacts.overdue > 0 && contacts.overdue >= contacts.named / 2 ? 'ATTENTION' : 'OK',
+    contacts.overdue === 0 ? 'all re-checked'
+      : `${contacts.overdue} of ${contacts.named} overdue`,
+    contacts.overdue === 0
+      ? 'Every named contact is inside its re-check window.'
+      : `${contacts.overdue} named contact(s) are past their re-check date. A rep is `
+        + 'still given the name, hedged: "ask for them, and confirm they still hold '
+        + 'the role". Nobody having looked is not the same as them having left.');
 
   const duplicates = number('duplicate_names');
   // Work the provider owes us. A task submitted and never collected is money spent

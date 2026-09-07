@@ -31,6 +31,20 @@ export interface CallPack {
   contactName: string | null;
   contactTitle: string | null;
   contactIsRoleOnly: boolean;
+  /**
+   * How sure we are that this is still the person to ask for.
+   *
+   * The name used to arrive bare. A contact resolved eighteen months ago read as
+   * current for ever, because the resolver sets `refresh_due_at` and nothing had
+   * ever read it -- so a rep asked the receptionist confidently for somebody who
+   * left a year ago, which is the one cold-call mistake that cannot be recovered
+   * from in the same call.
+   */
+  contactConfidence: string;
+  /** What to say about the name, or what to do instead. */
+  contactGuidance: string;
+  /** True only when a rep may use the name without hedging. */
+  contactSafeToAskByName: boolean;
   askForRoute: string | null;
   /** Facts safe to reference out loud. */
   confirmedFacts: CallPackFact[];
@@ -173,6 +187,11 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     "I'm busy right now.",
   ];
 
+  // How sure we are about the person, read from the contact rather than from the
+  // inventory projection: the projection carries the name and not its age.
+  const { primaryContactStanding } = await import('../domain/contactConfidence.js');
+  const standing = await primaryContactStanding(account.account_id);
+
   return {
     callPackId: null,
     accountId: account.account_id,
@@ -182,7 +201,15 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     contactName: account.best_contact_is_role_only ? null : account.best_contact_name,
     contactTitle: account.best_contact_title,
     contactIsRoleOnly: Boolean(account.best_contact_is_role_only) || !account.best_contact_name,
+    contactConfidence: standing?.standing.confidence ?? 'ROLE_ONLY',
+    contactGuidance: standing?.standing.guidance
+      ?? 'No contact is on file. Ask for whoever handles it.',
+    contactSafeToAskByName: standing?.standing.safeToAskByName ?? false,
+    // A name nobody has checked still gets a route to fall back on, because "ask for
+    // Dana, and if she has moved on, whoever handles it now" is a better opening
+    // than either half alone.
     askForRoute: account.best_contact_is_role_only || !account.best_contact_name
+      || standing?.standing.safeToAskByName === false
       ? (account.best_contact_role ?? 'operations')
       : null,
     confirmedFacts,
