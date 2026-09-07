@@ -52,7 +52,11 @@ A task should appear in only one status section. Dependencies may be referenced 
   M (a completeness filter whose options could not match), N (our spending ceiling
   was recorded as the market's failure), O (the duplicate sweep at 100k: 2092ms to
   1007ms, and two of my own optimisations were wrong).
-  **Next action:** P (import mapper UX), then Q–W. **Completion gate:** each item has
+  Then P (the import preview promised more companies than confirming created),
+  Q (a new path for untrusted website text into the prompt, fenced and verified),
+  R (a release manifest, and research runs now record which profile produced their
+  evidence), S (nothing had ever written last_researched_at — the keystone find).
+  **Next action:** T, then U–W. **Completion gate:** each item has
   regression tests, and the remaining canary gates are named as needing a credential
   rather than left implied.
 

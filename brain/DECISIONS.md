@@ -576,3 +576,40 @@ At 100k Accounts the duplicate sweep's cost was round trips, not SQL -- and a na
 prefilter I added admitted 80,858 of 97,009 rows and made it slower. `npm run
 scale:bench:recent` exists so the next batch of queries is measured rather than assumed.
 
+## 2026-09-07 — The keystone find: research never recorded that it ran
+
+`accounts.last_researched_at` was written by seeds and fixtures and **by nothing in the
+product**. The research worker crawled the site, wrote evidence, scored the company, and
+left no mark saying it had run.
+
+Everything downstream asks that column: the freshness projection marks an unstamped Account
+THIN; completeness keys its label on it; the fact model uses it to tell "we looked and found
+nothing" from "nobody has looked"; coverage counts researched companies with it; Find
+Prospects filters on the label it produces. All of them read null and answered honestly
+about the wrong thing.
+
+It explains the live box reading zero rep-ready of twenty-five with forty-eight stale scores,
+which is not only old data. Research freshness is thirty days -- how long before research
+should be re-run, which is a different question from how long one piece of evidence stays
+current. Ad evidence expires in forty-eight hours and using that here would call every
+researched company stale two days later.
+
+**The lesson worth keeping.** Every test written in this campaign that needed a researched
+Account set that column by hand, four separate times, and I treated it as fixture
+convenience. A fixture that has to fake a state the product should produce is evidence the
+product does not produce it. That is now the first thing to check when a fixture needs a
+suspicious amount of manual setup.
+
+It had also been hiding two unrelated things: an under-drained golden market (drainQueue
+stops at fifty jobs by default, so thirty-two of eighty-one companies were never researched)
+and an email test asserting on row zero of an unordered endpoint query. A column nothing
+wrote was propping up two test outcomes.
+
+### Facts come from the profile, not from a list in code
+
+The fact model surfaced three hard-coded signals while the extractor writes six and the
+profiles declare thirteen. Anything that enumerates what matters must read the vertical
+profile, which is the same correction this codebase has now needed for the search taxonomy,
+the signal-to-score map, the business-model fields, the negative terms, and the observation
+columns.
+
