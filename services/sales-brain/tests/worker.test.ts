@@ -155,6 +155,31 @@ test('an anti-bot interstitial is treated as a wall, not a page', async () => {
   }
 });
 
+test('a research run whose bookkeeping failed does not report itself completed', async () => {
+  // The run crawled the site, wrote evidence and scored the company. Then storing
+  // completeness failed, and the only trace was a console line on a box where nobody
+  // reads worker logs -- the job said COMPLETED. PARTIAL puts the reason on the job
+  // itself, where the doctor and the support bundle can see it.
+  //
+  // Broken the way it would actually break, by making the write fail.
+  const accountId = await seedAccount(origin);
+  await query('alter table research_completeness rename to research_completeness_hidden');
+  try {
+    const outcome = await runContactResearch(accountId);
+    assert.equal(outcome.outcome, 'PARTIAL',
+      'a run that could not finish its bookkeeping reported itself completed');
+    assert.match(String(outcome.outcomeReason), /completeness failed/);
+    // And the research itself stands: a bookkeeping fault must not throw away a crawl.
+    assert.ok(outcome.pagesFetched >= 1);
+    const { rows } = await query<{ n: number }>(
+      'select count(*)::int as n from research_runs where account_id = $1', [accountId]);
+    assert.ok(rows[0]!.n >= 1, 'the run itself was lost along with its bookkeeping');
+  } finally {
+    await query(
+      'alter table research_completeness_hidden rename to research_completeness');
+  }
+});
+
 test('contact research resolves a named operations contact and a main-line route', async () => {
   const accountId = await seedAccount(origin);
   const outcome = await runContactResearch(accountId);

@@ -1,6 +1,6 @@
 import { hostname } from 'node:os';
 import { buildIdentity } from '../release/identity.js';
-import { config } from '../config.js';
+import { config, numeric } from '../config.js';
 import { pool, query, withTransaction } from '../db/pool.js';
 import { redactSecrets, terminalFailureReason } from './redaction.js';
 
@@ -169,7 +169,7 @@ let stopping = false;
  * because it has no lease at all. So the worker says it is here, repeatedly, and
  * the operator surfaces read that rather than inferring health from silence.
  */
-export const HEARTBEAT_INTERVAL_MS = Number(process.env['WORKER_HEARTBEAT_MS'] ?? '15000');
+export const HEARTBEAT_INTERVAL_MS = numeric('WORKER_HEARTBEAT_MS', 15_000, { min: 1000 });
 
 /**
  * How long after its last heartbeat a worker is presumed gone.

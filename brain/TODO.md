@@ -55,10 +55,31 @@ A task should appear in only one status section. Dependencies may be referenced 
   Then P (the import preview promised more companies than confirming created),
   Q (a new path for untrusted website text into the prompt, fenced and verified),
   R (a release manifest, and research runs now record which profile produced their
-  evidence), S (nothing had ever written last_researched_at — the keystone find).
-  **Next action:** T, then U–W. **Completion gate:** each item has
-  regression tests, and the remaining canary gates are named as needing a credential
-  rather than left implied.
+  evidence), S (nothing had ever written last_researched_at — the keystone find),
+  T (two attacks in a hostile website, aimed at different things), U (the stale
+  install, which was the one schema nobody had rehearsed), V (one file to hand to
+  support, and the first thing support asks for — the error — was the one thing none
+  of the five existing reports carried).
+  W complete: the final silent-failure audit, worked by reading rather than running.
+  Its headline is one root cause with three fail-opens — a number read with
+  `Number()` becomes NaN, every comparison against NaN is false, and the guard
+  silently stops guarding. It reached the daily spend ceiling, the DNC snapshot
+  staleness block and a webhook's replay window. Also: two dialects of "true" on
+  `OUTBOUND_DIAL_ENABLED`, so `=1` armed the dialler while the release manifest and
+  the exposure preflight both reported it disabled; a retention plan that dropped
+  tables it could not read from the artefact an operator approves; a migration count
+  of 0 standing in for "could not tell"; a provider validation that read OK over zero
+  checks; a canary whose daily-budget refusal was skipped when the spend query
+  failed; a research run that reported COMPLETED after its scoring failed; and an
+  empty gate list that would have cleared a real pilot.
+  **Behaviour change for Michael:** a malformed numeric or boolean value in `.env`
+  now stops the process, naming the variable and its value, instead of defaulting.
+  Nothing on the EdgeXpert changes today — none of the affected numerics are set
+  there, which also means no daily discovery budget is configured at all.
+  **Next action:** A–W are complete. What remains needs a credential or an approval,
+  not code: the paid DataForSEO canary (SB-B3), and INPUT-006's retention periods.
+  **Completion gate:** met — each item has regression tests, and the remaining canary
+  gates are named as needing a credential rather than left implied.
 
 - [ ] **SB-QA2 — Overnight miner/search/worker hardening (GitHub Issue #3).** The
   durable execution ledger for the overnight campaign under SB-QA1. Thirteen commits

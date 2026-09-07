@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { numeric } from '../config.js';
 
 /**
  * The ceiling that stops a 24/7 miner spending money nobody agreed to.
@@ -14,13 +15,22 @@ import { query } from '../db/pool.js';
 
 /**
  * Zero means unset, which is treated as no ceiling rather than a ceiling of nothing.
+ * A value that is not a number is neither: it throws. `$20` read through Number() is
+ * NaN, `!(NaN > 0)` is true, and the ceiling would report itself as unset while an
+ * operator believed they had capped the day.
+ * A value that is not a number is neither: it throws. `$20` read through Number() is
+ * NaN, `!(NaN > 0)` is true, and the ceiling would report itself as unset while an
+ * operator believed they had capped the day.
+ * A value that is not a number is neither: it throws. `$20` read through Number() is
+ * NaN, `!(NaN > 0)` is true, and the ceiling would report itself as unset while an
+ * operator believed they had capped the day.
  *
  * Read at call time rather than captured at import. A ceiling frozen at module load
  * is a ceiling that ignores anything set after the process started -- and the same
  * mistake in the other direction would make it untestable.
  */
 export function dailyBudgetUsd(env: NodeJS.ProcessEnv = process.env): number {
-  return Number(env['DISCOVERY_DAILY_BUDGET_USD'] ?? '0');
+  return numeric('DISCOVERY_DAILY_BUDGET_USD', 0, { env });
 }
 
 /**
@@ -31,7 +41,7 @@ export function dailyBudgetUsd(env: NodeJS.ProcessEnv = process.env): number {
  * how the ceiling gets crossed.
  */
 export function assumedRunCostUsd(env: NodeJS.ProcessEnv = process.env): number {
-  return Number(env['DISCOVERY_ASSUMED_RUN_COST_USD'] ?? '0.05');
+  return numeric('DISCOVERY_ASSUMED_RUN_COST_USD', 0.05, { env });
 }
 
 export interface SpendPosition {

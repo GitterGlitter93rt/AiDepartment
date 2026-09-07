@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import { buildExportPayload, selectEligibleForCampaign, type ExportPayload } from './eligibility.js';
+import { flag } from '../config.js';
 
 /**
  * Smartlead export and outbox drain.
@@ -26,7 +27,7 @@ export function smartleadConfig(env: NodeJS.ProcessEnv = process.env): Smartlead
   return {
     apiKey: env['SMARTLEAD_API_KEY'] ?? null,
     baseUrl: env['SMARTLEAD_BASE_URL'] ?? 'https://server.smartlead.ai/api/v1',
-    enabled: env['SMARTLEAD_ENABLED'] === 'true',
+    enabled: flag('SMARTLEAD_ENABLED', false, env),
   };
 }
 

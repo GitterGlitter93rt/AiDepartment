@@ -45,7 +45,7 @@ export interface ReleaseReport {
   blockers: { blockerId: string; gateIds: string[]; needed: string }[];
 }
 
-const REAL_PILOT_GATES = [
+export const REAL_PILOT_GATES = [
   'G01_branch_runtime_integrity', 'G02_canonical_account_identity', 'G03_research_callpack',
   'G04_contact_route_quality', 'G05_internal_suppression', 'G06_external_phone_screening',
   'G07_ai_channel_eligibility', 'G08_caller_identity_trust', 'G09_twilio_webhook_transport',
@@ -55,7 +55,7 @@ const REAL_PILOT_GATES = [
   'G19_internal_allowlisted_voice_suite', 'G20_exact_real_pilot_approval',
 ];
 
-const INTERNAL_TEST_GATES = [
+export const INTERNAL_TEST_GATES = [
   'G01_branch_runtime_integrity', 'G08_caller_identity_trust', 'G09_twilio_webhook_transport',
   'G10_human_answer_experience', 'G11_turn_taking_voice_quality', 'G12_sales_ai_regression',
   'G13_action_tools', 'G17_pilot_operator_controls', 'G18_review_observability',
@@ -298,7 +298,13 @@ function classify(input: {
   const reasons: string[] = [];
   let classification: ReleaseState;
 
-  if (realPilotFailures.length === 0) {
+  if (REAL_PILOT_GATES.length === 0 || INTERNAL_TEST_GATES.length === 0) {
+    // Not a state that can be reached today, and not one to discover the hard way:
+    // an empty requirement list would clear the highest classification there is.
+    classification = 'HUMAN_ASSIST_ONLY';
+    reasons.push('The gate lists are empty, so nothing has been required and nothing '
+      + 'can be cleared. This is a fault in the release definition, not a result.');
+  } else if (realPilotFailures.length === 0) {
     classification = 'REAL_AI_PILOT_ELIGIBLE';
     reasons.push('Every gate required for a real pilot passes.');
   } else if (internalFailures.length === 0) {

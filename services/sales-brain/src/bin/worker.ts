@@ -5,7 +5,7 @@
  * enrichment belong here and must never share a runtime with the realtime voice
  * path (CLAUDE-CURRENT-TASK.md §8).
  */
-import { config } from '../config.js';
+import { config, numeric } from '../config.js';
 import { closePool } from '../db/pool.js';
 import { runWorker, stopWorker } from '../workers/runner.js';
 import '../workers/contactResearch.js';   // registers contact_research / account_research
@@ -26,7 +26,7 @@ console.log(
 );
 
 // A periodic sweep so a Saved Market does not drift stale while nobody is looking.
-const SWEEP_INTERVAL_MS = Number(process.env.REFRESH_SWEEP_INTERVAL_MS ?? 15 * 60_000);
+const SWEEP_INTERVAL_MS = numeric('REFRESH_SWEEP_INTERVAL_MS', 15 * 60_000, { min: 1000 });
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
 const { reconcileMissingResearch, recomputeStaleScores } = await import('../workers/researchReconcile.js');

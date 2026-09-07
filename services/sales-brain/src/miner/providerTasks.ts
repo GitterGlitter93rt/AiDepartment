@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { numeric } from '../config.js';
 
 /**
  * Asynchronous provider work that outlives the job that started it.
@@ -32,7 +33,7 @@ export interface ProviderTaskRow {
  * that polls for ever. It is abandoned with a reason, and the operator can see that
  * a search was paid for and never delivered.
  */
-export const MAX_TASK_COLLECTIONS = Number(process.env['PROVIDER_TASK_MAX_POLLS'] ?? '20');
+export const MAX_TASK_COLLECTIONS = numeric('PROVIDER_TASK_MAX_POLLS', 20, { min: 1 });
 
 /** Records a task the provider accepted, so a later run can collect it. */
 export async function recordProviderTask(input: {

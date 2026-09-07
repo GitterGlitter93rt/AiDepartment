@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import { enqueueMarketResearch } from './enqueue.js';
 import { availableDiscoveryAdapters } from './marketMiner.js';
 import { hasOpenProviderTaskForMarket } from '../miner/providerTasks.js';
+import { numeric } from '../config.js';
 import { searchFingerprintPrefix } from '../miner/searchPlan.js';
 
 /**
@@ -33,10 +34,10 @@ export const DEFAULT_REFRESH_INTERVAL_HOURS = Number(
  * ninety simultaneous paid searches. They go a few at a time, oldest first, and the
  * queue drains at whatever rate the worker and the provider can sustain.
  */
-export const MAX_MARKETS_PER_PASS = Number(process.env['MARKET_SCHEDULER_BATCH'] ?? '5');
+export const MAX_MARKETS_PER_PASS = numeric('MARKET_SCHEDULER_BATCH', 5, { min: 1 });
 
 /** The ceiling on markets in flight at once, however many are due. */
-export const MAX_MARKETS_IN_FLIGHT = Number(process.env['MARKET_SCHEDULER_IN_FLIGHT'] ?? '3');
+export const MAX_MARKETS_IN_FLIGHT = numeric('MARKET_SCHEDULER_IN_FLIGHT', 3, { min: 1 });
 
 /**
  * How soon a market comes back after we declined to search it.

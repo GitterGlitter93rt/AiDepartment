@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { flag } from '../config.js';
 
 /**
  * What must be true before this portal is reachable from the internet.
@@ -55,7 +56,9 @@ export async function exposurePreflight(
   const add = (check: PreflightCheck): void => { checks.push(check); };
 
   // --- the session cookie -------------------------------------------------------
-  const cookieSecure = env['SESSION_COOKIE_SECURE'] === 'true';
+  let cookieSecure: boolean;
+  try { cookieSecure = flag('SESSION_COOKIE_SECURE', false, env); }
+  catch { cookieSecure = false; }
   add({
     id: 'session_cookie_secure',
     question: 'Will the session cookie refuse to travel over plain HTTP?',
@@ -127,17 +130,29 @@ export async function exposurePreflight(
   //
   // Exposure and outbound calling are separate decisions, and this is the moment
   // they are most likely to be confused for one.
-  const dialEnabled = env['OUTBOUND_DIAL_ENABLED'] === 'true';
+  let dialEnabled: boolean;
+  let dialUnreadable = false;
+  try { dialEnabled = flag('OUTBOUND_DIAL_ENABLED', false, env); }
+  catch { dialEnabled = false; dialUnreadable = true; }
   add({
     id: 'outbound_dialling',
     question: 'Is outbound dialling still off?',
-    state: dialEnabled ? 'FAIL' : 'PASS',
+    state: dialEnabled ? 'FAIL' : dialUnreadable ? 'UNCHECKED' : 'PASS',
     finding: dialEnabled
       ? 'OUTBOUND_DIAL_ENABLED is true. Making the portal public and arming the dialler '
         + 'are two decisions, and doing both at once means the first mistake in the '
         + 'first is also a phone call to a real person.'
-      : 'OUTBOUND_DIAL_ENABLED is false, so exposure cannot cause a call.',
-    ...(dialEnabled ? { remedy: 'Expose first, watch it, arm the dialler separately.' } : {}),
+      : dialUnreadable
+        // This check exists to give one reassurance. It must not give it on a value
+        // it could not interpret.
+        ? 'OUTBOUND_DIAL_ENABLED is set to something that is neither a yes nor a no, '
+          + 'so whether the dialler is armed cannot be answered from here.'
+        : 'OUTBOUND_DIAL_ENABLED is false, so exposure cannot cause a call.',
+    ...(dialEnabled || dialUnreadable
+      ? { remedy: dialUnreadable
+          ? 'Set OUTBOUND_DIAL_ENABLED to true or false, then run this again.'
+          : 'Expose first, watch it, arm the dialler separately.' }
+      : {}),
   });
 
   // --- who can sign in ----------------------------------------------------------

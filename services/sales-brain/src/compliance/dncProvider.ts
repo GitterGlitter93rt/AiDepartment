@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import { normalizePhone } from '../domain/normalize.js';
+import { numeric } from '../config.js';
 
 /**
  * National DNC screening: the provider interface, and a fixture provider.
@@ -77,8 +78,11 @@ export interface FreshnessPolicy {
 /** Configurable, never hard-coded: the reviewed FTC policy sets the real values. */
 export function defaultFreshnessPolicy(env: NodeJS.ProcessEnv = process.env): FreshnessPolicy {
   return {
-    warnAfterHours: Number(env['DNC_SNAPSHOT_WARN_HOURS'] ?? '24'),
-    blockAfterHours: Number(env['DNC_SNAPSHOT_BLOCK_HOURS'] ?? '31' /* days */) * 24,
+    warnAfterHours: numeric('DNC_SNAPSHOT_WARN_HOURS', 24, { env, min: 1 }),
+    // Days, turned into hours. NaN here would mean a snapshot of any age passes the
+    // freshness block, which is the one check standing between a stale scrub list and
+    // a call.
+    blockAfterHours: numeric('DNC_SNAPSHOT_BLOCK_HOURS', 31, { env, min: 1 }) * 24,
   };
 }
 

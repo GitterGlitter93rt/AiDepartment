@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { numeric } from '../config.js';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import type pg from 'pg';
@@ -176,7 +177,7 @@ export async function importCsvContent(
   // blow up the import on a foreign key either — the raw industry label is kept
   // either way, and research can classify the account later.
   const seenAccounts = new Set<string>();
-  const writer = new BatchedWriter(Number(process.env.IMPORT_BATCH_ROWS ?? '100'));
+  const writer = new BatchedWriter(numeric('IMPORT_BATCH_ROWS', 100, { min: 1 }));
 
   try {
   for (let index = 0; index < parsed.rows.length; index += 1) {

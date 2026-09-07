@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { config } from '../config.js';
+import { config, numeric } from '../config.js';
 
 const { Pool } = pg;
 
@@ -26,7 +26,7 @@ const startupOptions = `-c jit=${process.env.YAD_PG_JIT === 'on' ? 'on' : 'off'}
 
 export const pool = new Pool({
   connectionString: config.databaseUrl,
-  max: Number(process.env.PG_POOL_MAX ?? 10),
+  max: numeric('PG_POOL_MAX', 10, { min: 1 }),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
   application_name: 'yad-sales-brain',

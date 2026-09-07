@@ -3,6 +3,7 @@ import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
 import { schemaState } from '../db/migrate.js';
 import { SCORE_VERSION } from '../scoring/model.js';
 import { buildIdentity } from '../release/identity.js';
+import { dailyBudgetUsd } from '../miner/spend.js';
 
 /**
  * One query that answers the questions an operator actually has.
@@ -384,16 +385,29 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   // person who finds out should not be whoever reads the invoice.
   const spentToday = Number(row['provider_spend_today'] ?? 0);
   const estimatedToday = Number(row['provider_spend_today_estimated'] ?? 0);
-  const budget = Number(process.env['DISCOVERY_DAILY_BUDGET_USD'] ?? '0');
-  const spendState: HealthState = budget <= 0 ? 'UNKNOWN'
+  // Through the ceiling's own reader, so this line cannot disagree with the guard
+  // that enforces it. A value nobody can parse is BLOCKED, not UNKNOWN: the miner
+  // will refuse to run on it, and the page should say the same.
+  let budget = 0;
+  let budgetUnreadable = false;
+  try { budget = dailyBudgetUsd(); }
+  catch { budgetUnreadable = true; }
+  const spendState: HealthState = budgetUnreadable ? 'BLOCKED'
+    : budget <= 0 ? 'UNKNOWN'
     : spentToday >= budget ? 'BLOCKED'
     : spentToday >= budget * 0.8 ? 'ATTENTION' : 'OK';
 
   add('spend', 'Are we near a spend cap?', spendState,
-    budget > 0
-      ? `$${spentToday.toFixed(2)} of $${budget.toFixed(2)} today`
-      : `$${spentToday.toFixed(2)} today, no cap set`,
-    budget <= 0
+    budgetUnreadable
+      ? `$${spentToday.toFixed(2)} today, cap unreadable`
+      : budget > 0
+        ? `$${spentToday.toFixed(2)} of $${budget.toFixed(2)} today`
+        : `$${spentToday.toFixed(2)} today, no cap set`,
+    budgetUnreadable
+      ? 'DISCOVERY_DAILY_BUDGET_USD is set to something that is not a number, so the '
+        + 'miner refuses to run rather than treat it as no ceiling. Write it as '
+        + 'digits only, with no currency symbol.'
+      : budget <= 0
       ? 'No daily provider budget is configured, so nothing stops a run of searches '
         + 'from costing whatever they cost. Set DISCOVERY_DAILY_BUDGET_USD.'
       : spentToday >= budget

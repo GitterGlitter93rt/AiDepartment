@@ -23,7 +23,7 @@ import { redactSecrets } from '../workers/redaction.js';
 
 export interface Diagnostics {
   takenAt: string;
-  build: { api: string; workers: string[]; migrationsExpected: number };
+  build: { api: string; workers: string[]; migrationsExpected: number | null };
   schema: { applied: number; pending: string[]; changed: string[]; unknown: string[] };
   workers: {
     online: number; known: number; draining: number;
@@ -227,6 +227,16 @@ export function diagnose(state: Diagnostics): Diagnosis[] {
     });
   }
 
+  if (state.build.migrationsExpected === null) {
+    found.push({
+      category: 'BUILD_SKEW',
+      finding: 'This build could not count the migrations it ships, so nothing here '
+        + 'can say whether the database is up to date. A deploy that copied dist/ '
+        + 'without migrations/ looks exactly like this.',
+      action: 'Check that the migrations directory shipped alongside the build.',
+    });
+  }
+
   const otherBuilds = state.build.workers.filter((sha) => sha !== state.build.api);
   if (state.build.workers.length > 0 && otherBuilds.length > 0) {
     found.push({
@@ -401,7 +411,8 @@ export function renderDiagnostics(state: Diagnostics, diagnoses: Diagnosis[]): s
 
   lines.push('  build');
   lines.push(`     api ${state.build.api}   worker(s) ${state.build.workers.join(', ') || 'none online'}`);
-  lines.push(`     migrations applied ${state.schema.applied} of ${state.build.migrationsExpected}`
+  lines.push(`     migrations applied ${state.schema.applied} of `
+    + `${state.build.migrationsExpected ?? 'an unknown number this build could not count'}`
     + `${state.schema.pending.length > 0 ? `, ${state.schema.pending.length} pending` : ''}`);
   lines.push('  workers');
   lines.push(`     ${state.workers.online} online of ${state.workers.known} known`

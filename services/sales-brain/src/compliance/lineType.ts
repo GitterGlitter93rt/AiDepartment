@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { flag, numeric } from '../config.js';
 import { normalizePhone } from '../domain/normalize.js';
 
 /**
@@ -97,9 +98,9 @@ export function lineTypeConfig(env: NodeJS.ProcessEnv = process.env): LineTypeCo
     accountSid: env['TWILIO_ACCOUNT_SID'] ?? null,
     authToken: env['TWILIO_AUTH_TOKEN'] ?? null,
     baseUrl: env['TWILIO_LOOKUP_BASE_URL'] ?? 'https://lookups.twilio.com/v2',
-    enabled: env['TWILIO_LOOKUP_ENABLED'] === 'true',
-    cacheDays: Number(env['TWILIO_LOOKUP_CACHE_DAYS'] ?? '90'),
-    costPerLookupUsd: Number(env['TWILIO_LOOKUP_COST_USD'] ?? '0.008'),
+    enabled: flag('TWILIO_LOOKUP_ENABLED', false, env),
+    cacheDays: numeric('TWILIO_LOOKUP_CACHE_DAYS', 90, { env, min: 1 }),
+    costPerLookupUsd: numeric('TWILIO_LOOKUP_COST_USD', 0.008, { env }),
   };
 }
 

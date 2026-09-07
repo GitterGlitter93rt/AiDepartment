@@ -36,7 +36,10 @@ export interface CanaryOptions {
 
 export interface CanaryRefusal {
   code: 'NO_VERTICAL' | 'NO_LOCATION' | 'BAD_GEOGRAPHY' | 'NO_QUERIES' | 'COUNT_CEILING'
-    | 'COST_CEILING' | 'NO_PROVIDER' | 'LIVE_NOT_CONFIRMED' | 'DAILY_BUDGET';
+    | 'COST_CEILING' | 'NO_PROVIDER' | 'LIVE_NOT_CONFIRMED' | 'DAILY_BUDGET'
+    // Not "nothing spent today". A day this run could not read is a day it must not
+    // add to: the per-run ceiling is not the per-day ceiling.
+    | 'SPEND_UNKNOWN';
   message: string;
 }
 
@@ -152,8 +155,23 @@ export async function planCanary(options: CanaryOptions): Promise<CanaryPlan> {
     spentTodayUsd: 0, estimatedPortionUsd: 0, budgetUsd: 0,
     wouldExceed: false, remainingUsd: null,
   };
-  try { spend = await spendPosition(); } catch { /* reporting only */ }
-  if (spend.budgetUsd > 0 && spend.spentTodayUsd + estimatedTotalUsd > spend.budgetUsd) {
+  let spendKnown = true;
+  try {
+    spend = await spendPosition();
+  } catch (error) {
+    // Not reporting only. The refusal below reads these numbers, and a zeroed
+    // position with no budget looks exactly like a day with nothing spent and no
+    // ceiling -- so a failure here would take the daily ceiling off a live run
+    // rather than stop it.
+    spendKnown = false;
+    refusals.push({ code: 'SPEND_UNKNOWN',
+      message: 'What today has already cost could not be read '
+        + `(${error instanceof Error ? error.message : String(error)}). A per-run `
+        + 'ceiling is not a per-day ceiling, so a run that cannot see the day is '
+        + 'refused rather than assumed to fit.' });
+  }
+  if (spendKnown && spend.budgetUsd > 0
+      && spend.spentTodayUsd + estimatedTotalUsd > spend.budgetUsd) {
     refusals.push({ code: 'DAILY_BUDGET',
       message: `Today's provider budget is $${spend.budgetUsd.toFixed(2)} and `
         + `$${spend.spentTodayUsd.toFixed(2)} has gone already. This run would take it `
@@ -192,8 +210,9 @@ export async function planCanary(options: CanaryOptions): Promise<CanaryPlan> {
     exclusions,
     cost: {
       assumedPerSearchUsd, estimatedTotalUsd, maxAllowedUsd,
-      spentTodayUsd: spend.spentTodayUsd,
-      dailyBudgetUsd: spend.budgetUsd || null,
+      // -1 rather than 0: a day nobody could read is not a day with nothing spent.
+      spentTodayUsd: spendKnown ? spend.spentTodayUsd : -1,
+      dailyBudgetUsd: spendKnown ? (spend.budgetUsd || null) : null,
     },
     live,
     refusals,

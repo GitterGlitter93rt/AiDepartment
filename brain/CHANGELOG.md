@@ -1,5 +1,76 @@
 # Operational Brain Changelog
 
+## 2026-09-07 — Failures that told nobody: one file for support, and seven quiet fail-opens
+
+Offline work on `feature/outbound-sales-brain`. Nothing deployed, no call
+placed, no prospect contacted, no provider credential used.
+
+**One file to hand over.** Five operator reports already existed --
+doctor, manifest, coverage, retention, preflight -- and an operator with
+a broken system should not have to know which to run. But concatenating
+them was not the point. The first thing anybody asks is "what was the
+error", and not one of the five carried error text: they report counts,
+and a count cannot say that a provider rejected a credential or that a
+page returned HTML where JSON was expected. `npm run support` is one
+file that carries the build, the state, the diagnoses, the row counts
+and the recent errors.
+
+Error text is also exactly where a secret leaks, so most of the tests
+for it are about what it must not contain: a database driver's exception
+carries the connection string, and a provider client puts the
+Authorization header in its message. Both are redacted, along with the
+service login -- half a credential, and often a person's email address.
+The shell's own user name is deliberately *not* redacted, because it
+appears in every file path an error quotes and blanking it would turn a
+stack trace into nonsense. No company name, phone number, email address
+or page content appears anywhere in the bundle. It is about the machine.
+
+**Then the last audit, done by reading rather than running.** Every
+finding below is a path where the system already behaved wrongly and
+every test stayed green, because the wrong behaviour was to say nothing.
+
+- **A spend ceiling written the way a person writes money was not a
+  ceiling.** `DISCOVERY_DAILY_BUDGET_USD=$20` read through `Number()` is
+  NaN, every comparison against NaN is false, and `!(NaN > 0)` is true
+  -- so the guard reported the ceiling as *unset* and a 24/7 miner would
+  spend the night against a limit somebody believed they had typed in.
+- **The same coercion sat under the DNC snapshot staleness block and a
+  webhook's replay window.** One typo could remove a money limit, a
+  compliance limit or a replay defence, and each of them by staying
+  quiet. Twenty-six numeric settings now go through one reader that
+  refuses a value that is not a number, naming the variable and what it
+  was set to. Unset still means the default; that part was deliberate.
+- **Two dialects of "true", on the one flag that can ring a real
+  phone.** `config` accepted `true`, `1` and `yes`; nine other places
+  compared against the string `'true'`. Both read
+  `OUTBOUND_DIAL_ENABLED`, so `=1` armed outbound dialling while the
+  release manifest and the exposure preflight each reported it disabled.
+  True of the code and false of the screen. One reader now, and a value
+  neither a yes nor a no stops the process instead of being guessed at.
+- **A retention plan dropped tables it could not read.** The plan is the
+  artefact an operator approves, and a table that quietly vanished from
+  the list is one nobody decided about. Named now, as unreadable rather
+  than as empty.
+- **A migration count nobody could read was reported as zero.** Zero
+  shipped against forty-four applied reads as "the database is ahead of
+  the build", which sends support after a migration that was never the
+  problem.
+- **A provider validation that ran no checks said OK.** Nothing reaches
+  it today, which is exactly how it would have survived to the first
+  validator that returns early.
+- **A canary that could not read today's spend dropped the daily
+  ceiling** instead of refusing. The comment said "reporting only"; two
+  lines down the value decided a refusal.
+- **A research run whose scoring failed reported COMPLETED.** The only
+  trace was a console line on a box where nobody reads worker logs. It
+  reports PARTIAL with a redacted reason now, on the job itself, where
+  the doctor and the support bundle can see it.
+
+The recurring shape, for the fourteenth time in this campaign:
+configuration written down deliberately and never read by the runtime --
+or, here, read in a way that could not fail. A guard that cannot fail
+loudly is not a guard.
+
 ## 2026-09-05 — Production scale: eleven defects between 25,000 accounts and a rep's Monday morning
 
 A scale, concurrency and data-integrity pass. Nothing deployed, no call

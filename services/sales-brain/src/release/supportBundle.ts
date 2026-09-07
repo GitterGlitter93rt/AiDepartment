@@ -38,6 +38,8 @@ export interface SupportBundle {
   recentFailures: {
     jobType: string; status: string; attempts: number; outcome: string | null;
     completedAt: Date | null; error: string | null;
+    /** A handler's own account of what went wrong, when it gave one. */
+    outcomeReason: string | null;
   }[];
   /** Provider errors by code and count. Codes, never bodies. */
   providerErrors: { provider: string; errorCode: string; n: number }[];
@@ -60,11 +62,12 @@ export async function supportBundle(): Promise<SupportBundle> {
 
   const { rows: failures } = await query<{
     job_type: string; status: string; attempts: number; outcome: string | null;
-    completed_at: Date | null; last_error: string | null;
+    completed_at: Date | null; last_error: string | null; outcome_reason: string | null;
   }>(
-    `select job_type, status, attempts, outcome, completed_at, last_error
+    `select job_type, status, attempts, outcome, outcome_reason, completed_at, last_error
        from jobs
       where status = 'FAILED' or last_error is not null
+         or outcome in ('PARTIAL', 'FAILED', 'PROVIDER_UNAVAILABLE')
       order by coalesce(completed_at, created_at) desc
       limit 25`);
 
@@ -104,8 +107,11 @@ export async function supportBundle(): Promise<SupportBundle> {
       attempts: row.attempts,
       outcome: row.outcome,
       completedAt: row.completed_at,
-      // The one field in this bundle that came from an exception.
+      // The two fields in this bundle that came from an exception. Redacted on read
+      // as well as on write: rows written before that filter existed are still here.
       error: row.last_error === null ? null : redactSecrets(row.last_error).slice(0, 600),
+      outcomeReason: row.outcome_reason === null
+        ? null : redactSecrets(row.outcome_reason).slice(0, 600),
     })),
     providerErrors: providerErrors.map((row) => ({
       provider: row.provider, errorCode: row.error_code, n: row.n,
@@ -125,7 +131,8 @@ export function renderSupportBundle(bundle: SupportBundle): string {
 
   lines.push(`  build ${bundle.manifest.build.sha}, `
     + `${bundle.manifest.build.migrationsApplied} of `
-    + `${bundle.manifest.build.migrationsShipped} migrations applied, `
+    + `${bundle.manifest.build.migrationsShipped
+      ?? 'an unknown number of'} migrations applied, `
     + `scoring ${bundle.manifest.scoring.policyVersion}`);
   lines.push(`  workers ${bundle.diagnostics.workers.online} online, `
     + `queue ${bundle.diagnostics.queue.queued} waiting, `
@@ -138,6 +145,9 @@ export function renderSupportBundle(bundle: SupportBundle): string {
       lines.push(`     ${failure.jobType} ${failure.status} `
         + `after ${failure.attempts} attempt(s)`);
       if (failure.error) lines.push(`        ${failure.error.slice(0, 200)}`);
+      if (failure.outcomeReason) {
+        lines.push(`        ${failure.outcomeReason.slice(0, 200)}`);
+      }
     }
     lines.push('');
   }

@@ -5,7 +5,7 @@ import { reconcile } from '../resolver/reconcile.js';
 import { persistResolution } from '../resolver/persist.js';
 import { recordEvidence } from '../domain/accounts.js';
 import type { EndpointObservation, PersonObservation } from '../resolver/types.js';
-import { registerHandler, type JobRecord } from './runner.js';
+import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
 
 /**
  * Contact research worker.
@@ -32,6 +32,14 @@ export interface ContactResearchOutcome {
   /** How much of what matters this run now has an answer to. */
   completenessLabel?: string | null;
   completenessScore?: number | null;
+  /**
+   * PARTIAL when the crawl and the evidence stand but something after them did not
+   * finish. Declared here rather than only spread in at runtime: the runner records
+   * this on the job, and a field the type does not admit to is a field nothing
+   * downstream can be written against.
+   */
+  outcome?: JobOutcome;
+  outcomeReason?: string;
 }
 
 interface AccountRow {
@@ -265,6 +273,8 @@ export async function runContactResearch(
   // here, on the evidence this run just wrote, outside the transaction above so a
   // scoring fault cannot roll back the research it is reading.
   let scored: { totalPoints: number; tier: string } | null = null;
+  let scoreFault: string | null = null;
+  let completenessFault: string | null = null;
   try {
     const { scoreAccount } = await import('../scoring/score.js');
     const result = await scoreAccount(accountId, { researchRunId });
@@ -272,6 +282,7 @@ export async function runContactResearch(
   } catch (error) {
     // A research run that succeeded is not undone by a scoring failure. The Account
     // keeps its evidence and stays unscored, which the operator can see and retry.
+    scoreFault = error instanceof Error ? error.message : String(error);
     console.error('[research] scoring failed', { accountId, error });
   }
 
@@ -315,10 +326,22 @@ export async function runContactResearch(
     await storeCompleteness(accountId, result, researchRunId);
     completeness = { label: result.label, score: result.score };
   } catch (error) {
+    completenessFault = error instanceof Error ? error.message : String(error);
     console.error('[research] completeness failed', { accountId, error });
   }
 
+  const faults = [
+    scoreFault === null ? null : `scoring failed: ${scoreFault}`,
+    completenessFault === null ? null : `completeness failed: ${completenessFault}`,
+  ].filter((fault): fault is string => fault !== null);
+
   return {
+    // The run happened and its evidence stands, but a run that could not score the
+    // company is not a finished one. PARTIAL says so on the job itself, where the
+    // doctor and the support bundle can see it, instead of only in a log line.
+    ...(faults.length > 0
+      ? { outcome: 'PARTIAL' as const, outcomeReason: faults.join('; ') }
+      : {}),
     accountId,
     status: resolution.status,
     primaryPerson: resolution.primary?.personName ?? null,

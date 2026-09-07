@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ingestEvent, type InboundEvent, type IngestResult } from './inbound.js';
+import { numeric } from '../config.js';
 
 /**
  * The Smartlead webhook transport.
@@ -32,7 +33,8 @@ export function smartleadWebhookConfig(
 ): SmartleadWebhookConfig {
   return {
     secret: env['SMARTLEAD_WEBHOOK_SECRET'] ?? null,
-    toleranceSeconds: Number(env['SMARTLEAD_WEBHOOK_TOLERANCE_SECONDS'] ?? '300'),
+    toleranceSeconds:
+      numeric('SMARTLEAD_WEBHOOK_TOLERANCE_SECONDS', 300, { env, min: 1 }),
   };
 }
 

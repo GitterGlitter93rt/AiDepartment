@@ -35,10 +35,77 @@ function required(key: string): string {
 function optional(key: string, fallback = ''): string {
   return process.env[key] ?? fallback;
 }
+const TRUE_WORDS = new Set(['true', '1', 'yes', 'on']);
+const FALSE_WORDS = new Set(['false', '0', 'no', 'off']);
+
+/**
+ * A flag, read the same way everywhere.
+ *
+ * There were two dialects. `bool()` accepted true, 1 and yes; nine other places
+ * compared against the string 'true'. Both read OUTBOUND_DIAL_ENABLED, so `=1`
+ * armed outbound dialling while the release manifest and the exposure preflight
+ * each reported it disabled -- true of the code and false of the screen, on the one
+ * flag where that gap can put a call on a real phone.
+ *
+ * Anything unrecognised throws rather than defaulting. A flag is set by hand in a
+ * file, and a value nobody can interpret must not be interpreted: silently reading
+ * `disabled?` as false is how a deliberate setting becomes a surprise.
+ */
+export function flag(
+  key: string, fallback = false, env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const raw = env[key];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = raw.trim().toLowerCase();
+  if (TRUE_WORDS.has(value)) return true;
+  if (FALSE_WORDS.has(value)) return false;
+  throw new Error(
+    `Environment variable ${key} is set to "${raw}", which is not a yes or a no. `
+    + `Use one of ${[...TRUE_WORDS].join(', ')} or ${[...FALSE_WORDS].join(', ')}.`);
+}
+
+/**
+ * A number, read the same way everywhere, refusing anything that is not one.
+ *
+ * `Number('$20')` is NaN, and every comparison against NaN is false. So a spend
+ * ceiling written the way a person writes money did not cap anything: the guard
+ * `spent + assumed > budget` was false, and the ceiling reported itself as unset.
+ * The same coercion sat under the DNC snapshot staleness block and a webhook's
+ * replay window, so one typo could remove a money limit, a compliance limit or a
+ * replay defence, and each of them by staying quiet.
+ *
+ * Unset still means the fallback -- that part was deliberate and is unchanged.
+ * Unreadable now stops the process instead, naming the variable and its value.
+ */
+export function numeric(
+  key: string, fallback: number,
+  options: { min?: number; max?: number; env?: NodeJS.ProcessEnv } = {},
+): number {
+  const env = options.env ?? process.env;
+  const raw = env[key];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw.trim());
+  if (!Number.isFinite(value)) {
+    throw new Error(
+      `Environment variable ${key} is set to "${raw}", which is not a number. `
+      + 'Write it as digits only, with no currency symbol, unit or separator.');
+  }
+  const min = options.min ?? 0;
+  if (value < min) {
+    throw new Error(
+      `Environment variable ${key} is set to "${raw}", which is below the smallest `
+      + `value that means anything here (at least ${min}).`);
+  }
+  if (options.max !== undefined && value > options.max) {
+    throw new Error(
+      `Environment variable ${key} is set to "${raw}", which is above the largest `
+      + `value this accepts (at most ${options.max}).`);
+  }
+  return value;
+}
+
 function bool(key: string, fallback = false): boolean {
-  const value = process.env[key];
-  if (value === undefined || value === '') return fallback;
-  return value === 'true' || value === '1' || value === 'yes';
+  return flag(key, fallback);
 }
 
 export type ContactEnrichmentMode =
@@ -55,11 +122,11 @@ export const config = {
   databaseUrl: required('DATABASE_URL'),
 
   portal: {
-    port: Number(optional('SALES_PORTAL_PORT', '8080')),
+    port: numeric('SALES_PORTAL_PORT', 8080, { min: 1, max: 65535 }),
     bind: optional('SALES_PORTAL_BIND', '127.0.0.1'),
     sessionSecret: required('SESSION_SECRET'),
     sessionCookieSecure: bool('SESSION_COOKIE_SECURE', false),
-    sessionTtlHours: Number(optional('SESSION_TTL_HOURS', '12')),
+    sessionTtlHours: numeric('SESSION_TTL_HOURS', 12, { min: 1 }),
   },
 
   /**
@@ -105,9 +172,9 @@ export const config = {
   },
 
   worker: {
-    concurrency: Number(optional('WORKER_CONCURRENCY', '2')),
-    pollIntervalMs: Number(optional('WORKER_POLL_INTERVAL_MS', '2000')),
-    leaseSeconds: Number(optional('WORKER_LEASE_SECONDS', '300')),
+    concurrency: numeric('WORKER_CONCURRENCY', 2, { min: 1 }),
+    pollIntervalMs: numeric('WORKER_POLL_INTERVAL_MS', 2000, { min: 100 }),
+    leaseSeconds: numeric('WORKER_LEASE_SECONDS', 300, { min: 10 }),
     userAgent: optional(
       'RESEARCH_USER_AGENT',
       'YourAIDepartment-Research/0.1 (+https://youraidepartment.ai; business research)',

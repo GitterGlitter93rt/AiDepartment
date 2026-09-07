@@ -19,8 +19,13 @@ import { execFileSync } from 'node:child_process';
 export interface BuildIdentity {
   /** The commit this build came from, or 'unknown' when nothing recorded one. */
   sha: string;
-  /** How many migrations this build ships. Compare against what the database ran. */
-  migrationsExpected: number;
+  /**
+   * How many migrations this build ships, or null when this build could not count
+   * them -- a deploy that shipped `dist/` without `migrations/` being the way that
+   * happens. Null is not zero: zero would read as "the database is ahead of the
+   * build", which is a different fault with a different fix.
+   */
+  migrationsExpected: number | null;
 }
 
 let cached: BuildIdentity | null = null;
@@ -33,8 +38,8 @@ let cached: BuildIdentity | null = null;
  * EdgeXpert -- and it is allowed to fail silently, because a missing build id must
  * degrade to 'unknown' rather than stop a process from starting.
  */
-export function buildIdentity(): BuildIdentity {
-  if (cached) return cached;
+export function buildIdentity(options: { migrationsDir?: string } = {}): BuildIdentity {
+  if (cached && !options.migrationsDir) return cached;
 
   let sha = process.env['BUILD_SHA']?.trim() ?? '';
   if (!sha) {
@@ -44,14 +49,16 @@ export function buildIdentity(): BuildIdentity {
     } catch { sha = ''; }
   }
 
-  let migrationsExpected = 0;
+  let migrationsExpected: number | null = null;
   try {
-    const dir = new URL('../../migrations/', import.meta.url).pathname;
+    const dir = options.migrationsDir
+      ?? new URL('../../migrations/', import.meta.url).pathname;
     migrationsExpected = readdirSync(dir).filter((file) => file.endsWith('.sql')).length;
-  } catch { migrationsExpected = 0; }
+  } catch { migrationsExpected = null; }
 
-  cached = { sha: sha || 'unknown', migrationsExpected };
-  return cached;
+  const identity: BuildIdentity = { sha: sha || 'unknown', migrationsExpected };
+  if (!options.migrationsDir) cached = identity;
+  return identity;
 }
 
 /** Only for tests, which need to re-read after changing the environment. */

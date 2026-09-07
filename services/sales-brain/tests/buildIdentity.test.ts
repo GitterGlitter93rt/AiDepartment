@@ -29,7 +29,7 @@ test('a build says which commit it is and which schema it expects', () => {
   resetBuildIdentity();
   const identity = buildIdentity();
   assert.equal(identity.sha, 'deadbee');
-  assert.ok(identity.migrationsExpected > 0,
+  assert.ok((identity.migrationsExpected ?? 0) > 0,
     'this build claims to ship no migrations, so a schema check has nothing to compare');
 });
 

@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { flag, numeric } from '../config.js';
 import {
   refusedDiscovery,
   type DiscoveredBusiness, type DiscoveryAdapter, type DiscoveryQuery,
@@ -92,13 +93,13 @@ export function dataForSeoConfig(env: NodeJS.ProcessEnv = process.env): DataForS
     password: env['DATAFORSEO_PASSWORD'] ?? null,
     baseUrl: env['DATAFORSEO_BASE_URL'] ?? DEFAULT_BASE_URL,
     mode: env['DATAFORSEO_MODE'] === 'live' ? 'live' : 'standard',
-    governanceReviewed: env['DATAFORSEO_GOVERNANCE_REVIEWED'] === 'true',
-    enabled: env['DATAFORSEO_ENABLED'] === 'true',
-    maxQueriesPerRun: Number(env['DATAFORSEO_MAX_QUERIES_PER_RUN'] ?? '25'),
-    resultDepth: Number(env['DATAFORSEO_RESULT_DEPTH'] ?? '100'),
-    maxRetries: Number(env['DATAFORSEO_MAX_RETRIES'] ?? '2'),
-    maxPollAttempts: Number(env['DATAFORSEO_MAX_POLL_ATTEMPTS'] ?? '10'),
-    pollIntervalMs: Number(env['DATAFORSEO_POLL_INTERVAL_MS'] ?? '3000'),
+    governanceReviewed: flag('DATAFORSEO_GOVERNANCE_REVIEWED', false, env),
+    enabled: flag('DATAFORSEO_ENABLED', false, env),
+    maxQueriesPerRun: numeric('DATAFORSEO_MAX_QUERIES_PER_RUN', 25, { env, min: 1 }),
+    resultDepth: numeric('DATAFORSEO_RESULT_DEPTH', 100, { env, min: 1 }),
+    maxRetries: numeric('DATAFORSEO_MAX_RETRIES', 2, { env }),
+    maxPollAttempts: numeric('DATAFORSEO_MAX_POLL_ATTEMPTS', 10, { env, min: 1 }),
+    pollIntervalMs: numeric('DATAFORSEO_POLL_INTERVAL_MS', 3000, { env }),
   };
 }
 

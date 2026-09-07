@@ -32,6 +32,12 @@ export interface TablePlan {
   /** Rows by age, so an operator can see the shape before choosing a period. */
   ageBuckets: { label: string; n: number }[];
   estimatedReclaimedBytes: number;
+  /**
+   * Why this table could not be measured, when it could not be. Named in the plan
+   * rather than left out of it: an operator approves what this report lists, and a
+   * table that quietly vanished from the list is one nobody decided about.
+   */
+  unreadableReason?: string;
 }
 
 export interface RetentionPlan {
@@ -150,7 +156,18 @@ export async function planRetention(
 ): Promise<RetentionPlan> {
   const tables: TablePlan[] = [];
   for (const entry of policy.tables) {
-    try { tables.push(await planTable(entry)); } catch { /* a table absent here */ }
+    try {
+      tables.push(await planTable(entry));
+    } catch (error) {
+      // -1 rather than 0: this is not an empty table, it is a table nobody could
+      // count, and the two must not render the same way.
+      tables.push({
+        table: entry.table, rationale: entry.rationale, keepDays: entry.keepDays,
+        totalRows: -1, olderThanPolicy: 0, protectedRows: 0, protectionReason: null,
+        deletable: 0, ageBuckets: [], estimatedReclaimedBytes: 0,
+        unreadableReason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return {
@@ -182,6 +199,14 @@ export function renderRetentionPlan(plan: RetentionPlan): string {
   lines.push('');
 
   for (const table of plan.tables) {
+    if (table.unreadableReason) {
+      lines.push(`  ${table.table}  (COULD NOT BE READ)`);
+      lines.push(`     ${table.unreadableReason}`);
+      lines.push('     This build expects this table and this database did not answer '
+        + 'for it, so nothing here describes it. Not an empty table.');
+      lines.push('');
+      continue;
+    }
     lines.push(`  ${table.table}  (${table.totalRows} rows)`);
     lines.push(`     ${table.rationale}`);
     lines.push(`     ${table.ageBuckets.map(

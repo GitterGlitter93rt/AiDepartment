@@ -19,6 +19,9 @@
  * Read at call time rather than captured at import, so a credential added after
  * start-up is still redacted.
  */
+/** The shell's own idea of who is running this. Never a credential. */
+const OS_USER_KEYS = new Set(['USER', 'USERNAME', 'LOGNAME', 'SUDO_USER', 'LNAME']);
+
 function configuredSecrets(env: NodeJS.ProcessEnv = process.env): string[] {
   const secrets: string[] = [];
   for (const [key, value] of Object.entries(env)) {
@@ -28,6 +31,7 @@ function configuredSecrets(env: NodeJS.ProcessEnv = process.env): string[] {
     // because it appears in every file path an error quotes and blanking it would
     // turn a readable stack trace into nonsense. So the login half has to be
     // namespaced to a service to count.
+    if (OS_USER_KEYS.has(key.toUpperCase())) continue;
     const secretish = /KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|DSN|DATABASE_URL/i.test(key);
     if (!secretish && !/._(LOGIN|USERNAME|USER)$/i.test(key)) continue;
     secrets.push(value);

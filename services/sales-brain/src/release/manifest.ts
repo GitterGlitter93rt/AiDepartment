@@ -4,6 +4,7 @@ import { schemaState } from '../db/migrate.js';
 import { profileContentHash } from '../domain/verticals.js';
 import { SCORE_VERSION, scoringRulesFingerprint } from '../scoring/model.js';
 import { AUTOMATED_DISCOVERY_PREFIXES } from '../domain/discoverySources.js';
+import { flag, numeric } from '../config.js';
 
 /**
  * What this build is, as distinct from what state it is in.
@@ -25,7 +26,7 @@ import { AUTOMATED_DISCOVERY_PREFIXES } from '../domain/discoverySources.js';
 
 export interface ReleaseManifest {
   generatedAt: string;
-  build: { sha: string; migrationsShipped: number; migrationsApplied: number };
+  build: { sha: string; migrationsShipped: number | null; migrationsApplied: number };
   /** Migrations this build has that the database has not run, and the reverse. */
   schemaDrift: { pending: string[]; unknownToBuild: string[]; changedAfterApply: string[] };
   scoring: { policyVersion: string; rulesFingerprint: string };
@@ -40,6 +41,12 @@ export interface ReleaseManifest {
     contactEnrichmentMode: string;
     dailyDiscoveryBudgetUsd: number;
     retentionPolicySupplied: boolean;
+    /**
+     * Variables whose values could not be interpreted. Listed rather than folded
+     * into the values above, because "set to something nobody can read" is a third
+     * state and reporting it as off is how a set flag becomes an unset one.
+     */
+    unreadable: string[];
   };
 }
 
@@ -52,6 +59,20 @@ const CREDENTIAL_VARS = [
 export async function releaseManifest(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<ReleaseManifest> {
+  // The runtime's own readers, so a flag cannot read one way here and another way
+  // where it is acted on. They throw on a value nobody can interpret; a report has
+  // to survive that and name it, because an unreadable safety flag is precisely
+  // what somebody would be reading this manifest to find out.
+  const unreadableSoFar: string[] = [];
+  const readFlag = (source: NodeJS.ProcessEnv, key: string): boolean => {
+    try { return flag(key, false, source); }
+    catch { unreadableSoFar.push(key); return false; }
+  };
+  const readNumber = (source: NodeJS.ProcessEnv, key: string, fallback: number): number => {
+    try { return numeric(key, fallback, { env: source }); }
+    catch { unreadableSoFar.push(key); return fallback; }
+  };
+
   const identity = buildIdentity();
   const schema = await schemaState();
 
@@ -102,11 +123,15 @@ export async function releaseManifest(
       name, present: Boolean((env[name] ?? '').trim()),
     })),
     safety: {
-      outboundDialEnabled: env['OUTBOUND_DIAL_ENABLED'] === 'true',
-      outboundEmailEnabled: env['OUTBOUND_EMAIL_ENABLED'] === 'true',
+      // Through the same readers the runtime uses, so the manifest cannot report a
+      // flag as off while the code that acts on it reads on. A value neither reader
+      // can interpret is reported as unreadable, which is not the same as false.
+      outboundDialEnabled: readFlag(env, 'OUTBOUND_DIAL_ENABLED'),
+      outboundEmailEnabled: readFlag(env, 'OUTBOUND_EMAIL_ENABLED'),
       contactEnrichmentMode: env['CONTACT_ENRICHMENT_MODE'] ?? 'PUBLIC_ONLY',
-      dailyDiscoveryBudgetUsd: Number(env['DISCOVERY_DAILY_BUDGET_USD'] ?? '0'),
+      dailyDiscoveryBudgetUsd: readNumber(env, 'DISCOVERY_DAILY_BUDGET_USD', 0),
       retentionPolicySupplied: Boolean((env['RETENTION_POLICY_PATH'] ?? '').trim()),
+      unreadable: unreadableSoFar,
     },
   };
 }
@@ -192,7 +217,12 @@ export function renderManifest(manifest: ReleaseManifest): string {
   const lines = ['', 'RELEASE MANIFEST', `  ${manifest.generatedAt}`, ''];
   lines.push(`  build            ${manifest.build.sha}`);
   lines.push(`  migrations       ${manifest.build.migrationsApplied} applied of `
-    + `${manifest.build.migrationsShipped} shipped`);
+    + `${manifest.build.migrationsShipped ?? 'a number this build could not count'} shipped`);
+  if (manifest.safety.unreadable.length > 0) {
+    lines.push(`  UNREADABLE       ${manifest.safety.unreadable.join(', ')} — set to a `
+      + 'value that is neither a number nor a yes/no. The runtime refuses to start '
+      + 'on these rather than guess.');
+  }
   if (manifest.schemaDrift.pending.length > 0) {
     lines.push(`  PENDING          ${manifest.schemaDrift.pending.join(', ')}`);
   }
@@ -220,7 +250,12 @@ export function renderManifest(manifest: ReleaseManifest): string {
   lines.push(`     outbound dialling      ${manifest.safety.outboundDialEnabled}`);
   lines.push(`     outbound email         ${manifest.safety.outboundEmailEnabled}`);
   lines.push(`     contact enrichment     ${manifest.safety.contactEnrichmentMode}`);
-  lines.push(`     daily discovery budget $${manifest.safety.dailyDiscoveryBudgetUsd.toFixed(2)}`);
+  lines.push(`     daily discovery budget ${
+    manifest.safety.unreadable.includes('DISCOVERY_DAILY_BUDGET_USD')
+      // Not $0.00. A ceiling nobody could read is not a ceiling of nothing, and
+      // printing a number here is how the report disagrees with the guard.
+      ? 'set to a value that is not a number, so the miner refuses to run'
+      : `$${manifest.safety.dailyDiscoveryBudgetUsd.toFixed(2)}`}`);
   lines.push(`     retention policy       ${manifest.safety.retentionPolicySupplied
     ? 'supplied' : 'none — nothing prunes anything'}`);
   lines.push('');

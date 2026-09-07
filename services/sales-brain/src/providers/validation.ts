@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { flag } from '../config.js';
 import { normalizePhone } from '../domain/normalize.js';
 
 /**
@@ -50,7 +51,39 @@ function absent(name: string, env: NodeJS.ProcessEnv): boolean {
   return (env[name] ?? '').trim().length === 0;
 }
 
-function rollUp(provider: string, checks: ValidationCheck[]): ProviderValidation {
+/**
+ * The shared roll-up. Exported because it carries the rule that one failing check is
+ * not offset by a passing one, and that rule is worth asserting directly.
+ */
+/**
+ * The shared roll-up. Exported because it carries the rule that one failing check is
+ * not offset by a passing one, and that rule is worth asserting directly.
+ */
+export function rollUp(provider: string, checks: ValidationCheck[]): ProviderValidation {
+  if (checks.length === 0) {
+    // Vacuous truth, in the one place it is most expensive: `find` over an empty
+    // list returns nothing, and the fallback said OK. A provider nobody asked
+    // anything about is not a working provider.
+    return {
+      provider, status: 'MISSING_CONFIG',
+      checks: [{ id: 'no_checks_ran', status: 'MISSING_CONFIG', missing: [provider],
+        detail: 'Nothing was checked for this provider, so nothing is known about it. '
+          + 'Reported as unconfigured rather than working.' }],
+      missing: [provider],
+    };
+  }
+  if (checks.length === 0) {
+    // Vacuous truth, in the one place it is most expensive: `find` over an empty
+    // list returns nothing, and the fallback said OK. A provider nobody asked
+    // anything about is not a working provider.
+    return {
+      provider, status: 'MISSING_CONFIG',
+      checks: [{ id: 'no_checks_ran', status: 'MISSING_CONFIG', missing: [provider],
+        detail: 'Nothing was checked for this provider, so nothing is known about it. '
+          + 'Reported as unconfigured rather than working.' }],
+      missing: [provider],
+    };
+  }
   const missing = [...new Set(checks.flatMap((check) => check.missing))];
   // One failing check is not offset by another passing, and the headline is whatever
   // the operator has to fix first: a wrong credential, then something unset, then
@@ -160,7 +193,7 @@ export async function validateDataForSeo(options: {
 
   // The governance review gates discovery independently of the credential, so it is
   // reported as its own check rather than folded into "not configured".
-  checks.push(env['DATAFORSEO_GOVERNANCE_REVIEWED'] === 'true'
+  checks.push(flag('DATAFORSEO_GOVERNANCE_REVIEWED', false, env)
     ? { id: 'governance_review', status: 'OK', missing: [],
         detail: 'The source governance review is recorded.' }
     : { id: 'governance_review', status: 'MISSING_CONFIG',
