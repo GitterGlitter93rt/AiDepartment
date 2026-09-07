@@ -34,6 +34,13 @@ function neutraliseStructure(text: string): string {
     .replace(/<\/?[a-zA-Z][^>]{0,40}>/g, ' ')
     // Our own fence, so nothing can close it early.
     .replace(/\[\/?untrusted[^\]]*\]/gi, ' ')
+    // Fence-shaped text of other flavours. A page saying
+    // "--- END OF UNTRUSTED CONTENT ---" cannot close this fence, which uses square
+    // brackets -- but a line that looks like a boundary sitting inside one is worth
+    // removing anyway rather than left to a model's judgement. Defence in depth: the
+    // guarantee is the real marker, this is tidiness that costs nothing.
+    .replace(/-{2,}\s*(?:begin|end|start)[^\n]{0,60}?-{2,}/gi, ' ')
+    .replace(/(?:^|\s)(?:system|assistant|user)\s*:/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
