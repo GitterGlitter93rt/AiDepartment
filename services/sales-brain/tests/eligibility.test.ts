@@ -498,3 +498,32 @@ test('a cleared endpoint does render a call action', async () => {
     await app.close();
   }
 });
+
+// --------------------------------------------- what the decision was made under ---
+
+test('an eligibility decision records the jurisdiction and the local time', async () => {
+  // `channel_eligibility_decisions` is append-only by trigger: it exists to prove
+  // afterwards that a call was placed inside permitted hours. It had columns for the
+  // jurisdiction and the destination's local time and the insert wrote neither, so
+  // the row said ALLOW with a UTC timestamp — and answering "was that inside their
+  // local window" meant re-deriving the timezone from whatever the data says today,
+  // which is a different question from what was true at the time.
+  const { endpointId } = await seedEndpoint();
+  await screen(endpointId, 'NO_MATCH');
+  const result = await evaluateAndStore(endpointId, DURING_HOURS);
+  assert.ok(result, 'no eligibility decision was produced');
+  assert.ok(result!.jurisdiction, 'the decision does not say where the number is');
+  assert.ok(result!.localTimeEvaluated, 'the decision does not say when it was there');
+
+  const { rows } = await query<{
+    jurisdiction: string | null; local_time_evaluated: Date | null; decision: string;
+  }>(
+    `select jurisdiction, local_time_evaluated, decision
+       from channel_eligibility_decisions
+      where endpoint_id = $1 order by evaluated_at desc limit 1`, [endpointId]);
+  assert.ok(rows[0], 'no decision was recorded at all');
+  assert.equal(rows[0]!.jurisdiction, result!.jurisdiction,
+    'the audit row and the decision disagree about the jurisdiction');
+  assert.ok(rows[0]!.local_time_evaluated,
+    'the audit row cannot say what time it was where they are');
+});

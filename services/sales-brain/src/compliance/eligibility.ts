@@ -48,6 +48,18 @@ export interface EligibilityResult {
   lineType: string;
   policyVersion: string;
   evaluatedAt: Date;
+  /**
+   * The timezone this decision was made under, and the destination's local time when
+   * it was made.
+   *
+   * `channel_eligibility_decisions` is append-only by trigger -- it exists to prove
+   * afterwards that a call was placed inside permitted hours -- and it has columns
+   * for both, which nothing wrote. The row said ALLOW with a UTC timestamp, so
+   * answering "was that inside their local window" meant re-deriving the timezone
+   * from whatever the data says today, which is not the same question.
+   */
+  jurisdiction: string | null;
+  localTimeEvaluated: Date | null;
 }
 
 interface EndpointState {
@@ -277,6 +289,11 @@ function finish(
     lineType: state.line_type,
     policyVersion: POLICY_VERSION,
     evaluatedAt: now,
+    // Computed here rather than at the window check, so every path through this
+    // function records it -- including the early refusals, where "what time was it
+    // where they are" is exactly as much a part of the audit trail.
+    jurisdiction: state.timezone ?? null,
+    localTimeEvaluated: localHour(state.timezone, now) === null ? null : now,
   };
 }
 
@@ -351,11 +368,15 @@ export async function evaluateAndStore(
       await client.query(
         `insert into channel_eligibility_decisions (endpoint_id, account_id, channel, decision,
                                                     reason_codes, policy_version, line_type,
-                                                    next_eligible_at, evaluated_at, expires_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz, $9::timestamptz + interval '15 minutes')`,
+                                                    next_eligible_at, evaluated_at, expires_at,
+                                                    jurisdiction, local_time_evaluated)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,
+                 $9::timestamptz + interval '15 minutes', $10, $11)`,
         [
           endpointId, state.account_id, channel, decision, result.reasonCodes,
           result.policyVersion, state.line_type, nextAt, result.evaluatedAt,
+          // The two columns this append-only table has always had and nothing wrote.
+          result.jurisdiction, result.localTimeEvaluated,
         ],
       );
     }

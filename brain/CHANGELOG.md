@@ -283,6 +283,43 @@ of two offer declarations is authoritative, and a second hook ordering
 that conflicts with the one in use. Settling those silently would change
 what an agent says.
 
+**Last, the schema itself.** Ninety-four of a thousand and thirty-eight
+columns are never named anywhere in the product. Most are ordinary
+surrogate keys. Two clusters mattered, and they went opposite ways.
+
+`channel_eligibility_decisions` is append-only by trigger and exists to
+prove afterwards that a call was inside permitted hours. It has columns
+for the jurisdiction and the destination's local time, and the insert
+wrote neither. The calling-window check itself is correct -- it does
+evaluate local time against a nine-to-seven window -- it simply never
+recorded what it used, so a row read ALLOW with a UTC timestamp and
+answering "was that inside their local window" meant re-deriving the
+timezone from whatever the data says today. Both are written now,
+computed where every path through the function passes, including the
+early refusals.
+
+The other cluster was verified rather than fixed. Nothing writes
+`media_capture_consent` at all, and that is the intended state:
+`mediaCaptureAllowed` refuses when no row exists and names the Florida
+default in as many words, and a table constraint makes GRANTED
+impossible without saying who agreed and in what words. Empty because
+recording is off, and fail-closed by construction. Also named:
+`mining_jobs` is a table superseded by `jobs`, never written, never read,
+zero rows, recorded so nobody builds on it.
+
+The guard pins the count so it can only fall, and states its own limit:
+the detector is name-based, so a column name two tables share cannot be
+told apart -- writing `jurisdiction` for eligibility made it look read on
+the consent table too. A ceiling, not a census. It undercounts, never
+over.
+
+And an older guard caught the new one. `assertionIntegrity` flagged that
+the schema census queried the database without resetting it, so it would
+pass on state left by whichever file ran before. That rule earns its
+keep here: several tests rename a table and restore it in a finally, and
+a run that died mid-rename would leave the census silently not counting
+that table at all.
+
 The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail
