@@ -234,11 +234,21 @@ test('no profile enables a scoring override, because nothing implements one', as
   }
 });
 
-test('how many declared hypothesis triggers can actually fire', async () => {
-  // A number rather than a feeling. 57 of 150 triggers name a signal no source
-  // produces -- hail ads, a phone-heavy site, CRM front-end signals, team size --
-  // so those hypotheses can never surface. That is a product gap with a size, and
-  // pinning the size means it can only be closed, never widened unnoticed.
+test('a trigger names a signal its own profile declares', async () => {
+  // "Fifty-seven triggers cannot fire" was two problems wearing one number, and
+  // separating them changes who can fix it.
+  //
+  // Only two distinct signals genuinely need data we do not buy: `active_meta_ad`,
+  // which no SERP search can observe, and `storm_hail_market_signal`, whose source
+  // is the open question. The other twenty-seven are triggers naming a signal their
+  // own profile never declares in `public_signal_rules` -- a dangling reference in
+  // the document, fixable by editing it, needing no new capability. Two of those are
+  // plain misspellings of signals the product already writes:
+  // `multi_location_signal` for `multiple_locations`, `online_scheduling` for
+  // `online_quote_booking`.
+  //
+  // Pinned separately so the piles can only shrink, and so a new dangling reference
+  // is not mistaken for a missing data source.
   const { recognisedClaimKeys } = await import('../src/resolver/signals.js');
   const { promotedAdClaimKeys } = await import('../src/workers/marketMiner.js');
   const writable = new Set([
@@ -249,8 +259,10 @@ test('how many declared hypothesis triggers can actually fire', async () => {
 
   const { rows } = await query<{ definition: any }>(
     'select definition from vertical_profiles where is_active');
+  const dangling = new Set<string>();
+  const needsSource = new Set<string>();
   let reachable = 0;
-  let unreachable = 0;
+
   for (const row of rows) {
     const profile = row.definition?.profile ?? {};
     const claimFor = new Map<string, string>();
@@ -261,18 +273,24 @@ test('how many declared hypothesis triggers can actually fire', async () => {
     }
     for (const hypothesis of profile.leak_hypotheses ?? []) {
       for (const trigger of hypothesis?.trigger_signals ?? []) {
-        // Either the profile maps it, or the signal is named the same as its claim
-        // key, which is the convention for the ones written in code.
-        const claimKey = claimFor.get(String(trigger)) ?? String(trigger);
-        if (writable.has(claimKey)) reachable += 1;
-        else unreachable += 1;
+        const id = String(trigger);
+        const claimKey = claimFor.get(id);
+        if (claimKey) {
+          if (writable.has(claimKey)) reachable += 1;
+          else needsSource.add(claimKey);
+        } else if (writable.has(id)) reachable += 1;
+        else dangling.add(id);
       }
     }
   }
 
   assert.ok(reachable >= 93,
     `only ${reachable} triggers can fire, down from 93: a signal source was lost`);
-  assert.ok(unreachable <= 57,
-    `${unreachable} triggers cannot fire, up from 57: a hypothesis was declared with `
-    + 'a trigger nothing produces, which means it can never surface');
+  assert.ok(needsSource.size <= 2,
+    `${needsSource.size} declared signals have no writer, up from 2: ${
+      [...needsSource].join(', ')}`);
+  assert.ok(dangling.size <= 27,
+    `${dangling.size} triggers name a signal their profile never declares, up from `
+    + `27. A new one is a dangling reference in the document, not a missing data `
+    + `source: ${[...dangling].sort().join(', ')}`);
 });

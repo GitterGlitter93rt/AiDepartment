@@ -320,6 +320,31 @@ keep here: several tests rename a table and restore it in a finally, and
 a run that died mid-rename would leave the census silently not counting
 that table at all.
 
+**A closing measurement, because the first one was too coarse to act
+on.** "Fifty-seven hypothesis triggers cannot fire" turned out to be two
+problems wearing one number, and separating them changes who can fix it.
+
+Only two distinct signals genuinely need data we do not buy:
+`active_meta_ad`, which eight verticals declare and no SERP search can
+observe, and `storm_hail_market_signal`, whose source is the open
+question. The other twenty-seven are triggers naming a signal their own
+profile never declares -- dangling references in the document, fixable by
+editing it, needing no new capability. Two of those are plain
+misspellings of signals the product already writes:
+`multi_location_signal` for `multiple_locations`, `online_scheduling` for
+`online_quote_booking`. Several more are near-misses with material
+already in the same profile, and `call_tracking_signal` appears in five
+verticals while the schema has had a CALL_TRACKING_NUMBER endpoint role
+all along.
+
+The documents were not edited. They are canonical and renaming a declared
+signal is an authoring decision; doing it in code would hide a document
+defect rather than fix it. The two piles are pinned separately so each
+can only shrink and so a new dangling reference cannot be mistaken for a
+missing data source.
+
+Suite 1657/1657, and identical in reverse file order.
+
 The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail
