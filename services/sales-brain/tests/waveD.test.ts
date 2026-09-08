@@ -2,7 +2,7 @@ import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
-import { pool, withTransaction } from '../src/db/pool.js';
+import { pool, query, withTransaction } from '../src/db/pool.js';
 import { buildServer } from '../src/api/server.js';
 import { createUser } from '../src/domain/auth.js';
 import { upsertAccount } from '../src/domain/accounts.js';
@@ -681,4 +681,40 @@ test('an anonymous caller cannot search', async () => {
   const page = await app.inject({ method: 'GET', url: '/search?q=Palmetto' });
   assert.equal(page.statusCode, 302);
   assert.equal(page.headers.location, '/login');
+});
+
+test('a filter option is a name, not something to re-capitalise', async () => {
+  // Found by opening the page. The renderer title-cased every option label, so the
+  // product's own "AI voice" became "Ai Voice", "SMS" became "Sms", and the vertical
+  // list a rep reads correctly elsewhere read "Hvac" and "Pdr / Automotive Hail
+  // Repair" here. It did the same to names people had typed themselves.
+  const f = await fixture();
+  const { rows: owner } = await query<{ user_id: string }>(
+    "select user_id from users where email = 'm@test.local'");
+  await query(
+    `insert into saved_markets (name, vertical_profile_id, geography_type,
+                                geography_definition, mining_mode, status, created_by)
+     values ('Jacksonville HVAC Advertisers', 'hvac', 'city',
+             '{"type":"city","value":"Jacksonville"}'::jsonb, 'advertiser_first',
+             'ACTIVE', $1)`,
+    [owner[0]!.user_id]);
+
+  const page = await app.inject({
+    method: 'GET', url: '/analytics', headers: { cookie: f.manager } });
+  assert.equal(page.statusCode, 200);
+
+  assert.match(page.body, /Jacksonville HVAC Advertisers/,
+    'a name somebody typed was re-capitalised');
+  assert.match(page.body, />\s*HVAC\s*</, 'the vertical list reads HVAC elsewhere');
+  assert.match(page.body, /AI voice/);
+  assert.match(page.body, />\s*SMS\s*</);
+  for (const wrong of ['Ai Voice', 'Sms<', 'Hvac', 'Pdr /']) {
+    assert.ok(!page.body.includes(wrong), `the page renders "${wrong}"`);
+  }
+  // The enum-derived labels still read as words rather than as schema. The schema
+  // form belongs in the option's value, which is why this checks the visible text
+  // rather than the whole body.
+  assert.match(page.body, /Decision maker reached/);
+  assert.doesNotMatch(page.body, />\s*DECISION_MAKER_REACHED\s*</,
+    'a rep reads the column name instead of the outcome');
 });

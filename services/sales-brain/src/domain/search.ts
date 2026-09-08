@@ -222,7 +222,15 @@ export interface CoverageSummary {
    * advertising filter was asked for.
    */
   unknownAdvertiserExcluded?: number;
-  state: 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'NOT_YET_RESEARCHED' | 'REFRESHING';
+  state:
+    | 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'NOT_YET_RESEARCHED' | 'REFRESHING'
+    /**
+     * No market was named, so none of the counts below describe one. Searching by
+     * industry alone is an ordinary thing a rep does, and this used to answer FRESH
+     * with zeroes -- the most reassuring state there is, about a market nobody
+     * asked about, printed beside a list of claimable companies.
+     */
+    | 'NO_MARKET';
   /**
    * Accounts here that somebody has actually researched.
    *
@@ -553,7 +561,8 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
 
   if (!geography?.value && !marketId) {
     return {
-      state: 'FRESH', researchedCount: 0, inScopeCount: 0, unclaimedCount: 0, lastMinedAt: null,
+      state: 'NO_MARKET', researchedCount: 0, inScopeCount: 0, unclaimedCount: 0,
+      lastMinedAt: null,
       activeJobId: null, discoveryAvailable, activeJobScope: null, unscoredExcluded,
       unknownAdvertiserExcluded,
     };

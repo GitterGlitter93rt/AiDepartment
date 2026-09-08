@@ -268,7 +268,11 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   const distinctBuilds = number('worker_builds');
   const skewed = workerBuilds !== null && workerBuilds !== apiBuild.sha;
   add('build_identity', 'Are the API and the worker the same build?',
-    distinctBuilds > 1 ? 'ATTENTION' : skewed ? 'ATTENTION' : 'OK',
+    // Nothing to compare is not a match. This read OK whenever no worker had ever
+    // heartbeated, which is the same green a genuinely matching pair gets, on the
+    // question whose whole purpose is to catch two processes running different code.
+    distinctBuilds > 1 ? 'ATTENTION' : skewed ? 'ATTENTION'
+      : workerBuilds === null ? 'UNKNOWN' : 'OK',
     workerBuilds === null ? `api ${apiBuild.sha}, no worker`
       : distinctBuilds > 1 ? `${distinctBuilds} builds serving`
       : skewed ? 'different builds' : apiBuild.sha,

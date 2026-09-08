@@ -621,7 +621,7 @@ function operationsPanel(snapshot: OperationalSnapshot | null): RawHtml {
         <h2>Operations</h2>
         <span class="muted small">${attention === 0
           ? 'Nothing needs attention.'
-          : `${attention} thing${attention === 1 ? '' : 's'} need attention.`}</span>
+          : `${attention} thing${attention === 1 ? ' needs' : 's need'} attention.`}</span>
       </div>
       <div class="card-pad" style="padding-bottom:0">
         <div class="row" style="gap:8px;flex-wrap:wrap">

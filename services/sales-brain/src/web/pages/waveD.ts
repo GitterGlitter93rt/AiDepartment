@@ -750,7 +750,7 @@ function selectFilter(input: {
       <option value="">Any</option>
       ${input.options.map((option) => html`
         <option value="${option.id}" ${option.id === input.selected ? 'selected' : ''}>
-          ${titleCase(option.label)}
+          ${option.label}
         </option>`)}
     </select>
   </label>`;

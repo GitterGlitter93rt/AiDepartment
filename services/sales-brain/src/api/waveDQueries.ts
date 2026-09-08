@@ -208,7 +208,15 @@ export async function analyticsFilterOptions() {
       'NO_ANSWER', 'VOICEMAIL', 'GATEKEEPER', 'DECISION_MAKER_REACHED', 'SEND_INFORMATION',
       'CALLBACK_REQUESTED', 'POSSIBLE_OPPORTUNITY', 'MEETING_SCHEDULED', 'NOT_A_FIT',
       'WRONG_NUMBER', 'DO_NOT_CONTACT',
-    ].map((id) => ({ id, label: id.replace(/_/g, ' ').toLowerCase() })),
+      // Sentence case here rather than lower case waiting to be title-cased by the
+      // renderer. The renderer used to do that to every option, which turned the
+      // labels above into "Ai Voice" and "Sms", a rep's own name into whatever
+      // title-casing made of it, and a saved market someone named "Jacksonville HVAC
+      // Advertisers" into "Jacksonville Hvac Advertisers".
+    ].map((id) => {
+      const words = id.replace(/_/g, ' ').toLowerCase();
+      return { id, label: words.charAt(0).toUpperCase() + words.slice(1) };
+    }),
   };
 }
 

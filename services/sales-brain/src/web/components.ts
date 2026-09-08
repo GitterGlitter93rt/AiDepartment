@@ -367,6 +367,11 @@ export function coverageNote(coverage: {
   const prefix = html`${blocked}${discoveryLine}${hidden}${uncheckedNote}`;
 
   switch (coverage.state) {
+    case 'NO_MARKET':
+      // Deliberately says nothing about coverage. The counts in a NO_MARKET summary
+      // are zeroes standing for "not asked", and any sentence built from them would
+      // describe a market the rep never named.
+      return html`${prefix}`;
     case 'NOT_YET_MINED':
       return html`${prefix}<div class="coverage-note">
         <span class="dot"></span>

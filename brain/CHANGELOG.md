@@ -99,6 +99,30 @@ of those scores can answer "why this score". The doctor names it now.
 The seed was left alone: it writes fixed demo tiers on purpose, and
 computing them from evidence would change what the demo is for.
 
+**Then the portal itself, which nothing had walked end to end.** On a
+throwaway database, logged in as a rep and as a manager, reading what the
+screens actually say. Four more, none of which reading the code had
+found:
+
+- **A market nobody named reported as FRESH.** Searching by industry with
+  the place left blank -- an ordinary thing a rep does -- answered with
+  the most reassuring state there is and four zeroes, and the page
+  printed "8 researched prospects" beside "0 unclaimeds in this market"
+  while all eight were claimable. A count that contradicts the list
+  under it.
+- **"unclaimeds"**, because the plural helper appends an s to whatever it
+  is given and "unclaimed" is an adjective.
+- **"1 thing need attention"**, on the first line of the page a manager
+  opens to decide whether the system is trustworthy.
+- **A build comparison that passed with nothing to compare.** "Are the
+  API and the worker the same build?" read ok whenever no worker had ever
+  heartbeated -- the same green a matching pair gets, on the question
+  whose whole purpose is catching two processes running different code.
+- **Analytics re-capitalised every filter label**, so "AI voice" became
+  "Ai Voice", "SMS" became "Sms", "HVAC" became "Hvac", and a saved
+  market someone had typed themselves came back as "Jacksonville Hvac
+  Advertisers". The labels were already right at the source.
+
 The recurring shape, for the fourteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

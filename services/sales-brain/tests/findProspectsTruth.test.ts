@@ -75,6 +75,20 @@ async function coverage() {
   return coverageFor({ geography: ZIP, verticalProfileId: 'hvac' });
 }
 
+async function findPageAt(url: string): Promise<string> {
+  await createUser({
+    email: `find${++sequence}@test.local`, displayName: 'Finder', role: 'SALES_MANAGER',
+    password: PASSWORD });
+  const login = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: `find${sequence}@test.local`, password: PASSWORD } });
+  const cookie = login.cookies.find((c) => c.name === 'yad_sales_session')!;
+  const page = await app.inject({
+    method: 'GET', url, headers: { cookie: `yad_sales_session=${cookie.value}` } });
+  assert.equal(page.statusCode, 200);
+  return page.body;
+}
+
 async function findPage(): Promise<string> {
   await createUser({
     email: `find${++sequence}@test.local`, displayName: 'Finder', role: 'SALES_MANAGER',
@@ -287,4 +301,45 @@ test('a company with a branch in the ZIP is in that market', async () => {
   assert.equal(found.results.length, 1,
     'a company operating in the ZIP was invisible because its head office is elsewhere');
   assert.equal(found.total, 1, 'the count and the rows disagree');
+});
+
+// ------------------------------------ a market nobody named is not a fresh one --
+
+/**
+ * Searching by industry with no place is an ordinary thing a rep does, and the
+ * coverage summary answered it with `FRESH` and four zeroes -- the most reassuring
+ * state there is, about a market nobody asked about. The page then printed those
+ * zeroes as "0 unclaimeds in this market" beside a list of claimable companies.
+ *
+ * Found by opening the page, not by reading the code: every count involved was
+ * correct for the question it was asked, and the question was the wrong one.
+ */
+test('a search with no place is not reported as a fresh market', async () => {
+  await seedAccount('Placeless Air');
+  const summary = await coverageFor({ geography: null, verticalProfileId: 'hvac' });
+  assert.equal(summary.state, 'NO_MARKET',
+    'a market nobody named was reported as freshly researched');
+  assert.equal(summary.unclaimedCount, 0, 'the counts are not about a market');
+});
+
+test('the page does not count a market it was not given', async () => {
+  await seedAccount('Countable Air');
+  const body = await findPageAt('/find?vertical=hvac');
+
+  assert.match(body, /researched prospect/, 'the search itself stopped working');
+  assert.doesNotMatch(body, /in this market/,
+    'a count belonging to a market was printed for a search with no market');
+  assert.doesNotMatch(body, /unclaimeds/,
+    '"unclaimed" is an adjective, and the default plural made it "unclaimeds"');
+});
+
+test('a search with a place still reports what is claimable there', async () => {
+  await seedAccount('Claimable Air');
+  await seedAccount('Also Claimable Air');
+  const body = await findPageAt('/find?where=32095&vertical=hvac');
+
+  const summary = await coverage();
+  assert.equal(summary.unclaimedCount, 2, 'the fixture no longer tests a real count');
+  assert.match(body, /2 unclaimed in this market/,
+    'the count a rep uses to decide whether to search elsewhere is gone');
 });

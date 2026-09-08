@@ -122,7 +122,15 @@ export function renderFindPage(input: FindPageInput): string {
       <div class="card">
         <div class="card-head">
           <h2>${pluralize(response.total, 'researched prospect')}</h2>
-          <span class="muted small">${pluralize(response.coverage.unclaimedCount, 'unclaimed')} in this market</span>
+          ${response.coverage.state === 'NO_MARKET'
+            // "0 unclaimed in this market" was printed beside eight claimable
+            // companies whenever a rep searched by industry with no place: the count
+            // belongs to a market, and no market was named. `pluralize` also made it
+            // "unclaimeds", because the default plural appends an s to an adjective.
+            ? raw('')
+            : html`<span class="muted small">${
+                pluralize(response.coverage.unclaimedCount, 'unclaimed', 'unclaimed')
+              } in this market</span>`}
         </div>
         ${prospectTable({
           rows: response.results, viewerId: user.userId, selectable: true, showOwner: true,

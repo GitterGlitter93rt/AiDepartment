@@ -230,3 +230,18 @@ test('a configured provider moves only its own dimension', async () => {
   // And having a provider does not make the absence of a worker acceptable.
   assert.notEqual(dimensionState(snapshot.checks, 'WORKER'), 'OK');
 });
+
+test('the count and the verb agree', async () => {
+  // "1 thing need attention." was the first line on the page a manager opens to
+  // decide whether the system is trustworthy.
+  const page = await healthPage();
+  const said = /(\d+) thing(s?) (needs?) attention/.exec(page);
+  assert.ok(said || /Nothing needs attention/.test(page),
+    'the summary line is gone entirely');
+  if (!said) return;
+
+  const [, count, plural, verb] = said;
+  const expected = Number(count) === 1 ? ['', 'needs'] : ['s', 'need'];
+  assert.deepEqual([plural, verb], expected,
+    `"${said[0]}" does not agree with itself`);
+});

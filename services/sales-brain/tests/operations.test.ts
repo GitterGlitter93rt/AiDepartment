@@ -327,3 +327,14 @@ test('the snapshot is one round trip, whatever the scale', async () => {
   assert.ok(snapshot.checks.length >= 14);
   assert.ok(elapsed < 2_000, `the operations snapshot took ${elapsed} ms`);
 });
+
+test('two builds cannot match when only one of them is running', async () => {
+  // The question exists to catch an API and a worker running different code. With no
+  // worker heartbeating there is nothing to compare, and the row answered OK -- the
+  // same green a genuinely matching pair gets. Nothing to check is not a pass.
+  const snapshot = await operationalSnapshot();
+  const row = check(snapshot, 'build_identity');
+  assert.equal(row.state, 'UNKNOWN',
+    'a build comparison with nothing to compare reported itself fine');
+  assert.match(String(row.detail), /nothing to compare it against/);
+});
