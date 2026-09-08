@@ -1,7 +1,7 @@
 import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { pool, withTransaction } from '../src/db/pool.js';
+import { pool, query, withTransaction } from '../src/db/pool.js';
 import { parseCsv, detectDelimiter } from '../src/import/csv.js';
 import { inferColumnMap, applyColumnMap, verticalHintFor } from '../src/import/mapping.js';
 import { importCsvContent } from '../src/import/importer.js';
@@ -251,4 +251,97 @@ test('import never starts outreach', async () => {
   // Imported accounts enter shared inventory unclaimed, exactly like mined ones.
   const { rows } = await pool.query('select distinct ownership_state from accounts');
   assert.deepEqual(rows.map((r) => r.ownership_state), ['UNCLAIMED']);
+});
+
+// ---------------------------------- the vertical's own names, and its negatives ---
+
+/**
+ * `INDUSTRY_HINTS` was a hard-coded regex list running in place of the
+ * `industry_aliases` every profile declares -- and broader than the profile:
+ * `/law/i` made a lawyer directory a law firm, `/dental/i` made a dental lab a
+ * dental practice, and `/roof/i` made a roofing supply house a roofing prospect.
+ * Every vertical declares those exclusions under
+ * `classification_rules.negative_business_categories` and nothing read the section.
+ *
+ * Deliberately biased: a negative applies only when the profile's own phrase appears
+ * in the industry text, so a supply house whose industry field says something else
+ * still gets through -- which is what already happened -- but a real contractor is
+ * never refused over a word that merely resembles one.
+ */
+async function classifier() {
+  const { rows } = await query<{ vertical_profile_id: string; definition: any }>(
+    'select vertical_profile_id, definition from vertical_profiles where is_active');
+  const { classifierFromProfiles } = await import('../src/import/mapping.js');
+  return classifierFromProfiles(rows.map((row: {
+    vertical_profile_id: string; definition: any;
+  }) => ({ verticalProfileId: row.vertical_profile_id, definition: row.definition })));
+}
+
+test('a business a vertical excludes is not classified into it', async () => {
+  const { verticalForIndustry } = await import('../src/import/mapping.js');
+  const built = await classifier();
+
+  for (const [industry, refusedBy] of [
+    ['ABC Roofing Supply House', 'supply house'],
+    ['Lawyer Directory', 'lawyer directory'],
+    ['Dental Lab Only', 'dental lab'],
+  ] as const) {
+    const read = verticalForIndustry(industry, built);
+    assert.equal(read.vertical, null, `"${industry}" was classified as a prospect`);
+    assert.equal(read.refusedBy, refusedBy);
+  }
+});
+
+test('the real trades still classify, through their own aliases', async () => {
+  const { verticalForIndustry } = await import('../src/import/mapping.js');
+  const built = await classifier();
+
+  for (const [industry, vertical] of [
+    ['Roofing Contractor', 'roofing'],
+    ['HVAC Contractor', 'hvac'],
+    ['Law Firm', 'law-firms'],
+    ['Dentist', 'dental'],
+    ['Paintless Dent Repair', 'pdr-hail'],
+    ['Real Estate Brokerage', 'real-estate-brokerages'],
+  ] as const) {
+    const read = verticalForIndustry(industry, built);
+    assert.equal(read.vertical, vertical,
+      `"${industry}" no longer classifies, so the fallback regressed`);
+    assert.equal(read.refusedBy, null);
+  }
+});
+
+test('an operator’s explicit default is never second-guessed', async () => {
+  // A vertical the operator chose for the file is their decision, not a hint.
+  const { verticalForIndustry } = await import('../src/import/mapping.js');
+  const built = await classifier();
+  // The classifier itself is only consulted when no default was given; this asserts
+  // the shape it would refuse, so the importer's precedence is the thing under test.
+  assert.equal(verticalForIndustry('Roofing Supply House', built).vertical, null);
+});
+
+test('a trailing "only" is a qualifier, not a word to match', async () => {
+  const { negativePhrase } = await import('../src/import/mapping.js');
+  assert.equal(negativePhrase('manufacturer_only'), 'manufacturer');
+  assert.equal(negativePhrase('dental_lab_only'), 'dental lab');
+  assert.equal(negativePhrase('supply_house'), 'supply house');
+  assert.equal(negativePhrase('lead_aggregator'), 'lead aggregator');
+});
+
+test('every vertical that declares exclusions has them loaded', async () => {
+  // The guard rather than three examples.
+  const built = await classifier();
+  const { rows } = await query<{ vertical_profile_id: string; definition: any }>(
+    'select vertical_profile_id, definition from vertical_profiles where is_active');
+  let checked = 0;
+  for (const row of rows) {
+    const declared = row.definition?.profile?.classification_rules
+      ?.negative_business_categories ?? [];
+    if (declared.length === 0) continue;
+    const loaded = built.negativesByVertical.get(row.vertical_profile_id) ?? [];
+    assert.ok(loaded.length > 0,
+      `${row.vertical_profile_id} declares exclusions and none were loaded`);
+    checked += 1;
+  }
+  assert.ok(checked >= 10, `only ${checked} verticals declare exclusions`);
 });

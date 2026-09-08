@@ -37,6 +37,7 @@ function pack(overrides: Partial<CallPack> = {}): CallPack {
     firstQuestion: HYPOTHESIS_QUESTIONS['after_hours']!,
     backupQuestion: HYPOTHESIS_QUESTIONS['unsold_estimate']!,
     likelyObjections: [], knownSystems: [],
+    noSaleConditions: [],
     prohibitedClaims: ['Do not state or estimate their advertising spend.'],
     allowedNextSteps: [], commercialTruth: '',
     ...overrides,

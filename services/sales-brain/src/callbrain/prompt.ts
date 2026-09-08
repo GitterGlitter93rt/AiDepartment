@@ -187,6 +187,16 @@ export function composeSystemPrompt(input: PromptInput): string {
     '## You must not say',
     ...pack.prohibitedClaims.map((claim) => `- ${claim}`),
     '',
+    // Different from a prohibition: these are reasons to stop selling and leave
+    // well. Every profile declared them and nothing read the section, so the agent
+    // knew how to record NOT_A_FIT without knowing what counts as one in this trade.
+    ...(pack.noSaleConditions.length > 0
+      ? ['## When there is no sale here',
+        'Any of these means this is not a fit. Say so plainly, thank them, and end '
+        + 'the call well. Do not keep selling.',
+        ...pack.noSaleConditions.map((condition) => `- ${condition}`),
+        '']
+      : []),
     '## If they ask what you do',
     THIRTY_SECOND_EXPLANATION,
     '',

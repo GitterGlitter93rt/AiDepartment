@@ -44,6 +44,7 @@ function pack(overrides: Partial<CallPack> = {}): CallPack {
     backupQuestion: 'What happens to a replacement quote that does not close the first time?',
     likelyObjections: [],
     knownSystems: [],
+    noSaleConditions: [],
     prohibitedClaims: [
       'Do not state or estimate their advertising spend.',
       'Do not position this as replacing or reducing their staff.',

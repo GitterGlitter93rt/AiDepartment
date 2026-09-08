@@ -248,6 +248,41 @@ absent from the table's constraint: four are spellings, mapped, and four
 are new concepts filed as 'other' with the author's own word kept in a
 new column rather than given a home nobody chose.
 
+**Then the rest of the sections, and a guard to close the question.**
+Three more were real. `no_sale_conditions` -- what counts as no sale in
+this trade -- was declared by every profile and read by nothing, so the
+call brain knew how to record NOT_A_FIT without knowing what one is.
+`industry_aliases` and `classification_rules` were bypassed by a
+hard-coded regex list that was *broader* than the profiles: `/law/i` made
+a lawyer directory a law firm, `/dental/i` made a dental lab a practice,
+and `/roof/i` made a supply house a roofing prospect, while every
+vertical declared those exact exclusions.
+
+A number worth keeping: of a hundred and fifty declared hypothesis
+triggers, ninety-three can fire and fifty-seven cannot, because no source
+produces the signal -- hail ads, a phone-heavy site, CRM front-end
+signals, team size. Thirty-one new sources were not built; the numbers
+were pinned instead, so the gap can only close.
+
+The guard is the artefact. Every profile section now needs a verdict --
+read, deliberately not read with a reason, or unresolved with the
+decision written out -- and the RUNTIME labels are checked mechanically
+against the source, which is how the `safety_boundaries` defect was found
+in the first place. It failed immediately on two sections labelled from
+memory (`industry_name` and `profile_id` are read) and on four never
+seen, because only roofing's sections had been looked at.
+`scoring_overrides` is correctly unread -- every profile disables it --
+with a test that fails if one is ever enabled, since nothing would
+honour it.
+
+Four sections stay unresolved with the question stated rather than the
+gap hidden: the decision-maker vocabulary (twenty-four profile categories
+against fifteen atomic columns, several composite), whether a vertical's
+objection guidance replaces or supplements the generic responses, which
+of two offer declarations is authoritative, and a second hook ordering
+that conflicts with the one in use. Settling those silently would change
+what an agent says.
+
 The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

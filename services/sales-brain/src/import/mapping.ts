@@ -141,3 +141,79 @@ export function verticalHintFor(industry: string | null): string | null {
   }
   return null;
 }
+
+/**
+ * A vertical's own names for itself, and the businesses it explicitly is not.
+ *
+ * `INDUSTRY_HINTS` above is a hard-coded regex list running in place of the
+ * `industry_aliases` every profile declares -- and it is broader than the profile:
+ * `/roof/i` matches "Roofing Supply", which roofing's own `classification_rules`
+ * lists under `negative_business_categories`. So an imported list of roofing supply
+ * houses became roofing prospects, and hvac's declared negative `auto_repair` did
+ * nothing at all.
+ *
+ * Deliberately biased. A negative is only applied when the profile's own phrase
+ * appears in the industry text, so this can miss a supply house whose industry field
+ * says something else -- which is the behaviour we already had -- but it cannot
+ * refuse a real contractor over a word that merely resembles one.
+ */
+export interface VerticalClassifier {
+  aliases: Map<string, string>;
+  negativesByVertical: Map<string, string[]>;
+}
+
+/** `supply_house` -> "supply house". A trailing `only` is a qualifier, not a word. */
+export function negativePhrase(category: string): string {
+  return category.replace(/_only$/, '').replace(/_/g, ' ').trim();
+}
+
+export function classifierFromProfiles(
+  profiles: { verticalProfileId: string; definition: any }[],
+): VerticalClassifier {
+  const aliases = new Map<string, string>();
+  const negativesByVertical = new Map<string, string[]>();
+  for (const entry of profiles) {
+    const profile = entry.definition?.profile ?? entry.definition ?? {};
+    for (const alias of profile.industry_aliases ?? []) {
+      const text = String(alias).toLowerCase().trim();
+      // Longest alias wins on ties, so "roofing contractor" beats "roofer" when both
+      // are present in one string.
+      if (text) aliases.set(text, entry.verticalProfileId);
+    }
+    const negatives = (profile.classification_rules?.negative_business_categories ?? [])
+      .map((category: unknown) => negativePhrase(String(category)))
+      .filter((phrase: string) => phrase.length >= 4);
+    if (negatives.length > 0) negativesByVertical.set(entry.verticalProfileId, negatives);
+  }
+  return { aliases, negativesByVertical };
+}
+
+/**
+ * The vertical an industry label names, or null.
+ *
+ * Aliases the profile declares are tried first, then the regex hints, so nothing
+ * that classified before stops classifying. Either way the answer is dropped when
+ * the text also names something that vertical says it is not.
+ */
+export function verticalForIndustry(
+  industry: string | null, classifier: VerticalClassifier,
+): { vertical: string | null; refusedBy: string | null } {
+  if (!industry) return { vertical: null, refusedBy: null };
+  const text = industry.toLowerCase();
+
+  let match: string | null = null;
+  let longest = 0;
+  for (const [alias, vertical] of classifier.aliases) {
+    if (alias.length > longest && text.includes(alias)) {
+      match = vertical;
+      longest = alias.length;
+    }
+  }
+  const vertical = match ?? verticalHintFor(industry);
+  if (!vertical) return { vertical: null, refusedBy: null };
+
+  for (const phrase of classifier.negativesByVertical.get(vertical) ?? []) {
+    if (text.includes(phrase)) return { vertical: null, refusedBy: phrase };
+  }
+  return { vertical, refusedBy: null };
+}

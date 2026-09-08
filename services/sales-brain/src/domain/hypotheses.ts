@@ -156,11 +156,19 @@ export async function deriveHypotheses(accountId: string): Promise<DerivedHypoth
   const held = await currentEvidence(accountId);
   const claimKeyFor = claimKeyBySignalId(profile);
 
-  /** Evidence ids for a declared signal, empty when we hold none. */
+  /**
+   * Evidence ids for a declared signal, empty when we hold none.
+   *
+   * `public_signal_rules` is the mapping, and a signal is also allowed to be named
+   * the same as its claim key -- which is the convention for the ones written in
+   * code (`financing_promoted`, `multiple_locations`). Without that fallback a
+   * trigger naming such a signal matched nothing even though the recogniser writes
+   * it, because only the mapping was consulted.
+   */
   const evidenceForSignal = (signalId: unknown): string[] => {
-    const claimKey = claimKeyFor.get(String(signalId));
-    if (!claimKey) return [];
-    return held.byClaimKey.get(claimKey) ?? [];
+    const mapped = claimKeyFor.get(String(signalId));
+    if (mapped) return held.byClaimKey.get(mapped) ?? [];
+    return held.byClaimKey.get(String(signalId)) ?? [];
   };
 
   /**

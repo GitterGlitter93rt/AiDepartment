@@ -1,7 +1,7 @@
 import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { pool, withTransaction } from '../src/db/pool.js';
+import { pool, query, withTransaction } from '../src/db/pool.js';
 import { resetDatabase, makeUser } from './helpers.js';
 import { syncVerticalProfiles, getVerticalProfile } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
@@ -175,4 +175,61 @@ test('every vertical with a boundary section has it reach a pack', async () => {
         `${id} declares the boundary "${claim}" and the call pack does not carry it`);
     }
   }
+});
+
+// ------------------------------------------------ when there is no sale here ----
+
+test('the agent is told what counts as no sale in this trade', async () => {
+  // Every profile declares `no_sale_conditions` and nothing read the section. The
+  // call brain already knew how to stop -- the state machine records NOT_A_FIT and a
+  // grader checks the exit was respectful -- but not what counts as one here, so
+  // "they demand guaranteed sales" was a condition only a human would recognise.
+  const pack = await buildCallPack(await accountIn('roofing'));
+  assert.ok(pack!.noSaleConditions.length > 0,
+    'the vertical declares no-sale conditions and the pack carries none');
+
+  const profile = await getVerticalProfile('roofing');
+  const declared = (profile.no_sale_conditions as string[])
+    .map((condition) => condition.replace(/_/g, ' '));
+  for (const condition of declared) {
+    assert.ok(pack!.noSaleConditions.includes(condition),
+      `the profile says there is no sale when "${condition}" and the pack omits it`);
+  }
+
+  const context = createCallContext(TOOLS, 'after_hours');
+  const prompt = composeSystemPrompt({
+    pack: pack!, context, agentName: 'Alex', tools: TOOLS });
+  assert.match(prompt, /## When there is no sale here/);
+  assert.match(prompt, /company demands guaranteed sales/,
+    'the prompt does not tell the agent to stop when they demand guaranteed sales');
+  assert.match(prompt, /end the call well/i);
+});
+
+test('a no-sale condition is separate from a prohibited claim', async () => {
+  // Different instructions. One is a thing that must not be said; the other is a
+  // reason to stop selling and leave well.
+  const pack = await buildCallPack(await accountIn('roofing'));
+  for (const condition of pack!.noSaleConditions) {
+    assert.ok(!pack!.prohibitedClaims.includes(condition),
+      'a reason to stop selling was filed as a claim that must not be made');
+  }
+  const context = createCallContext(TOOLS, 'after_hours');
+  const prompt = composeSystemPrompt({
+    pack: pack!, context, agentName: 'Alex', tools: TOOLS });
+  assert.ok(prompt.indexOf('## You must not say') < prompt.indexOf('## When there is no sale'),
+    'the two sections were merged or reordered into one instruction');
+});
+
+test('the conditions are snapshotted with the pack, not read at call time', async () => {
+  // A pack is the record of what the agent was allowed to say. A profile edited
+  // afterwards must not change what a past call is judged against.
+  const accountId = await accountIn('roofing');
+  const pack = await buildCallPack(accountId);
+  const { persistCallPack } = await import('../src/callbrain/callPack.js');
+  const callPackId = await persistCallPack(pack!, null);
+
+  const { rows } = await query<{ no_sale_conditions: string[] }>(
+    'select no_sale_conditions from call_packs where call_pack_id = $1', [callPackId]);
+  assert.deepEqual(rows[0]!.no_sale_conditions, pack!.noSaleConditions,
+    'the pack was stored without the conditions it was built with');
 });

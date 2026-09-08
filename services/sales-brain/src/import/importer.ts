@@ -7,7 +7,10 @@ import { BatchedWriter, query, withTransaction, type Queryable } from '../db/poo
 import { upsertAccount, upsertEndpoint, recordEvidence, roleCategoryFromTitle } from '../domain/accounts.js';
 import { normalizeEmail, normalizePhone, normalizeHostname, classifyEmail } from '../domain/normalize.js';
 import { parseCsv, detectDelimiter } from './csv.js';
-import { applyColumnMap, inferColumnMap, verticalHintFor, type ColumnMap, type MappedRow } from './mapping.js';
+import {
+  applyColumnMap, classifierFromProfiles, inferColumnMap, verticalForIndustry,
+  type ColumnMap, type MappedRow,
+} from './mapping.js';
 
 /**
  * List import.
@@ -48,6 +51,12 @@ export interface ImportReport {
     namedContacts: number;
     verticalMatched: number;
     verticalUnknown: number;
+    /**
+     * Rows whose industry named a business the vertical says it is not -- a supply
+     * house, a training school, a lawyer directory. Counted apart from unknown:
+     * nobody could classify one, and we declined to classify the other.
+     */
+    verticalRefused: number;
   };
   rejections: { line: number; reason: string; company: string | null }[];
 }
@@ -118,6 +127,7 @@ export async function importCsvContent(
     quality: {
       uniqueAccounts: 0, duplicatePercent: 0, websitesResolved: 0, phonesResolved: 0,
       emailsResolved: 0, namedContacts: 0, verticalMatched: 0, verticalUnknown: 0,
+      verticalRefused: 0,
     },
     rejections: [],
   };
@@ -127,11 +137,15 @@ export async function importCsvContent(
   // Options are validated before a batch row exists. Creating the batch first and
   // then throwing left the batch in RUNNING with the file's hash recorded, which
   // then refused the operator's own retry.
-  const knownVerticals = new Set(
-    (await query<{ vertical_profile_id: string }>(
-      'select vertical_profile_id from vertical_profiles where is_active',
-    )).rows.map((row) => row.vertical_profile_id),
-  );
+  const { rows: profileRows } = await query<{
+    vertical_profile_id: string; definition: any;
+  }>('select vertical_profile_id, definition from vertical_profiles where is_active');
+  const knownVerticals = new Set(profileRows.map((row) => row.vertical_profile_id));
+  // The verticals' own names for themselves, and the businesses they say they are
+  // not. Both were declared and neither was read.
+  const classifier = classifierFromProfiles(profileRows.map((row) => ({
+    verticalProfileId: row.vertical_profile_id, definition: row.definition,
+  })));
   if (options.defaultVerticalProfileId && !knownVerticals.has(options.defaultVerticalProfileId)) {
     throw new Error(
       `Unknown vertical profile "${options.defaultVerticalProfileId}". ` +
@@ -199,10 +213,19 @@ export async function importCsvContent(
     if (mapped.contactName) report.quality.namedContacts += 1;
 
     // Source industry is a hint. An explicit default beats a guess; neither is evidence.
-    const hinted = options.defaultVerticalProfileId ?? verticalHintFor(mapped.industry);
-    const vertical = hinted && knownVerticals.has(hinted) ? hinted : null;
+    //
+    // The guess now goes through the profiles: their own `industry_aliases` first,
+    // the regex hints as a fallback so nothing that classified before stops, and
+    // then the vertical's declared `negative_business_categories`. A roofing supply
+    // house named as such is refused rather than filed as a roofing prospect.
+    const read = options.defaultVerticalProfileId
+      ? { vertical: options.defaultVerticalProfileId, refusedBy: null }
+      : verticalForIndustry(mapped.industry, classifier);
+    const vertical = read.vertical && knownVerticals.has(read.vertical)
+      ? read.vertical : null;
     if (vertical) report.quality.verticalMatched += 1;
-    else if (hinted) report.quality.verticalUnknown += 1;
+    else if (read.refusedBy) report.quality.verticalRefused += 1;
+    else if (mapped.industry) report.quality.verticalUnknown += 1;
 
     if (options.dryRun) {
       report.created += 1;
@@ -400,6 +423,13 @@ export function formatImportReport(report: ImportReport): string {
   lines.push(`    vertical resolved             ${q.verticalMatched} (${pct(q.verticalMatched)})`);
   if (q.verticalUnknown > 0) {
     lines.push(`    vertical hint not loaded      ${q.verticalUnknown} (kept as raw industry)`);
+  }
+  if (q.verticalRefused > 0) {
+    // Worth its own line: these rows name a business the vertical says it is not, so
+    // they are in the list on purpose and are not prospects for it.
+    lines.push(`    vertical refused              ${q.verticalRefused} `
+      + '(the industry names a supply house, school, directory or similar that the '
+      + 'vertical excludes)');
   }
 
   if (report.rejections.length > 0) {

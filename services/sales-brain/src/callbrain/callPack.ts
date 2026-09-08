@@ -59,6 +59,12 @@ export interface CallPack {
   likelyObjections: string[];
   knownSystems: string[];
   prohibitedClaims: string[];
+  /**
+   * What counts as no sale in this trade. Not prohibitions -- these are reasons to
+   * stop selling and leave well, which is a different instruction from a claim that
+   * must not be made.
+   */
+  noSaleConditions: string[];
   allowedNextSteps: string[];
   /** Every offer family we may mention, from the repo's commercial truth. */
   commercialTruth: string;
@@ -193,6 +199,17 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     for (const item of hypothesis?.must_not_claim ?? []) add(prohibitionSentence(item));
   }
 
+  // When there is no sale here, in this trade's own terms.
+  //
+  // Every profile declares `no_sale_conditions` and nothing read the section. The
+  // call brain already knows how to stop -- the state machine records NOT_A_FIT and
+  // a grader checks the exit was respectful -- but it never had the list of what
+  // counts as no sale in this trade, so "they demand guaranteed sales" and "their
+  // goal is replacing staff" were conditions only a human would recognise.
+  const noSaleConditions = (profile?.no_sale_conditions ?? [])
+    .map((condition: unknown) => String(condition).replace(/_/g, ' ').trim())
+    .filter((condition: string) => condition.length > 0);
+
   // Safety boundaries, which nothing read at all.
   //
   // For roofing these are the claims that are not merely unwise but regulated:
@@ -260,6 +277,7 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     likelyObjections,
     knownSystems: systemRows.map((row) => row.normalized_value),
     prohibitedClaims,
+    noSaleConditions,
     allowedNextSteps: [
       'Book a short strategy call with Michael',
       'Agree a specific callback time',
@@ -281,9 +299,9 @@ export async function persistCallPack(pack: CallPack, contactId: string | null):
                              primary_hypothesis, backup_hypothesis, primary_hook,
                              recommended_opener, first_questions, likely_objections,
                              known_system_signals, prohibited_claims, allowed_next_steps,
-                             commercial_truth_summary)
+                             commercial_truth_summary, no_sale_conditions)
      values ($1,$2,$3, now() + interval '48 hours',
-             $4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+             $4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      returning call_pack_id`,
     [
       pack.accountId, contactId, pack.vertical,
@@ -298,6 +316,9 @@ export async function persistCallPack(pack: CallPack, contactId: string | null):
       JSON.stringify(pack.prohibitedClaims),
       JSON.stringify(pack.allowedNextSteps),
       pack.commercialTruth,
+      // Snapshotted with the pack: a profile edited later must not change what a
+      // past call is judged against.
+      JSON.stringify(pack.noSaleConditions),
     ],
   );
   return rows[0]!.call_pack_id;
