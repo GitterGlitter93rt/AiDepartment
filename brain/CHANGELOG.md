@@ -215,6 +215,39 @@ verbatim -- rewriting a compliance instruction into our own words is how
 its meaning drifts. A test walks all eight verticals and fails if any
 declares a boundary the call pack does not carry.
 
+**And the same shape on the thing the product is for.** Nothing ever
+generated a hypothesis. The only writers of `opportunity_hypotheses` were
+the seed script, a demo CLI and a synthetic fixture, and every consumer
+already existed: the Account page's "Why reach out", its suggested first
+question, the Call Pack the agent speaks from, and a `generated_by`
+column defaulting to 'deterministic'. Only the producer was missing, so a
+real prospect showed an empty panel while a seeded demo company looked
+finished -- the one question this product exists to answer had no answer
+for anyone real.
+
+The generator invents nothing. The sentence is the profile's own
+`description`, the questions are its `questions_to_verify`,
+applicability is its `trigger_signals` against evidence we hold, and the
+order is its `hook_priorities`. A profile that declares nothing produces
+nothing. Together with the advertiser evidence above, the chain the
+product promises runs end to end for the first time: observe a paid
+result, write the evidence, trigger the hypothesis, hand the rep why this
+company and what to ask first.
+
+Three things came out of building it. The thirty-five disqualifying
+signals were unreachable -- every one is named `prospect_confirms_*` and
+none appears in any `public_signal_rules` list, because they are not
+website signals but things a prospect says, and `prospect_statements` is
+where those live. A company that told us their response process is
+measured would have been asked about it again. Second, the supersede
+pointer reads the opposite way from the one on `hook_attempts`: it is
+carried by the newer row, so filtering `is null` keeps the stale claim
+and discards the correction, which is the bug I wrote first and my own
+test caught. Third, eight hypothesis categories the profiles use are
+absent from the table's constraint: four are spellings, mapped, and four
+are new concepts filed as 'other' with the author's own word kept in a
+new column rather than given a home nobody chose.
+
 The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

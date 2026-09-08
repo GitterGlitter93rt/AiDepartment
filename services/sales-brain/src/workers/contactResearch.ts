@@ -32,6 +32,8 @@ export interface ContactResearchOutcome {
   /** How much of what matters this run now has an answer to. */
   completenessLabel?: string | null;
   completenessScore?: number | null;
+  /** Hypotheses derived from the vertical's own declared leaks. */
+  hypothesesWritten?: number;
   /**
    * PARTIAL when the crawl and the evidence stand but something after them did not
    * finish. Declared here rather than only spread in at runtime: the runner records
@@ -330,9 +332,32 @@ export async function runContactResearch(
     console.error('[research] completeness failed', { accountId, error });
   }
 
+  // Why to call them, from what this run just observed.
+  //
+  // Nothing in the product ever wrote a hypothesis: the seed, a demo CLI and a
+  // fixture were the only writers, so a real prospect's "Why reach out" panel was
+  // empty while seeded demo companies looked finished. Derived from the vertical's
+  // own `leak_hypotheses` -- their sentence, their questions, their trigger signals,
+  // their hook order -- so a profile that declares nothing produces nothing.
+  //
+  // After scoring and outside its transaction, for the same reason scoring is: a
+  // fault here must not undo research that succeeded.
+  let hypothesisFault: string | null = null;
+  let hypothesesWritten = 0;
+  try {
+    const { deriveHypotheses, storeHypotheses } = await import('../domain/hypotheses.js');
+    const derived = await deriveHypotheses(accountId);
+    const stored = await storeHypotheses(accountId, derived);
+    hypothesesWritten = stored.written;
+  } catch (error) {
+    hypothesisFault = error instanceof Error ? error.message : String(error);
+    console.error('[research] hypotheses failed', { accountId, error });
+  }
+
   const faults = [
     scoreFault === null ? null : `scoring failed: ${scoreFault}`,
     completenessFault === null ? null : `completeness failed: ${completenessFault}`,
+    hypothesisFault === null ? null : `hypotheses failed: ${hypothesisFault}`,
   ].filter((fault): fault is string => fault !== null);
 
   return {
@@ -354,6 +379,7 @@ export async function runContactResearch(
     scoreTier: scored?.tier ?? null,
     completenessLabel: completeness?.label ?? null,
     completenessScore: completeness?.score ?? null,
+    hypothesesWritten,
   };
 }
 
