@@ -57,6 +57,13 @@ interface Recogniser {
  * declare cannot be recorded by accident, and a signal they declare but this cannot
  * see stays honestly unobserved rather than being guessed at.
  */
+/**
+ * Claim keys this module can write. Derived from the recognisers themselves rather
+ * than listed a second time, because a second list is a list that drifts -- which is
+ * how six declared signals came to have no writer at all.
+ */
+export function recognisedClaimKeys(): string[] { return Object.keys(RECOGNISERS); }
+
 const RECOGNISERS: Record<string, Recogniser> = {
   emergency_24_7_service: {
     category: 'urgency',
@@ -99,6 +106,60 @@ const RECOGNISERS: Record<string, Recogniser> = {
     patterns: [
       /\bfinancing available\b/i, /\bmonthly payments?\b/i, /\b0% (?:apr|interest)\b/i,
       /\bpayment plans?\b/i, /\bfinance your\b/i,
+    ],
+  },
+  // --- vertical-specific signals the profiles declared and nothing recognised ----
+  //
+  // Each of these is on a canonical profile's signal list with a
+  // `score_rule_reference`, so the scorer looks the claim key up and awards points
+  // for it. No recogniser existed, so the signal that distinguishes a vertical from
+  // every other vertical was the one signal it could never earn: a collision shop
+  // advertising hail repair scored the same as one that does not mention it.
+  //
+  // Patterns follow the same rule as the ones above -- whole phrases a company
+  // writes deliberately, not words that appear in ordinary copy.
+  hail_repair_service: {
+    // collision-repair: `signal_id: hail_service`, category `surge`, confirmed.
+    category: 'surge',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\bhail (?:damage )?repair\b/i, /\bhail damage\b/i, /\bhail dent\b/i,
+      /\bpaintless dent repair\b/i, /\bPDR\b/, /\bstorm damage repair\b/i,
+    ],
+  },
+  high_value_plumbing_services: {
+    // plumbing: `signal_id: high_value_drain_sewer_repipe`, confirmed. The signal id
+    // names the services, so the patterns are those services and nothing wider.
+    category: 'high_value_service',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\bsewer (?:line )?(?:repair|replacement|repipe)\b/i, /\bsewer line\b/i,
+      /\bdrain (?:cleaning|clearing|repair)\b/i, /\bhydro ?jetting\b/i,
+      /\brepipe\b/i, /\brepiping\b/i, /\btrenchless\b/i,
+      /\bwater (?:line|main) (?:repair|replacement)\b/i,
+    ],
+  },
+  open_house_listing_signal: {
+    // real-estate-brokerages: `signal_id: open_house_or_listing_activity`, and the
+    // profile asks only for `likely` -- a listings page shows activity, it does not
+    // prove a workflow.
+    category: 'pipeline',
+    ttlHours: 24 * 7,
+    patterns: [
+      /\bopen house(?:s)?\b/i, /\bnew listing(?:s)?\b/i, /\bfeatured listing(?:s)?\b/i,
+      /\bjust listed\b/i, /\bour listings\b/i, /\bhomes for sale\b/i,
+    ],
+  },
+  field_sales_presence: {
+    // pdr-hail: `signal_id: field_sales_signal`, `likely`. Somebody goes to the
+    // customer, which is what puts leads on a personal device.
+    category: 'sales_operations',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\bwe come to you\b/i, /\bmobile (?:service|repair|estimates?)\b/i,
+      /\bon-?site estimates?\b/i, /\bat your (?:home|location|property)\b/i,
+      /\bfree (?:in-home|on-?site) (?:estimate|inspection)\b/i,
+      /\bcatastrophe team\b/i, /\bstorm (?:team|crew)\b/i,
     ],
   },
   membership_program: {

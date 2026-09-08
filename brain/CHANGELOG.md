@@ -158,6 +158,30 @@ This changes scores. Mined advertisers now earn the points the profiles
 always specified, which is the written policy becoming reachable rather
 than a new one.
 
+**Generalised, it was worse than one claim.** Six of the thirteen claim
+keys the canonical profiles declare had no writer at all -- each declared
+with a `score_rule_reference`, so the scorer looks it up and awards
+points. The signal that distinguishes a vertical from every other
+vertical was the one signal it could never earn: a collision shop
+advertising hail repair scored the same as one that never mentions it.
+
+Recognisers were written for the four whose meaning the profile states
+unambiguously -- `hail_repair_service`, `high_value_plumbing_services`,
+`open_house_listing_signal`, `field_sales_presence`. Two were left alone
+on purpose: `active_meta_ad` has no source, because a SERP search cannot
+observe a Meta ad, and `storm_hail_market_signal` names a market while
+its profile describes lead pressure, which could be a weather source or
+the company advertising storm work. Those are different claims about
+different subjects, and choosing one would be inventing the semantics.
+
+The guard matters more than the four. `tests/signalCoverage.test.ts`
+assembles the writable set from the writers themselves rather than from a
+second list, because a second list is what drifts, and it fails in both
+directions: a declared signal with no writer fails, and an excuse for a
+key that now has a writer fails too. The remaining gaps are sentences
+somebody wrote, not differences somebody would have to notice. Proved by
+hiding a recogniser and watching it fail.
+
 The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

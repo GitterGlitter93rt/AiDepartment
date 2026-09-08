@@ -267,6 +267,10 @@ export function evidenceTtlHours(claimKey: string): number {
  * text-ad claim and it is not a Local Services Ad, and there is no third claim to
  * put it under. It stays an observation.
  */
+export function promotedAdClaimKeys(): string[] {
+  return [...new Set(Object.values(AD_CLAIM_BY_RESULT_TYPE).map((entry) => entry.claimKey))];
+}
+
 const AD_CLAIM_BY_RESULT_TYPE: Record<string, { claimKey: string; what: string }> = {
   PAID_SEARCH_TEXT: { claimKey: 'active_google_search_ad', what: 'A paid Google search result' },
   paid_search: { claimKey: 'active_google_search_ad', what: 'A paid Google search result' },
