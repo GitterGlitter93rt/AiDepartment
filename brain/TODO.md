@@ -76,6 +76,15 @@ A task should appear in only one status section. Dependencies may be referenced 
   now stops the process, naming the variable and its value, instead of defaulting.
   Nothing on the EdgeXpert changes today — none of the affected numerics are set
   there, which also means no daily discovery budget is configured at all.
+  After A–W, the same method applied to the running system found more than reading
+  had: every operator CLI run and read, then the portal itself walked as a rep and as
+  a manager. That produced `14991a9` (a back-fill the doctor promised and nothing
+  performed), `e6b720d` (a market nobody named, and 49 scores the product never
+  produced), `1aaa41a` (four defects on the screens themselves), and `0fe78f9` — the
+  largest of the campaign: **nothing in the product ever wrote advertiser evidence**,
+  so `advertiser_first` mining produced accounts whose advertiser panel said "nobody
+  has looked" and whose +4 Module 4C rule could never fire. The lesson to keep: a
+  test asserts what someone thought to assert; opening the page asks what it says.
   **Next action:** A–W are complete. What remains needs a credential or an approval,
   not code: the paid DataForSEO canary (SB-B3), and INPUT-006's retention periods.
   **Completion gate:** met — each item has regression tests, and the remaining canary
