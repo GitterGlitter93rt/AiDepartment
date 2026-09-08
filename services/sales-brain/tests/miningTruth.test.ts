@@ -695,3 +695,157 @@ test('every automated source the product writes is counted as mining', async () 
       `${prefix} is a discovery source the mining KPIs do not count`);
   }
 });
+
+// ------------------------------- found in an ad, and known to be advertising ----
+
+/**
+ * The gap the whole strategy sat on.
+ *
+ * `advertiser_first` mining selects companies *because* they are advertising. The
+ * miner recorded that it saw a paid result -- query, position, headline, the
+ * provider's own timestamp -- and then wrote no evidence. Both things a rep and the
+ * scorer read come from `evidence_records`: the advertiser panel, which said "nobody
+ * has looked" about a company we found in an ad, and the Module 4C rule worth +4,
+ * which every vertical profile declares as `evidence_claim_key:
+ * active_google_search_ad`. Nothing populated either.
+ *
+ * Found by opening the account page and following what it reads.
+ */
+function advertiserAdapter(businesses: {
+  name: string; phone: string; resultType: string; query?: string; position?: number;
+  adHeadline?: string; observedAt?: Date;
+}[]): DiscoveryAdapter {
+  return {
+    name: 'ad-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'OK' as const,
+        businesses: businesses.map((business) => ({
+          name: business.name, website: null, phone: business.phone,
+          city: 'St. Augustine', state: 'FL', postalCode: '32095',
+          resultType: business.resultType, query: business.query ?? null,
+          position: business.position ?? null, adHeadline: business.adHeadline ?? null,
+          observedAt: business.observedAt ?? null,
+        })) as any,
+        providerRows: businesses.length, rejectedRows: 0, duplicateRows: 0,
+      };
+    },
+  };
+}
+
+async function adEvidence(name: string) {
+  const { rows } = await query<{
+    claim_key: string; claim_text: string; confidence: string;
+    can_state_as_fact: boolean; source_type: string; source_provider: string | null;
+    source_reference: string | null; expires_at: Date; notes: string | null;
+  }>(
+    `select e.claim_key, e.claim_text, e.confidence, e.can_state_as_fact, e.source_type,
+            e.source_provider, e.source_reference, e.expires_at, e.notes
+       from evidence_records e join accounts a using (account_id)
+      where a.canonical_name = $1 and e.category = 'paid_acquisition'
+      order by e.claim_key`, [name]);
+  return rows;
+}
+
+test('a company found in a paid result is known to be advertising', async () => {
+  registerDiscoveryAdapter(advertiserAdapter([
+    { name: 'Coastal Air Paid', phone: '904-555-6001', resultType: 'PAID_SEARCH_TEXT',
+      query: 'ac repair 32095', position: 1, adHeadline: 'Same-Day AC Repair',
+      observedAt: new Date('2026-09-05T04:12:00Z') },
+  ]));
+  const job = await runMarketJob();
+  assert.equal(job.status, 'SUCCEEDED');
+  assert.equal((job.progress as any).adEvidenceWritten, 1,
+    'the observation was recorded and no advertiser evidence came of it');
+
+  const [evidence] = await adEvidence('Coastal Air Paid');
+  assert.ok(evidence, 'a company discovered from an ad has no advertising evidence');
+  assert.equal(evidence!.claim_key, 'active_google_search_ad',
+    'the claim key every vertical profile declares for the +4 rule');
+  assert.equal(evidence!.confidence, 'confirmed',
+    'the profiles require confirmed confidence, or the rule cannot fire');
+  assert.equal(evidence!.can_state_as_fact, true);
+  assert.equal(evidence!.source_type, 'provider_serp');
+  assert.equal(evidence!.source_provider, 'ad-provider');
+
+  // What a rep may say: what was seen, for which search, on which day.
+  assert.match(evidence!.claim_text, /paid Google search result was observed/);
+  assert.match(evidence!.claim_text, /"ac repair 32095"/);
+  assert.match(evidence!.claim_text, /2026-09-05/);
+  assert.doesNotMatch(evidence!.claim_text, /spend|budget|\$/i,
+    'evidence a rep reads aloud must say nothing about what the advertising costs');
+
+  // 48 hours from the provider's own observation, per the §14 matrix -- not from
+  // when we happened to collect it.
+  const expected = new Date('2026-09-05T04:12:00Z').getTime() + 48 * 3_600_000;
+  assert.equal(new Date(evidence!.expires_at).getTime(), expected);
+});
+
+test('the score the profiles specify can now actually be earned', async () => {
+  registerDiscoveryAdapter(advertiserAdapter([
+    { name: 'Scoreable Air', phone: '904-555-6002', resultType: 'PAID_SEARCH_TEXT',
+      query: 'ac repair 32095', position: 2 },
+  ]));
+  await runMarketJob();
+
+  const { rows } = await query<{ account_id: string }>(
+    "select account_id from accounts where canonical_name = 'Scoreable Air'");
+  const { recognizeSignals } = await import('../src/scoring/recognize.js');
+  const signals = await recognizeSignals(rows[0]!.account_id);
+  const google = signals['google_paid_search_confirmed'];
+  const qualified = typeof google === 'object' ? google.qualified : Boolean(google);
+  assert.equal(qualified, true,
+    'the largest scoring input in the advertiser-first strategy still cannot fire');
+});
+
+test('a Local Services ad is its own claim, and a shopping ad is neither', async () => {
+  registerDiscoveryAdapter(advertiserAdapter([
+    { name: 'Lsa Air', phone: '904-555-6003', resultType: 'LOCAL_SERVICES_AD',
+      query: 'ac repair 32095', position: 1 },
+    // Paid, and not evidence that a contractor runs search ads. The stored
+    // projection collapses this into `paid_search`, which is why the promotion
+    // reads the provider's own type instead.
+    { name: 'Shopping Air', phone: '904-555-6004',
+      resultType: 'SHOPPING_OR_IRRELEVANT_PAID', query: 'ac repair 32095', position: 3 },
+    // Paid, but neither the text-ad claim nor an LSA. It stays an observation.
+    { name: 'Sponsored Local Air', phone: '904-555-6005', resultType: 'PAID_LOCAL',
+      query: 'ac repair 32095', position: 2 },
+  ]));
+  await runMarketJob();
+
+  assert.equal((await adEvidence('Lsa Air'))[0]?.claim_key, 'active_local_service_ad');
+  assert.deepEqual(await adEvidence('Shopping Air'), [],
+    'a shopping ad was promoted to a claim that a company runs search ads');
+  assert.deepEqual(await adEvidence('Sponsored Local Air'), [],
+    'a sponsored local result was promoted to a claim it does not prove');
+});
+
+test('an organic result never becomes evidence of advertising', async () => {
+  registerDiscoveryAdapter(advertiserAdapter([
+    { name: 'Organic Air', phone: '904-555-6006', resultType: 'ORGANIC',
+      query: 'ac repair 32095', position: 4 },
+  ]));
+  await runMarketJob();
+  assert.deepEqual(await adEvidence('Organic Air'), [],
+    'ranking organically was recorded as advertising');
+});
+
+test('six sightings are six dated observations of one advertiser', async () => {
+  // Deliberately not deduped into one claim: each is a separate day and a separate
+  // query, and the freshness of the newest is what decides whether a rep may say
+  // "currently".
+  registerDiscoveryAdapter(advertiserAdapter([
+    { name: 'Repeat Air', phone: '904-555-6007', resultType: 'PAID_SEARCH_TEXT',
+      query: 'ac repair 32095', position: 1 },
+    { name: 'Repeat Air', phone: '904-555-6007', resultType: 'PAID_SEARCH_TEXT',
+      query: 'emergency ac 32095', position: 2 },
+  ]));
+  await runMarketJob();
+
+  const rows = await adEvidence('Repeat Air');
+  assert.equal(rows.length, 2, 'two searches on one advertiser collapsed into one claim');
+  const queries = rows.map((row) => row.claim_text).sort();
+  assert.match(queries[0]!, /"ac repair 32095"/);
+  assert.match(queries[1]!, /"emergency ac 32095"/);
+});

@@ -123,7 +123,42 @@ found:
   market someone had typed themselves came back as "Jacksonville Hvac
   Advertisers". The labels were already right at the source.
 
-The recurring shape, for the fourteenth time in this campaign:
+**Then the largest one, reached by following what that page reads.**
+Nothing in the product ever wrote advertiser evidence.
+
+Every vertical profile declares `evidence_claim_key:
+active_google_search_ad`, `confidence_required: confirmed`,
+`score_rule_reference: module4c_google_ads_plus4`. The scorer reads
+`evidence_records` for exactly that key. The panel a rep reads does too.
+`EVIDENCE_TTL_HOURS` sets its freshness at forty-eight hours. And the
+only writer of `evidence_records` is `recordEvidence`, whose three
+product callers are first-party website research, imports and person
+resolution -- none of them the miner.
+
+So `advertiser_first` mining, which selects companies *because* they
+advertise, recorded the paid result as an observation -- query, position,
+headline, the provider's own timestamp -- and wrote nothing a rep or the
+scorer could read. The panel said "nobody has looked" about a company we
+found in an ad, and the +4 rule, the largest single input in that
+strategy, could never fire. `EVIDENCE_TTL_HOURS` was itself dead: a
+freshness matrix governing evidence that was never written.
+
+The promotion runs in the same transaction as the observation and is
+deliberately narrow. It reads the provider's own result type rather than
+the stored projection, because the projection collapses
+`SHOPPING_OR_IRRELEVANT_PAID` into `paid_search` and a shopping ad is not
+evidence that a contractor runs search ads. A sponsored local pack result
+is promoted to nothing: it is paid, and it is neither the text-ad claim
+nor a Local Services Ad. The claim says what was seen, for which search,
+on which day -- repeatable aloud, impossible to turn into "you always
+advertise", and silent about cost. It expires forty-eight hours after the
+provider's observation rather than after our collection of it.
+
+This changes scores. Mined advertisers now earn the points the profiles
+always specified, which is the written policy becoming reachable rather
+than a new one.
+
+The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail
 loudly is not a guard.

@@ -7,6 +7,7 @@ import {
   closeProviderTask, openProviderTask, recordCollectionAttempt, recordProviderTask,
   MAX_TASK_COLLECTIONS,
 } from '../miner/providerTasks.js';
+import { recordEvidence } from '../domain/accounts.js';
 
 /**
  * Market Miner orchestration.
@@ -221,7 +222,20 @@ export function availableDiscoveryAdapters(): DiscoveryAdapter[] {
 
 // ------------------------------------------------------------------ refresh --
 
-/** TTLs from the data contract's §14 matrix. Configurable, not hard-coded policy. */
+/**
+ * TTLs from the data contract's §14 matrix. Configurable, not hard-coded policy.
+ *
+ * This was exported and read by nothing. The three 48-hour ad entries were written
+ * for a step that did not exist: no path in the product turned an observed paid
+ * result into advertiser evidence, so the freshness rule for ad evidence governed
+ * evidence that was never written. Read now, by the promotion below.
+ *
+ * Two keys here were an older vocabulary -- `emergency_service_claim` and
+ * `website_cta` -- for claims the recognisers now write as `emergency_24_7_service`
+ * and `online_quote_booking`. Both names are kept: the recognisers carry their own
+ * TTL and agree with these numbers, and a demo fixture still writes the old key, so
+ * dropping them would silently change how long that evidence lasts.
+ */
 export const EVIDENCE_TTL_HOURS: Record<string, number> = {
   active_google_search_ad: 48,
   active_local_service_ad: 48,
@@ -229,10 +243,35 @@ export const EVIDENCE_TTL_HOURS: Record<string, number> = {
   ad_transparency: 24 * 7,
   website_offer: 24 * 7,
   website_cta: 24 * 14,
+  online_quote_booking: 24 * 14,
   website_technology: 24 * 14,
   emergency_service_claim: 24 * 30,
+  emergency_24_7_service: 24 * 30,
   decision_maker_identity: 24 * 30,
   location: 24 * 30,
+};
+
+/** The §14 window for a claim, or the conservative default when it names none. */
+export function evidenceTtlHours(claimKey: string): number {
+  return EVIDENCE_TTL_HOURS[claimKey] ?? 24 * 7;
+}
+
+/**
+ * Which advertiser claim an observed placement proves, if any.
+ *
+ * Read from the provider's own result type rather than the stored projection,
+ * because the projection collapses `SHOPPING_OR_IRRELEVANT_PAID` into `paid_search`
+ * -- and a shopping ad is not evidence that a contractor runs search ads.
+ *
+ * A sponsored local pack result is paid and is deliberately absent: it is not the
+ * text-ad claim and it is not a Local Services Ad, and there is no third claim to
+ * put it under. It stays an observation.
+ */
+const AD_CLAIM_BY_RESULT_TYPE: Record<string, { claimKey: string; what: string }> = {
+  PAID_SEARCH_TEXT: { claimKey: 'active_google_search_ad', what: 'A paid Google search result' },
+  paid_search: { claimKey: 'active_google_search_ad', what: 'A paid Google search result' },
+  LOCAL_SERVICES_AD: { claimKey: 'active_local_service_ad', what: 'A Google Local Services ad' },
+  local_service_ad: { claimKey: 'active_local_service_ad', what: 'A Google Local Services ad' },
 };
 
 export interface RefreshPlan {
@@ -358,7 +397,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
 
   const funnel: IngestionCounts = {
     candidates: 0, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
-    excludedByVertical: 0, exclusionReasons: [],
+    adEvidenceWritten: 0, excludedByVertical: 0, exclusionReasons: [],
   };
   let providerRows = 0;
   let providerRejected = 0;
@@ -574,6 +613,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       funnel.matchedExisting += counts.matchedExisting;
       funnel.created += counts.created;
       funnel.researchQueued += counts.researchQueued;
+      funnel.adEvidenceWritten += counts.adEvidenceWritten;
       funnel.excludedByVertical += counts.excludedByVertical;
       funnel.exclusionReasons.push(...counts.exclusionReasons);
       const record = perSearch[perSearch.length - 1]!;
@@ -672,6 +712,10 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     matchedExisting: funnel.matchedExisting,
     discoveredNew: funnel.created,
     researchQueued: funnel.researchQueued,
+    // What advertiser_first mining set out to establish. Reported on the run because
+    // "we found twenty companies" and "we can show that six of them are advertising"
+    // are different results, and only the second is the reason to run this strategy.
+    adEvidenceWritten: funnel.adEvidenceWritten,
     refreshQueued: plan.queued,
     accountsInScope: plan.accountsInScope,
     staleAccounts: plan.staleAccounts,
@@ -746,6 +790,12 @@ export interface IngestionCounts {
   created: number;
   /** Newly created Accounts queued for research. */
   researchQueued: number;
+  /**
+   * Observed paid placements promoted to advertiser evidence. Counted separately
+   * from the observations: six sightings of one advertiser are six observations,
+   * and each is its own dated piece of evidence for the claim.
+   */
+  adEvidenceWritten: number;
   /**
    * Rows that named a real business the vertical is not looking for -- a supply
    * house, a trade school, a manufacturer. Counted apart from `rejected` because
@@ -863,7 +913,7 @@ async function ingestDiscoveries(
   const { upsertAccount } = await import('../domain/accounts.js');
   const counts: IngestionCounts = {
     candidates: businesses.length, rejected: 0, matchedExisting: 0, created: 0,
-    researchQueued: 0, excludedByVertical: 0, exclusionReasons: [],
+    researchQueued: 0, adEvidenceWritten: 0, excludedByVertical: 0, exclusionReasons: [],
   };
   const createdAccountIds: string[] = [];
 
@@ -949,6 +999,52 @@ async function ingestDiscoveries(
           business.observedAt ?? null,
         ],
       );
+
+      // An observed paid placement is advertiser evidence, and nothing wrote it.
+      //
+      // This is what advertiser_first mining exists to find: the strategy selects
+      // companies *because* they are advertising. The observation above recorded
+      // that we saw a paid result, and the record a rep reads -- and the Module 4C
+      // rule worth +4, which every vertical profile declares as
+      // `evidence_claim_key: active_google_search_ad` -- both read
+      // `evidence_records`, which nothing populated for these claims. So the panel
+      // said "nobody has looked" about a company we found in an ad, and the largest
+      // scoring input in the strategy could never fire.
+      //
+      // Written in the same transaction as the observation: evidence that outlived
+      // a rolled-back observation would be a claim with no provenance behind it.
+      const adClaim = AD_CLAIM_BY_RESULT_TYPE[String(business.resultType ?? '')];
+      if (adClaim) {
+        const observedAt = business.observedAt ?? new Date();
+        const when = observedAt.toISOString().slice(0, 10);
+        await recordEvidence(client, {
+          accountId: result.accountId,
+          category: 'paid_acquisition',
+          claimKey: adClaim.claimKey,
+          // Says what was seen, for which search, on which day. A rep can repeat
+          // this sentence; they cannot turn it into "you always advertise", and it
+          // says nothing about what the advertising costs.
+          claimText: business.query
+            ? `${adClaim.what} was observed for "${business.query}" on ${when}.`
+            : `${adClaim.what} was observed on ${when}.`,
+          normalizedValue: 'yes',
+          confidence: 'confirmed',
+          // We did observe it. That is a fact about the observation, which is the
+          // only kind of advertising fact this system ever claims.
+          canStateAsFact: true,
+          sourceType: 'provider_serp',
+          sourceProvider: providerName,
+          sourceReference: business.query
+            ? `serp://${providerName}/${business.query}${
+              business.position === undefined || business.position === null
+                ? '' : `#${business.position}`}`
+            : `serp://${providerName}`,
+          expiresAt: new Date(
+            observedAt.getTime() + evidenceTtlHours(adClaim.claimKey) * 3_600_000),
+          notes: business.adHeadline ?? null,
+        });
+        counts.adEvidenceWritten += 1;
+      }
 
       if (job.market_id) {
         await client.query(
