@@ -2,6 +2,7 @@ import { researchPictureFor, type ResearchPicture } from './researchFacts.js';
 import { readinessFor, type Readiness } from './repReady.js';
 import { query } from '../db/pool.js';
 import type { Role } from './auth.js';
+import { prohibitionSentence } from '../callbrain/callPack.js';
 
 /**
  * Account detail read model.
@@ -134,8 +135,9 @@ export interface AccountDetail {
 }
 
 /**
- * Claims a rep must not make on a cold call. Two sources: the vertical profile's own
- * must_not_claim list, plus anything derivable from the fact that we have not observed it.
+ * Claims a rep must not make on a cold call. Three sources: the vertical profile's
+ * own must_not_claim list, its safety boundaries, and anything derivable from the
+ * fact that we have not observed it.
  */
 async function prohibitedClaimsFor(
   accountId: string, verticalProfileId: string | null,
@@ -152,10 +154,25 @@ async function prohibitedClaimsFor(
       'select definition from vertical_profiles where vertical_profile_id = $1', [verticalProfileId],
     );
     const profile = rows[0]?.definition?.profile;
-    for (const hypothesis of profile?.opportunity_hypotheses ?? []) {
+    // `opportunity_hypotheses` is not a section any profile has -- they are
+    // `leak_hypotheses` -- so this loop ran over an empty array and no vertical's own
+    // prohibition ever reached the page. Read through the call pack's renderer so the
+    // rep's screen and the agent's prompt cannot say different things.
+    for (const hypothesis of profile?.leak_hypotheses ?? []) {
       for (const item of hypothesis?.must_not_claim ?? []) {
-        claims.add(humanizeClaim(String(item)));
+        claims.add(prohibitionSentence(item));
       }
+    }
+    // And the safety boundaries, which nothing read. For roofing these are regulated
+    // rather than merely unwise: coverage decisions, legal interpretation,
+    // unauthorized public adjusting.
+    for (const boundary of profile?.safety_boundaries ?? []) {
+      for (const claim of boundary?.prohibited_agent_claims ?? []) {
+        claims.add(prohibitionSentence(claim));
+      }
+      const escalation = typeof boundary?.escalation_guidance === 'string'
+        ? boundary.escalation_guidance.trim() : '';
+      if (escalation) claims.add(escalation);
     }
   }
 
@@ -181,10 +198,6 @@ async function prohibitedClaimsFor(
   }
 
   return [...claims];
-}
-
-function humanizeClaim(token: string): string {
-  return `Do not claim: ${token.replace(/_/g, ' ')}.`;
 }
 
 export async function getAccountDetail(

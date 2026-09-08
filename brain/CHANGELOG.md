@@ -182,6 +182,39 @@ key that now has a writer fails too. The remaining gaps are sentences
 somebody wrote, not differences somebody would have to notice. Proved by
 hiding a recogniser and watching it fail.
 
+**And then the one that mattered most, from asking which *sections* of a
+profile the runtime reads at all.** Sixteen of twenty have no reader. Two
+of those sixteen were being read -- under the wrong name.
+
+`prohibitedClaimsFor`, which builds the rep's screen, and
+`buildCallPack`, which builds the prompt an AI voice agent speaks from,
+both looked up `profile.opportunity_hypotheses`. No profile has a section
+by that name; they are `leak_hypotheses`. Both loops ran over an empty
+array, so not one vertical-specific prohibition ever reached either
+place. And `safety_boundaries` was read by nothing at all.
+
+For roofing that is not cosmetic. The profile declares seven
+must-not-claim entries plus nine `prohibited_agent_claims` and three
+escalation instructions, among them *insurance coverage decision*,
+*legal interpretation*, *unauthorized public adjusting* and *guaranteed
+claim outcome*. Unauthorized public adjusting is a licensed activity in
+Florida, and the prompt had no instruction against it. Collision repair
+was missing vehicle safety clearance and structural repair judgment;
+plumbing was missing emergency hazard decision without approved
+escalation.
+
+Outbound dialling is disabled and no call has ever been placed, which is
+the only reason this is a defect rather than an incident. It is also
+exactly what a pre-pilot compliance review exists to catch, and it would
+have passed that review invisibly: the code reads a section, and the
+profiles contain one, just not the same one.
+
+Both readers now share one renderer, so the screen and the prompt cannot
+say different things, and the escalation sentence passes through
+verbatim -- rewriting a compliance instruction into our own words is how
+its meaning drifts. A test walks all eight verticals and fails if any
+declares a boundary the call pack does not carry.
+
 The recurring shape, for the fifteenth time in this campaign:
 configuration written down deliberately and never read by the runtime --
 or, here, read in a way that could not fail. A guard that cannot fail

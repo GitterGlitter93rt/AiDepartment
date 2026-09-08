@@ -69,6 +69,18 @@ export interface CallPack {
  * suggests. Sourced from Module 4A (§10, §16, §23) and the vertical profile's own
  * must_not_claim list.
  */
+/**
+ * Turns a profile's token into a sentence an agent can act on.
+ *
+ * `unauthorized_public_adjusting` has to become something a model will not do, and
+ * it must stay recognisably the profile's own term so a compliance reviewer can
+ * trace the sentence back to the boundary that produced it.
+ */
+export function prohibitionSentence(token: unknown): string {
+  const words = String(token).replace(/_/g, ' ').trim();
+  return `Do not claim or decide: ${words}.`;
+}
+
 const UNIVERSAL_PROHIBITIONS = [
   'Do not state or estimate their advertising spend.',
   'Do not state a missed-call rate, close rate, or revenue figure they have not given you.',
@@ -167,11 +179,36 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     ? await getVerticalProfile(account.primary_vertical_profile_id) : null;
 
   const prohibitedClaims = [...UNIVERSAL_PROHIBITIONS];
-  for (const hypothesis of profile?.opportunity_hypotheses ?? []) {
-    for (const item of hypothesis?.must_not_claim ?? []) {
-      const rendered = `Do not claim: ${String(item).replace(/_/g, ' ')}.`;
-      if (!prohibitedClaims.includes(rendered)) prohibitedClaims.push(rendered);
+  const add = (line: string): void => {
+    if (!prohibitedClaims.includes(line)) prohibitedClaims.push(line);
+  };
+
+  // The vertical's own must-not-claim list.
+  //
+  // This read `profile.opportunity_hypotheses`, and no profile has a section by that
+  // name -- they are `leak_hypotheses`. So the loop ran over an empty array every
+  // time and not one vertical-specific prohibition ever reached the agent's prompt,
+  // on the object whose entire purpose is to say what may and may not be said.
+  for (const hypothesis of profile?.leak_hypotheses ?? []) {
+    for (const item of hypothesis?.must_not_claim ?? []) add(prohibitionSentence(item));
+  }
+
+  // Safety boundaries, which nothing read at all.
+  //
+  // For roofing these are the claims that are not merely unwise but regulated:
+  // insurance coverage decisions, legal interpretation, unauthorized public
+  // adjusting, guaranteed claim outcomes. The profile names them, says which
+  // questions require a human, and supplies the sentence to escalate with -- and
+  // none of it reached the prompt an agent speaks from.
+  for (const boundary of profile?.safety_boundaries ?? []) {
+    for (const claim of boundary?.prohibited_agent_claims ?? []) {
+      add(prohibitionSentence(claim));
     }
+    const escalation = typeof boundary?.escalation_guidance === 'string'
+      ? boundary.escalation_guidance.trim() : '';
+    // The profile's own sentence, verbatim. Rewriting a compliance instruction into
+    // our own words is how its meaning drifts.
+    if (escalation) add(escalation);
   }
   if (importantUnknowns.some((unknown) => /google|meta|ad/.test(unknown))) {
     prohibitedClaims.push('Advertising evidence is not fresh enough to describe in the present tense.');
