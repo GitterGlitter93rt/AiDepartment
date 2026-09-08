@@ -85,8 +85,31 @@ A task should appear in only one status section. Dependencies may be referenced 
   so `advertiser_first` mining produced accounts whose advertiser panel said "nobody
   has looked" and whose +4 Module 4C rule could never fire. The lesson to keep: a
   test asserts what someone thought to assert; opening the page asks what it says.
-  **Next action:** A–W are complete. What remains needs a credential or an approval,
-  not code: the paid DataForSEO canary (SB-B3), and INPUT-006's retention periods.
+  **Next action:** A–W are complete, and so is the sweep that followed them. What
+  remains needs a credential or a decision, not code.
+
+  **Decisions owed (ChatGPT proposes, Michael approves).** Each is written down where
+  the code would use it, with a test that keeps it visible:
+  1. `decision_maker_roles` vocabulary — 24 profile categories with vertical-specific
+     titles (managing partner, managing broker, canvassing manager, estimator)
+     against `contacts.role_category`'s 15 atomic values, several of the profile's
+     being composites. Today those titles classify as `unknown`.
+  2. `objection_guidance` — does a vertical's own guidance replace or supplement the
+     generic objection responses the prompt carries?
+  3. `offer_mapping` — two offer declarations, no producer. Which is authoritative?
+  4. `call_pack_defaults.preferred_primary_hook_order` — conflicts with
+     `hook_priorities`, which the hypothesis generator uses.
+  5. `storm_hail_market_signal` — a market signal or the company advertising storm
+     work? Different claims about different subjects.
+  6. Four hypothesis categories with no home in the schema vocabulary: `intake`,
+     `capacity`, `governance`, `repetitive_admin` (filed as `other`, author's own word
+     kept in `source_category`).
+  7. 57 of 150 declared hypothesis triggers name a signal no source produces — hail
+     ads, a phone-heavy site, CRM front-end signals, team size. Building those needs
+     data we do not buy today; the count is pinned so it can only fall.
+
+  **Credentials owed.** The paid DataForSEO canary (SB-B3) and INPUT-006's retention
+  periods, both unchanged.
   **Completion gate:** met — each item has regression tests, and the remaining canary
   gates are named as needing a credential rather than left implied.
 
