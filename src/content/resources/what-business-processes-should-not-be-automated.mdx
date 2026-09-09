@@ -1,8 +1,9 @@
 ---
 title: "What Business Processes Should Not Be Automated?"
 seoTitle: "What Business Processes Should Not Be Automated? | Your AI Department"
-description: "Automation isn't automatically beneficial. Here's how to think about which parts of a process should stay with people — and which parts technology should handle."
+description: "Learn which business processes should stay human-led, where automation creates risk, and how to decide what should and should not be automated."
 publishDate: "2026-08-14"
+updatedDate: "2026-09-09"
 primaryDestination:
   label: "Explore AI Implementation"
   href: "/ai-implementation/"
@@ -53,6 +54,44 @@ A useful pattern is to have AI handle the first pass and a person handle the jud
 ## Use Escalation Thresholds
 
 Systems should have clearly defined cases where they stop and request human intervention — uncertainty, a policy exception, a large financial impact, sensitive information, an unusual customer request, or a low-confidence output are all reasonable triggers for escalation rather than letting the system proceed on its own.
+
+## Good Automation Candidates vs Poor Ones
+
+Most of the difficulty in this decision disappears once you stop asking whether a process *can* be automated and start sorting it against a few honest characteristics.
+
+**A process is usually a good candidate when:**
+
+- It happens often enough that consistency matters more than nuance.
+- The inputs are predictable, and the rules are ones a person could write down.
+- Being wrong is cheap and visible — someone notices quickly and it is easy to correct.
+- There is a system of record to check the result against.
+- The work is a handoff rather than a judgment: moving information, scheduling, confirming, reminding, logging.
+
+**A process is usually a poor candidate when:**
+
+- The cost of being wrong is borne by the customer and discovered late.
+- The right answer depends on context that lives in someone's head rather than in a field.
+- The inputs are inconsistent, incomplete, or supplied by people under pressure.
+- The output is a decision that someone will later have to defend — to a client, a regulator, or a court.
+- Nobody currently owns the process well enough to describe it end to end.
+
+The second list is not a list of things technology cannot touch. It is a list of things where automation should prepare the work and a person should finish it.
+
+## The Real Risks, and What They Look Like in Practice
+
+The disadvantages of business process automation are rarely dramatic. They are quiet, and they compound.
+
+**Errors move faster than they used to.** A manual process that makes a mistake makes it once. An automated one makes it every time it runs, until somebody notices. The failure mode of automation is not usually a crash; it is a confident, well-formatted wrong answer produced at volume.
+
+**A broken process gets faster instead of fixed.** Automating a workflow nobody has examined encodes its current problems and makes them permanent. The work of writing it down is often where most of the value actually was.
+
+**Ownership goes missing.** When a person did the task, someone was accountable for it. After automation, "the system does that" is an answer that satisfies nobody when it stops working.
+
+**Exception volume is underestimated.** Teams plan for the happy path and discover the exception queue is where the real work moved. A process that clears 85% cleanly is judged entirely on how the other 15% is handled.
+
+**Customers notice the seams.** Automation that cannot recognise frustration, urgency, or an unusual situation turns an ordinary problem into a complaint about the company.
+
+None of these argue against automating. They argue for automating deliberately, with a person named as the owner and a defined path for everything the system cannot settle.
 
 ## A Better Question Than "Can We Automate This?"
 

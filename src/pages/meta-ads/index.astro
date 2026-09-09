@@ -130,6 +130,12 @@ const faqs = [
     </Container>
   </Section>
 
+  <Section tone="light">
+    <Container>
+      <p class="ma-related-link">Paid social is only as measurable as what happens after the click. See <a href="/conversion-tracking-analytics/">conversion tracking and revenue attribution</a> for how campaign spend is connected to booked work, and <a href="/ai-growth-systems/">AI Growth Systems</a> for the wider system this sits inside.</p>
+    </Container>
+  </Section>
+
   <Section tone="dark">
     <Container>
       <SectionHeading eyebrow="FAQ" heading="Common Questions" tone="dark" />
@@ -147,6 +153,20 @@ const faqs = [
 </BaseLayout>
 
 <style>
+  .ma-related-link {
+    max-width: 760px;
+    margin-inline: auto;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--color-slate-gray);
+  }
+
+  .ma-related-link a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
   .pricing-note {
     max-width: 640px;
     margin-inline: auto;
