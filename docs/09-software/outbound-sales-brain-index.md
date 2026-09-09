@@ -119,6 +119,10 @@ Account/location/domain/phone/contact identity resolution, DBAs, franchises, tra
 
 Website crawl/fetch policy, service/CTA/24-7/financing/location/hiring/decision-maker extraction, technology signals, lead-flow mapping, and no-fake-form rule.
 
+## `outbound-sales-brain-speed-to-lead-probe-spec.md`
+
+Controlled lead-response audit: shared Twilio probe number pool, durable probe ledger, inbound response attribution, human-vs-automated actor typing, raw and business-hours-adjusted latency, and the measured `speed_to_lead` evidence the vertical profiles currently forbid claiming. **Design only — no live form submission is authorized, and §3 lists the five standing prohibitions that must be amended first.**
+
 ## `market-miner-jacksonville-staugustine-hvac-acceptance-pack.md`
 
 First actual Market Miner acceptance milestone: Jacksonville + St. Augustine HVAC, advertiser-first, Tier B+, target 100, manual audit and provider economics.
@@ -262,7 +266,9 @@ That product is useful before an AI places a single prospect call.
 
 # 15. NON-NEGOTIABLE RULES
 
-- no fake lead/form submissions
+- no fake lead/form submissions — unqualified today; a controlled, authorized
+  exception is *designed* in `outbound-sales-brain-speed-to-lead-probe-spec.md`
+  and remains unauthorized until Michael amends this rule (that spec §3, §22)
 - no invented ad spend
 - no invented revenue/ROI
 - no active-ad claim from pixel/tag alone

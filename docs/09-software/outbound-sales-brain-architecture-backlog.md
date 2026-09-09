@@ -233,6 +233,63 @@
 - [ ] Create Jacksonville/St. Augustine first-market acceptance pack.
 - [ ] Update `brain/PHONE-AGENT.md` to reflect architecture-first/Market-Miner-first state.
 
+# P. SPEED-TO-LEAD RESPONSE PROBE
+
+Authority: `outbound-sales-brain-speed-to-lead-probe-spec.md`.
+Status: **designed, not implemented, not authorized.** Dry-run only.
+
+Why it exists: `speed_to_lead` fires today from ad presence, and the profiles then
+forbid saying anything about actual response time
+(`must_not_claim: [current_response_time_without_measurement]`,
+`prohibited_shortcuts: [invented_speed_to_lead_gain]`). Nothing measures it. This
+subsystem is that measurement.
+
+- [x] Define probe-as-identity model; reject one-number-per-prospect.
+- [x] Define durable probe ledger and inbound event ledger.
+- [x] Define attribution ladder as an extension of `src/inbound/resolver.ts`, with
+      AMBIGUOUS as a first-class outcome and sole-occupancy explicitly excluded.
+- [x] Define HUMAN / AUTOMATED / UNKNOWN actor typing, including the cross-probe
+      template fingerprint, and forbid absence-of-automation implying a human.
+- [x] Separate the six response milestones so an auto-acknowledgement can never be
+      counted as human follow-up.
+- [x] Define raw and business-hours-adjusted latency, with null for unknown hours.
+- [x] Define cheap unique email attribution by alias/catch-all keyed to a probe token.
+- [x] Define collision-aware pool allocation with deferral, and establish that pool
+      size is governed by collision cliques and deferral rate, not probe volume.
+- [x] Define probe lifecycle states and windows.
+- [x] Define safety interlocks: no dispatch, ineligible verticals, no CAPTCHA
+      circumvention, one open probe per Account, cooldown, caps default zero.
+- [x] Define the inbound probe agent: identify, resolve, terminate politely.
+- [x] Define recording default-off and retention treatment of incidental PII.
+- [x] Define canonical signals with RELATIONSHIP subject and no producers.
+- [x] Define negative-evidence discipline for FAILED / AMBIGUOUS / NO_RESPONSE_FINAL.
+- [x] Define rep-facing evidence rendering with both latency figures.
+- [x] Identify the five standing prohibitions this conflicts with, by document and
+      section.
+- [x] Enumerate the compliance/consent/terms decisions Michael must approve.
+- [ ] Ledger + pool schema and migration.
+- [ ] Collision-aware allocator with franchise-cluster fixtures.
+- [ ] `INBOUND_PROBE_RESPONSE` mode in the inbound resolver.
+- [ ] Actor-type classifier + cross-probe fingerprint.
+- [ ] Latency arithmetic including the null-business-hours path.
+- [ ] Email alias mechanism and inbound token resolution.
+- [ ] Signal registry entries + `LEAD_RESPONSE_PROBE` capability.
+- [ ] Dry-run submitter, fixture site, full simulation suite.
+- [ ] Rep-facing renderer with confidence gating.
+- [ ] **BLOCKED — Michael:** amend the five standing "no fake form submission"
+      prohibitions, or the subsystem stays in dry-run permanently.
+- [ ] **BLOCKED — Michael:** approve conduct, consent-checkbox, terms, identity,
+      vertical-eligibility, volume and suppression decisions (spec §22).
+- [ ] **BLOCKED — counsel:** consent representation on third-party forms; terms-of-use
+      exposure.
+- [ ] Do **not** wire probe signals into the Module 4C canonical score without a
+      separate decision, fixtures and a score-version bump.
+- [ ] Do **not** conflate live-probe authorization with the DataForSEO paid canary
+      gate (`DATAFORSEO_GOVERNANCE_REVIEWED`, SB-B3). Different spend, different
+      counterparty, different risk.
+
+---
+
 ---
 
 # REMAINING ARCHITECTURE EXECUTION ORDER
@@ -245,3 +302,5 @@
 6. Final consistency review across architecture docs.
 
 After those items, the architecture package is mature enough for Claude to begin Gate 0 and then implement the Market Miner in controlled phases.
+
+The speed-to-lead response probe (section P) is designed and sits outside that order: its dry-run implementation may proceed independently, and its live enablement is blocked on Michael and counsel rather than on engineering sequence.
