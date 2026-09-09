@@ -30,18 +30,14 @@ docker exec yad-sales-postgres pg_dump \
 mv "$TARGET.partial" "$TARGET"
 chmod 600 "$TARGET"
 
-# A backup that cannot be read is not a backup: verify it decompresses and contains
+# A backup that cannot be read is not a backup: verify it decompresses and declares
 # the tables that matter before rotating anything out.
-if ! gzip -t "$TARGET"; then
-  echo "BACKUP FAILED: $TARGET is not a valid gzip archive" >&2
-  exit 1
-fi
-for table in accounts contacts contact_endpoints suppressions ownership_events follow_ups; do
-  if ! zgrep -q "CREATE TABLE public.${table}" "$TARGET"; then
-    echo "BACKUP FAILED: $TARGET is missing table ${table}" >&2
-    exit 1
-  fi
-done
+#
+# The verification lives in its own script so it can be pointed at any archived dump
+# by hand, and so the regression suite exercises the same code this runs. `set -e`
+# means a non-zero exit here aborts before the retention sweep below -- which is what
+# kept five nights of dumps from being rotated away while validation was broken.
+"$PACKAGE_DIR/deploy/verify-backup.sh" "$TARGET"
 
 find "$BACKUP_DIR" -maxdepth 1 -type f -name 'yad_sales_*.sql.gz' -mtime "+${RETAIN_DAYS}" -delete
 
