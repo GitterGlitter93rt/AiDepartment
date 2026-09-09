@@ -64,6 +64,14 @@ function walk(dir: string, match: (f: string) => boolean): string[] {
 
 const allHtml = () => walk(DIST, (f) => f.endsWith('.html'));
 
+/** Every JSON-LD node on a page, parsed. Regex-slicing a node out of
+ * the HTML breaks the moment a node nests another object — which is
+ * exactly what happened when Organization gained an ImageObject logo. */
+function jsonLdNodes(html: string): any[] {
+  return [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1]));
+}
+
 function stripCode(html: string): string {
   return html.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<script[\s\S]*?<\/script>/g, ' ');
 }
@@ -154,10 +162,11 @@ describe('30907: every page names the same operator as the Twilio Brand', () => 
   });
 
   test('Organization schema carries legalName without renaming the brand', () => {
-    const home = page('/');
-    const block = home.match(/\{"@context":"https:\/\/schema\.org","@type":"Organization"[\s\S]*?\}/)?.[0];
-    assert.ok(block, 'Organization JSON-LD not found');
-    const org = JSON.parse(block!);
+    // Parse whole ld+json blocks rather than regex-slicing to the first
+    // "}". Organization now nests an ImageObject logo, and a non-greedy
+    // slice stops inside it and yields invalid JSON.
+    const org = jsonLdNodes(page('/')).find((n) => n['@type'] === 'Organization');
+    assert.ok(org, 'Organization JSON-LD not found');
     assert.equal(org.name, BRAND_NAME, 'the searchable brand must not be replaced by the legal entity');
     assert.equal(org.legalName, LEGAL_ENTITY);
   });
