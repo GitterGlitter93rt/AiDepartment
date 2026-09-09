@@ -11,6 +11,7 @@ const year = new Date().getFullYear();
       <div class="footer-brand">
         <p class="brand-name">YOUR AI DEPARTMENT</p>
         <p class="brand-position">AI Strategy. Implementation. Growth. Ongoing Leadership.</p>
+        <p class="legal-entity">Your AI Department is a business brand operated by Catastrophic Solutions LLC.</p>
       </div>
 
       <nav aria-label="Solutions">
@@ -52,12 +53,13 @@ const year = new Date().getFullYear();
     </div>
 
     <div class="footer-bottom">
-      <p class="copyright">&copy; {year} Your AI Department. All rights reserved.</p>
+      <p class="copyright">&copy; {year} Your AI Department / Catastrophic Solutions LLC. All rights reserved.</p>
       <nav aria-label="Legal">
         <ul class="legal-links">
           {FOOTER_LINKS.legal.map((link) => (
             <li><a href={link.href}>{link.label}</a></li>
           ))}
+          <li><a href="/sms-consent/">SMS Consent</a></li>
         </ul>
       </nav>
     </div>
@@ -96,6 +98,14 @@ const year = new Date().getFullYear();
     font-size: 0.85rem;
     max-width: 300px;
     line-height: 1.55;
+  }
+
+  .legal-entity {
+    margin-top: 10px;
+    max-width: 320px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-dark-muted-text);
   }
 
   .footer-grid h2 {
