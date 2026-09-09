@@ -330,7 +330,10 @@ export class AssessmentApp {
     // correlation ID, the assessment version, and a coarse score band —
     // never contact fields, never the full result, never raw answers.
     (window as any).dataLayer.push({
-      event: 'ai_assessment_lead_submit',
+      // The shared constant, not a literal. Both assessment flows emit
+      // the same event name, and a literal here is how the two drift
+      // apart the day someone renames one of them.
+      event: ASSESSMENT_EVENTS.leadSubmit,
       ...withRepCode(
         withCampaignParams(buildLeadAnalyticsFields(outcome.leadId, this.pendingResult), getCampaignAttribution()),
         getRepCode(),
