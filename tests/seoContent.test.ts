@@ -156,3 +156,166 @@ describe('/ai-crm-integration/ answers the demand Search Console is showing', ()
     assert.ok(readFileSync(join(ROOT, 'public/sitemap.xml'), 'utf8').includes(`${SITE}/ai-crm-integration/`));
   });
 });
+
+// ---------------------------------------------------------------------
+// SEO priority 2 — /resources/ai-for-logistics-document-processing.../
+//
+// "ai document processing in logistics" showed at an average position of
+// ~18.75 on a handful of impressions. Small volume, but the best
+// non-brand position on the site — Google had already decided this page
+// was relevant, and the page was a ~400-word summary. The work was to
+// make it worth the position it was being given, not to create a new one.
+// ---------------------------------------------------------------------
+
+describe('/resources/ai-for-logistics-document-processing-and-back-office-automation/ earns its position', () => {
+  const route = '/resources/ai-for-logistics-document-processing-and-back-office-automation/';
+  const html = page(route);
+  const text = visibleText(mainContent(html));
+
+  test('the URL did not change — the position belongs to this path', () => {
+    // Renaming the slug would forfeit whatever authority the page has.
+    assert.ok(html.includes(`<link rel="canonical" href="${SITE}${route}">`));
+  });
+
+  test('title and H1 lead with the phrase Google is ranking it for', () => {
+    assert.match(titleOf(html), /^AI Document Processing in Logistics/);
+    assert.ok(titleOf(html).length <= 60, `title is ${titleOf(html).length} chars`);
+    assert.match(h1Of(html), /AI Document Processing in Logistics/);
+  });
+
+  test('it covers the document types by name, because they fail differently', () => {
+    for (const term of ['bill', 'lading', 'BOL', 'POD', 'proofs? of delivery', 'invoice', 'rate confirmation']) {
+      assert.ok(new RegExp(term, 'i').test(text), `missing coverage of ${term}`);
+    }
+  });
+
+  test('it separates what OCR does from what a language model does', () => {
+    assert.match(text, /OCR/);
+    assert.match(text, /language model/i);
+    // The asymmetry that justifies every human-review rule on the page.
+    assert.match(text, /fails visibly and a language model fails plausibly/i);
+  });
+
+  test('it treats confidence thresholds as a business decision, not a setting', () => {
+    assert.match(text, /confidence/i);
+    assert.match(text, /threshold/i);
+    assert.match(text, /exception queue/i);
+  });
+
+  test('it covers integration and the audit trail, not just extraction', () => {
+    assert.match(text, /TMS/);
+    assert.match(text, /idempot|retried write/i);
+    assert.match(text, /audit trail/i);
+  });
+
+  test('it says plainly what must not be fully automated', () => {
+    assert.match(text, /should not be fully automated/i);
+    assert.match(text, /customs/i);
+    assert.match(text, /claim/i);
+  });
+
+  test('it never claims perfect extraction or hallucination-free reading', () => {
+    for (const pattern of [
+      /100%\s*(accura|correct)/i,
+      /perfect(ly)? accura/i,
+      /never (makes )?(a )?mistake/i,
+      /eliminates? (all )?errors/i,
+      /hallucination[- ]free/i,
+      /fully automated? end[- ]to[- ]end/i,
+    ]) {
+      assert.equal(pattern.test(text), false, `overclaim: ${pattern}`);
+    }
+    // And it states the limitation positively.
+    assert.match(text, /Imperfectly|not well calibrated|do not assume/i);
+  });
+
+  test('it is substantial enough to deserve the ranking', () => {
+    assert.ok(wordsOf(html) > 1200, `${wordsOf(html)} words — too thin for this intent`);
+  });
+
+  test('it links into the implementation and integration cluster', () => {
+    const links = bodyLinks(html);
+    assert.ok(links.has('/industries/logistics-transportation/'));
+    assert.ok(links.has('/ai-implementation/'));
+    assert.ok([...links].some((l) => l.startsWith('/resources/')), 'related resources must resolve');
+  });
+
+  test('the industry page still points at it', () => {
+    assert.ok(bodyLinks(page('/industries/logistics-transportation/')).has(route));
+  });
+});
+
+// ---------------------------------------------------------------------
+// SEO priority 3 — the conversion-tracking cluster
+//
+// "ai conversion tracking" appeared at roughly position 47. The existing
+// /conversion-tracking-analytics/ service page is strong and covers GTM,
+// GA4, click IDs, offline imports and CRM handoff; over-specialising it
+// to chase one query would damage the page that already works. A
+// supporting resource answers the query, and the service page links to
+// it.
+// ---------------------------------------------------------------------
+
+describe('The conversion-tracking cluster answers "ai conversion tracking" without breaking the service page', () => {
+  const resourceRoute = '/resources/what-is-ai-conversion-tracking/';
+  const resource = page(resourceRoute);
+  const service = page('/conversion-tracking-analytics/');
+
+  test('the resource exists, is indexable, and is in the sitemap', () => {
+    assert.equal(/<meta name="robots"/.test(resource), false);
+    assert.ok(resource.includes(`<link rel="canonical" href="${SITE}${resourceRoute}">`));
+    assert.ok(readFileSync(join(ROOT, 'public/sitemap.xml'), 'utf8').includes(`${SITE}${resourceRoute}`));
+  });
+
+  test('it answers the question in the query, in the title and the H1', () => {
+    assert.match(titleOf(resource), /What Is AI Conversion Tracking/i);
+    assert.ok(titleOf(resource).length <= 60, `title is ${titleOf(resource).length} chars`);
+    assert.match(h1Of(resource), /AI Conversion Tracking/i);
+  });
+
+  test('it refuses the false claim rather than repeating it', () => {
+    const text = visibleText(mainContent(resource));
+    assert.match(text, /AI does not track conversions/i);
+    for (const pattern of [
+      /AI tracks everything automatically/i,
+      /no tags? (are )?(needed|required)/i,
+      /replaces? (your )?(tag|GTM|GA4|tracking)/i,
+    ]) {
+      assert.equal(pattern.test(text), false, `the resource repeats the false claim: ${pattern}`);
+    }
+  });
+
+  test('it names the deterministic chain AI cannot replace', () => {
+    const text = visibleText(mainContent(resource));
+    for (const term of ['gclid', 'UTM', 'GA4', 'Google Tag Manager', 'CRM', 'offline']) {
+      assert.ok(text.includes(term), `missing ${term} from the deterministic chain`);
+    }
+  });
+
+  test('it says where AI genuinely does help, so it is not merely a debunking', () => {
+    const text = visibleText(mainContent(resource));
+    assert.match(text, /classif/i);
+    assert.match(text, /lead quality|scoring lead/i);
+    assert.match(text, /conversion value|value sent back|better conversion values/i);
+    // Modelled conversions are real and must not be lumped in with the
+    // vendor claim being warned about.
+    assert.match(text, /Modelled conversions are real/i);
+  });
+
+  test('the service page keeps its own scope and gains a section, not a rewrite', () => {
+    const h2s = h2sOf(service).join(' | ');
+    // The pre-existing argument is intact.
+    assert.match(h2s, /A Click Is Not a Customer/);
+    assert.match(h2s, /Tag Management and Event Architecture/);
+    assert.match(h2s, /Feeding Real Outcomes Back to Google Ads/);
+    // And the new one is present.
+    assert.match(h2s, /AI Does Not Track Conversions/i);
+  });
+
+  test('service and resource link to each other, and do not duplicate intent', () => {
+    assert.ok(bodyLinks(service).has(resourceRoute), 'the service page must link to the resource');
+    assert.ok(bodyLinks(resource).has('/conversion-tracking-analytics/'), 'the resource must link to the service');
+    assert.notEqual(titleOf(service), titleOf(resource));
+    assert.notEqual(h1Of(service), h1Of(resource));
+  });
+});

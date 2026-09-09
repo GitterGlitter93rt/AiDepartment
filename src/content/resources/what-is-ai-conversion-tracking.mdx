@@ -1,0 +1,84 @@
+---
+title: "What Is AI Conversion Tracking? Where AI Helps, and Where It Cannot"
+seoTitle: "What Is AI Conversion Tracking? | Your AI Department"
+description: "AI does not track conversions — tags, click IDs and UTMs do. Here is what AI genuinely adds to conversion tracking, what it cannot replace, and how to tell a real capability from a marketing claim."
+publishDate: "2026-09-09"
+primaryDestination:
+  label: "Explore Conversion Tracking & Attribution"
+  href: "/conversion-tracking-analytics/"
+secondaryDestinations:
+  - label: "Google Ads"
+    href: "/google-ads/"
+  - label: "AI CRM Integration"
+    href: "/ai-crm-integration/"
+relatedResources:
+  - "how-to-track-google-ads-leads-to-revenue"
+  - "why-speed-to-lead-matters"
+  - "what-business-processes-should-not-be-automated"
+---
+
+"AI conversion tracking" is a phrase people search for, and it is worth being precise about, because the most common version of it is a marketing claim rather than a capability.
+
+**AI does not track conversions.** Deterministic plumbing tracks conversions: a tag that fires, a click ID that persists, a UTM that survives a redirect, a CRM field that records an outcome, and an import that sends that outcome back to the ad platform. None of that is machine learning, none of it is new, and no amount of AI removes the need for any of it.
+
+What AI genuinely adds sits on either side of that plumbing — deciding what a conversation *was*, and deciding what a lead was *worth*. Those are real, valuable, and frequently underused. They are also not tracking.
+
+## The Part That Is Not AI, and Never Will Be
+
+A conversion is an event that happened at a specific time, to a specific person, attributable to a specific click. Recording it is a chain, and the chain is deterministic end to end:
+
+- **A tag fires** when something happens — a form submits, a call connects, a booking completes. Google Tag Manager, or an equivalent.
+- **An event reaches the analytics platform** with parameters describing what it was. GA4.
+- **A click ID persists** — `gclid`, `gbraid`, `wbraid` for Google, `fbclid` for Meta — from the ad click through to whatever system eventually knows the outcome.
+- **UTMs survive** every redirect, every internal navigation, and the handoff to a third-party scheduler or form.
+- **The CRM records what actually happened.** Qualified, quoted, sold, at what value.
+- **An offline import sends that back** to the ad platform, keyed on the stored click ID.
+
+Every link in that chain is a place it breaks, and in practice most measurement problems are a broken link rather than an absence of intelligence. A `gclid` that a form does not carry into the CRM cannot be recovered by any model. A tag that fires twice produces a number that is wrong in a way no amount of analysis will detect. A UTM stripped by a redirect is simply gone.
+
+If the chain is broken, fix the chain. Adding a model on top produces confident conclusions about incomplete data, which is worse than knowing you have incomplete data.
+
+## Where AI Genuinely Helps
+
+Everything below is real, in production somewhere today, and worth doing — provided the chain above already works.
+
+**Classifying what a conversation was.** A phone call is recorded as "a call". Whether it was a new customer enquiry, an existing customer asking about an invoice, a wrong number, or a recruiter is the difference between a meaningful conversion count and a vanity one. Transcribing and classifying calls at volume is something a model does well and a person does expensively.
+
+**Scoring lead quality.** Not to replace a salesperson's judgment, but to make the volume tractable — a first pass that separates "plausible business, described a real problem" from "form filled by a bot" so the deterministic conversion you send back to Google is not diluted by noise.
+
+**Summarising for the CRM.** A call summary attached to the record means the person following up knows what was said. That is a CRM and integration job more than an attribution one, but it improves the outcome data that attribution depends on. (See [AI CRM Integration](/ai-crm-integration/).)
+
+**Enriching a record.** Filling in firmographic detail so conversions can be segmented by company size or industry — segments that reveal which campaigns produce the customers you want rather than the leads you count.
+
+**Feeding better values into offline conversion imports.** Google Ads bidding optimises toward whatever value it is given. If every lead is worth "1", it optimises toward lead volume. If a lead classified as a qualified enquiry carries a different value from one classified as a support call, bidding starts optimising toward the business rather than the form.
+
+**Reading patterns across noisy data.** Genuinely useful for hypothesis generation — "these campaigns produce leads that are 3x more likely to be classified as support calls" is a finding worth investigating. It is a prompt for a look, not a conclusion.
+
+## The Claim to Be Careful With
+
+Where "AI conversion tracking" is used to mean *AI reconstructs conversions you did not measure*, treat it carefully.
+
+Modelled conversions are real and legitimate — Google and Meta both use them, openly, to estimate conversions lost to consent choices and cross-device journeys. They are a statistical estimate, clearly labelled as one, built on the platform's own enormous dataset.
+
+That is a very different thing from a vendor claiming their AI can attribute conversions your tracking never recorded. The information is not there to recover. What such a system produces is a plausible-looking allocation, and a plausible-looking number is more dangerous than a missing one, because budget gets moved on the strength of it.
+
+A short test for any product making this claim: **ask what raw signal it is reading, and what it does when that signal is absent.** A real answer describes an input. A vague one describes an outcome.
+
+## A Practical Order of Work
+
+If measurement is currently unreliable, the sequence that works:
+
+1. **Fix the deterministic chain first.** Tags firing once and only once, click IDs persisting into the CRM, UTMs surviving the scheduler handoff, one clear definition of each conversion. Unglamorous, and it is where most of the value is.
+2. **Define what actually counts as a conversion**, and be honest about it. A click toward a booking page is not a booking. An assessment start is not a lead. Naming a micro-conversion as though it were a sale is the most common way a dashboard becomes fiction. (See [what business processes should not be automated](/resources/what-business-processes-should-not-be-automated/) for the same argument applied elsewhere.)
+3. **Get real outcomes into the CRM**, with the click ID attached, so there is something true to send back.
+4. **Then** add AI where it earns its place — classification, quality scoring, better conversion values — on top of a chain you trust.
+
+Doing step four first is the usual mistake. It produces a smarter interpretation of numbers that were already wrong.
+
+## The Short Version
+
+AI does not track conversions. It classifies, scores, summarises and enriches — which makes conversion data more *useful*, and can make the value you send back to an ad platform far more accurate.
+
+The tracking itself is still tags, click IDs, UTMs, a CRM that records outcomes, and an import that closes the loop. Anyone selling AI as a replacement for that chain is selling an interpretation layer over data that was never collected.
+
+Get the chain right. Then the AI on top is worth something.
