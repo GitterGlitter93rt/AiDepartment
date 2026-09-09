@@ -433,14 +433,61 @@ If any of those regress, restore the backup copy first and diagnose second. A br
 
 ## N. Validation and test results
 
+Clean release verification from a wiped `node_modules`, at `6454d1b`:
+
 ```
-npm run build          128 pages, clean
-npx astro check        0 errors, 0 warnings, 7 hints (pre-existing)
-node --experimental-strip-types --test tests/*.test.ts
-                       514 tests, 514 pass, 0 fail
+npm ci                 clean install from package-lock.json, exit 0
+npx astro check         328 files — 0 errors, 0 warnings, 7 hints
+npm test                514 tests, 117 suites, 514 pass, 0 fail
+npm run build           128 pages, exit 0
 ```
 
-There is no `test` script in `package.json`; the suites are run per-file as above, which is what their own headers document.
+**`npm test` is the canonical command.** An earlier draft of this section claimed there was no `test` script; that was wrong. `package.json` defines:
+
+```
+"test": "npm run build && node --experimental-strip-types --test tests/*.test.ts"
+```
+
+The `&& npm run build` prefix matters: `tests/seoQuality.test.ts` and `tests/seoContent.test.ts` audit the **built** site and abort if `dist/` is absent, which is exactly what their headers say. Running the suites without building first is not a valid verification.
+
+### Artefact assertions
+
+| Check | Result |
+|---|---|
+| `dist/.htaccess` | present — 105 lines, 4,736 B |
+| `dist/og-default.png` | present — 1200×630, 99,959 B |
+| `/go/law-firms/` | builds |
+| `/go/roofing/` | builds |
+| `/resources/what-is-ai-conversion-tracking/` | builds |
+| `/ai-crm-integration/` | builds |
+| `/booking-confirmed/` | builds |
+| `/go/` in `sitemap.xml` | **0 occurrences** — correctly excluded |
+| Sitemap URL count | 118 |
+| `/go/` robots meta | `noindex, follow` on both |
+| `/go/` canonical | none on either — correct for a noindex page |
+| Pages built | 128 + `404.html` |
+
+### Secret sweep of `dist/`
+
+No `.env`, key, certificate, dump, backup or source-map file ships. The only dotfile in `dist/` is the intended `.htaccess`.
+
+One pattern match required investigation and was a false positive: `EAA[A-Za-z0-9]{20,}` — the Meta access-token prefix — appears in `dist/_astro/BaseLayout.*.css`, inside a `data:font/woff2;base64` URI for a subsetted Manrope face. The identical file hash is already live in production, so it predates this sprint, and `tests/paidSocialFunnels.test.ts` separately asserts no Meta access token exists anywhere in `src/`.
+
+### A pre-existing dependency finding, not caused by this sprint
+
+`npm ci` reports **5 advisories (1 critical, 4 high)**. `package.json` and `package-lock.json` are untouched by Sprint 13, so this is inherited, not introduced:
+
+| Package | Severity | Advisory |
+|---|---|---|
+| `astro` (direct) | **critical** | Remote code execution through AVIF image optimization; plus a moderate base-path authorization bypass |
+| `fast-uri` | high | Host confusion and SSRF via URI normalisation (4 advisories) |
+| `js-yaml` | high | `maxTotalMergeKeys` does not limit CPU on empty merge sources |
+| `sharp` | high | libheif vulnerabilities |
+| `svgo` | high | `removeScripts` allows executable links to survive sanitisation |
+
+All are **build-time** toolchain, not runtime: this site is `output: 'static'` with no adapter and no server, so nothing here executes on production. The AVIF RCE would require a malicious AVIF entering the build, and no AVIF is processed today. `fixAvailable` is true for all five.
+
+**Deliberately not fixed in this sprint.** Bumping Astro changes the build output and the CSS chunk graph, which invalidates the byte-identical comparison against production that §A2a rests on. It deserves its own pass with its own verification, immediately after this deploy lands.
 
 95 tests were added. Highlights of what they hold:
 
