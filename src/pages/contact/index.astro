@@ -114,8 +114,13 @@ const faqs = [
         </div>
         <div class="cf-row">
           <label class="cf-field"><span>Business Email *</span><input type="email" name="email" required autocomplete="email" /></label>
-          <label class="cf-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel" /></label>
+          <label class="cf-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel" aria-describedby="cf-phone-sms" /></label>
         </div>
+        {/* Twilio A2P 30896: the opt-in flow has to demonstrate where
+            consent IS collected, which means being explicit about where
+            it is not. This field takes a number for a callback and
+            nothing else. */}
+        <p id="cf-phone-sms" class="cf-phone-note">A phone number alone does not opt you in to text messages. To receive customer-care texts, use our <a href="/sms-consent/">SMS Consent page</a>.</p>
         <div class="cf-row">
           <label class="cf-field"><span>Company Name</span><input type="text" name="company" autocomplete="organization" /></label>
           <label class="cf-field"><span>Company Website</span><input type="url" name="website" placeholder="https://" /></label>
@@ -377,6 +382,19 @@ const faqs = [
 
   .cf-field textarea {
     resize: vertical;
+  }
+
+  .cf-phone-note {
+    margin-top: -4px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--color-slate-gray);
+  }
+
+  .cf-phone-note a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
   }
 
   .cf-checkbox {

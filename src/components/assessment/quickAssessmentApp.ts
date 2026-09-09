@@ -486,8 +486,9 @@ export class QuickAssessmentApp {
           <label class="a-field"><span>Business Email *</span><input type="email" name="email" required autocomplete="email"${v(d.email)} /></label>
           <div class="a-field-row">
             <label class="a-field"><span>Company *</span><input type="text" name="company" required autocomplete="organization"${v(d.company)} /></label>
-            <label class="a-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel"${v(d.phone)} /></label>
+            <label class="a-field"><span>Phone</span><input type="tel" name="phone" autocomplete="tel" aria-describedby="a-phone-sms"${v(d.phone)} /></label>
           </div>
+          <p id="a-phone-sms" class="a-phone-note">A phone number alone does not opt you in to text messages. To receive customer-care texts, use our <a href="/sms-consent/">SMS Consent page</a>.</p>
           <label class="a-field"><span>Website</span><input type="url" name="website" placeholder="https://"${v(d.website)} /></label>
 
           <label class="a-checkbox">

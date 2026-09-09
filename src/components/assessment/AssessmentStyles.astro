@@ -507,6 +507,22 @@
     font-size: 0.92rem;
   }
 
+  /* Twilio A2P 30896: the assessment takes a phone number for a
+     callback. It is not an SMS opt-in, and the form says so rather
+     than leaving the visitor to assume either way. */
+  .a-phone-note {
+    margin-top: -6px;
+    margin-bottom: 14px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--color-slate-gray);
+  }
+
+  .a-phone-note a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
   .a-checkbox {
     display: flex;
     align-items: flex-start;
