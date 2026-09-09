@@ -17,20 +17,40 @@ const lastUpdated = 'September 9, 2026';
         <h1>SMS Consent &amp; Messaging</h1>
         <p class="legal-updated">Last updated: {lastUpdated}</p>
 
-        <p><strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> This page describes the customer-care text messaging program associated with youraidepartment.ai and the consent flow used when a visitor chooses to receive text messages.</p>
+        <p><strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> This page describes and provides the customer-care text messaging opt-in used with youraidepartment.ai.</p>
 
         <h2>Sender and Messaging Use Case</h2>
-        <p>The sender is <strong>Catastrophic Solutions LLC, operating the Your AI Department brand</strong>. Our SMS use case is customer care. Text messages are used to communicate with people who have asked us about our services and have separately agreed to receive text messages.</p>
+        <p>The sender is <strong>Catastrophic Solutions LLC, operating the Your AI Department brand</strong>. Our SMS use case is customer care. Text messages are sent only to people who have asked us about our services and have separately agreed to receive text messages.</p>
         <p>Messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support related to an inquiry or requested service.</p>
 
-        <h2>Website Opt-In Flow</h2>
-        <p>Where a website form offers SMS messaging, the visitor first provides a mobile phone number and then sees a separate, optional SMS consent checkbox. The SMS checkbox is <strong>unchecked by default</strong>. The visitor must affirmatively select it to consent to customer-care text messages.</p>
-        <p>Submitting a form, providing a phone number, requesting assessment results, or agreeing to general contact does <strong>not</strong> by itself enroll a visitor in SMS messaging. SMS consent is separate and is not required to submit an inquiry, complete an assessment, schedule a call, purchase anything, or receive our services.</p>
+        <h2 id="opt-in">Optional SMS Opt-In</h2>
+        <p>Enter your mobile number below only if you want customer-care text messaging. The SMS consent checkbox is optional and unchecked by default. A phone number without the checked consent box is not treated as SMS consent.</p>
 
-        <h2>Consent Disclosure Presented With the Checkbox</h2>
-        <div class="consent-example" aria-label="SMS consent disclosure example">
-          <p>I agree to receive customer-care text messages from Your AI Department, operated by Catastrophic Solutions LLC, at the mobile number provided. Messages may include requested follow-up, appointment coordination or reminders, and support. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. See our Privacy Policy and Terms of Use.</p>
+        <form id="sms-consent-form" class="sms-form" novalidate>
+          <input type="checkbox" name="botcheck" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <label class="field">
+            <span>Name *</span>
+            <input type="text" name="name" required autocomplete="name" />
+          </label>
+          <label class="field">
+            <span>Mobile Phone *</span>
+            <input type="tel" name="phone" required autocomplete="tel" />
+          </label>
+          <label class="sms-checkbox">
+            <input type="checkbox" name="sms_opt_in" />
+            <span>I agree to receive customer-care text messages from Your AI Department, operated by Catastrophic Solutions LLC, at the mobile number provided. Messages may include requested follow-up, appointment coordination or reminders, and support. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. See our <a href="/privacy/#sms-privacy">Privacy Policy</a> and <a href="/terms/#sms-terms">Terms of Use</a>.</span>
+          </label>
+          <div id="sms-form-error" class="form-status error" role="alert" hidden></div>
+          <button type="submit" class="submit-button">Submit SMS Consent</button>
+        </form>
+
+        <div id="sms-form-success" class="form-status success" hidden>
+          <strong>Thank you.</strong> Your SMS preference has been received. If you opted in, we may send customer-care messages related to your inquiry or requested service. You can reply STOP at any time.
         </div>
+
+        <h2>How Consent Works</h2>
+        <p>SMS consent is separate from general website use, assessment submission, scheduling, and other contact permissions. Submitting a general form, providing a phone number elsewhere on the Site, requesting assessment results, or purchasing a service does <strong>not</strong> by itself enroll a visitor in this SMS program.</p>
+        <p>Consent is not required to submit an inquiry, complete an assessment, schedule a call, purchase anything, or receive our services.</p>
 
         <h2>Message Frequency and Charges</h2>
         <p>Message frequency varies based on the nature of your inquiry, appointments, and support needs. Message and data rates may apply according to your wireless carrier and plan.</p>
@@ -58,54 +78,90 @@ const lastUpdated = 'September 9, 2026';
   </Section>
 </BaseLayout>
 
+<script>
+  const form = document.getElementById('sms-consent-form') as HTMLFormElement | null;
+  const errorBox = document.getElementById('sms-form-error');
+  const successBox = document.getElementById('sms-form-success');
+  const WEB3FORMS_ACCESS_KEY = 'aef33e06-d5f2-450f-86f3-1908340e7e5d';
+  const WEB3FORMS_ENDPOINT = 'https://api.web3forms.com/submit';
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!form || !errorBox) return;
+    errorBox.setAttribute('hidden', '');
+
+    const data = new FormData(form);
+    if (data.get('botcheck')) {
+      form.hidden = true;
+      successBox?.removeAttribute('hidden');
+      return;
+    }
+
+    const name = String(data.get('name') || '').trim();
+    const phone = String(data.get('phone') || '').trim();
+    const smsOptIn = Boolean(data.get('sms_opt_in'));
+
+    if (!name || !phone) {
+      errorBox.textContent = 'Please enter your name and mobile phone number.';
+      errorBox.removeAttribute('hidden');
+      return;
+    }
+    if (!smsOptIn) {
+      errorBox.textContent = 'To submit SMS consent, please affirmatively check the optional SMS consent box. You can leave this page without opting in.';
+      errorBox.removeAttribute('hidden');
+      return;
+    }
+
+    const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+
+    try {
+      const response = await fetch(WEB3FORMS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: 'SMS customer-care opt-in — Your AI Department',
+          from_name: 'Your AI Department SMS Consent',
+          name,
+          phone,
+          sms_opt_in: 'yes',
+          sms_program: 'Your AI Department customer care',
+          legal_sender: 'Catastrophic Solutions LLC',
+          consent_source: 'https://youraidepartment.ai/sms-consent/',
+          consent_version: '2026-09-09',
+          consent_recorded_at: new Date().toISOString(),
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.success) throw new Error('delivery failed');
+      form.hidden = true;
+      successBox?.removeAttribute('hidden');
+    } catch {
+      errorBox.textContent = 'We could not record your SMS preference right now. Please try again later or email michael@youraidepartment.ai.';
+      errorBox.removeAttribute('hidden');
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
+  });
+</script>
+
 <style>
-  .legal-doc {
-    max-width: 760px;
-    margin-inline: auto;
-    font-size: 1rem;
-    line-height: 1.7;
-    color: var(--color-slate-gray);
-  }
-
-  .legal-doc h1 {
-    font-size: var(--fs-h1);
-    font-weight: 800;
-    color: var(--color-near-black);
-    margin-bottom: 8px;
-  }
-
-  .legal-updated {
-    font-size: 0.85rem;
-    color: var(--color-slate-gray);
-    margin-bottom: 32px;
-  }
-
-  .legal-doc h2 {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: var(--color-near-black);
-    margin-block: 32px 12px;
-  }
-
-  .legal-doc p {
-    margin-bottom: 14px;
-  }
-
-  .legal-doc a {
-    color: var(--color-electric-blue);
-    font-weight: 600;
-  }
-
-  .consent-example {
-    margin-block: 14px 22px;
-    padding: 18px;
-    border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-card);
-    background: var(--color-pure-white);
-  }
-
-  .consent-example p {
-    margin: 0;
-    color: var(--color-near-black);
-  }
+  .legal-doc { max-width: 760px; margin-inline: auto; font-size: 1rem; line-height: 1.7; color: var(--color-slate-gray); }
+  .legal-doc h1 { font-size: var(--fs-h1); font-weight: 800; color: var(--color-near-black); margin-bottom: 8px; }
+  .legal-updated { font-size: 0.85rem; color: var(--color-slate-gray); margin-bottom: 32px; }
+  .legal-doc h2 { font-size: 1.2rem; font-weight: 800; color: var(--color-near-black); margin-block: 32px 12px; }
+  .legal-doc p { margin-bottom: 14px; }
+  .legal-doc a { color: var(--color-electric-blue); font-weight: 600; }
+  .sms-form { margin-block: 18px 28px; padding: 22px; background: var(--color-pure-white); border: 1px solid var(--color-border-light); border-radius: var(--radius-card); }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-weight: 700; color: var(--color-near-black); }
+  .field input { width: 100%; padding: 11px 12px; border: 1px solid var(--color-border-light); border-radius: 8px; font: inherit; }
+  .sms-checkbox { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin: 18px 0; font-size: 0.9rem; color: var(--color-near-black); }
+  .sms-checkbox input { margin-top: 5px; }
+  .submit-button { border: 0; border-radius: 8px; padding: 12px 18px; background: var(--color-electric-blue); color: white; font: inherit; font-weight: 800; cursor: pointer; }
+  .submit-button:disabled { opacity: 0.6; cursor: wait; }
+  .form-status { margin-block: 14px; padding: 14px; border-radius: 8px; }
+  .error { background: #fff1f2; color: #9f1239; }
+  .success { background: #ecfdf5; color: #065f46; }
+  .honeypot { position: absolute; width: 1px; height: 1px; opacity: 0; left: -9999px; }
 </style>
