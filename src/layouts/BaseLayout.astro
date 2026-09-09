@@ -10,6 +10,7 @@ import MetaPixel from '../components/MetaPixel.astro';
 import FunnelHeader from '../components/funnel/FunnelHeader.astro';
 import FunnelFooter from '../components/funnel/FunnelFooter.astro';
 import { SITE } from '../lib/site';
+import { LEGAL_ENTITY } from '../lib/businessIdentity';
 
 interface Props {
   title: string;
@@ -45,10 +46,16 @@ const {
   includeOrgSchema = false,
 } = Astro.props;
 
+// name stays the consumer brand — that is what people search for and
+// what every other page calls this business. legalName carries the
+// registered entity, which is the field schema.org provides for exactly
+// this situation and which lets a Twilio reviewer reconcile the site
+// with the registered A2P Brand without the brand being renamed.
 const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: SITE.name,
+  legalName: LEGAL_ENTITY,
   url: SITE.domain,
   description: SITE.defaultDescription,
 };

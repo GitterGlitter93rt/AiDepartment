@@ -3,6 +3,7 @@
 // and docs/02-website/technical-seo-spec.md.
 
 import { SCHEDULING } from './scheduling';
+import { LEGAL_ROUTES } from './businessIdentity';
 import { INDUSTRIES, industriesByCategory } from './industries';
 
 export { SCHEDULING } from './scheduling';
@@ -218,7 +219,11 @@ export const FOOTER_LINKS = {
     { label: 'Contact', href: '/contact/' },
   ],
   legal: [
-    { label: 'Privacy Policy', href: '/privacy/' },
-    { label: 'Terms of Use', href: '/terms/' },
+    { label: 'Privacy Policy', href: LEGAL_ROUTES.privacy },
+    { label: 'Terms of Use', href: LEGAL_ROUTES.terms },
+    // A Twilio A2P reviewer has to be able to find the opt-in page from
+    // any page on the site. It belongs in the shared legal list, not
+    // appended by hand in one footer component.
+    { label: 'SMS Consent', href: LEGAL_ROUTES.smsConsent },
   ],
 };

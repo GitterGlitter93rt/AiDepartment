@@ -1,7 +1,15 @@
 ---
-// Minimal footer for funnel pages: legal links and the honest
-// disclosure line only. No sitemap, no mega-footer — the same reason
-// the header is minimal.
+// Minimal footer for funnel and cold-outbound pages: legal links and
+// the honest disclosure lines only. No sitemap, no mega-footer — the
+// same reason the header is minimal.
+//
+// The legal relationship line is NOT optional here, minimal chrome or
+// not. These five pages (/go/law-firms/, /go/roofing/ and the three VSL
+// funnels) are campaign landing pages, which makes them the pages a
+// Twilio A2P reviewer is most likely to open from a campaign link. A
+// reviewer who lands on one and cannot tell who operates the site is
+// looking at the same brand/sender mismatch that produced error 30907.
+import { BRAND_NAME, LEGAL_RELATIONSHIP, LEGAL_ROUTES } from '../../lib/businessIdentity';
 
 const year = new Date().getFullYear();
 ---
@@ -14,16 +22,18 @@ const year = new Date().getFullYear();
       estimates or starting points, not quotes. Any illustrative example is labeled as such
       and is not a projection of results.
     </p>
+    <p class="fnl-footer-legal">{LEGAL_RELATIONSHIP}</p>
     <nav aria-label="Legal">
       <ul class="fnl-footer-links">
         <li><a href="/">Home</a></li>
         <li><a href="/about/">About</a></li>
         <li><a href="/contact/">Contact</a></li>
-        <li><a href="/privacy/">Privacy Policy</a></li>
-        <li><a href="/terms/">Terms of Use</a></li>
+        <li><a href={LEGAL_ROUTES.privacy}>Privacy Policy</a></li>
+        <li><a href={LEGAL_ROUTES.terms}>Terms of Use</a></li>
+        <li><a href={LEGAL_ROUTES.smsConsent}>SMS Consent</a></li>
       </ul>
     </nav>
-    <p class="fnl-footer-copy">&copy; {year} Your AI Department. All rights reserved.</p>
+    <p class="fnl-footer-copy">&copy; {year} {BRAND_NAME}. All rights reserved.</p>
   </div>
 </footer>
 
@@ -33,6 +43,12 @@ const year = new Date().getFullYear();
     border-top: 1px solid var(--color-border-dark);
     padding-block: 36px;
     color: var(--color-dark-muted-text);
+  }
+
+  .fnl-footer-legal {
+    margin-top: 12px;
+    font-size: 0.78rem;
+    line-height: 1.5;
   }
 
   .fnl-footer-brand {

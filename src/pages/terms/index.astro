@@ -2,13 +2,14 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Section from '../../components/Section.astro';
 import Container from '../../components/Container.astro';
+import { BRAND_NAME, LEGAL_ENTITY, LEGAL_RELATIONSHIP, BUSINESS_ADDRESS_LINES, SUPPORT_EMAIL, LEGAL_ROUTES } from '../../lib/businessIdentity';
 
 const lastUpdated = 'September 9, 2026';
 ---
 
 <BaseLayout
   title="Terms of Use | Your AI Department"
-  description="Terms governing use of the Your AI Department website and customer-care SMS program operated by Catastrophic Solutions LLC."
+  description={`Terms governing use of the ${BRAND_NAME} website and customer-care SMS program operated by ${LEGAL_ENTITY}.`}
   path="/terms/"
 >
   <Section tone="light">
@@ -17,7 +18,7 @@ const lastUpdated = 'September 9, 2026';
         <h1>Terms of Use</h1>
         <p class="legal-updated">Last updated: {lastUpdated}</p>
 
-        <p>These Terms of Use ("Terms") govern your use of the website located at youraidepartment.ai (the "Site"). <strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> References to "Your AI Department," "we," "us," or "our" in these Terms mean Catastrophic Solutions LLC operating the Your AI Department brand. By using this Site, you agree to these Terms.</p>
+        <p>These Terms of Use ("Terms") govern your use of the website located at youraidepartment.ai (the "Site"). <strong>{LEGAL_RELATIONSHIP}</strong> References to "{BRAND_NAME}," "we," "us," or "our" in these Terms mean {LEGAL_ENTITY} operating the {BRAND_NAME} brand. By using this Site, you agree to these Terms.</p>
 
         <h2>Informational Purpose</h2>
         <p>This Site, including the AI Department Assessment and any guides or resources published on it, is provided for general informational purposes. Content on this Site does not constitute professional legal, medical, financial, or regulatory advice, and should not be relied upon as such.</p>
@@ -29,18 +30,18 @@ const lastUpdated = 'September 9, 2026';
         <p>Where this Site or our services involve the use of artificial intelligence, we do not guarantee that AI-generated output will be accurate, complete, or free of error. Human review remains appropriate for decisions of consequence.</p>
 
         <h2>Intellectual Property</h2>
-        <p>The content, design, graphics, and other materials on this Site are owned by or licensed to Catastrophic Solutions LLC and are protected by applicable intellectual property laws. You may view and use this content for your own personal or internal business evaluation purposes. You may not copy, reproduce, or redistribute this Site's content for commercial purposes without our prior written permission.</p>
+        <p>The content, design, graphics, and other materials on this Site are owned by or licensed to {LEGAL_ENTITY} and are protected by applicable intellectual property laws. You may view and use this content for your own personal or internal business evaluation purposes. You may not copy, reproduce, or redistribute this Site's content for commercial purposes without our prior written permission.</p>
 
         <h2>Acceptable Use</h2>
         <p>You agree not to misuse this Site, including by attempting to gain unauthorized access to it, interfering with its normal operation, or using it to transmit unlawful, harmful, or abusive content.</p>
 
         <h2 id="sms-terms">SMS Messaging Terms</h2>
-        <p><strong>Program and sender:</strong> The Your AI Department customer-care SMS program is operated by Catastrophic Solutions LLC. When you expressly opt in, messages will identify or relate to Your AI Department and may be sent using telecommunications providers such as Twilio.</p>
+        <p><strong>Program and sender:</strong> The {BRAND_NAME} customer-care SMS program is operated by {LEGAL_ENTITY}. When you expressly opt in, messages will identify or relate to {BRAND_NAME} and may be sent using telecommunications providers such as Twilio.</p>
         <p><strong>Purpose:</strong> The program is for customer-care communications connected to an inquiry or requested service. Messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support communications.</p>
         <p><strong>Consent:</strong> SMS consent is optional, collected separately, and is not a condition of purchasing or receiving our services. Merely entering a phone number on a general form does not by itself enroll you in SMS messaging. If you opt in through a website checkbox, that checkbox is presented unchecked and requires an affirmative selection.</p>
         <p><strong>Frequency and charges:</strong> Message frequency varies depending on your inquiry, appointments, and support needs. Message and data rates may apply according to your mobile carrier and plan.</p>
         <p><strong>Opt out:</strong> You may reply <strong>STOP</strong> at any time to stop receiving text messages. After an opt-out request, you may receive a final confirmation message and then no further messages unless you later provide new consent where permitted.</p>
-        <p><strong>Help:</strong> Reply <strong>HELP</strong> for help, or contact us at <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>.</p>
+        <p><strong>Help:</strong> Reply <strong>HELP</strong> for help, or contact us at <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>
         <p><strong>Privacy:</strong> Mobile phone numbers, SMS opt-in data, and messaging consent are not shared with third parties or affiliates for their marketing or promotional purposes. Service providers may process mobile information only as necessary to deliver and support the messaging service. See our <a href="/privacy/#sms-privacy">Privacy Policy</a> and <a href="/sms-consent/">SMS Consent page</a> for additional details.</p>
         <p>Wireless carriers are not responsible for delayed or undelivered messages. Availability of SMS services may depend on your carrier, device, and location.</p>
 
@@ -51,7 +52,7 @@ const lastUpdated = 'September 9, 2026';
         <p>This Site may reference or link to third-party services, including Cal.com, Stripe, Google Analytics/Tag Manager, Web3Forms, and telecommunications providers such as Twilio. We are not responsible for the content, accuracy, or practices of third-party services, which are governed by their own terms and privacy policies.</p>
 
         <h2>Limitation of Liability</h2>
-        <p>To the fullest extent permitted by applicable law, Catastrophic Solutions LLC will not be liable for any indirect, incidental, or consequential damages arising from your use of this Site or reliance on its content. This Site and its content are provided "as is" without warranties of any kind, express or implied.</p>
+        <p>To the fullest extent permitted by applicable law, {LEGAL_ENTITY} will not be liable for any indirect, incidental, or consequential damages arising from your use of this Site or reliance on its content. This Site and its content are provided "as is" without warranties of any kind, express or implied.</p>
 
         <h2>Changes to These Terms</h2>
         <p>We may update these Terms from time to time. The "Last updated" date at the top of this page reflects the most recent revision. Continued use of the Site after changes are posted constitutes acceptance of the updated Terms.</p>
@@ -61,11 +62,11 @@ const lastUpdated = 'September 9, 2026';
 
         <h2>Contact Us</h2>
         <p>
-          Catastrophic Solutions LLC<br />
-          Operating the Your AI Department brand<br />
-          2220 County Road 210 W, STE 108-504<br />
-          Jacksonville, Florida 32259<br />
-          <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
+          {LEGAL_ENTITY}<br />
+          Operating the {BRAND_NAME} brand<br />
+          {BUSINESS_ADDRESS_LINES[0]}<br />
+          {BUSINESS_ADDRESS_LINES[1]}<br />
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
         </p>
       </div>
     </Container>

@@ -1,14 +1,41 @@
 ---
+// The public, unauthenticated SMS opt-in page.
+//
+// Twilio error 30896 was that the opt-in flow did not adequately
+// demonstrate consent. This page is the evidence: a reviewer can open
+// the URL with no login, no JavaScript trick and no hidden session, and
+// see the full disclosure sitting next to an unchecked checkbox.
+//
+// Indexable and in the sitemap, matching /privacy/ and /terms/. A
+// compliance page that search engines are told to ignore is a page a
+// reviewer may struggle to find, and there is nothing here worth
+// hiding.
+//
+// Every identity string comes from src/lib/businessIdentity.ts, so the
+// legal-entity cutover is a one-line change rather than a hunt through
+// the disclosure text.
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Section from '../../components/Section.astro';
 import Container from '../../components/Container.astro';
+import {
+  BRAND_NAME,
+  LEGAL_ENTITY,
+  LEGAL_RELATIONSHIP,
+  SMS_CONSENT_DISCLOSURE_LEAD,
+  SMS_CONSENT_VERSION,
+  BUSINESS_ADDRESS_LINES,
+  SUPPORT_EMAIL,
+  LEGAL_ROUTES,
+  WEBSITE_DOMAIN,
+} from '../../lib/businessIdentity';
 
 const lastUpdated = 'September 9, 2026';
+const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
 ---
 
 <BaseLayout
   title="SMS Consent & Messaging | Your AI Department"
-  description="SMS consent, customer-care messaging, opt-out, and privacy disclosures for Your AI Department, a business brand operated by Catastrophic Solutions LLC."
+  description={`SMS consent, customer-care messaging, opt-out, and privacy disclosures for ${BRAND_NAME}, a business brand operated by ${LEGAL_ENTITY}.`}
   path="/sms-consent/"
 >
   <Section tone="light">
@@ -17,102 +44,164 @@ const lastUpdated = 'September 9, 2026';
         <h1>SMS Consent &amp; Messaging</h1>
         <p class="legal-updated">Last updated: {lastUpdated}</p>
 
-        <p><strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> This page describes and provides the customer-care text messaging opt-in used with youraidepartment.ai.</p>
+        <p><strong>{LEGAL_RELATIONSHIP}</strong> This page describes and provides the customer-care text messaging opt-in used with youraidepartment.ai.</p>
 
         <h2>Sender and Messaging Use Case</h2>
-        <p>The sender is <strong>Catastrophic Solutions LLC, operating the Your AI Department brand</strong>. Our SMS use case is customer care. Text messages are sent only to people who have asked us about our services and have separately agreed to receive text messages.</p>
+        <p>The sender is <strong>{LEGAL_ENTITY}, operating the {BRAND_NAME} brand</strong>. Our SMS use case is customer care. Text messages are sent only to people who have asked us about our services and have separately agreed to receive text messages.</p>
         <p>Messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support related to an inquiry or requested service.</p>
 
         <h2 id="opt-in">Optional SMS Opt-In</h2>
         <p>Enter your mobile number below only if you want customer-care text messaging. The SMS consent checkbox is optional and unchecked by default. A phone number without the checked consent box is not treated as SMS consent.</p>
 
         <form id="sms-consent-form" class="sms-form" novalidate>
+          {/* Honeypot. Hidden from sight and from assistive technology,
+              never focusable. A submission that fills it is discarded
+              silently — see the note in the script about why it does
+              NOT render the success state. */}
           <input type="checkbox" name="botcheck" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
-          <label class="field">
-            <span>Name *</span>
-            <input type="text" name="name" required autocomplete="name" />
-          </label>
-          <label class="field">
-            <span>Mobile Phone *</span>
-            <input type="tel" name="phone" required autocomplete="tel" />
-          </label>
-          <label class="sms-checkbox">
-            <input type="checkbox" name="sms_opt_in" />
-            <span>I agree to receive customer-care text messages from Your AI Department, operated by Catastrophic Solutions LLC, at the mobile number provided. Messages may include requested follow-up, appointment coordination or reminders, and support. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. See our <a href="/privacy/#sms-privacy">Privacy Policy</a> and <a href="/terms/#sms-terms">Terms of Use</a>.</span>
-          </label>
-          <div id="sms-form-error" class="form-status error" role="alert" hidden></div>
+
+          <div class="field">
+            <label for="sms-name">Name <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+            <input type="text" id="sms-name" name="name" required autocomplete="name" aria-describedby="sms-form-error" />
+          </div>
+
+          <div class="field">
+            <label for="sms-phone">Mobile Phone <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+            <input type="tel" id="sms-phone" name="phone" required autocomplete="tel" inputmode="tel" aria-describedby="sms-phone-hint sms-form-error" />
+            <p id="sms-phone-hint" class="field-hint">Used only to send the customer-care messages you consent to below.</p>
+          </div>
+
+          {/* The consent control. Separate from every other permission on
+              the site, unchecked, and not marked required — a visitor
+              may submit nothing at all and leave, which is the point of
+              "consent is not a condition of purchase". */}
+          <div class="sms-checkbox">
+            <input type="checkbox" id="sms-opt-in" name="sms_opt_in" aria-describedby="sms-form-error" />
+            <label for="sms-opt-in">
+              {SMS_CONSENT_DISCLOSURE_LEAD}<a href={LEGAL_ROUTES.smsPrivacyAnchor}>Privacy Policy</a> and <a href={LEGAL_ROUTES.smsTermsAnchor}>Terms of Use</a>.
+            </label>
+          </div>
+
+          <div id="sms-form-error" class="form-status error" role="alert" aria-live="assertive" hidden></div>
           <button type="submit" class="submit-button">Submit SMS Consent</button>
         </form>
 
-        <div id="sms-form-success" class="form-status success" hidden>
-          <strong>Thank you.</strong> Your SMS preference has been received. If you opted in, we may send customer-care messages related to your inquiry or requested service. You can reply STOP at any time.
+        {/* Revealed only after the consent record is confirmed delivered.
+            tabindex="-1" so the script can move focus here, which is the
+            only reliable way a screen-reader user learns the submission
+            succeeded. */}
+        <div id="sms-form-success" class="form-status success" role="status" tabindex="-1" hidden>
+          <strong>Thank you.</strong> Your SMS consent has been recorded. We may send customer-care messages related to your inquiry or requested service. Reply STOP at any time to opt out, or HELP for help.
         </div>
 
         <h2>How Consent Works</h2>
         <p>SMS consent is separate from general website use, assessment submission, scheduling, and other contact permissions. Submitting a general form, providing a phone number elsewhere on the Site, requesting assessment results, or purchasing a service does <strong>not</strong> by itself enroll a visitor in this SMS program.</p>
         <p>Consent is not required to submit an inquiry, complete an assessment, schedule a call, purchase anything, or receive our services.</p>
+        <p>We may also record consent verbally during a live conversation with someone who has already contacted us, after reading the same disclosure aloud and receiving a clear affirmative answer. We do not send a text message to ask someone to opt in.</p>
 
         <h2>Message Frequency and Charges</h2>
         <p>Message frequency varies based on the nature of your inquiry, appointments, and support needs. Message and data rates may apply according to your wireless carrier and plan.</p>
 
         <h2>Opt Out and Help</h2>
-        <p>Reply <strong>STOP</strong> at any time to opt out. You may receive one final message confirming the opt-out. Reply <strong>HELP</strong> for help, or email <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>.</p>
+        <p>Reply <strong>STOP</strong> at any time to opt out. You may receive one final message confirming the opt-out. Reply <strong>HELP</strong> for help, or email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>
 
-        <h2>Mobile Privacy</h2>
-        <p><strong>We do not share, sell, rent, or provide mobile phone numbers, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes.</strong></p>
-        <p>Service providers such as telecommunications or messaging platforms may process mobile information only as necessary to transmit and support messages on our behalf. For complete details, see our <a href="/privacy/#sms-privacy">Privacy Policy</a>.</p>
+        <h2 id="mobile-privacy">Mobile Privacy</h2>
+        <p><strong>We do not share, sell, rent, or provide your mobile phone number, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes.</strong></p>
+        <p>Service providers such as telecommunications or messaging platforms may process mobile information only as necessary to transmit and support messages on our behalf. That operational processing does not permit them to use your mobile information for their own marketing. For complete details, see our <a href={LEGAL_ROUTES.smsPrivacyAnchor}>Privacy Policy</a>.</p>
 
         <h2>Terms</h2>
-        <p>Additional program terms, including opt-out, help, frequency, and carrier information, are available in our <a href="/terms/#sms-terms">SMS Messaging Terms</a>.</p>
+        <p>Additional program terms, including opt-out, help, frequency, and carrier information, are available in our <a href={LEGAL_ROUTES.smsTermsAnchor}>SMS Messaging Terms</a>.</p>
 
         <h2>Contact</h2>
         <p>
-          Catastrophic Solutions LLC<br />
-          Operating the Your AI Department brand<br />
-          2220 County Road 210 W, STE 108-504<br />
-          Jacksonville, Florida 32259<br />
-          <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
+          {LEGAL_ENTITY}<br />
+          Operating the {BRAND_NAME} brand<br />
+          {BUSINESS_ADDRESS_LINES[0]}<br />
+          {BUSINESS_ADDRESS_LINES[1]}<br />
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
         </p>
       </div>
     </Container>
   </Section>
 </BaseLayout>
 
-<script>
-  const form = document.getElementById('sms-consent-form') as HTMLFormElement | null;
+<script
+  define:vars={{
+    consentVersion: SMS_CONSENT_VERSION,
+    consentSourceUrl,
+    legalEntity: LEGAL_ENTITY,
+    brandName: BRAND_NAME,
+    supportEmail: SUPPORT_EMAIL,
+  }}
+>
+  const form = document.getElementById('sms-consent-form');
   const errorBox = document.getElementById('sms-form-error');
   const successBox = document.getElementById('sms-form-success');
+  const optIn = document.getElementById('sms-opt-in');
+
+  // Same public Web3Forms key and endpoint the contact form and both
+  // assessments already use. This is a publishable key by design; it is
+  // not a secret, and using the site's existing delivery path is
+  // deliberate — a second submission system would be a second thing to
+  // keep compliant.
   const WEB3FORMS_ACCESS_KEY = 'aef33e06-d5f2-450f-86f3-1908340e7e5d';
   const WEB3FORMS_ENDPOINT = 'https://api.web3forms.com/submit';
+
+  const showError = (message, field) => {
+    if (!errorBox) return;
+    errorBox.textContent = message;
+    errorBox.removeAttribute('hidden');
+    if (field) {
+      field.setAttribute('aria-invalid', 'true');
+      field.focus();
+    }
+  };
+
+  const clearErrors = () => {
+    errorBox?.setAttribute('hidden', '');
+    form?.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+  };
+
+  let submitting = false;
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!form || !errorBox) return;
-    errorBox.setAttribute('hidden', '');
+    if (submitting) return; // duplicate-submit protection
+    clearErrors();
 
     const data = new FormData(form);
-    if (data.get('botcheck')) {
-      form.hidden = true;
-      successBox?.removeAttribute('hidden');
-      return;
-    }
+
+    // Honeypot. Discard silently and do NOT render the success panel:
+    // the brief for this page is that a success state must mean a
+    // consent record exists. Showing "thank you" to a filled honeypot
+    // would be a fake success even if only a bot ever sees it, and the
+    // same code path is what a person would hit if the field were ever
+    // exposed by a styling regression.
+    if (data.get('botcheck')) return;
 
     const name = String(data.get('name') || '').trim();
     const phone = String(data.get('phone') || '').trim();
     const smsOptIn = Boolean(data.get('sms_opt_in'));
 
-    if (!name || !phone) {
-      errorBox.textContent = 'Please enter your name and mobile phone number.';
-      errorBox.removeAttribute('hidden');
+    if (!name) {
+      showError('Please enter your name.', document.getElementById('sms-name'));
+      return;
+    }
+    if (!phone) {
+      showError('Please enter the mobile number that should receive messages.', document.getElementById('sms-phone'));
       return;
     }
     if (!smsOptIn) {
-      errorBox.textContent = 'To submit SMS consent, please affirmatively check the optional SMS consent box. You can leave this page without opting in.';
-      errorBox.removeAttribute('hidden');
+      showError(
+        'To record SMS consent, please check the consent box above. Consent is optional — you can leave this page without opting in.',
+        optIn,
+      );
       return;
     }
 
-    const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    submitting = true;
+    const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton) submitButton.disabled = true;
 
     try {
@@ -121,26 +210,52 @@ const lastUpdated = 'September 9, 2026';
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           access_key: WEB3FORMS_ACCESS_KEY,
-          subject: 'SMS customer-care opt-in — Your AI Department',
-          from_name: 'Your AI Department SMS Consent',
+          subject: `SMS customer-care opt-in — ${brandName}`,
+          from_name: `${brandName} SMS Consent`,
+          // The consent record. Everything below is the evidence we would
+          // need to produce if a specific opt-in were ever questioned:
+          // who, what number, which exact disclosure, from where, when.
           name,
           phone,
           sms_opt_in: 'yes',
-          sms_program: 'Your AI Department customer care',
-          legal_sender: 'Catastrophic Solutions LLC',
-          consent_source: 'https://youraidepartment.ai/sms-consent/',
-          consent_version: '2026-09-09',
+          sms_program: `${brandName} customer care`,
+          sms_use_case: 'CUSTOMER_CARE',
+          brand: brandName,
+          legal_entity: legalEntity,
+          consent_source: 'website_form',
+          consent_source_url: consentSourceUrl,
+          consent_version: consentVersion,
           consent_recorded_at: new Date().toISOString(),
         }),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.success) throw new Error('delivery failed');
+
       form.hidden = true;
       successBox?.removeAttribute('hidden');
+      successBox?.focus();
+
+      // Diagnostic only, and only now — after delivery was confirmed.
+      // No name, no phone, no email, no consent text. It is not a lead
+      // and not a booking: the Sprint 13 conversion hierarchy has
+      // exactly two business conversions (booking_confirmed and, when
+      // the CRM can produce it, qualified_lead) and this is neither.
+      try {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: 'sms_consent_submit',
+          consent_version: consentVersion,
+          source_page: '/sms-consent/',
+        });
+      } catch {
+        /* analytics must never affect whether consent was recorded */
+      }
     } catch {
-      errorBox.textContent = 'We could not record your SMS preference right now. Please try again later or email michael@youraidepartment.ai.';
-      errorBox.removeAttribute('hidden');
+      showError(
+        `We could not record your SMS consent right now, so no consent has been saved. Please try again in a moment, or email ${supportEmail}.`,
+      );
     } finally {
+      submitting = false;
       if (submitButton) submitButton.disabled = false;
     }
   });
@@ -153,15 +268,121 @@ const lastUpdated = 'September 9, 2026';
   .legal-doc h2 { font-size: 1.2rem; font-weight: 800; color: var(--color-near-black); margin-block: 32px 12px; }
   .legal-doc p { margin-bottom: 14px; }
   .legal-doc a { color: var(--color-electric-blue); font-weight: 600; }
-  .sms-form { margin-block: 18px 28px; padding: 22px; background: var(--color-pure-white); border: 1px solid var(--color-border-light); border-radius: var(--radius-card); }
-  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-weight: 700; color: var(--color-near-black); }
-  .field input { width: 100%; padding: 11px 12px; border: 1px solid var(--color-border-light); border-radius: 8px; font: inherit; }
-  .sms-checkbox { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin: 18px 0; font-size: 0.9rem; color: var(--color-near-black); }
-  .sms-checkbox input { margin-top: 5px; }
-  .submit-button { border: 0; border-radius: 8px; padding: 12px 18px; background: var(--color-electric-blue); color: white; font: inherit; font-weight: 800; cursor: pointer; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .sms-form {
+    margin-block: 18px 28px;
+    padding: 22px;
+    background: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+  }
+
+  .field { margin-bottom: 16px; }
+
+  .field label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 700;
+    color: var(--color-near-black);
+  }
+
+  .field input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--color-border-light);
+    border-radius: 8px;
+    font: inherit;
+    /* 16px minimum stops iOS Safari zooming the viewport on focus,
+       which on a long legal page leaves the reader scrolled sideways. */
+    font-size: 1rem;
+  }
+
+  .field input[aria-invalid='true'] {
+    border-color: #9f1239;
+    /* Not colour alone — the border thickens too, and the error text
+       above names the field. */
+    border-width: 2px;
+  }
+
+  .field-hint {
+    margin-top: 6px;
+    margin-bottom: 0;
+    font-size: 0.82rem;
+    color: var(--color-slate-gray);
+  }
+
+  .sms-checkbox {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    margin: 20px 0;
+    padding: 16px;
+    background: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: 8px;
+  }
+
+  .sms-checkbox input {
+    /* A 44px-ish tap target on a control that legally has to be a
+       deliberate act. */
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .sms-checkbox input[aria-invalid='true'] {
+    outline: 2px solid #9f1239;
+    outline-offset: 2px;
+  }
+
+  .sms-checkbox label {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-near-black);
+    cursor: pointer;
+  }
+
+  .submit-button {
+    border: 0;
+    border-radius: 8px;
+    padding: 13px 20px;
+    background: var(--color-electric-blue);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    min-height: 46px;
+  }
+
   .submit-button:disabled { opacity: 0.6; cursor: wait; }
+
   .form-status { margin-block: 14px; padding: 14px; border-radius: 8px; }
-  .error { background: #fff1f2; color: #9f1239; }
+  .form-status:focus-visible { outline: 3px solid var(--color-electric-blue); outline-offset: 2px; }
+  .error { background: #fff1f2; color: #9f1239; font-weight: 600; }
   .success { background: #ecfdf5; color: #065f46; }
+
   .honeypot { position: absolute; width: 1px; height: 1px; opacity: 0; left: -9999px; }
+
+  /* The disclosure is long by necessity. On a phone it must stay
+     readable rather than becoming a grey block beside a tiny box. */
+  @media (max-width: 520px) {
+    .sms-form { padding: 16px; }
+    .sms-checkbox { padding: 14px; gap: 10px; }
+    .sms-checkbox label { font-size: 0.88rem; }
+    .submit-button { width: 100%; }
+  }
 </style>

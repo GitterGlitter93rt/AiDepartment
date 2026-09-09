@@ -1,6 +1,7 @@
 ---
 import Container from './Container.astro';
 import { FOOTER_LINKS } from '../lib/site';
+import { BRAND_NAME, LEGAL_ENTITY, LEGAL_RELATIONSHIP } from '../lib/businessIdentity';
 
 const year = new Date().getFullYear();
 ---
@@ -11,7 +12,7 @@ const year = new Date().getFullYear();
       <div class="footer-brand">
         <p class="brand-name">YOUR AI DEPARTMENT</p>
         <p class="brand-position">AI Strategy. Implementation. Growth. Ongoing Leadership.</p>
-        <p class="legal-entity">Your AI Department is a business brand operated by Catastrophic Solutions LLC.</p>
+        <p class="legal-entity">{LEGAL_RELATIONSHIP}</p>
       </div>
 
       <nav aria-label="Solutions">
@@ -53,13 +54,12 @@ const year = new Date().getFullYear();
     </div>
 
     <div class="footer-bottom">
-      <p class="copyright">&copy; {year} Your AI Department / Catastrophic Solutions LLC. All rights reserved.</p>
+      <p class="copyright">&copy; {year} {BRAND_NAME} / {LEGAL_ENTITY}. All rights reserved.</p>
       <nav aria-label="Legal">
         <ul class="legal-links">
           {FOOTER_LINKS.legal.map((link) => (
             <li><a href={link.href}>{link.label}</a></li>
           ))}
-          <li><a href="/sms-consent/">SMS Consent</a></li>
         </ul>
       </nav>
     </div>

@@ -2,13 +2,14 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Section from '../../components/Section.astro';
 import Container from '../../components/Container.astro';
+import { BRAND_NAME, LEGAL_ENTITY, LEGAL_RELATIONSHIP, BUSINESS_ADDRESS_LINES, SUPPORT_EMAIL, LEGAL_ROUTES } from '../../lib/businessIdentity';
 
 const lastUpdated = 'September 9, 2026';
 ---
 
 <BaseLayout
   title="Privacy Policy | Your AI Department"
-  description="How Catastrophic Solutions LLC, operating the Your AI Department brand, collects, uses, and protects information submitted through this website, including mobile information and SMS consent."
+  description={`How ${LEGAL_ENTITY}, operating the ${BRAND_NAME} brand, collects, uses, and protects information submitted through this website, including mobile information and SMS consent.`}
   path="/privacy/"
 >
   <Section tone="light">
@@ -17,14 +18,14 @@ const lastUpdated = 'September 9, 2026';
         <h1>Privacy Policy</h1>
         <p class="legal-updated">Last updated: {lastUpdated}</p>
 
-        <p><strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> Catastrophic Solutions LLC ("Your AI Department," "we," "us," or "our") operates the website located at youraidepartment.ai (the "Site"). This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
+        <p><strong>{LEGAL_RELATIONSHIP}</strong> {LEGAL_ENTITY} ("{BRAND_NAME}," "we," "us," or "our") operates the website located at youraidepartment.ai (the "Site"). This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
 
         <h2>Information You Submit Directly</h2>
         <p>When you use a contact form, take the AI Department Assessment, request a scheduling call, or expressly enroll in customer-care text messaging through this Site, we may collect information you choose to provide, such as your name, business email address, mobile phone number, company name, company website, and any details you enter about your business or inquiry.</p>
         <p>Assessment responses are connected to the contact information you provide as part of that assessment. We do not treat assessment answers as anonymous when they are linked to identifiable contact information.</p>
 
         <h2 id="sms-privacy">Mobile Information and SMS Messaging</h2>
-        <p>If you expressly opt in to receive text messages, Your AI Department, operated by Catastrophic Solutions LLC, may use the mobile number you provide to send customer-care messages related to your inquiry or requested services. These messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support communications.</p>
+        <p>If you expressly opt in to receive text messages, {BRAND_NAME}, operated by {LEGAL_ENTITY}, may use the mobile number you provide to send customer-care messages related to your inquiry or requested services. These messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support communications.</p>
         <p><strong>Providing a phone number on a general website form does not by itself enroll you in SMS messaging.</strong> SMS consent is collected separately and voluntarily. Consent to receive text messages is not a condition of purchasing or receiving our services.</p>
         <p>Message frequency varies based on your inquiry and support needs. Message and data rates may apply. You may reply <strong>STOP</strong> at any time to opt out of text messages. You may reply <strong>HELP</strong> for help.</p>
         <p><strong>We do not share, sell, rent, or provide your mobile phone number, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes.</strong></p>
@@ -76,11 +77,11 @@ const lastUpdated = 'September 9, 2026';
 
         <h2>Contact Us</h2>
         <p>
-          Catastrophic Solutions LLC<br />
-          Operating the Your AI Department brand<br />
-          2220 County Road 210 W, STE 108-504<br />
-          Jacksonville, Florida 32259<br />
-          <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
+          {LEGAL_ENTITY}<br />
+          Operating the {BRAND_NAME} brand<br />
+          {BUSINESS_ADDRESS_LINES[0]}<br />
+          {BUSINESS_ADDRESS_LINES[1]}<br />
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
         </p>
       </div>
     </Container>
