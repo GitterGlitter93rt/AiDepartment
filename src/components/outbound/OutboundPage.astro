@@ -1,0 +1,263 @@
+---
+// Renders an entire cold-email outbound landing page from one
+// OutboundConfig.
+//
+// SECTION ORDER is the sequence a cold reader needs and is fixed here on
+// purpose. Each section answers exactly one question:
+//
+//   1 HERO          What is this, and what do you want from me?
+//   2 CHAIN         Where does this actually apply to my business?
+//   3 WHERE IT GOES Do I have these problems?          (+ mid CTA)
+//   4 BOUNDARIES    Are you about to tell me to fire people?
+//   5 THE CALL      What am I agreeing to, exactly?    (+ FAQ, CTA)
+//   6 CLOSE         What do I do now?
+//
+// Six sections. The paid-social funnels run nine because their visitor
+// just watched a video ad and is being asked to consider a priced
+// engagement. This visitor was interrupted at work by an email from a
+// stranger and is being asked for thirty minutes. Every section past
+// the point where that question is answered costs more than it earns.
+//
+// CTA PLACEMENT: four placements — hero, mid, faq, close — plus the
+// mobile sticky bar. The hero also carries the SECONDARY assessment
+// link; every other placement is the strategy call alone, so the page
+// never asks a reader to choose twice.
+//
+// Styling reuses FunnelStyles.astro's global .fnl-* stylesheet in full.
+// There is deliberately no second landing-page stylesheet to keep in
+// sync; the handful of rules genuinely specific to this layout live at
+// the bottom of this file.
+import Icon from '../Icon.astro';
+import FunnelCTA from '../funnel/FunnelCTA.astro';
+import FunnelStickyCta from '../funnel/FunnelStickyCta.astro';
+import FunnelStyles from '../funnel/FunnelStyles.astro';
+import OutboundAnalytics from './OutboundAnalytics.astro';
+import type { OutboundConfig } from '../../lib/outbound/types';
+
+interface Props {
+  page: OutboundConfig;
+}
+
+const { page } = Astro.props;
+const { hero, flow, capabilities, boundaries, call, close } = page;
+
+// A chain of seven or more stages cannot stay readable as a single
+// horizontal row on a phone. Matches the funnel system's threshold and
+// reuses its .is-long two-column mobile treatment.
+const LONG_FLOW_THRESHOLD = 7;
+const isLongFlow = flow.steps.length >= LONG_FLOW_THRESHOLD;
+---
+
+<FunnelStyles />
+<OutboundAnalytics audience={page.audience} campaignId={page.campaignId} />
+
+{/* ============ 1. HERO ============ */}
+<section class="fnl-hero">
+  <div class="fnl-hero-glow" aria-hidden="true"></div>
+  <div class="fnl-container">
+    <div class="fnl-hero-inner">
+      <div class="fnl-hero-copy">
+        <span class="fnl-eyebrow">{hero.eyebrow}</span>
+        {/* The explicit {' '} keeps the two lines from concatenating in
+            the accessible name and in extracted text — the visual break
+            comes from the span being display:block. */}
+        <h1>
+          {hero.headline}{hero.headlineLine2 && <>{' '}<span class="fnl-hero-line2">{hero.headlineLine2}</span></>}
+        </h1>
+        <p class="fnl-hero-sub">{hero.subhead}</p>
+
+        <div class="fnl-hero-cta">
+          <FunnelCTA cta={hero.cta} location="hero" tone="dark" />
+        </div>
+
+        {/* The assessment, kept deliberately quiet. A cold reader who
+            wants to look before they talk still has a route; a cold
+            reader who is ready to talk is not made to choose between
+            two equally-weighted buttons. */}
+        <p class="ob-secondary">
+          <a
+            href={hero.secondaryCta.href}
+            data-funnel-cta
+            data-cta-location="hero"
+            data-cta-type={hero.secondaryCta.type}
+          >{hero.secondaryCta.label} &rarr;</a>
+          {hero.secondaryCta.microcopy && <span class="ob-secondary-micro">{hero.secondaryCta.microcopy}</span>}
+        </p>
+
+        {hero.bullets && (
+          <ul class="fnl-hero-bullets">
+            {hero.bullets.map((b) => <li>{b}</li>)}
+          </ul>
+        )}
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* ============ 2. THE CHAIN ============
+    Runs continuously dark from the hero so the hook and the mechanism
+    read as one block rather than two alternating stripes. */}
+<section class="fnl-section fnl-dark-2">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{flow.eyebrow}</span>
+      <h2 class="fnl-h2">{flow.heading}</h2>
+      {flow.intro && <p class="fnl-intro">{flow.intro}</p>}
+    </div>
+
+    <div class:list={['fnl-flow-scroll', { 'is-long': isLongFlow }]}>
+      <ol class:list={['fnl-flow', { 'is-long': isLongFlow }]}>
+        {flow.steps.map((step, i) => (
+          <li class="fnl-flow-item">
+            <span class="fnl-flow-step">
+              <Icon name={step.icon} size={20} />
+              <span class="fnl-flow-label">{step.label}</span>
+            </span>
+            {i < flow.steps.length - 1 && (
+              <span class="fnl-flow-arrow" aria-hidden="true"><Icon name="arrow-right" size={16} /></span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+    {flow.note && <p class="fnl-flow-note">{flow.note}</p>}
+  </div>
+</section>
+
+{/* ============ 3. WHERE IT GOES WRONG ============ */}
+<section class="fnl-section fnl-light">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{capabilities.eyebrow}</span>
+      <h2 class="fnl-h2">{capabilities.heading}</h2>
+      {capabilities.intro && <p class="fnl-intro">{capabilities.intro}</p>}
+    </div>
+
+    <div class="fnl-grid cols-3">
+      {capabilities.items.map((item) => (
+        <div class="fnl-card">
+          <span class="fnl-card-icon"><Icon name={item.icon} size={21} /></span>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="ob-mid-cta">
+      <FunnelCTA cta={call.cta} location="mid" tone="light" align="center" />
+    </div>
+  </div>
+</section>
+
+{/* ============ 4. BOUNDARIES ============
+    Its own section rather than a strip inside the one above. On a cold
+    page this is not a footnote: "are you about to tell me to fire
+    people" is the objection that closes the tab. */}
+<section class="fnl-section fnl-white">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{boundaries.eyebrow}</span>
+      <h2 class="fnl-h2">{boundaries.heading}</h2>
+    </div>
+    <div class="fnl-boundaries">
+      {boundaries.items.map((b) => (
+        <div class="fnl-boundary">
+          <h3>{b.title}</h3>
+          <p>{b.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+{/* ============ 5. THE CALL + OBJECTIONS ============ */}
+<section class="fnl-section fnl-light">
+  <div class="fnl-container">
+    <div class="fnl-head">
+      <span class="fnl-eyebrow">{call.eyebrow}</span>
+      <h2 class="fnl-h2">{call.heading}</h2>
+      {call.intro && <p class="fnl-intro">{call.intro}</p>}
+    </div>
+
+    <div class="fnl-grid">
+      {call.items.map((item) => (
+        <div class="fnl-card">
+          <span class="fnl-card-icon"><Icon name={item.icon ?? 'check'} size={21} /></span>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="fnl-faq">
+      {call.faqs.map((item) => (
+        <details class="fnl-faq-item">
+          <summary class="fnl-faq-q">
+            {item.question}
+            <span class="fnl-faq-toggle" aria-hidden="true"></span>
+          </summary>
+          <p class="fnl-faq-a">{item.answer}</p>
+        </details>
+      ))}
+    </div>
+
+    <div class="fnl-fit-cta">
+      <FunnelCTA cta={call.cta} location="faq" tone="light" />
+    </div>
+  </div>
+</section>
+
+{/* ============ 6. CLOSE ============ */}
+<section class="fnl-close">
+  <div class="fnl-close-glow" aria-hidden="true"></div>
+  <div class="fnl-container">
+    <div class="fnl-close-inner">
+      <span class="fnl-eyebrow">{close.eyebrow}</span>
+      <h2>{close.heading}</h2>
+      <p class="fnl-close-body">{close.body}</p>
+      <FunnelCTA cta={close.cta} location="final" tone="dark" align="center" />
+      {close.whatHappens && (
+        <ul class="fnl-what-happens">
+          {close.whatHappens.map((item) => <li>{item}</li>)}
+        </ul>
+      )}
+    </div>
+  </div>
+</section>
+
+<FunnelStickyCta cta={hero.cta} />
+
+<style>
+  /* The secondary assessment link. Sized and coloured to read clearly
+     as the second option, not as a competing button — the whole point
+     of these pages is that the call is the ask. */
+  .ob-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    margin-top: 16px;
+  }
+
+  .ob-secondary a {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-signal-cyan);
+  }
+
+  .ob-secondary a:hover {
+    text-decoration: underline;
+  }
+
+  .ob-secondary-micro {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+  }
+
+  .ob-mid-cta {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+  }
+</style>

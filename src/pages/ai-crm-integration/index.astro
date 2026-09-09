@@ -30,18 +30,72 @@ const integrationGroups = [
   { label: 'Act', steps: [{ text: 'Follow-Up / Routing', icon: 'workflow' }] },
 ];
 
+// The three connection methods, as a real comparison rather than a
+// recommendation. Which one is right is a function of volume, of what
+// the CRM's API actually supports, and of who will maintain it — and
+// the wrong answer is usually the most sophisticated one.
+const connectionMethods = [
+  {
+    method: 'Direct API',
+    bestFor: 'High volume, or logic the other two cannot express',
+    watchOut: 'Someone has to own it: auth renewal, rate limits, retries, and schema changes when the CRM updates',
+    effort: 'Highest',
+  },
+  {
+    method: 'Webhooks',
+    bestFor: 'Event-driven work — "when a conversation ends, do this"',
+    watchOut: 'Delivery is at-least-once, so the receiving end needs to tolerate duplicates and handle a failed delivery',
+    effort: 'Medium',
+  },
+  {
+    method: 'Integration platform (Zapier, Make, and similar)',
+    bestFor: 'Lower volume, and workflows a non-engineer should be able to change',
+    watchOut: 'Per-task pricing scales with volume, and complex branching becomes harder to read than the code it replaced',
+    effort: 'Lowest',
+  },
+];
+
+// Clearly-labelled illustrative sequences. These are examples of how
+// the pieces fit together, not client results, and the page says so.
+const integrationExamples = [
+  {
+    icon: 'message-square',
+    title: 'Website chat to qualified CRM record',
+    description: 'A chatbot collects the essentials, checks the email against existing contacts so it updates rather than duplicates, writes a summary to the record, and routes to an owner by service area.',
+  },
+  {
+    icon: 'phone-call',
+    title: 'Missed call to follow-up task',
+    description: 'An after-hours voice agent captures who called and why, creates the contact if it is new, attaches a transcript summary, and opens a task for the morning with the context already in it.',
+  },
+  {
+    icon: 'inbox',
+    title: 'Inbound form to routed opportunity',
+    description: 'A form submission is enriched, deduplicated, scored against simple rules the business defined, and assigned — with the original source preserved so reporting can trace it later.',
+  },
+  {
+    icon: 'file-text',
+    title: 'Call recording to structured fields',
+    description: 'A sales call is summarised, next steps are proposed as draft tasks, and a handful of low-risk fields update automatically while anything consequential waits for the rep to confirm.',
+  },
+];
+
 const faqs = [
   { question: 'How is this different from your CRM Setup & Automation page?', answer: 'CRM Setup & Automation is about the foundation itself — pipeline structure, fields, lifecycle stages. This page is about connecting AI tools to a CRM that already has that foundation: AI-generated summaries, intake assistance, and follow-up drafting layered on top of your existing system. Many engagements involve both, but they address different problems.' },
   { question: 'Will this replace our CRM with something new?', answer: 'No. The point of this integration is connecting AI tools to the CRM you already use, not replacing it. If your CRM genuinely needs to change, that\'s a different, separate conversation from AI integration.' },
   { question: 'Can AI update customer records automatically?', answer: 'Yes, for structured, low-risk information — a task, a note, a field extracted clearly from a conversation. Anything ambiguous or consequential should go through human review before it\'s treated as final, which is why auditability is a core part of how we build this.' },
   { question: 'What if we use an integration platform like Zapier or Make instead of custom API work?', answer: 'That\'s often a completely reasonable approach, especially for lower-volume workflows. We evaluate what actually fits your systems and volume — sometimes that\'s a no-code integration platform, sometimes it\'s a direct API or webhook connection. We don\'t default to the most complex option when a simpler one works.' },
   { question: 'How do we know what the AI actually changed in our CRM?', answer: 'Auditability is built in — every AI-assisted update should be traceable to the conversation or data it came from, so your team can review, correct, or reverse it. This isn\'t a black box making silent changes.' },
+  { question: 'Can an AI chatbot write directly into our CRM?', answer: 'Yes, and that is usually the point — a chatbot that does not reach the CRM just creates a second place customer information lives. What matters is what it is allowed to write. Contact details, a conversation summary, a source, and a follow-up task are low-risk. Deal stage, close date, and anything that drives a forecast should route through a person first.' },
+  { question: 'What stops a chatbot from creating duplicate contacts?', answer: 'A deduplication rule that runs before anything is written — normally matching on email, then phone, then company plus name — and a decision made in advance about what happens on a match: update the existing record, or create a linked activity against it. Without that rule, a chat widget will happily produce three records for the same person in a week.' },
+  { question: 'Does our CRM need work before AI can be connected to it?', answer: 'Often, yes, and it is better to find that out first. AI writing into a CRM whose required fields, ownership rules, and lifecycle stages are unclear produces confident, well-formatted mess. Configuration work of that kind is what CRM Setup & Automation covers; this page assumes it is broadly in place.' },
+  { question: 'Which CRMs can this work with?', answer: 'Any CRM with a usable API or webhook support, which is most modern platforms. The honest constraint is not the brand — it is what a specific instance actually exposes and how it has been configured. That gets checked early rather than assumed, and if a system genuinely cannot be integrated we say so rather than building a workaround that leaves your data in two places.' },
 ];
 ---
 
 <BaseLayout
-  title="AI + CRM Integration | Your AI Department"
-  description="Connect AI-assisted intake, summaries, and follow-up to your existing CRM — without replacing it. Human review and auditability built into every workflow."
+  title="AI CRM Integration Services | Your AI Department"
+  description="AI CRM integration services for sales and service teams: connect chatbots, voice agents, and AI-assisted intake to the CRM you already use, with human review and auditability built in."
   path="/ai-crm-integration/"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify({
@@ -49,14 +103,14 @@ const faqs = [
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'AI + CRM Integration', item: `${SITE.domain}/ai-crm-integration/` },
+      { '@type': 'ListItem', position: 2, name: 'AI CRM Integration', item: `${SITE.domain}/ai-crm-integration/` },
     ],
   })} />
 
   <InteriorHero
-    eyebrow="AI + CRM Integration"
-    headline="Connect AI Tools to the CRM You Already Use"
-    support="Your CRM already holds the customer context that matters. Your AI Department connects AI-assisted intake, summaries, task creation, and follow-up directly into that existing system — with human review and auditability built into every workflow, not a disconnected AI tool operating in its own silo."
+    eyebrow="AI CRM Integration"
+    headline="AI CRM Integration Services for Sales and Service Teams"
+    support="Your CRM already holds the customer context that matters. Your AI Department connects AI-assisted intake, chat and voice conversations, summaries, task creation, and follow-up directly into that existing system — with human review and auditability built into every workflow, not a disconnected AI tool operating in its own silo."
     primaryCta={PRIMARY_CTA}
     secondaryCta={SECONDARY_CTA}
   />
@@ -91,6 +145,88 @@ const faqs = [
         tone="dark"
       />
       <GroupedFlow groups={integrationGroups} tone="dark" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Chat and Voice"
+        heading="Connecting an AI Chatbot to Your CRM"
+        support="The most common starting point, and the one most often left half-finished."
+      />
+      <p class="prose-p">A chat widget that answers questions but never writes anything to the CRM has created a second place your customer information lives. The conversation happened, someone was helped, and the person who picks up the relationship tomorrow has no idea any of it took place. Connecting the two is what turns a chatbot from a deflection tool into part of the sales process.</p>
+      <p class="prose-p">Three decisions do most of the work, and all three are business decisions rather than technical ones:</p>
+      <ul class="prose-list">
+        <li><strong>What the bot is allowed to write.</strong> Contact details, a conversation summary, the source, and a follow-up task are low-risk and high-value. Deal stage, close date, and anything that feeds a forecast should route through a person first — an AI-set pipeline stage is a number your team will stop trusting the first time it is wrong.</li>
+        <li><strong>What happens on a match.</strong> Deduplication has to run before anything is created — normally email, then phone, then company plus name. Then someone decides: update the existing record, or attach a linked activity to it. Skip this and a chat widget will produce three records for the same person inside a week.</li>
+        <li><strong>What happens when the bot should stop.</strong> A clear handoff — to a person, to a scheduler, or to a queue — with the conversation so far attached, so the customer never repeats themselves. The handoff is the part that determines whether people trust the thing.</li>
+      </ul>
+      <p class="prose-p">The same three decisions apply to a voice agent taking after-hours calls. Only the transcript source changes.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="How It Connects"
+        heading="Direct API, Webhooks, or an Integration Platform"
+        support="Three ways to connect AI tools to a CRM. The right one depends on volume, on what your CRM's API actually supports, and on who will maintain it — not on which is most sophisticated."
+      />
+      <div class="method-table-wrap">
+        <table class="method-table">
+          <thead>
+            <tr>
+              <th scope="col">Method</th>
+              <th scope="col">Best for</th>
+              <th scope="col">What to watch</th>
+              <th scope="col">Build effort</th>
+            </tr>
+          </thead>
+          <tbody>
+            {connectionMethods.map((row) => (
+              <tr>
+                <th scope="row">{row.method}</th>
+                <td>{row.bestFor}</td>
+                <td>{row.watchOut}</td>
+                <td>{row.effort}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="prose-p">Most working setups use more than one. A webhook fires when a conversation ends, an integration platform handles the routine record update, and a direct API call covers the one step neither can express. Choosing a single method for everything is usually a decision about tidiness rather than about the business.</p>
+      <p class="prose-p">The question worth asking before any of it: <strong>who owns this in six months?</strong> A direct API integration nobody maintains fails silently when the CRM changes a field. A no-code workflow a manager can read and adjust is frequently the better engineering decision, and saying so is part of the job.</p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="CRM Configuration"
+        heading="What Has to Be True Before AI Writes Into Your CRM"
+        support="AI writing into a CRM whose rules are unclear produces confident, well-formatted mess — faster than a person could produce it by hand."
+      />
+      <p class="prose-p">Before an automated process updates a customer record, four things need a defined answer. None of them is an AI question:</p>
+      <ul class="prose-list">
+        <li><strong>Which fields are authoritative.</strong> If the same fact lives in three fields, an automated write will pick one and your reporting will quietly disagree with itself.</li>
+        <li><strong>What "required" actually means.</strong> A required field with no value available from a conversation forces a choice: block the write, or write a placeholder. Placeholders are how CRMs fill up with "Unknown".</li>
+        <li><strong>Who owns a new record.</strong> Round-robin, territory, service line, first-touch — whatever the rule is, it needs to exist before something starts creating records at three in the morning.</li>
+        <li><strong>Which lifecycle stages an automated process may set.</strong> Usually the earliest ones, and nothing that a person's judgment should stand behind.</li>
+      </ul>
+      <p class="prose-p">Where those answers do not exist yet, that is CRM configuration work rather than AI work — see <a href="/crm-setup-automation/">CRM Setup &amp; Automation</a>. It is a genuinely different problem, and doing it in the wrong order is the most common reason an AI integration disappoints.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Examples"
+        heading="What These Integrations Look Like in Practice"
+        support="Illustrative sequences showing how the pieces fit together — not descriptions of specific client engagements."
+      />
+      <CapabilityGrid items={integrationExamples} columns={2} tone="light" />
+      <p class="prose-note">Each of these is a chain, and the value is in the whole chain. A summary nobody routes, or a routed lead with no follow-up task, leaves the work exactly where it was.</p>
     </Container>
   </Section>
 
@@ -142,11 +278,12 @@ const faqs = [
         heading="Connect AI to the CRM You Already Rely On"
         tone="dark"
       />
+      <p class="cross-links-intro">If the CRM foundation itself needs work first, start with <a href="/crm-setup-automation/">CRM Setup &amp; Automation</a>. If the chat or voice agent doing the talking is the piece you do not have yet, that is <a href="/ai-agent-development/">AI Agent Development</a>. If what you actually need to know is which marketing produced the records this creates, that is <a href="/conversion-tracking-analytics/">Conversion Tracking &amp; Analytics</a>.</p>
       <p class="cross-links">
-        <a href="/crm-setup-automation/">CRM Setup & Automation</a>&nbsp;&bull;&nbsp;
-        <a href="/ai-agent-development/">AI Agent Development</a>&nbsp;&bull;&nbsp;
         <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
-        <a href="/conversion-tracking-analytics/">Conversion Tracking & Analytics</a>
+        <a href="/resources/how-ai-can-recover-missed-calls-for-home-service-companies/">Recovering missed calls</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why speed to lead matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/what-business-processes-should-not-be-automated/">What not to automate</a>
       </p>
     </Container>
   </Section>
@@ -168,6 +305,101 @@ const faqs = [
     max-width: 760px;
     margin-inline: auto;
     margin-bottom: 18px;
+  }
+
+  .prose-list {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+    padding-left: 22px;
+  }
+
+  .prose-list li {
+    margin-bottom: 12px;
+  }
+
+  .prose-list strong,
+  .prose-p strong {
+    color: var(--color-near-black);
+  }
+
+  .prose-note {
+    color: var(--color-slate-gray);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-top: 28px;
+    text-align: center;
+  }
+
+  /* The comparison table scrolls inside its own container rather than
+     letting the page scroll sideways on a phone. */
+  .method-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 28px;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    background-color: var(--color-pure-white);
+  }
+
+  .method-table {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    text-align: left;
+  }
+
+  .method-table th,
+  .method-table td {
+    padding: 14px 16px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .method-table thead th {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-electric-blue);
+    background-color: var(--color-cloud-white);
+    white-space: nowrap;
+  }
+
+  .method-table tbody th {
+    font-weight: 700;
+    color: var(--color-near-black);
+    width: 26%;
+  }
+
+  .method-table td {
+    color: var(--color-slate-gray);
+    line-height: 1.55;
+  }
+
+  .method-table tbody tr:last-child th,
+  .method-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .cross-links-intro {
+    color: var(--color-dark-muted-text);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    max-width: 720px;
+    margin-inline: auto;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .cross-links-intro a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
   }
 
   .cross-links {

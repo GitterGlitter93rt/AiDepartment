@@ -1,13 +1,16 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../../components/interior/SectionHeading.astro';
 import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const stormGroups = [
   { label: 'Trigger', steps: [{ text: 'Storm Event', icon: 'cloud-lightning' }] },
@@ -15,6 +18,23 @@ const stormGroups = [
   { label: 'Lead Capture', steps: [{ text: 'Leads Captured', icon: 'inbox' }, { text: 'Immediate Response', icon: 'zap' }] },
   { label: 'Sales', steps: [{ text: 'Qualification', icon: 'check-circle-2' }, { text: 'Inspection Scheduled', icon: 'calendar' }, { text: 'Sales Rep Assigned', icon: 'user-check' }] },
   { label: 'Follow-Up + Measurement', steps: [{ text: 'Follow-Up Automation', icon: 'repeat' }, { text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const leakPoints = [
+  { icon: 'phone-missed', title: 'The Call Nobody Took', description: 'Crews are on a roof, the office is at lunch, or it is nine at night after a hailstorm. A homeowner who reaches voicemail usually calls the next company on the list rather than waiting.' },
+  { icon: 'cloud-lightning', title: 'The Week Volume Triples', description: 'A hail event does not schedule itself around your staffing. Whether that week is a good one is usually decided by who happened to be free to answer, not by anything you chose.' },
+  { icon: 'zap', title: 'The Hours After a Form Fill', description: 'Paid leads, web forms, and calls all arriving at once and all needing a response quickly — including the ones that land at the least convenient possible moment.' },
+  { icon: 'calendar-clock', title: 'The Inspection Never Scheduled', description: 'Getting the inspection onto the calendar while the homeowner is still engaged, instead of after three rounds of phone tag that frequently end in nothing.' },
+  { icon: 'repeat', title: 'The Estimate Nobody Followed Up', description: 'Estimates delivered and never answered, and last year\'s leads sitting in the CRM. Both are already paid for, and both are usually the cheapest work available.' },
+  { icon: 'bar-chart-3', title: 'The Spend Nobody Can Judge', description: 'Knowing which ad, search, or canvassed street actually produced a signed job — rather than which produced the most leads, which is a different and much less useful number.' },
+];
+
+const faqs = [
+  { question: 'Will this replace our office staff?', answer: 'No. Most roofing companies we talk to are short-handed in the office already. The work goes to the repetitive parts — answering during a surge, capturing details, confirming appointments, chasing unsold estimates — so the people you have spend their time on the calls that need a person.' },
+  { question: 'What actually happens during a storm surge?', answer: 'That is the case worth designing for, and it is the one that exposes whatever is fragile the rest of the year. A system that answers and captures consistently when volume triples is worth considerably more than one that is marginally faster on a normal Tuesday.' },
+  { question: 'Will it work with our CRM?', answer: 'That is the starting assumption. How it connects depends on what your CRM supports — a direct API, a webhook, or an integration platform — and working that out honestly is early work rather than a late surprise. If a system genuinely cannot be connected, that is worth knowing before anything is built on top of it.' },
+  { question: 'Can AI tell a homeowner whether they have storm damage?', answer: 'No, and it should not try. Damage assessment, insurance guidance, and anything involving what a homeowner should claim require a qualified person. Automation handles the intake and scheduling around that judgment.' },
+  { question: 'Do homeowners know they are talking to an AI system?', answer: 'Yes. Disclosure is the right call practically as well as ethically — the systems that work are the ones where a caller understands what they are talking to and can reach a person the moment they want one.' },
 ];
 
 const opportunities = [
@@ -29,9 +49,17 @@ const opportunities = [
 
 <BaseLayout
   title="AI for Roofing Companies | Your AI Department"
-  description="Roofing is a lead-speed business. Handle storm-season demand spikes, follow up every estimate, and keep multiple crews coordinated with AI-assisted systems."
+  description="AI systems for roofing companies: answer calls during storm surges, respond to leads faster, get inspections scheduled, follow up unsold estimates, and connect marketing spend to signed jobs."
   path="/industries/roofing/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Roofing', item: `${SITE.domain}/industries/roofing/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="Roofing"
     headline="Help Your Roofing Company Capture More Leads, Respond Faster, and Scale Without Adding Unnecessary Overhead"
@@ -65,6 +93,43 @@ const opportunities = [
     </Container>
   </Section>
 
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Leads Go"
+        heading="Six Places Between the Lead and the Signed Job"
+        support="You already paid for the lead. What happens in the next few hours decides whether it becomes an inspection on the calendar."
+      />
+      <CapabilityGrid items={leakPoints} columns={3} tone="light" />
+      <p class="prose-note">Any one of these left to "someone will get to it" is where the lead you paid for goes quiet.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Roofing Companies With Real Lead Volume"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for companies that are:"
+        fitItems={[
+          'Missing calls after hours, during storm response, or while crews and office staff are already occupied',
+          'Buying leads or running paid advertising and unsure which spend produces signed jobs',
+          'Already using a CRM that can be integrated with',
+          'Sitting on unsold estimates and old leads that nobody has the time to work',
+          'Losing inspections to scheduling delays rather than to price',
+        ]}
+        notFitHeading="Probably not the right fit if:"
+        notFitItems={[
+          'Lead volume is low enough that one person handles every inquiry well',
+          'You are looking for AI to assess damage or advise on an insurance claim',
+          'There is no system of record for leads and jobs yet',
+        ]}
+      />
+    </Container>
+  </Section>
+
   <Section tone="dark">
     <Container>
       <SectionHeading
@@ -73,6 +138,29 @@ const opportunities = [
         support="For multi-location roofing companies, consistent lead handling, shared CRM systems, and standardized reporting across territories become increasingly valuable at scale."
         tone="dark"
       />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions From Roofing Operators" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Where to Go From Here"
+      />
+      <p class="prose-p">If the immediate problem is calls going unanswered during a surge, start with <a href="/ai-agent-development/">AI phone and voice agents</a>. If details are captured but never reach the CRM, that is <a href="/ai-crm-integration/">AI CRM integration</a>. If you are buying leads or running ads and cannot tell which spend produced a signed job, that is <a href="/conversion-tracking-analytics/">conversion tracking and attribution</a>.</p>
+      <p class="cross-links">
+        <a href="/resources/why-speed-to-lead-matters/">Why speed to lead matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-home-service-companies-can-automate-estimate-follow-up/">Automating estimate follow-up</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-home-service-companies-can-track-marketing-leads-to-revenue/">Tracking leads to revenue</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/home-services/">All home services</a>
+      </p>
     </Container>
   </Section>
 
@@ -86,6 +174,41 @@ const opportunities = [
 </BaseLayout>
 
 <style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-note {
+    color: var(--color-slate-gray);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-top: 28px;
+    text-align: center;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
   .mid-cta {
     text-align: center;
     margin-top: 28px;

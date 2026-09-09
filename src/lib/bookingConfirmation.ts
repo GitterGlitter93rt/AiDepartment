@@ -1,7 +1,15 @@
 // Pure, testable logic for the /booking-confirmed/ page. Kept separate
 // from the page's own <script> so it can be unit tested directly
-// (browser-only globals like window.location and sessionStorage stay in
-// the page itself; everything here operates on plain values).
+// (browser-only globals like window.location and storage stay in the
+// page itself; everything here operates on plain values).
+//
+// NAMING: booking_confirmed IS this site's "call booked" conversion.
+// There is deliberately no second `call_booked` event — emitting both
+// would double-count the same booking in GA4 and split the history that
+// already exists under this name. See
+// docs/analytics/conversion-event-taxonomy.md for the mapping.
+
+import { CAMPAIGN_PARAM_KEYS, type CampaignParams } from './attribution.ts';
 
 export const ALLOWED_BOOKING_TYPES = ['strategy', 'enterprise', 'training', 'executive_advisory', 'comprehensive_audit'] as const;
 export type BookingType = (typeof ALLOWED_BOOKING_TYPES)[number];
@@ -71,6 +79,7 @@ export function evaluateBookingConfirmedFiring(
 export function buildBookingConfirmedEvent(
   bookingType: BookingType | null,
   repCode?: string | null,
+  campaign?: CampaignParams | null,
 ): Record<string, string> {
   const payload: Record<string, string> = { event: 'booking_confirmed', booking_source: 'cal.com' };
   if (bookingType) payload.booking_type = bookingType;
@@ -78,5 +87,24 @@ export function buildBookingConfirmedEvent(
   // is a short [a-z0-9._-] token — never PII. Omitted for organic
   // bookings rather than sent blank.
   if (typeof repCode === 'string' && repCode.length > 0) payload.rep_code = repCode;
+  // Campaign attribution, restored from the first-party attribution
+  // store rather than from this page's URL.
+  //
+  // This is the one conversion that MUST carry it. The visitor leaves
+  // the site for cal.com and comes back on a URL Cal.com constructs, so
+  // by the time they land here the acquisition query string is gone and
+  // the referrer is cal.com. Without this, the site's only real booked
+  // conversion is the one event that cannot say which campaign paid for
+  // it.
+  //
+  // Fixed allowlist (the same six UTM fields the assessment events
+  // use), so a field added to the attribution record later can never
+  // start flowing into analytics without a deliberate change here.
+  if (campaign) {
+    for (const key of CAMPAIGN_PARAM_KEYS) {
+      const value = (campaign as Record<string, unknown>)[key];
+      if (typeof value === 'string' && value.length > 0) payload[key] = value;
+    }
+  }
   return payload;
 }

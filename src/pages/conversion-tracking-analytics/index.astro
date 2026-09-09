@@ -183,6 +183,19 @@ const faqs = [
     </Container>
   </Section>
 
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Where AI Fits"
+        heading="AI Does Not Track Conversions — It Makes the Data More Useful"
+        support="A distinction worth being precise about, because the phrase is used loosely."
+      />
+      <p class="prose-p">Tracking a conversion is deterministic work: a tag fires once, a click ID persists into the CRM, a UTM survives the handoff to a scheduler, an outcome is recorded, and an import sends that outcome back to the ad platform. None of that is machine learning, and no model can reconstruct a <code>gclid</code> a form never carried.</p>
+      <p class="prose-p">What AI genuinely adds sits on either side of that chain. Transcribing and classifying calls, so a "conversion" is separable into a new enquiry, an existing customer, and a wrong number. Scoring lead quality so the value sent back to Google Ads reflects the business rather than the form count. Summarising a conversation into the CRM record, so the outcome data attribution depends on is actually filled in.</p>
+      <p class="prose-p">The order matters. Adding intelligence on top of a broken chain produces a smarter interpretation of numbers that were already wrong — and a confident wrong number moves budget in a way a missing one never does. <a href="/resources/what-is-ai-conversion-tracking/">What is AI conversion tracking?</a> works through where the line sits, and how to test a vendor's claim about it.</p>
+    </Container>
+  </Section>
+
   <Section tone="dark">
     <Container>
       <SectionHeading
@@ -195,10 +208,12 @@ const faqs = [
         <a href="/meta-ads/">Meta Ads</a>&nbsp;&bull;&nbsp;
         <a href="/ai-implementation/">AI Implementation</a>&nbsp;&bull;&nbsp;
         <a href="/crm-setup-automation/">CRM Setup & Automation</a>&nbsp;&bull;&nbsp;
-        <a href="/ai-crm-integration/">AI + CRM Integration</a>
+        <a href="/ai-crm-integration/">AI CRM Integration</a>
       </p>
       <p class="cross-links">
-        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>
+        <a href="/resources/what-is-ai-conversion-tracking/">What Is AI Conversion Tracking?</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">How to Track Google Ads Leads to Revenue</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why Speed to Lead Matters</a>
       </p>
     </Container>
   </Section>
@@ -220,6 +235,20 @@ const faqs = [
     max-width: 760px;
     margin-inline: auto;
     margin-bottom: 18px;
+  }
+
+  .prose-p code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    background-color: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
   }
 
   .cross-links {

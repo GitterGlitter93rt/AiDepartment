@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -8,7 +9,7 @@ import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import FAQSection from '../../../components/interior/FAQSection.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const capacityGroups = [
   { label: 'Request', steps: [{ text: 'Client Request', icon: 'inbox' }] },
@@ -38,6 +39,14 @@ const faqs = [
   description="Free capacity in a knowledge-intensive firm: AI-assisted knowledge systems, document workflows, client intake, and reporting that support professional judgment."
   path="/industries/professional-services/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Professional Services', item: `${SITE.domain}/industries/professional-services/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="Professional Services"
     headline="Help Your Firm Increase Employee Capacity, Improve Client Service, and Grow More Efficiently"

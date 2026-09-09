@@ -1,0 +1,40 @@
+---
+// BreadcrumbList JSON-LD, in one place.
+//
+// This markup was previously copy-pasted into every page that wanted it,
+// which is how nine industry pages ended up without it at all: the
+// pattern lived in whichever page happened to be open, so a page written
+// in an earlier sprint simply never received it. A component makes the
+// next industry page correct by construction.
+//
+// Positions are derived from array order — a hand-numbered `position`
+// field is the other thing that goes wrong when this is duplicated.
+//
+// `item` values are passed in as absolute URLs rather than assembled
+// here, so a caller with an unusual crumb (an off-site parent, a hub
+// that is not a path segment) is not fighting the component.
+interface Crumb {
+  name: string;
+  /** Absolute URL, e.g. `${SITE.domain}/industries/`. */
+  item: string;
+}
+
+interface Props {
+  crumbs: Crumb[];
+}
+
+const { crumbs } = Astro.props;
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: crumbs.map((crumb, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: crumb.name,
+    item: crumb.item,
+  })),
+};
+---
+
+<script type="application/ld+json" is:inline set:html={JSON.stringify(schema)} />

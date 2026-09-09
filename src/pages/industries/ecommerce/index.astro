@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -43,15 +44,13 @@ const faqs = [
   description="Connect the full e-commerce lifecycle — acquisition, lifecycle marketing, support, and merchandising — with AI and automation built for real order volume."
   path="/industries/ecommerce/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'E-commerce', item: `${SITE.domain}/industries/ecommerce/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'E-commerce', item: `${SITE.domain}/industries/ecommerce/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="E-commerce & Online Retail"

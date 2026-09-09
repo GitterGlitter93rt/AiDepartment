@@ -1,0 +1,174 @@
+---
+// The single analytics source for a cold-email outbound landing page.
+//
+// Emits three events as first-party dataLayer pushes consumed by the
+// existing GTM container (GTM-5G8Q7KKZ). Nothing here loads a tag, and
+// nothing here duplicates what the site already does:
+//   - page_view stays owned by the existing GA4 tag in GTM
+//   - booking_click_strategy still fires from AnalyticsEvents.astro for
+//     the primary CTA, exactly as it does on every other page. The
+//     outbound_cta_click below is a narrower SUBSET carrying placement
+//     and audience, not a replacement
+//   - booking_confirmed remains the only true booked-call conversion
+//     and is untouched
+//
+// This is a module <script> (not is:inline) so it imports the shared
+// pure builders from src/lib/outbound/analytics.ts and the shared
+// attribution readers from src/lib/attribution.ts, rather than
+// reimplementing either. Identity travels through data attributes
+// because module scripts cannot take define:vars.
+//
+// Every "once" guard below is an in-memory variable, deliberately: these
+// are per-PAGEVIEW facts. A visitor who returns to the page tomorrow
+// viewed it again, and no storage key is added to the site for them.
+import type { OutboundAudience, OutboundCampaignId } from '../../lib/outbound/types';
+
+interface Props {
+  audience: OutboundAudience;
+  campaignId: OutboundCampaignId;
+}
+
+const { audience, campaignId } = Astro.props;
+---
+
+<div id="ob-analytics-root" data-audience={audience} data-campaign-id={campaignId} hidden></div>
+
+<script>
+  import {
+    OUTBOUND_EVENTS,
+    DWELL_THRESHOLD_MS,
+    buildOutboundViewParams,
+    buildOutboundEngagedParams,
+    buildOutboundCtaClickParams,
+    type EngagementSignal,
+    type OutboundIdentity,
+  } from '../../lib/outbound/analytics';
+  import { captureAttribution, getCampaignAttribution, type CampaignParams } from '../../lib/attribution';
+  import { getRepCode } from '../../lib/repAttribution';
+  import type { CtaLocation, CtaType } from '../../lib/funnels/types';
+
+  const root = document.getElementById('ob-analytics-root');
+  const audience = root?.dataset.audience;
+  const campaignId = root?.dataset.campaignId;
+
+  if (root && audience && campaignId) {
+    const identity = { audience, campaign_id: campaignId } as OutboundIdentity;
+
+    const dataLayer = ((window as any).dataLayer = (window as any).dataLayer || []);
+    const push = (event: string, params: Record<string, string | number>) => {
+      try {
+        dataLayer.push(Object.assign({ event }, params));
+      } catch {
+        // Analytics must never break a landing page.
+      }
+    };
+
+    // Capture attribution here rather than relying on script ordering
+    // against AttributionCapture.astro. captureAttribution() is
+    // documented as safe to call repeatedly and never overwrites a
+    // first touch, so calling it from both places is harmless and
+    // removes a real race on the very first pageview — which, for a
+    // cold-email visitor, is the only pageview whose campaign we are
+    // certain to see in the URL.
+    let campaign: CampaignParams = {};
+    let repCode: string | null = null;
+    try {
+      captureAttribution();
+      campaign = getCampaignAttribution();
+      repCode = getRepCode();
+    } catch {
+      // Storage-disabled browsers still get the events, just without
+      // campaign parameters.
+    }
+
+    // ---- cold_lp_view -------------------------------------------------
+    // A browser rendered this page and ran JavaScript. That is all it
+    // claims. It is the far side of a Smartlead click, and the number
+    // to compare against Smartlead's own click count.
+    push(OUTBOUND_EVENTS.view, buildOutboundViewParams(identity, campaign, repCode));
+
+    // ---- cold_lp_engaged ----------------------------------------------
+    // Fires at most once per pageview, on whichever comes first:
+    //   - a real interaction (scroll, pointer, key, touch)
+    //   - DWELL_THRESHOLD_MS of VISIBLE time
+    //
+    // Visible time, not elapsed time: a page opened in a background tab
+    // or restored into a hidden tab accrues nothing, which is exactly
+    // the case a plain setTimeout would miscount.
+    let engagedFired = false;
+    const fireEngaged = (signal: EngagementSignal) => {
+      if (engagedFired) return;
+      engagedFired = true;
+      cleanup();
+      push(OUTBOUND_EVENTS.engaged, buildOutboundEngagedParams(identity, signal, campaign, repCode));
+    };
+
+    const onInteraction = () => fireEngaged('interaction');
+    // passive: these listeners must never delay a scroll on a phone.
+    const interactionEvents = ['scroll', 'pointerdown', 'keydown', 'touchstart'] as const;
+    for (const evt of interactionEvents) {
+      window.addEventListener(evt, onInteraction, { passive: true, once: true });
+    }
+
+    let visibleMs = 0;
+    let lastTick = document.visibilityState === 'visible' ? Date.now() : null;
+    let timer: number | undefined;
+
+    const accrue = () => {
+      if (lastTick === null) return;
+      visibleMs += Date.now() - lastTick;
+      lastTick = Date.now();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        lastTick = Date.now();
+      } else {
+        accrue();
+        lastTick = null;
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // A 1s poll rather than a single timeout, because the threshold is
+    // measured in visible time and the page can be hidden and revealed
+    // any number of times before it is reached.
+    timer = window.setInterval(() => {
+      accrue();
+      if (visibleMs >= DWELL_THRESHOLD_MS) fireEngaged('dwell');
+    }, 1000);
+
+    function cleanup() {
+      if (timer !== undefined) window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      for (const evt of interactionEvents) {
+        window.removeEventListener(evt, onInteraction);
+      }
+    }
+
+    // ---- outbound_cta_click -------------------------------------------
+    // Delegated so it covers every CTA on the page, including any added
+    // later, without per-button wiring. Deliberately does NOT emit a
+    // booking_click_* event: the primary CTA already produces
+    // booking_click_strategy through the site-wide tracker, and the
+    // secondary CTA is an assessment click, which is not booking intent
+    // and must never be counted as it.
+    document.addEventListener('click', (e) => {
+      const target = e.target instanceof Element ? e.target.closest('[data-funnel-cta]') : null;
+      if (!(target instanceof HTMLElement)) return;
+
+      const location = (target.dataset.ctaLocation || 'hero') as CtaLocation;
+      const type = (target.dataset.ctaType || 'strategy_call') as CtaType;
+
+      // A CTA click is unambiguous engagement, whatever the dwell timer
+      // thinks. Recorded before the click event so the two always
+      // arrive in a sensible order.
+      fireEngaged('interaction');
+
+      push(
+        OUTBOUND_EVENTS.ctaClick,
+        buildOutboundCtaClickParams(identity, location, type, campaign, repCode),
+      );
+    });
+  }
+</script>

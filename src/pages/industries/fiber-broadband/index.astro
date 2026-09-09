@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -44,15 +45,13 @@ const faqs = [
   description="Territory launches, door-to-door lead capture, installation scheduling, and rep attribution for fiber and broadband providers expanding into new markets."
   path="/industries/fiber-broadband/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'Fiber & Broadband', item: `${SITE.domain}/industries/fiber-broadband/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Fiber & Broadband', item: `${SITE.domain}/industries/fiber-broadband/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="Fiber & Broadband"

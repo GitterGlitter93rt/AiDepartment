@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -41,15 +42,13 @@ const faqs = [
   description="Urgent service calls and quoted projects need different systems. Classify electrical leads fast, follow up every estimate, and keep scheduling tight."
   path="/industries/electrical-contractors/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'Electrical Contractors', item: `${SITE.domain}/industries/electrical-contractors/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Electrical Contractors', item: `${SITE.domain}/industries/electrical-contractors/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="Electrical Contractors"

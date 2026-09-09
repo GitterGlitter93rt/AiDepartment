@@ -13,6 +13,17 @@ export const SITE = {
   tagline: 'Practical AI. Real Business Value.',
   defaultDescription:
     'Identify and implement high-value AI opportunities across marketing, sales, operations, employee productivity, automation, and customer experience with Your AI Department.',
+  /**
+   * Default Open Graph / Twitter card image, used by every page that
+   * does not pass its own. Regenerate with tools/generate-og-image.py —
+   * it is assembled from the brand tokens, the existing YAD mark and
+   * the tagline above, so a brand change can be re-applied rather than
+   * redrawn.
+   */
+  defaultSocialImage: '/og-default.png',
+  /** Must match the actual file. Emitted as og:image:width/height so a
+   * scraper can lay the card out before it has fetched the image. */
+  defaultSocialImageSize: { width: 1200, height: 630 },
 };
 
 export interface NavItem {
@@ -79,7 +90,7 @@ export const SERVICES_MENU: { category: string; items: ServiceMenuItem[] }[] = [
     category: 'CRM & Integration',
     items: [
       { label: 'CRM Setup & Automation', href: '/crm-setup-automation/', description: 'Pipeline architecture, lifecycle stages, and task automation.' },
-      { label: 'AI + CRM Integration', href: '/ai-crm-integration/', description: 'Connect AI tools to your existing CRM without replacing it.' },
+      { label: 'AI CRM Integration', href: '/ai-crm-integration/', description: 'Connect AI tools to your existing CRM without replacing it.' },
       { label: 'Software & API Integration', href: '/ai-crm-integration/', description: 'Webhooks, APIs, and integration platforms connecting your systems.' },
     ],
   },
@@ -191,7 +202,7 @@ export const FOOTER_LINKS = {
     { label: 'Comprehensive AI Business Audit', href: '/comprehensive-ai-business-audit/' },
     { label: 'AI Agent Development', href: '/ai-agent-development/' },
     { label: 'CRM Setup & Automation', href: '/crm-setup-automation/' },
-    { label: 'AI + CRM Integration', href: '/ai-crm-integration/' },
+    { label: 'AI CRM Integration', href: '/ai-crm-integration/' },
     { label: 'Conversion Tracking & Analytics', href: '/conversion-tracking-analytics/' },
     { label: 'Google Ads', href: '/google-ads/' },
     { label: 'SEO', href: '/seo/' },

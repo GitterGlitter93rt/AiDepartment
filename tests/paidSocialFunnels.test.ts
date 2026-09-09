@@ -1414,7 +1414,13 @@ describe('VSL integration', () => {
       assert.equal(funnel.vsl, undefined, 'no VSL asset is configured yet');
       const html = builtFunnel[funnel.path];
       assert.equal(/video coming soon|coming soon/i.test(visibleText(html)), false, `${funnel.path}: placeholder copy shipped`);
-      assert.equal(html.includes('fnl-vsl'), false, `${funnel.path}: empty player well shipped`);
+      // Against markup, not the whole document. This is the case
+      // stripCode() exists for: FunnelVSL.astro's scoped CSS is part of
+      // the funnel style graph and Astro may inline it, so `.fnl-vsl`
+      // appearing in a <style> block says nothing about whether a
+      // player was rendered. The three checks below cover that, and
+      // they are the ones that would actually catch a shipped player.
+      assert.equal(stripCode(html).includes('fnl-vsl'), false, `${funnel.path}: empty player well shipped`);
       assert.equal(/<video/.test(html), false, `${funnel.path}: empty video element shipped`);
       assert.equal(html.includes('data-funnel-vsl'), false, `${funnel.path}: empty player shipped`);
       for (const iframe of [...html.matchAll(/<iframe[^>]*>/g)].map((m) => m[0])) {

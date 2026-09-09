@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -7,7 +8,7 @@ import SectionHeading from '../../../components/interior/SectionHeading.astro';
 import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const estimateGroups = [
   { label: 'Trigger', steps: [{ text: 'Estimate Created', icon: 'file-text' }, { text: 'Customer Leaves', icon: 'log-out' }] },
@@ -30,6 +31,14 @@ const opportunities = [
   description="Stop losing unsold estimates: consistent follow-up, standardized shop workflows, and customer status updates that keep your collision repair business top of mind."
   path="/industries/collision-repair/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Collision Repair', item: `${SITE.domain}/industries/collision-repair/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="Collision Repair"
     headline="Help Your Body Shop Capture More Jobs, Reduce Administrative Work, and Improve Customer Communication"

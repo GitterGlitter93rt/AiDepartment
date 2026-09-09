@@ -14,6 +14,8 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // ---- Minimal browser-global mocks, set up before importing the module
 // under test (attribution.ts checks `typeof window === 'undefined'` at
@@ -308,5 +310,106 @@ describe('Booking confirmation', () => {
     assert.equal(getBookingUid(new URLSearchParams('?bookingUid=b')), 'b');
     assert.equal(getBookingUid(new URLSearchParams('?booking_uid=c')), 'c');
     assert.equal(getBookingUid(new URLSearchParams('?bookingId=d')), 'd');
+  });
+});
+
+// ---------------------------------------------------------------------
+// The booked call must be able to name the campaign that produced it.
+//
+// This is the one conversion whose URL cannot carry attribution: the
+// visitor leaves for cal.com and returns on a URL Cal.com builds. So the
+// campaign has to come out of the first-party store, and it has to be
+// allowlisted on the way in.
+// ---------------------------------------------------------------------
+
+describe('booking_confirmed carries campaign attribution', () => {
+  const SMARTLEAD = {
+    utm_id: 'sl_law_firms_20260820',
+    utm_source: 'smartlead',
+    utm_medium: 'email',
+    utm_campaign: 'law_firms_outbound',
+    utm_content: 'law_e1_a',
+    utm_term: 'unused',
+  };
+
+  test('all six UTM fields reach the event', () => {
+    const event = buildBookingConfirmedEvent('strategy', null, SMARTLEAD);
+    for (const [key, value] of Object.entries(SMARTLEAD)) {
+      assert.equal(event[key], value, `${key} missing from booking_confirmed`);
+    }
+  });
+
+  test('a session with no campaign produces no blank parameters', () => {
+    for (const campaign of [undefined, null, {}]) {
+      const event = buildBookingConfirmedEvent('strategy', null, campaign);
+      assert.deepEqual(Object.keys(event).sort(), ['booking_source', 'booking_type', 'event']);
+    }
+  });
+
+  test('empty-string values are dropped rather than sent blank', () => {
+    const event = buildBookingConfirmedEvent('strategy', null, { utm_source: '', utm_campaign: 'roofing_outbound' } as any);
+    assert.equal('utm_source' in event, false);
+    assert.equal(event.utm_campaign, 'roofing_outbound');
+  });
+
+  test('the allowlist holds — a wider attribution record cannot leak through', () => {
+    // getCampaignAttribution() only ever returns the six fields, but the
+    // builder must not depend on its caller for that guarantee.
+    const contaminated = {
+      ...SMARTLEAD,
+      gclid: 'should-not-appear',
+      landing_page: '/go/law-firms/',
+      referrer: 'https://mail.google.com/',
+      email: 'someone@example.com',
+      first_name: 'Someone',
+    } as any;
+    const event = buildBookingConfirmedEvent('strategy', 'tony', contaminated);
+    for (const leaked of ['gclid', 'landing_page', 'referrer', 'email', 'first_name']) {
+      assert.equal(leaked in event, false, `${leaked} leaked into booking_confirmed`);
+    }
+    assert.equal(event.rep_code, 'tony');
+    assert.equal(event.utm_campaign, 'law_firms_outbound');
+  });
+
+  test('campaign fields never displace the booking identity fields', () => {
+    const event = buildBookingConfirmedEvent('comprehensive_audit', null, {
+      ...SMARTLEAD,
+      event: 'something_else',
+      booking_source: 'not-cal',
+    } as any);
+    assert.equal(event.event, 'booking_confirmed');
+    assert.equal(event.booking_source, 'cal.com');
+    assert.equal(event.booking_type, 'comprehensive_audit');
+  });
+});
+
+describe('The confirmation page dedupes a booking UID across sessions, not just reloads', () => {
+  const page = readFileSync(join(process.cwd(), 'src/pages/booking-confirmed/index.astro'), 'utf8');
+
+  test('the seen-UID list is persisted in localStorage', () => {
+    // sessionStorage forgets the UID when the tab closes, so reopening
+    // the Cal.com confirmation link the next day counted the same
+    // booking twice.
+    assert.match(page, /window\.localStorage\.getItem\(dedupeKey\)/);
+    assert.match(page, /window\.localStorage\.setItem\(dedupeKey, JSON\.stringify\(updatedSeen\)\)/);
+    // The prose explaining why sessionStorage was wrong is allowed to
+    // name it; the code must not touch it.
+    assert.equal(/window\.sessionStorage/.test(page), false, 'the dedupe store must not fall back to sessionStorage');
+  });
+
+  test('it reuses the existing storage key rather than adding another store', () => {
+    assert.match(page, /const dedupeKey = 'yai_booking_confirmed_seen'/);
+    assert.deepEqual([...new Set(page.match(/yai_[a-z_]+/g) ?? [])], ['yai_booking_confirmed_seen']);
+  });
+
+  test('the seen list stays bounded so storage cannot grow without limit', () => {
+    let seen: string[] = [];
+    for (let i = 0; i < 50; i++) {
+      seen = evaluateBookingConfirmedFiring(`booking-${i}`, seen).updatedSeen;
+    }
+    assert.equal(seen.length, 20);
+    // The most recent UIDs are the ones worth remembering.
+    assert.equal(seen[seen.length - 1], 'booking-49');
+    assert.equal(evaluateBookingConfirmedFiring('booking-49', seen).shouldFire, false);
   });
 });
