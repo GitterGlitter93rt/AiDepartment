@@ -3,12 +3,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Section from '../../components/Section.astro';
 import Container from '../../components/Container.astro';
 
-const lastUpdated = 'August 14, 2026';
+const lastUpdated = 'September 9, 2026';
 ---
 
 <BaseLayout
   title="Privacy Policy | Your AI Department"
-  description="How Your AI Department LLC collects, uses, and protects information submitted through this website, including contact forms, the AI Department Assessment, and scheduling requests."
+  description="How Catastrophic Solutions LLC, operating the Your AI Department brand, collects, uses, and protects information submitted through this website, including mobile information and SMS consent."
   path="/privacy/"
 >
   <Section tone="light">
@@ -17,11 +17,19 @@ const lastUpdated = 'August 14, 2026';
         <h1>Privacy Policy</h1>
         <p class="legal-updated">Last updated: {lastUpdated}</p>
 
-        <p>Your AI Department LLC ("Your AI Department," "we," "us," or "our") operates the website located at youraidepartment.ai (the "Site"). This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
+        <p><strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> Catastrophic Solutions LLC ("Your AI Department," "we," "us," or "our") operates the website located at youraidepartment.ai (the "Site"). This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
 
         <h2>Information You Submit Directly</h2>
-        <p>When you use a contact form, take the AI Department Assessment, or request a scheduling call through this Site, we may collect information you choose to provide, such as your name, business email address, phone number, company name, company website, and any details you enter about your business or inquiry.</p>
+        <p>When you use a contact form, take the AI Department Assessment, request a scheduling call, or expressly enroll in customer-care text messaging through this Site, we may collect information you choose to provide, such as your name, business email address, mobile phone number, company name, company website, and any details you enter about your business or inquiry.</p>
         <p>Assessment responses are connected to the contact information you provide as part of that assessment. We do not treat assessment answers as anonymous when they are linked to identifiable contact information.</p>
+
+        <h2 id="sms-privacy">Mobile Information and SMS Messaging</h2>
+        <p>If you expressly opt in to receive text messages, Your AI Department, operated by Catastrophic Solutions LLC, may use the mobile number you provide to send customer-care messages related to your inquiry or requested services. These messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support communications.</p>
+        <p><strong>Providing a phone number on a general website form does not by itself enroll you in SMS messaging.</strong> SMS consent is collected separately and voluntarily. Consent to receive text messages is not a condition of purchasing or receiving our services.</p>
+        <p>Message frequency varies based on your inquiry and support needs. Message and data rates may apply. You may reply <strong>STOP</strong> at any time to opt out of text messages. You may reply <strong>HELP</strong> for help.</p>
+        <p><strong>We do not share, sell, rent, or provide your mobile phone number, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes.</strong></p>
+        <p>We may use service providers, including telecommunications and messaging providers such as Twilio, solely as necessary to transmit and support messages you have consented to receive. Those providers process information only as needed to provide services to us; this operational processing does not authorize them to use your mobile information or messaging consent for their own marketing or promotional purposes.</p>
+        <p>For the website SMS opt-in flow and the disclosures presented at the point of consent, see our <a href="/sms-consent/">SMS Consent page</a>. Additional messaging terms are included in our <a href="/terms/#sms-terms">Terms of Use</a>.</p>
 
         <h2>Scheduling Information</h2>
         <p>Scheduling requests made through this Site are booked using Cal.com, a third-party scheduling provider. When you book a call, Cal.com processes the information you provide to schedule that call (such as your name, email address, and any notes you include). Please review Cal.com's own privacy policy for information about how it handles your data.</p>
@@ -29,7 +37,7 @@ const lastUpdated = 'August 14, 2026';
 
         <h2>Cookies and Analytics</h2>
         <p>This Site uses Google Tag Manager to manage analytics and measurement tools, including Google Analytics (GA4). These tools may use cookies or similar technologies to collect information about how visitors use the Site, such as pages viewed, general location (at a city/region level), device and browser type, and referring source.</p>
-        <p>We use this information in aggregate to understand how the Site is used and to improve it. We do not use this data to identify you personally unless it is separately connected to information you voluntarily submitted through a form.</p>
+        <p>We use this information in aggregate to understand how the Site is used and to improve it. We do not send your name, email address, phone number, SMS consent, or assessment answers to GA4 as analytics event parameters.</p>
 
         <h2>Server and Log Information</h2>
         <p>Like most websites, our hosting and infrastructure providers may automatically log technical information such as IP address, browser type, and timestamps for security, troubleshooting, and abuse-prevention purposes.</p>
@@ -40,22 +48,25 @@ const lastUpdated = 'August 14, 2026';
           <li>Respond to inquiries submitted through this Site</li>
           <li>Provide the results of the AI Department Assessment</li>
           <li>Schedule and manage calls you request</li>
+          <li>Send customer-care text messages when you have expressly opted in</li>
+          <li>Maintain records of SMS consent, opt-out, and support requests</li>
           <li>Understand and improve how the Site is used</li>
           <li>Maintain the security and proper functioning of the Site</li>
         </ul>
         <p>We do not sell your personal information.</p>
 
         <h2>Third-Party Service Providers</h2>
-        <p>We work with third-party service providers to operate this Site and our business, including Google (Tag Manager and Analytics), Cal.com (scheduling), Web3Forms (contact form and AI Department Assessment submission delivery), and Stripe (payment processing for the paid Executive AI Advisory Session, via Cal.com). These providers process information on our behalf and are subject to their own privacy policies. We do not claim that your information is never shared with any service provider — the providers listed here do process information as described above. Some of these providers, including Web3Forms, may independently capture technical information such as your IP address as part of their own service delivery and fraud-prevention practices; this is not information our Site's code explicitly requests or transmits, and it is governed by that provider's own privacy policy.</p>
+        <p>We work with service providers to operate this Site and our business, including Google (Tag Manager and Analytics), Cal.com (scheduling), Web3Forms (contact form and AI Department Assessment submission delivery), Stripe (payment processing for the paid Executive AI Advisory Session, via Cal.com), and Twilio or other telecommunications providers (customer-care messaging where applicable). These providers may process information on our behalf only as necessary to provide their respective services and are subject to their own privacy obligations and policies.</p>
+        <p>The service-provider processing described above does not change our SMS non-sharing commitment: mobile phone numbers, SMS opt-in data, and messaging consent are not shared with third parties or affiliates for their marketing or promotional purposes.</p>
 
         <h2>Data Retention</h2>
-        <p>We retain information submitted through contact forms and the assessment for as long as reasonably necessary to respond to your inquiry, maintain business records, and comply with legal obligations. Technical log data is generally retained for a shorter period consistent with standard infrastructure and security practices.</p>
+        <p>We retain information submitted through contact forms and assessments for as long as reasonably necessary to respond to your inquiry, maintain business records, and comply with legal obligations. We may retain SMS consent and opt-out records as reasonably necessary to document messaging preferences and comply with applicable requirements. Technical log data is generally retained for a shorter period consistent with standard infrastructure and security practices.</p>
 
         <h2>Data Security</h2>
         <p>We take reasonable measures to protect information submitted through this Site. No method of transmission or storage is completely secure, and we cannot guarantee absolute security.</p>
 
         <h2>Your Rights and Choices</h2>
-        <p>You may contact us at any time to ask what information we hold about you, to request that we correct or delete it, or to ask questions about this policy, subject to applicable law and legitimate business record-keeping needs.</p>
+        <p>You may contact us at any time to ask what information we hold about you, to request that we correct or delete it, or to ask questions about this policy, subject to applicable law and legitimate business record-keeping needs. For SMS messages, you may also reply STOP to opt out or HELP for help.</p>
 
         <h2>Children's Privacy</h2>
         <p>This Site is intended for business audiences and is not directed at children. We do not knowingly collect information from children.</p>
@@ -65,7 +76,8 @@ const lastUpdated = 'August 14, 2026';
 
         <h2>Contact Us</h2>
         <p>
-          Your AI Department LLC<br />
+          Catastrophic Solutions LLC<br />
+          Operating the Your AI Department brand<br />
           2220 County Road 210 W, STE 108-504<br />
           Jacksonville, Florida 32259<br />
           <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
