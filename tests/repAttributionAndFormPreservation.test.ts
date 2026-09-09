@@ -433,12 +433,18 @@ describe('Event wiring for rep_code', () => {
     assert.match(CAPTURE, /if \(repCode\) \{/);
   });
 
-  test('every event from the site-wide tracker carries rep_code when present', () => {
+  test('every event from the site-wide tracker carries rep_code and campaign when present', () => {
     // pushEvent is the single choke point for booking_click_strategy,
     // _enterprise, _training, _executive_advisory, _comprehensive_audit,
-    // resource_cta_click and ai_assessment_start.
-    assert.match(TRACKER, /window\.dataLayer\.push\(Object\.assign\(\{ event: eventName \}, extra \|\| \{\}, repParams\(\)\)\)/);
+    // resource_cta_click and ai_assessment_start. Both enrichments are
+    // applied there — not per call site — so a new event added later
+    // cannot silently ship without them.
+    assert.match(
+      TRACKER,
+      /window\.dataLayer\.push\(\s*Object\.assign\(\{ event: eventName \}, withCampaign\(extra \|\| \{\}\), repParams\(\)\)\s*\)/,
+    );
     assert.ok(TRACKER.includes('function repParams()'));
+    assert.ok(TRACKER.includes('function withCampaign('));
     assert.match(TRACKER, /typeof rep === 'string' && rep\.length > 0 \? \{ rep_code: rep \} : \{\}/, 'omitted when absent');
     for (const evt of [
       'booking_click_strategy',
@@ -467,10 +473,11 @@ describe('Event wiring for rep_code', () => {
     }
   });
 
-  test('booking-confirmed passes the rep code through', () => {
+  test('booking-confirmed passes the rep code and the campaign through', () => {
     const page = read('src/pages/booking-confirmed/index.astro');
     assert.ok(page.includes("import { getRepCode } from '../../lib/repAttribution'"));
-    assert.ok(page.includes('buildBookingConfirmedEvent(bookingType, getRepCode())'));
+    assert.ok(page.includes("import { getCampaignAttribution } from '../../lib/attribution'"));
+    assert.ok(page.includes('buildBookingConfirmedEvent(bookingType, getRepCode(), getCampaignAttribution())'));
   });
 });
 

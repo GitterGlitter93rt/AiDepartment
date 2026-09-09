@@ -33,8 +33,29 @@ import Icon from '../../components/Icon.astro';
         <span class="bc-icon"><Icon name="check-circle-2" size={40} /></span>
         <h1 class="bc-h1">You're All Set</h1>
         <p class="bc-support">Your appointment has been booked. You'll receive a confirmation email from Cal.com with the date, time, and any details you need before the call.</p>
-        <p class="bc-secondary">If you need to reschedule or cancel, use the link in that confirmation email — it's the fastest way to make a change.</p>
-        <a href="/" class="bc-home-link">Return to the homepage &rarr;</a>
+
+        <ol class="bc-next">
+          <li>
+            <strong>Add it to your calendar.</strong>
+            The confirmation email carries the invite. Accepting it is the single biggest thing you can do to make sure the time still works.
+          </li>
+          <li>
+            <strong>Have your current setup in mind.</strong>
+            Which tools you use for phone, scheduling, and customer records, and roughly what happens today when a lead comes in after hours. No preparation needed beyond that.
+          </li>
+          <li>
+            <strong>Bring the one thing that frustrates you most.</strong>
+            The call is a working conversation about your operation, not a product walkthrough. Starting from a real bottleneck makes it far more useful.
+          </li>
+        </ol>
+
+        <p class="bc-secondary">Need to reschedule or cancel? Use the link in that confirmation email — it's the fastest way to make a change.</p>
+
+        <div class="bc-links">
+          <a href="/ai-department-method/">How we work &rarr;</a>
+          <a href="/resources/">Resources &rarr;</a>
+          <a href="/">Homepage &rarr;</a>
+        </div>
       </div>
     </Container>
   </Section>
@@ -48,39 +69,54 @@ import Icon from '../../components/Icon.astro';
     buildBookingConfirmedEvent,
   } from '../../lib/bookingConfirmation';
   import { getRepCode } from '../../lib/repAttribution';
+  import { getCampaignAttribution } from '../../lib/attribution';
 
   try {
     const params = new URLSearchParams(window.location.search);
     const uid = getBookingUid(params);
     const bookingType = getBookingType(params);
 
-    // Suppress duplicate firing for the same booking UID within this
-    // browser session (e.g. the visitor reloads the success page).
-    // sessionStorage is intentional here — a genuinely new booking in
-    // a new tab/session should still be able to fire again.
+    // Suppress duplicate firing for the same booking UID.
+    //
+    // The dedupe list lives in localStorage, not sessionStorage. The
+    // rule being enforced is "one booking UID counts once", and a UID
+    // outlives a browser session: the visitor bookmarks the
+    // confirmation URL, reopens it from the Cal.com email the next
+    // morning, or restores the tab after a restart. sessionStorage
+    // forgets the UID at each of those boundaries and the same booking
+    // is counted again. localStorage does not, and a genuinely new
+    // booking still fires because the gate is the UID, never the
+    // session. Same key as before, so nothing already stored is
+    // orphaned and no new store is introduced.
     const dedupeKey = 'yai_booking_confirmed_seen';
     let previouslySeen: string[] = [];
     try {
-      const seenRaw = window.sessionStorage.getItem(dedupeKey);
+      const seenRaw = window.localStorage.getItem(dedupeKey);
       const parsed = seenRaw ? JSON.parse(seenRaw) : [];
       if (Array.isArray(parsed)) previouslySeen = parsed;
     } catch {
       // Storage unavailable — proceed with an empty "seen" list (fail
       // open on firing, since this is a convenience signal, not the
-      // system of record).
+      // system of record). Under-counting a real booking is the worse
+      // error of the two.
     }
 
     const { shouldFire, updatedSeen } = evaluateBookingConfirmedFiring(uid, previouslySeen);
 
     try {
-      window.sessionStorage.setItem(dedupeKey, JSON.stringify(updatedSeen));
+      window.localStorage.setItem(dedupeKey, JSON.stringify(updatedSeen));
     } catch {
       // Non-fatal if storage can't be written.
     }
 
     if (shouldFire) {
       (window as any).dataLayer = (window as any).dataLayer || [];
-      (window as any).dataLayer.push(buildBookingConfirmedEvent(bookingType, getRepCode()));
+      // Campaign attribution is read from the first-party store, not
+      // from this page's URL — the visitor returns here from cal.com,
+      // so the acquisition query string is long gone.
+      (window as any).dataLayer.push(
+        buildBookingConfirmedEvent(bookingType, getRepCode(), getCampaignAttribution())
+      );
     }
   } catch {
     // Never let this page's tracking logic break the confirmation
@@ -126,11 +162,66 @@ import Icon from '../../components/Icon.astro';
     color: var(--color-dark-muted-text);
     font-size: 0.92rem;
     line-height: 1.6;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
   }
 
-  .bc-home-link {
-    display: inline-block;
+  /* "What happens next" reads left-aligned even though the rest of the
+     panel is centred — a numbered list centred on its own axis is
+     noticeably harder to scan. */
+  .bc-next {
+    text-align: left;
+    counter-reset: bc-step;
+    list-style: none;
+    margin: 8px 0 28px;
+    padding: 22px 22px 6px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+  }
+
+  .bc-next li {
+    position: relative;
+    counter-increment: bc-step;
+    padding-left: 38px;
+    margin-bottom: 16px;
+    color: var(--color-dark-muted-text);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  .bc-next li::before {
+    content: counter(bc-step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(37, 99, 235, 0.18);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    color: var(--color-signal-cyan);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.8rem;
+  }
+
+  .bc-next strong {
+    display: block;
+    color: var(--color-pure-white);
+    margin-bottom: 2px;
+  }
+
+  .bc-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 24px;
+  }
+
+  .bc-links a {
     color: var(--color-signal-cyan);
     font-weight: 700;
     font-size: 0.95rem;

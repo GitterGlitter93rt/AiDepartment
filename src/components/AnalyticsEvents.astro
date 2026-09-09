@@ -39,8 +39,25 @@ import {
   // Every event pushed from this tracker carries rep_code when a
   // business-card/QR visit is attributed, and omits it entirely
   // otherwise — no blank parameter for organic visitors.
+  //
+  // It also carries the session's campaign snapshot (the six UTM fields
+  // and nothing else). That used to be applied only to the assessment
+  // start event, which meant a Smartlead or paid visitor's
+  // booking_click_* — the closest micro-conversion to revenue — arrived
+  // in GA4 with no campaign of its own. GA4's own session attribution
+  // covers the common case, but it does not survive a session
+  // boundary, and it cannot answer "which sequence step produced
+  // booking intent" at the event level. Applying it here, at the single
+  // choke point, means every event this tracker emits is answerable by
+  // campaign without a second mechanism.
+  //
+  // withCampaign() is an allowlist copy, so this can never widen into
+  // forwarding arbitrary state; the assessment start call site applies
+  // it explicitly as well, which is idempotent.
   function pushEvent(eventName, extra) {
-    window.dataLayer.push(Object.assign({ event: eventName }, extra || {}, repParams()));
+    window.dataLayer.push(
+      Object.assign({ event: eventName }, withCampaign(extra || {}), repParams())
+    );
   }
 
   // The six UTM fields, read at call time from the snapshot published by
