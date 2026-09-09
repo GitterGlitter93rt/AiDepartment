@@ -1,0 +1,11 @@
+---
+// Cold-email outbound landing page: law firms.
+// Content: src/data/outbound/law-firms.ts
+// Structure: src/components/outbound/OutboundPage.astro
+// noindex,follow — a campaign destination, not an SEO page. Does not
+// compete with /industries/law-firms/ and is excluded from the sitemap.
+import OutboundLayout from '../../../layouts/OutboundLayout.astro';
+import { lawFirmsOutbound } from '../../../data/outbound/law-firms';
+---
+
+<OutboundLayout page={lawFirmsOutbound} />

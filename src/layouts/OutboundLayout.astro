@@ -1,0 +1,33 @@
+---
+// Layout for a cold-email outbound landing page under /go/.
+//
+// Thin by design, and the same shape as FunnelLayout.astro: it is
+// BaseLayout with minimal chrome and the page's own SEO/robots
+// settings, so these pages inherit the exact same head, GTM container,
+// favicon system, attribution capture, and site-wide analytics as every
+// other page on the site. There is deliberately no second document
+// shell to keep in sync.
+//
+// chrome="minimal" is the point. A reader who arrived from an
+// unsolicited email should have two choices — keep reading or book the
+// call — not twenty navigation destinations across three mega-menus.
+import BaseLayout from './BaseLayout.astro';
+import OutboundPage from '../components/outbound/OutboundPage.astro';
+import type { OutboundConfig } from '../lib/outbound/types';
+
+interface Props {
+  page: OutboundConfig;
+}
+
+const { page } = Astro.props;
+---
+
+<BaseLayout
+  title={page.seo.title}
+  description={page.seo.description}
+  path={page.path}
+  robots={page.seo.robots}
+  chrome="minimal"
+>
+  <OutboundPage page={page} />
+</BaseLayout>

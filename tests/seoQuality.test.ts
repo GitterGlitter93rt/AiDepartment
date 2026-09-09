@@ -89,6 +89,14 @@ describe('Route inventory', () => {
       '/assessment/',
       '/booking-confirmed/',
       '/divorce-law-ai/',
+      // Cold-email campaign destinations. Same reasoning as the
+      // paid-social funnels above: they overlap /industries/law-firms/
+      // and /industries/roofing/ deliberately, so they carry
+      // "noindex, follow" and are excluded from the sitemap rather than
+      // competing with the organic pages for the same query. See
+      // tests/outboundLanding.test.ts.
+      '/go/law-firms/',
+      '/go/roofing/',
       '/personal-injury-ai/',
       '/plumbing-ai/',
     ]);

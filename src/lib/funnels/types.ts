@@ -30,8 +30,17 @@ export type FunnelVertical = 'plumbing' | 'personal_injury' | 'divorce_law';
  * the funnel-scoped booking-click event name. Non-PII. */
 export type FunnelId = 'plumbing_ai' | 'personal_injury_ai' | 'divorce_law_ai';
 
-/** Which CTA a click represents. */
-export type CtaType = 'demo' | 'strategy_call';
+/**
+ * Which CTA a click represents.
+ *
+ * 'assessment' exists for the cold-email outbound pages
+ * (src/lib/outbound/), where the free assessment is the deliberate
+ * SECONDARY action beside the strategy call. It is a real choice a
+ * visitor makes and worth measuring separately — but it is not booking
+ * intent, so nothing may translate it into a booking_click_* event.
+ * The paid-social funnels do not use it.
+ */
+export type CtaType = 'demo' | 'strategy_call' | 'assessment';
 
 /**
  * Where on the page a CTA was clicked.
@@ -40,8 +49,13 @@ export type CtaType = 'demo' | 'strategy_call';
  * section. `sticky` is the persistent mobile bar, tracked separately so
  * its contribution can be measured (and the bar removed if it turns out
  * to earn nothing).
+ *
+ * 'mid' is the outbound pages' equivalent of the funnels' 'offer'
+ * placement: the one CTA in the middle of the page. Those pages carry
+ * no offer section, so reusing 'offer' as a label there would be
+ * actively misleading in reporting.
  */
-export type CtaLocation = 'hero' | 'offer' | 'faq' | 'final' | 'sticky';
+export type CtaLocation = 'hero' | 'offer' | 'mid' | 'faq' | 'final' | 'sticky';
 
 export interface FunnelCta {
   /** Button label. MUST differ per vertical — message match matters
