@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { pool, query } from '../src/db/pool.js';
 import { resetDatabase } from './helpers.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
-import { recognisedClaimKeys } from '../src/resolver/signals.js';
+import { recognisedClaimKeys, profileTermClaimKeys } from '../src/resolver/signals.js';
 import { promotedAdClaimKeys, EVIDENCE_TTL_HOURS } from '../src/workers/marketMiner.js';
+import { allSignals, isCollectable } from '../src/domain/signalRegistry.js';
 
 /**
  * Every signal a profile declares has something that can write it.
@@ -44,16 +45,18 @@ const NO_SOURCE_YET: Record<string, string> = {
 before(async () => { await resetDatabase(); await syncVerticalProfiles(); });
 after(async () => { await pool.end(); });
 
-/** Keys anything in the product can write, assembled from the writers themselves. */
+/**
+ * Keys anything in the product can write.
+ *
+ * Asked of the canonical registry, which is the one place that knows every producer.
+ * This used to be assembled from two writer maps here, and it therefore could not
+ * see a producer it had not been told about -- it called two profile-term signals
+ * sourceless the moment they gained one.
+ */
 function writableClaimKeys(): Set<string> {
-  return new Set([
-    ...recognisedClaimKeys(),
-    ...promotedAdClaimKeys(),
-    // Written by the person/contact resolver and the importer, which name their
-    // claims inline rather than through a map.
-    'decision_maker_identity', 'contact_no_longer_current', 'imported_contact_title',
-    'excluded_from_targeting',
-  ]);
+  return new Set(allSignals()
+    .filter((signal) => isCollectable(signal.id))
+    .map((signal) => signal.id));
 }
 
 async function declaredClaimKeys(): Promise<Map<string, string[]>> {

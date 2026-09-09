@@ -45,6 +45,8 @@ function pack(overrides: Partial<CallPack> = {}): CallPack {
     likelyObjections: [],
     knownSystems: [],
     noSaleConditions: [],
+    primaryHookOrder: [],
+    primaryHookSource: 'NONE',
     prohibitedClaims: [
       'Do not state or estimate their advertising spend.',
       'Do not position this as replacing or reducing their staff.',

@@ -262,6 +262,13 @@ public_signal_rules:
     possible_hypothesis_ids:
       - reactivation
     score_rule_reference: vertical_priority_signal_only
+  - signal_id: call_tracking_signal
+    category: systems
+    evidence_claim_key: call_tracking_vendor_on_site
+    confidence_required: confirmed
+    why_it_matters: A call-tracking vendor named on their own site means calls are already being measured.
+    possible_hypothesis_ids:
+      - attribution_gap
 
 customer_journey:
   - stage_id: problem_occurs
@@ -318,7 +325,9 @@ leak_hypotheses:
     category: after_hours
     title: Paid urgent-call handling
     description: Paid/urgent plumbing calls may require immediate capture/recovery when office staff are tied up or after hours.
-    trigger_signals: [active_google_search_ads, emergency_24_7, strong_phone_dependence]
+    trigger_signals: [active_google_search_ads, emergency_24_7]
+    aspirational_trigger_signals:
+      - strong_phone_dependence
     disqualifying_signals: [prospect_confirms_strong_live_answer_overflow]
     public_fact_requirements: [fresh_paid_ad_evidence_if_ad_referenced]
     questions_to_verify:
@@ -404,7 +413,7 @@ leak_hypotheses:
     category: reactivation
     title: Past-customer / old-estimate reactivation
     description: Past customers, memberships and old estimates may contain legitimate future service opportunities if contact permissions/workflows allow.
-    trigger_signals: [membership_program, recurring_service_model, larger_estimate_services]
+    trigger_signals: [membership_program, high_value_drain_sewer_repipe]
     disqualifying_signals: [prospect_confirms_strong_reactivation_program]
     public_fact_requirements: []
     questions_to_verify:
@@ -438,26 +447,32 @@ derived_signals:
 # Roles.
 decision_maker_roles:
   - role_category: owner
+    canonical_role_category: owner
     titles: [owner, founder, president]
     relevant_hypothesis_ids: [paid_urgent_call_handling, larger_estimate_follow_up, attribution_gap, employee_capacity]
     priority: 1
   - role_category: general_manager
+    canonical_role_category: general_manager
     titles: [general manager, GM]
     relevant_hypothesis_ids: [paid_urgent_call_handling, employee_capacity, attribution_gap]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [operations manager, service manager, dispatch manager]
     relevant_hypothesis_ids: [paid_urgent_call_handling, employee_capacity, crm_capture]
     priority: 1
   - role_category: sales
+    canonical_role_category: sales
     titles: [sales manager, estimator manager]
     relevant_hypothesis_ids: [larger_estimate_follow_up]
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [marketing manager, marketing director]
     relevant_hypothesis_ids: [attribution_gap, speed_to_lead]
     priority: 1
   - role_category: office_manager
+    canonical_role_category: office_manager
     titles: [office manager, CSR manager]
     relevant_hypothesis_ids: [paid_urgent_call_handling, employee_capacity]
     priority: 2
@@ -574,6 +589,7 @@ roi_tools:
 
 objection_guidance:
   - objection_id: answering_service
+    overrides_generic_objection: receptionist
     match_phrases: [our answering service handles after hours, we have an answering service]
     principle: Do not replace what works. Diagnose whether it creates a structured next step and visibility.
     response_guidance: Ask whether it creates a structured lead, captures needed information and gives management visibility into response/booking.
@@ -582,6 +598,7 @@ objection_guidance:
     must_not_say: [answering_services_are_bad]
     manual_reference: module-11 section 29
   - objection_id: existing_field_service_software
+    overrides_generic_objection: crm
     match_phrases: [we have ServiceTitan, we use Housecall Pro, we use Jobber, we already have software]
     principle: Software ownership is not the same as workflow quality, but do not criticize unreviewed platforms.
     response_guidance: Ask what the system does well and what they wish it did better.
@@ -590,6 +607,7 @@ objection_guidance:
     must_not_say: [you_need_our_crm_instead]
     manual_reference: module-11 section 29
   - objection_id: dispatchers_handle_it
+    overrides_generic_objection: receptionist
     match_phrases: [our dispatchers handle that]
     principle: Preserve judgment-heavy dispatch; investigate repetitive surrounding work.
     response_guidance: Focus on repetitive communication/data work that may create capacity.

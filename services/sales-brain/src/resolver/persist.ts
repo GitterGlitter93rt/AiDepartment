@@ -88,9 +88,18 @@ export async function persistResolution(
     (identity): identity is DecisionMakerIdentity => Boolean(identity),
   );
 
+  // Read once: the vertical's declared titles are what let a role the ladder could
+  // not place be placed anyway.
+  const { rows: verticalRows } = await client.query<{ vertical: string | null }>(
+    'select primary_vertical_profile_id as vertical from accounts where account_id = $1',
+    [accountId],
+  );
+  const verticalProfileId = verticalRows[0]?.vertical ?? null;
+
   for (let index = 0; index < identities.length; index += 1) {
     const identity = identities[index]!;
-    const contactId = await upsertIdentity(client, accountId, identity, index, researchRunId, result);
+    const contactId = await upsertIdentity(
+      client, accountId, identity, index, researchRunId, result, verticalProfileId);
     if (index === 0) result.primaryContactId = contactId;
   }
 
@@ -138,6 +147,7 @@ export async function persistResolution(
 async function upsertIdentity(
   client: pg.PoolClient, accountId: string, identity: DecisionMakerIdentity,
   index: number, researchRunId: string | null, result: PersistResult,
+  verticalProfileId: string | null,
 ): Promise<string | null> {
   if (identity.isRolePlaceholder) {
     // A role target is stored as a contact row so the portal can render
@@ -167,6 +177,22 @@ async function upsertIdentity(
     [accountId, fullName],
   );
 
+  // The resolver decides a role from the relationship ladder, which is a different
+  // and usually better route than a job title. Where it could not decide, the
+  // vertical's own declared titles get a turn -- "Managing Partner" is a role a law
+  // firm profile knows and a ladder does not. A confident decision is never
+  // overridden, and the raw title is untouched in both cases.
+  const { classifyRole } = await import('../domain/roles.js');
+  const titleRole = identity.roleCategory === 'unknown'
+    ? await classifyRole({ rawTitle: identity.rawTitle, verticalProfileId })
+    : null;
+  const roleCategory = titleRole && titleRole.canonicalRoleCategory !== 'unknown'
+    ? titleRole.canonicalRoleCategory
+    : identity.roleCategory;
+  const classifiedBy = titleRole && titleRole.canonicalRoleCategory !== 'unknown'
+    ? titleRole.classifiedBy
+    : null;
+
   let contactId: string;
   if (existing[0]) {
     // Never resurrect someone a gatekeeper said had left.
@@ -174,17 +200,20 @@ async function upsertIdentity(
     contactId = existing[0].contact_id;
     await client.query(
       `update contacts set raw_title = coalesce($2, raw_title), role_category = $3,
+                           normalized_title = coalesce($12, normalized_title),
+                           role_classified_by = coalesce($13, role_classified_by),
                            company_relationship = $4, employer_match = $5, role_match = $6,
                            currentness = $7, role_confidence = $8, decision_maker_priority = $9,
                            source_provider = $10, source_reference = $11, last_verified_at = now(),
                            refresh_due_at = now() + interval '30 days'
         where contact_id = $1`,
       [
-        contactId, identity.rawTitle, identity.roleCategory,
+        contactId, identity.rawTitle, roleCategory,
         relationshipToCompanyRelationship(identity.relationship),
         identity.employerMatch, identity.roleMatch, identity.currentness,
         roleConfidenceFor(identity), decisionMakerPriorityFor(identity, index),
         bestSource?.sourceClass ?? 'public_resolver', bestSource?.sourceReference ?? null,
+        titleRole?.normalizedTitle ?? null, classifiedBy,
       ],
     );
   } else {
@@ -192,15 +221,18 @@ async function upsertIdentity(
       `insert into contacts (account_id, first_name, last_name, full_name, raw_title, role_category,
                              company_relationship, scope, employer_match, role_match, currentness,
                              role_confidence, decision_maker_priority, source_provider,
-                             source_reference, observed_at, last_verified_at, refresh_due_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now(), now(), now() + interval '30 days')
+                             source_reference, observed_at, last_verified_at, refresh_due_at,
+                             normalized_title, role_classified_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now(), now(),
+               now() + interval '30 days', $16, $17)
        returning contact_id`,
       [
-        accountId, first, last, fullName, identity.rawTitle, identity.roleCategory,
+        accountId, first, last, fullName, identity.rawTitle, roleCategory,
         relationshipToCompanyRelationship(identity.relationship), identity.scope,
         identity.employerMatch, identity.roleMatch, identity.currentness,
         roleConfidenceFor(identity), decisionMakerPriorityFor(identity, index),
         bestSource?.sourceClass ?? 'public_resolver', bestSource?.sourceReference ?? null,
+        titleRole?.normalizedTitle ?? null, classifiedBy,
       ],
     );
     contactId = rows[0]!.contact_id;

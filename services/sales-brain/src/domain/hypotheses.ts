@@ -18,7 +18,8 @@ import { getVerticalProfile } from './verticals.js';
  * Nothing here is invented. The sentence a rep reads is the profile's own
  * `description`. The questions are its `questions_to_verify`. Which hypotheses apply
  * is decided by `trigger_signals` against evidence we hold, and the order comes from
- * the profile's `hook_priorities`. If a profile says nothing, this produces nothing.
+ * the sequence the author wrote them in. If a profile says nothing, this produces
+ * nothing. Hook ordering is a separate dimension and lives in `domain/hooks.ts`.
  */
 
 /** Categories `opportunity_hypotheses` accepts, from migration 006. */
@@ -26,7 +27,12 @@ const SCHEMA_CATEGORIES = new Set([
   'missed_call', 'after_hours', 'speed_to_lead', 'follow_up', 'unsold_estimate',
   'crm_workflow', 'attribution', 'website_conversion', 'paid_acquisition',
   'reactivation', 'employee_capacity', 'reporting', 'integration',
-  'appointment_no_show', 'customer_communication', 'other',
+  'appointment_no_show', 'customer_communication',
+  // Added in migration 047. These were being collapsed into 'other', which meant a
+  // call pack could not tell an intake problem from an administrative one and
+  // analytics saw four different problems as the same non-answer.
+  'intake', 'capacity', 'governance', 'repetitive_admin',
+  'other',
 ]);
 
 /**
@@ -46,10 +52,13 @@ const CATEGORY_SYNONYMS: Record<string, string> = {
 };
 
 /**
- * Concepts the profiles introduce that the schema has no category for. Named here so
- * the gap is a list somebody can act on rather than a silent 'other'.
+ * Concepts that once had no home in the schema and now do.
+ *
+ * Kept as a named list because the round-trip test asserts these four specifically:
+ * they are the ones that were being collapsed, and the point of migration 047 is
+ * that they survive from the profile through persistence to the call pack.
  */
-export const UNMAPPED_CATEGORIES = ['intake', 'capacity', 'governance', 'repetitive_admin'];
+export const PROMOTED_CATEGORIES = ['intake', 'capacity', 'governance', 'repetitive_admin'];
 
 export function storedCategory(profileCategory: string): string {
   const mapped = CATEGORY_SYNONYMS[profileCategory] ?? profileCategory;
@@ -182,12 +191,8 @@ export async function deriveHypotheses(accountId: string): Promise<DerivedHypoth
     evidenceForSignal(signalId).length > 0
     || held.confirmedCategories.has(String(signalId));
 
-  const priorities = new Map<string, any>();
-  for (const hook of profile.hook_priorities ?? []) {
-    if (typeof hook?.hook_family === 'string') priorities.set(hook.hook_family, hook);
-  }
-
   const derived: DerivedHypothesis[] = [];
+  let declarationIndex = 0;
 
   for (const hypothesis of profile.leak_hypotheses ?? []) {
     const hypothesisId = String(hypothesis?.hypothesis_id ?? '');
@@ -211,21 +216,23 @@ export async function deriveHypotheses(accountId: string): Promise<DerivedHypoth
     // is not a reason to call this one.
     if (matchedSignals.length === 0) continue;
 
-    const hook = priorities.get(hypothesisId);
-    // `avoid_if` is the hook model's own veto, separate from the hypothesis's
-    // disqualifying signals.
-    const avoided = (hook?.avoid_if ?? []).some((signal: unknown) => signalObserved(signal));
-    if (avoided) continue;
-
-    // Readers order by priority ascending, so a boost lowers the number.
-    let priority = Number(hook?.base_priority ?? 50);
-    if (!Number.isFinite(priority)) priority = 50;
-    for (const signal of hook?.boost_if_signals ?? []) {
-      if (signalObserved(signal)) priority -= 1;
-    }
-    for (const signal of hook?.demote_if_signals ?? []) {
-      if (signalObserved(signal)) priority += 1;
-    }
+    // Order comes from the sequence the author wrote, and from nothing else.
+    //
+    // This used to read `hook_priorities[].base_priority`, which was wrong twice
+    // over. That field is the *hook* dimension and `src/domain/hooks.ts` is now its
+    // only reader; and it means higher-is-more-important, while this sorted it
+    // ascending -- so where it matched at all it put the weakest reason to call
+    // first. It mostly did not match: three of five roofing hook families are named
+    // differently from the hypotheses they belong to, and nothing in any profile
+    // links a hypothesis to a family, so most hypotheses fell to a default and were
+    // ordered by accident.
+    //
+    // Declaration order is the author's sequence and needs no linkage to be
+    // meaningful. Linking hooks to hypotheses would need a field the profiles do not
+    // declare, which is an authoring decision rather than something to infer from
+    // similar names.
+    declarationIndex += 1;
+    const priority = declarationIndex;
 
     const sourceCategory = String(hypothesis?.category ?? 'other');
     const text = String(hypothesis?.description ?? hypothesis?.title ?? '').trim();

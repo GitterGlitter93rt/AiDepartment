@@ -239,6 +239,7 @@ export function availableDiscoveryAdapters(): DiscoveryAdapter[] {
 export const EVIDENCE_TTL_HOURS: Record<string, number> = {
   active_google_search_ad: 48,
   active_local_service_ad: 48,
+  active_hail_search_ad: 48,
   active_meta_ad: 48,
   ad_transparency: 24 * 7,
   website_offer: 24 * 7,
@@ -268,8 +269,23 @@ export function evidenceTtlHours(claimKey: string): number {
  * put it under. It stays an observation.
  */
 export function promotedAdClaimKeys(): string[] {
-  return [...new Set(Object.values(AD_CLAIM_BY_RESULT_TYPE).map((entry) => entry.claimKey))];
+  return [...new Set([
+    ...Object.values(AD_CLAIM_BY_RESULT_TYPE).map((entry) => entry.claimKey),
+    HAIL_AD_CLAIM,
+  ])];
 }
+
+/**
+ * A paid ad whose own headline names hail or storm work.
+ *
+ * pdr-hail triggers on `active_hail_ads`, which nothing declared or produced. This
+ * is narrower than `active_google_search_ad` and it is evidenced rather than
+ * inferred: the headline is a field the provider gave us and we already store it, so
+ * the claim is "their ad said hail", not "they are a hail company because of their
+ * trade".
+ */
+const HAIL_AD_CLAIM = 'active_hail_search_ad';
+const HAIL_AD_HEADLINE = /\bhail\b|\bstorm damage\b|\bwind (?:and|&) hail\b/i;
 
 const AD_CLAIM_BY_RESULT_TYPE: Record<string, { claimKey: string; what: string }> = {
   PAID_SEARCH_TEXT: { claimKey: 'active_google_search_ad', what: 'A paid Google search result' },
@@ -1048,6 +1064,29 @@ async function ingestDiscoveries(
           notes: business.adHeadline ?? null,
         });
         counts.adEvidenceWritten += 1;
+
+        // The same placement, said more precisely, when their own headline says so.
+        // Written as its own claim rather than replacing the general one: a hail ad
+        // is still a Google search ad, and both facts are true of the same sighting.
+        if (business.adHeadline && HAIL_AD_HEADLINE.test(business.adHeadline)) {
+          await recordEvidence(client, {
+            accountId: result.accountId,
+            category: 'surge',
+            claimKey: HAIL_AD_CLAIM,
+            claimText: `A paid result for "${business.query ?? 'this company'}" carried `
+              + `the headline "${business.adHeadline.slice(0, 120)}" on ${when}.`,
+            normalizedValue: 'yes',
+            confidence: 'confirmed',
+            canStateAsFact: true,
+            sourceType: 'provider_serp',
+            sourceProvider: providerName,
+            sourceReference: `serp://${providerName}/${business.query ?? ''}`,
+            expiresAt: new Date(
+              observedAt.getTime() + evidenceTtlHours(HAIL_AD_CLAIM) * 3_600_000),
+            notes: business.adHeadline,
+          });
+          counts.adEvidenceWritten += 1;
+        }
       }
 
       if (job.market_id) {

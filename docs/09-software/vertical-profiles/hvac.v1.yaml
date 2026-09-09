@@ -263,6 +263,27 @@ public_signal_rules:
       - employee_capacity
       - surge_capacity
     score_rule_reference: module4c_growth_plus1
+  - signal_id: replacement_service_focus
+    category: high_value_service
+    evidence_claim_key: replacement_service_focus
+    confidence_required: confirmed
+    why_it_matters: Read from the term list this profile already declares under derived_signals, so the words are the trade's own.
+    possible_hypothesis_ids:
+      - unsold_replacement_estimates
+  - signal_id: crm_frontend_signal
+    category: systems
+    evidence_claim_key: crm_frontend_on_site
+    confidence_required: confirmed
+    why_it_matters: A named booking or field-service system on their own site, from the examples this profile already lists. The claim is that the name was seen, not that the company runs it everywhere.
+    possible_hypothesis_ids:
+      - crm_capture
+  - signal_id: call_tracking_signal
+    category: systems
+    evidence_claim_key: call_tracking_vendor_on_site
+    confidence_required: confirmed
+    why_it_matters: A call-tracking vendor named on their own site means calls are already being measured.
+    possible_hypothesis_ids:
+      - attribution_gap
 
 customer_journey:
   - stage_id: demand
@@ -379,6 +400,7 @@ leak_hypotheses:
     trigger_signals:
       - active_google_search_ads
       - emergency_24_7
+    aspirational_trigger_signals:
       - strong_phone_dependence
     disqualifying_signals:
       - prospect_confirms_strong_after_hours_process
@@ -559,26 +581,32 @@ derived_signals:
 # Stakeholder map.
 decision_maker_roles:
   - role_category: owner
+    canonical_role_category: owner
     titles: [owner, founder, president]
     relevant_hypothesis_ids: [paid_after_hours_call_handling, unsold_replacement_estimates, attribution_gap, employee_capacity]
     priority: 1
   - role_category: general_manager
+    canonical_role_category: general_manager
     titles: [general manager, GM]
     relevant_hypothesis_ids: [paid_after_hours_call_handling, crm_capture, employee_capacity, reporting_visibility]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [operations manager, director of operations, service manager]
     relevant_hypothesis_ids: [paid_after_hours_call_handling, crm_capture, employee_capacity]
     priority: 1
   - role_category: sales
+    canonical_role_category: sales
     titles: [sales manager, comfort advisor manager, replacement sales manager]
     relevant_hypothesis_ids: [unsold_replacement_estimates, lead_follow_up]
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [marketing manager, marketing director]
     relevant_hypothesis_ids: [attribution_gap, speed_to_lead]
     priority: 1
   - role_category: office_manager
+    canonical_role_category: office_manager
     titles: [office manager, CSR manager, call center manager, dispatch manager]
     relevant_hypothesis_ids: [paid_after_hours_call_handling, employee_capacity, crm_capture]
     priority: 2
@@ -720,6 +748,7 @@ roi_tools:
 
 objection_guidance:
   - objection_id: already_servicetitan
+    overrides_generic_objection: crm
     match_phrases: [we use ServiceTitan, already have ServiceTitan]
     principle: Do not replace a strong incumbent system without a business reason.
     response_guidance: A strong field-service platform may already solve a lot. Diagnose whether marketing, phone handling, follow-up, attribution, reporting and usage are connected well.
@@ -730,6 +759,7 @@ objection_guidance:
       - You need our CRM instead
     manual_reference: module-10 section 36
   - objection_id: answering_service
+    overrides_generic_objection: receptionist
     match_phrases: [we have an answering service]
     principle: Determine what the current service actually accomplishes.
     response_guidance: Ask whether it only takes a message or can qualify, schedule, route and create a tracked next step.
@@ -739,6 +769,7 @@ objection_guidance:
       - answering services do not work
     manual_reference: module-10 section 37
   - objection_id: dispatchers_handle_it
+    overrides_generic_objection: receptionist
     match_phrases: [our dispatchers handle that, dispatch handles that]
     principle: Do not attack dispatchers. Investigate repetitive work around true judgment-heavy dispatch functions.
     response_guidance: Ask what repetitive communication/data tasks keep dispatchers from exceptions and route decisions.

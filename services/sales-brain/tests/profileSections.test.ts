@@ -87,10 +87,10 @@ const SECTIONS: Record<string, { verdict: Verdict; reason: string }> = {
       + 'only... do not add hidden points". Nothing reading it is the declared '
       + 'behaviour, and the test below fails if a profile ever enables one, because '
       + 'nothing would honour it.' },
-  derived_signals: { verdict: 'NOT_RUNTIME',
-    reason: 'Website terms and CRM examples a human can use when writing a recogniser. '
-      + 'The recognisers live in code with their own phrase lists and TTLs, and the '
-      + 'signal-coverage guard is what keeps those honest.' },
+  derived_signals: { verdict: 'RUNTIME',
+    reason: 'Term lists the trade wrote for its own signals -- hvac\'s replacement '
+      + 'wording, the CRM examples several trades share. Read by the profile-term '
+      + 'recognisers, so a new term is an authoring change rather than a code one.' },
   practice_area_taxonomy: { verdict: 'NOT_RUNTIME',
     reason: 'Which practice areas the law-firm profile covers first: a scoping list for '
       + 'people. Query planning reads search_taxonomy.' },
@@ -249,13 +249,10 @@ test('a trigger names a signal its own profile declares', async () => {
   //
   // Pinned separately so the piles can only shrink, and so a new dangling reference
   // is not mistaken for a missing data source.
-  const { recognisedClaimKeys } = await import('../src/resolver/signals.js');
-  const { promotedAdClaimKeys } = await import('../src/workers/marketMiner.js');
-  const writable = new Set([
-    ...recognisedClaimKeys(), ...promotedAdClaimKeys(),
-    'decision_maker_identity', 'contact_no_longer_current', 'imported_contact_title',
-    'excluded_from_targeting',
-  ]);
+  // Asked of the registry rather than assembled here. An ad-hoc set of writers
+  // cannot see a producer it does not know about, which is why this test called two
+  // profile-term signals sourceless the moment they gained one.
+  const { isKnownSignal, isCollectable } = await import('../src/domain/signalRegistry.js');
 
   const { rows } = await query<{ definition: any }>(
     'select definition from vertical_profiles where is_active');
@@ -274,23 +271,24 @@ test('a trigger names a signal its own profile declares', async () => {
     for (const hypothesis of profile.leak_hypotheses ?? []) {
       for (const trigger of hypothesis?.trigger_signals ?? []) {
         const id = String(trigger);
-        const claimKey = claimFor.get(id);
-        if (claimKey) {
-          if (writable.has(claimKey)) reachable += 1;
-          else needsSource.add(claimKey);
-        } else if (writable.has(id)) reachable += 1;
-        else dangling.add(id);
+        // The profile's mapping, or the signal named directly. Either way the
+        // registry decides whether it can be produced.
+        const claimKey = claimFor.get(id) ?? id;
+        if (isCollectable(claimKey)) reachable += 1;
+        else if (isKnownSignal(claimKey)) needsSource.add(claimKey);
+        else dangling.add(claimKey);
       }
     }
   }
 
-  assert.ok(reachable >= 93,
-    `only ${reachable} triggers can fire, down from 93: a signal source was lost`);
+  assert.ok(reachable >= 110,
+    `only ${reachable} triggers can fire, down from 110: a signal source was lost`);
   assert.ok(needsSource.size <= 2,
     `${needsSource.size} declared signals have no writer, up from 2: ${
       [...needsSource].join(', ')}`);
-  assert.ok(dangling.size <= 27,
-    `${dangling.size} triggers name a signal their profile never declares, up from `
-    + `27. A new one is a dangling reference in the document, not a missing data `
-    + `source: ${[...dangling].sort().join(', ')}`);
+  // Repaired to zero, and pinned there. Thirty-seven occurrences across
+  // twenty-seven names were reconciled; the next one is a failure.
+  assert.equal(dangling.size, 0,
+    `${dangling.size} triggers name a signal nothing defines, which was repaired to `
+    + `zero: ${[...dangling].sort().join(', ')}`);
 });

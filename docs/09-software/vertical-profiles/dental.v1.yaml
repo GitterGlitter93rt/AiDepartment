@@ -230,7 +230,7 @@ leak_hypotheses:
     primary_hook_template: I noticed the practice is advertising for {service} in {market}. What happens when one of those inquiries comes in while the front desk is already busy?
     backup_hook_templates:
       - How are missed new-patient inquiries recovered?
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [lead_response_roi]
     must_not_claim: [ad_spend_amount, patient_loss_amount, clinical_suitability]
   - hypothesis_id: scheduling_no_show
@@ -244,7 +244,7 @@ leak_hypotheses:
       - How quickly are open chair slots refilled?
     primary_hook_template: What happens after a patient no-shows or cancels late—does the system recover that slot and follow up automatically?
     backup_hook_templates: []
-    offer_families: [AI_Implementation]
+    offer_families: [ai_implementation]
     roi_tool_ids: [no_show_roi]
     must_not_claim: [every_empty_slot_recoverable]
   - hypothesis_id: unscheduled_treatment
@@ -258,7 +258,7 @@ leak_hypotheses:
       - Can coordinators see next action/status?
     primary_hook_template: What happens when treatment is presented but the patient is not ready to schedule that day?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [unsold_estimate_roi]
     must_not_claim: [pressure_treatment, diagnose_need]
   - hypothesis_id: front_desk_capacity
@@ -271,7 +271,7 @@ leak_hypotheses:
       - What does your best front-desk employee spend hours doing that does not require judgment or relationship skills?
     primary_hook_template: Which repetitive front-desk task would you remove first if the system could handle it reliably?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [replace_staff]
   - hypothesis_id: attribution
@@ -284,24 +284,28 @@ leak_hypotheses:
       - Which campaigns produce completed high-value treatment rather than just calls?
     primary_hook_template: Can you trace your paid campaigns from inquiry through appointment, show, and completed treatment using a privacy-safe business metric?
     backup_hook_templates: []
-    offer_families: [AI_Growth_Systems]
+    offer_families: [ai_growth_systems]
     roi_tool_ids: [attribution_roi]
     must_not_claim: [patient_revenue_without_practice_data]
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles: [Owner Dentist, Practice Owner, Founder]
     relevant_hypothesis_ids: [new_patient_response, front_desk_capacity, attribution]
     priority: 1
   - role_category: practice_administrator
+    canonical_role_category: administrator
     titles: [Practice Administrator, Practice Manager, Office Manager]
     relevant_hypothesis_ids: [new_patient_response, scheduling_no_show, front_desk_capacity]
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [Marketing Director, Marketing Manager]
     relevant_hypothesis_ids: [new_patient_response, attribution]
     priority: 2
   - role_category: other_relevant
+    canonical_role_category: unknown
     titles: [Treatment Coordinator, New Patient Coordinator]
     relevant_hypothesis_ids: [unscheduled_treatment, scheduling_no_show]
     priority: 2
@@ -374,12 +378,12 @@ discovery_question_banks:
 
 offer_mapping:
   - opportunity_category: new_patient_response
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Improve non-clinical inquiry capture, routing, scheduling and follow-up around front-desk staff.
     required_discovery_before_recommending: [inquiry_volume, privacy_requirements, current_phone_schedule_systems]
     do_not_recommend_if: [strong_existing_workflow]
   - opportunity_category: employee_capacity
-    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    possible_offer_families: [ai_implementation, managed_ai_department]
     positioning: Reduce repetitive administrative workload while patient relationships and clinical decisions remain human.
     required_discovery_before_recommending: [task_volume, privacy_scope, system_access]
     do_not_recommend_if: [privacy_or_security_requirements_not_met]

@@ -1,4 +1,5 @@
 import type { CallPack } from './callPack.js';
+import type { EffectiveObjection } from './objections.js';
 import type { AvailableTools, CallContext, CallState } from './stateMachine.js';
 import { fenceUntrusted, untrustedBlock } from './untrusted.js';
 
@@ -99,6 +100,16 @@ export interface PromptInput {
   context: CallContext;
   agentName: string;
   tools: AvailableTools;
+  /**
+   * The objection guidance in force, already resolved.
+   *
+   * Resolved by `callbrain/objections.ts` because it needs the vertical profile,
+   * which is a database read this function must not do. Passing it in keeps one
+   * answer per objection with its origin attached; omitting it falls back to the
+   * generic engine alone, which is what every caller did before a vertical's own
+   * guidance was read at all.
+   */
+  objections?: EffectiveObjection[];
 }
 
 export function composeSystemPrompt(input: PromptInput): string {
@@ -202,7 +213,28 @@ export function composeSystemPrompt(input: PromptInput): string {
     '',
   );
 
-  const objectionKeys = relevantObjections(context);
+  // Vertical guidance supplements the generic engine: one answer per objection, the
+  // specific one where a trade wrote its own, and the origin said out loud so a
+  // reviewer can see which layer spoke.
+  if (input.objections && input.objections.length > 0) {
+    sections.push('## If they push back');
+    for (const objection of input.objections) {
+      const label = objection.origin === 'GENERIC_CORE'
+        ? '' : ` (${input.pack.vertical ?? 'vertical'} guidance)`;
+      sections.push(`- ${objection.intent.replace(/_/g, ' ')}${label}: `
+        + objection.response);
+      if (objection.principle) sections.push(`  Principle: ${objection.principle}`);
+      for (const question of objection.followUpQuestions.slice(0, 2)) {
+        sections.push(`  Ask: ${question}`);
+      }
+      for (const claim of objection.mustNotSay) {
+        sections.push(`  Do not say: ${claim}`);
+      }
+    }
+    sections.push('');
+  }
+
+  const objectionKeys = input.objections ? [] : relevantObjections(context);
   if (objectionKeys.length > 0) {
     sections.push(
       '## Handling what they just raised',

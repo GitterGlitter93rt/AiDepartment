@@ -65,6 +65,17 @@ export interface CallPack {
    * must not be made.
    */
   noSaleConditions: string[];
+  /**
+   * The trade's own hook families, most important first, from the one authority for
+   * that order.
+   *
+   * Carried on the pack because a resolver nothing reads is the defect this whole
+   * contract exists to end: `preferred_primary_hook_order` was authoritative and
+   * unread, while a second field was read in the wrong direction.
+   */
+  primaryHookOrder: string[];
+  /** Whether the trade stated that order or it was read from its priority numbers. */
+  primaryHookSource: string;
   allowedNextSteps: string[];
   /** Every offer family we may mention, from the repo's commercial truth. */
   commercialTruth: string;
@@ -206,6 +217,11 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
   // a grader checks the exit was respectful -- but it never had the list of what
   // counts as no sale in this trade, so "they demand guaranteed sales" and "their
   // goal is replacing staff" were conditions only a human would recognise.
+  // The one authority for hook order, resolved once here rather than by each
+  // consumer reading two fields and deciding which wins.
+  const { primaryHookOrderFor } = await import('../domain/hooks.js');
+  const hookOrder = await primaryHookOrderFor(account.primary_vertical_profile_id);
+
   const noSaleConditions = (profile?.no_sale_conditions ?? [])
     .map((condition: unknown) => String(condition).replace(/_/g, ' ').trim())
     .filter((condition: string) => condition.length > 0);
@@ -278,6 +294,8 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     knownSystems: systemRows.map((row) => row.normalized_value),
     prohibitedClaims,
     noSaleConditions,
+    primaryHookOrder: hookOrder?.families ?? [],
+    primaryHookSource: hookOrder?.source ?? 'NONE',
     allowedNextSteps: [
       'Book a short strategy call with Michael',
       'Agree a specific callback time',

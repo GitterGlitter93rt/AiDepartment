@@ -237,6 +237,13 @@ public_signal_rules:
     possible_hypothesis_ids:
       - field_lead_capture
     score_rule_reference: vertical_priority_signal_only
+  - signal_id: active_hail_ads
+    category: paid_acquisition
+    evidence_claim_key: active_hail_search_ad
+    confidence_required: confirmed
+    why_it_matters: A paid result whose own headline names hail. Narrower than a general search ad and evidenced by the headline the provider returned.
+    possible_hypothesis_ids:
+      - appointment_no_show
 
 customer_journey:
   - stage_id: storm_event
@@ -447,6 +454,7 @@ leak_hypotheses:
 
 decision_maker_roles:
   - role_category: owner_operator
+    canonical_role_category: owner
     titles:
       - owner
       - president
@@ -457,6 +465,7 @@ decision_maker_roles:
       - market_attribution
     priority: 1
   - role_category: market_operations
+    canonical_role_category: operations
     titles:
       - operations manager
       - market manager
@@ -467,6 +476,7 @@ decision_maker_roles:
       - market_launch_repeatability
     priority: 1
   - role_category: sales_management
+    canonical_role_category: sales
     titles:
       - sales manager
       - field sales manager
@@ -477,6 +487,7 @@ decision_maker_roles:
       - market_attribution
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles:
       - marketing manager
       - growth manager
@@ -485,6 +496,7 @@ decision_maker_roles:
       - market_attribution
     priority: 2
   - role_category: office_admin
+    canonical_role_category: office_manager
     titles:
       - office manager
       - appointment coordinator

@@ -226,7 +226,7 @@ leak_hypotheses:
     primary_hook_template: I noticed you're advertising for {service} in {market}. What happens when a qualified project lead comes in and the estimator doesn't connect on the first attempt?
     backup_hook_templates:
       - How are web project inquiries assigned and followed up?
-    offer_families: [AI_Growth_Systems, AI_Implementation]
+    offer_families: [ai_growth_systems, ai_implementation]
     roi_tool_ids: [lead_response_roi]
     must_not_claim: [ad_spend_amount, lost_lead_count, guaranteed_conversion]
   - hypothesis_id: proposal_follow_up
@@ -241,7 +241,7 @@ leak_hypotheses:
     primary_hook_template: What happens to a remodeling proposal that doesn't close during the first conversation?
     backup_hook_templates:
       - Can management see open proposal value by age?
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [unsold_estimate_roi]
     must_not_claim: [all_open_proposals_recoverable]
   - hypothesis_id: lead_qualification
@@ -255,7 +255,7 @@ leak_hypotheses:
       - What information is collected before scheduling the site visit?
     primary_hook_template: How are project inquiries qualified before they consume estimator time?
     backup_hook_templates: []
-    offer_families: [AI_Implementation]
+    offer_families: [ai_implementation]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [AI_should_accept_projects]
   - hypothesis_id: employee_capacity
@@ -268,7 +268,7 @@ leak_hypotheses:
       - What does your best project manager or estimator spend time on that does not require their judgment?
     primary_hook_template: What repetitive admin would you remove first from your project managers or estimators?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [staff_replacement]
   - hypothesis_id: attribution
@@ -281,28 +281,33 @@ leak_hypotheses:
       - Can you trace Google Ads from inquiry through signed project?
     primary_hook_template: Can you tie your paid lead sources all the way to signed projects rather than just form submissions?
     backup_hook_templates: []
-    offer_families: [AI_Growth_Systems]
+    offer_families: [ai_growth_systems]
     roi_tool_ids: [attribution_roi]
     must_not_claim: [agency_is_wasting_money]
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles: [Owner, Founder, President]
     relevant_hypothesis_ids: [proposal_follow_up, employee_capacity, attribution]
     priority: 1
   - role_category: general_manager
+    canonical_role_category: general_manager
     titles: [General Manager, GM]
     relevant_hypothesis_ids: [paid_lead_response, proposal_follow_up, employee_capacity]
     priority: 1
   - role_category: sales_leadership
+    canonical_role_category: sales
     titles: [Sales Manager, Director of Sales, Estimating Manager]
     relevant_hypothesis_ids: [proposal_follow_up, lead_qualification]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [Operations Manager, Director of Operations]
     relevant_hypothesis_ids: [employee_capacity, reporting_visibility]
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [Marketing Director, Marketing Manager]
     relevant_hypothesis_ids: [paid_lead_response, attribution]
     priority: 2
@@ -374,12 +379,12 @@ discovery_question_banks:
 
 offer_mapping:
   - opportunity_category: proposal_follow_up
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Improve the proposal pipeline, next actions, reminders and reporting around the existing sales team.
     required_discovery_before_recommending: [proposal_volume, current_followup, systems]
     do_not_recommend_if: [strong_current_workflow]
   - opportunity_category: employee_capacity
-    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    possible_offer_families: [ai_implementation, managed_ai_department]
     positioning: Reduce repetitive project/estimating admin while human judgment remains with the team.
     required_discovery_before_recommending: [task_volume, systems, human_review]
     do_not_recommend_if: [weak_economics]
@@ -398,6 +403,7 @@ roi_tools:
 
 objection_guidance:
   - objection_id: project_management_software_already
+    overrides_generic_objection: crm
     match_phrases: [we already have project management software, we already have a CRM]
     principle: existing_system_positive
     response_guidance: Map whether the current system handles lead capture, proposal follow-up, handoffs and reporting before adding anything.

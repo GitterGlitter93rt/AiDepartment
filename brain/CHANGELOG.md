@@ -1,5 +1,91 @@
 # Operational Brain Changelog
 
+## 2026-09-08 — The profiles and the runtime speaking one language
+
+The seven product decisions the sweep had deliberately left open, now
+made and implemented. The goal was not a count reaching zero: it was that
+anything ChatGPT authors for a vertical actually works when a rep opens
+an Account.
+
+**A canonical contract first.** `src/domain/signalRegistry.ts` says, for
+every executable signal, what it means, whose fact it is, what states it
+may be in, who can produce it, what capability it would need, and what
+its absence means. `src/domain/profileContract.ts` validates every active
+profile against it and `npm run profiles:validate` fails on a reference
+nothing defines. The distinction it exists to keep: **an unknown
+reference is a typo and a known reference with no source is a
+purchase.** Collapsing those is how twenty-seven document defects hid
+behind two missing data feeds. Nearest-name suggestions print as
+diagnostics and are never applied, because fuzzy-matching production
+configuration is how a fact about a market becomes a claim about a
+company.
+
+**Dangling references: 37 occurrences across 27 names, to zero.** Five
+were corrected to the name the profile already uses. Twelve were declared
+with a producer actually implemented -- six first-party recognisers, two
+whose phrases the profile itself supplies, a hail-headline ad promotion,
+and a prospect-statement route. Ten name no measurable fact and moved to
+`aspirational_trigger_signals`, kept as the author's intent rather than
+deleted or faked. No hypothesis lost all its executable triggers.
+
+**Hook ordering was not two authorities disagreeing.** Read the way its
+numbers mean -- roofing's most important hook carries `base_priority:
+10` -- `hook_priorities` and `preferred_primary_hook_order` are identical
+in every vertical that declares both. The conflict was a reading error,
+and it had a live consequence: the hypothesis generator sorted that
+number ascending, so where it matched a hypothesis at all it put the
+weakest reason to call at the top of a rep's screen. It mostly did not
+match, because three of five roofing hook families are named differently
+from the hypotheses they belong to and nothing links them, so most
+hypotheses fell to a default and were ordered by accident. One reader
+now, and an invariant that fails if the two ever diverge.
+
+Then the thing the downstream walk caught: the resolver had been built
+and nothing read it. A resolver nothing reads is the defect this contract
+exists to end, so the order is carried on the call pack with its source.
+
+**Roles kept small and specific at once.** Sixty-five declared roles
+across thirteen trades each carry an explicit `canonical_role_category`
+in the profile, so the mapping is reviewable where the roles are authored
+rather than buried in string heuristics. The runtime taxonomy stayed at
+fifteen. Four things are kept per classification: the raw title exactly
+as the source gave it, the profile's own wording, the canonical category,
+and which route decided. "Managing Partner" files under `owner` instead
+of falling through; "Chief Vibes Officer" is still unknown, which is the
+truth.
+
+**Objections supplement, never replace wholesale.** Generic is the base,
+a vertical answer to the same intent wins, unrelated generic answers
+survive, and nothing is concatenated -- two scripts for one objection is
+worse than either, because the agent then argues with itself in front of
+a prospect. Same-intent detection is explicit: the id equals a generic
+key, or the profile says so.
+
+**Offers in two layers.** A catalog authoritative for what an offer is,
+every product entry tracing to a document, because inventing an offer is
+the one thing this repository forbids outright. Three names the profiles
+use are capabilities rather than products, and every one of the twelve
+lists naming one also names a canonical offer -- so "delivered within an
+offer" is what the documents already said. Seventy-one spelling variants
+normalised away.
+
+**The market and the company, finally apart.** `storm_hail_market_signal`
+is a MARKET fact with no source, so it is UNKNOWN and never false. The
+company half is `storm_hail_service_promoted`, evidenced only by their
+own site. Roofing's market condition moved to a field whose subject rule
+is the opposite one, and ordinary roofing discovery needs no storm
+evidence at all.
+
+**And the categories stopped collapsing.** `intake`, `capacity`,
+`governance` and `repetitive_admin` are stored as themselves, with a
+reconciliation for rows already filed as `other`. Round-tripped from the
+profile through persistence to the call pack.
+
+Five verticals were walked end to end afterwards and the final rep-facing
+text read, not just asserted on: roofing, hvac, law-firms,
+collision-repair and one non-home-service trade. Suite 1697/1697, and
+identical in reverse file order.
+
 ## 2026-09-07 — Failures that told nobody: one file for support, and seven quiet fail-opens
 
 Offline work on `feature/outbound-sales-brain`. Nothing deployed, no call

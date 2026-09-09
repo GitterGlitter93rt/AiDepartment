@@ -88,25 +88,49 @@ A task should appear in only one status section. Dependencies may be referenced 
   **Next action:** A–W are complete, and so is the sweep that followed them. What
   remains needs a credential or a decision, not code.
 
-  **Decisions owed (ChatGPT proposes, Michael approves).** Each is written down where
-  the code would use it, with a test that keeps it visible:
-  1. `decision_maker_roles` vocabulary — 24 profile categories with vertical-specific
-     titles (managing partner, managing broker, canvassing manager, estimator)
-     against `contacts.role_category`'s 15 atomic values, several of the profile's
-     being composites. Today those titles classify as `unknown`.
-  2. `objection_guidance` — does a vertical's own guidance replace or supplement the
-     generic objection responses the prompt carries?
-  3. `offer_mapping` — two offer declarations, no producer. Which is authoritative?
-  4. `call_pack_defaults.preferred_primary_hook_order` — conflicts with
-     `hook_priorities`, which the hypothesis generator uses.
-  5. `storm_hail_market_signal` — a market signal or the company advertising storm
-     work? Different claims about different subjects.
-  6. Four hypothesis categories with no home in the schema vocabulary: `intake`,
-     `capacity`, `governance`, `repetitive_admin` (filed as `other`, author's own word
-     kept in `source_category`).
-  7. 57 of 150 declared hypothesis triggers name a signal no source produces — hail
-     ads, a phone-heavy site, CRM front-end signals, team size. Building those needs
-     data we do not buy today; the count is pinned so it can only fall.
+  **Decisions implemented (no longer owed).** The vertical-profile to runtime
+  semantic contract is closed. Every executable reference a profile makes now
+  resolves to a canonical signal the runtime understands, and profile validation
+  fails loudly on one that does not.
+  1. `decision_maker_roles` — all 65 declared roles carry an explicit
+     `canonical_role_category` in the profile itself. The runtime taxonomy stayed at
+     fifteen categories; the raw title, the profile's own wording, the canonical
+     category and the route that decided are all kept. "Managing Partner" files under
+     `owner` instead of falling through, and `unknown` still means the evidence was
+     insufficient.
+  2. `objection_guidance` — supplements the generic engine. Generic is the base
+     layer, a vertical answer to the same intent replaces it, unrelated generic
+     answers survive, and nothing is concatenated. Same-intent detection is explicit:
+     the id equals a generic key, or the profile declares
+     `overrides_generic_objection`. Nine overrides declared.
+  3. `offer_mapping` — a global catalog authoritative for what an offer is, each
+     entry tracing to a document, plus per-vertical positioning and priority. One
+     resolved model with provenance covering both declaration sites. Seventy-one
+     spelling variants normalised out of the documents.
+  4. Hook ordering — they were never competing. Read the way its numbers mean, higher
+     is more important, and `hook_priorities` agrees exactly with
+     `preferred_primary_hook_order` in every vertical declaring both. The generator
+     had been sorting it ascending, showing a rep the weakest reason first.
+     `domain/hooks.ts` is now its only reader; hypothesis order is the author's
+     declaration sequence; an invariant fails if the two ever diverge.
+  5. `storm_hail_market_signal` — MARKET subject, `SOURCE_UNAVAILABLE`, never false.
+     The company half is `storm_hail_service_promoted`, evidenced only by their own
+     site. Roofing's market condition moved to `market_condition_signals`, whose
+     subject rule is the opposite one. Ordinary roofing discovery needs no storm
+     evidence.
+  6. Hypothesis categories — `intake`, `capacity`, `governance` and
+     `repetitive_admin` are stored as themselves (migration 047, with a
+     reconciliation for rows already collapsed). Round-tripped profile to call pack.
+  7. The 27 dangling references — repaired semantically to **zero**, pinned there.
+     Five corrected to the name the profile already uses, twelve declared with a real
+     producer implemented, ten moved to `aspirational_trigger_signals` as
+     documentation because they name no measurable fact.
+
+  **Deliberately source-unavailable, and modelled truthfully.** `active_meta_ad`
+  needs a Meta ad-library source: not inferred from SERP presence, a Facebook link, a
+  pixel or an observation of unknown age. `storm_hail_market_signal` needs a weather
+  or event feed. Both stay UNKNOWN rather than false, and no writer was fabricated to
+  satisfy a reachability count.
 
   **Credentials owed.** The paid DataForSEO canary (SB-B3) and INPUT-006's retention
   periods, both unchanged.

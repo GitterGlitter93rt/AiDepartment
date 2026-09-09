@@ -224,7 +224,7 @@ leak_hypotheses:
     primary_hook_template: I noticed you handle emergency restoration in {market}. What happens when a new loss call comes in and the on-call team is already tied up?
     backup_hook_templates:
       - How are missed or overflow emergency calls recovered?
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [missed_call_roi]
     must_not_claim: [every_missed_call_is_lost_job, coverage_decision]
   - hypothesis_id: surge_capacity
@@ -237,7 +237,7 @@ leak_hypotheses:
       - What breaks first when a freeze or storm creates several times normal call volume?
     primary_hook_template: When a weather event spikes loss calls, which office or dispatch workflow gets overloaded first?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [specific_surge_volume]
   - hypothesis_id: referral_attribution
@@ -250,7 +250,7 @@ leak_hypotheses:
       - Can you see which plumber/property-manager/referral partners generate completed jobs?
     primary_hook_template: Can you tie referral partners and paid sources all the way to completed restoration jobs?
     backup_hook_templates: []
-    offer_families: [AI_Growth_Systems, AI_Implementation]
+    offer_families: [ai_growth_systems, ai_implementation]
     roi_tool_ids: [attribution_roi]
     must_not_claim: [partner_quality_without_data]
   - hypothesis_id: document_admin
@@ -263,7 +263,7 @@ leak_hypotheses:
       - Which document or customer-information workflow gets chased repeatedly?
     primary_hook_template: Which documentation or status workflow consumes the most office time after the crew is dispatched?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [AI_can_make_coverage_or_claim_decisions]
   - hypothesis_id: customer_status
@@ -276,24 +276,28 @@ leak_hypotheses:
       - Which status call or update does the office repeat most often?
     primary_hook_template: Which customer status question is your office answering over and over during active jobs?
     backup_hook_templates: []
-    offer_families: [AI_Implementation]
+    offer_families: [ai_implementation]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [automatic_job_status_without_reliable_data]
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles: [Owner, Founder, President]
     relevant_hypothesis_ids: [emergency_call_overflow, surge_capacity, referral_attribution]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [Operations Manager, General Manager, Branch Manager]
     relevant_hypothesis_ids: [emergency_call_overflow, surge_capacity, document_admin, customer_status]
     priority: 1
   - role_category: dispatch
+    canonical_role_category: operations
     titles: [Dispatch Manager, Emergency Response Manager]
     relevant_hypothesis_ids: [emergency_call_overflow, surge_capacity]
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [Marketing Director, Business Development Manager]
     relevant_hypothesis_ids: [referral_attribution]
     priority: 2
@@ -362,12 +366,12 @@ discovery_question_banks:
 
 offer_mapping:
   - opportunity_category: emergency_call_overflow
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Add call/overflow intake, acknowledgment, routing and CRM capture around the existing emergency-response team.
     required_discovery_before_recommending: [call_volume, after_hours_process, escalation_rules, systems]
     do_not_recommend_if: [strong_existing_overflow_workflow]
   - opportunity_category: surge_capacity
-    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    possible_offer_families: [ai_implementation, managed_ai_department]
     positioning: Improve temporary administrative and communication capacity around field response.
     required_discovery_before_recommending: [surge_pattern, admin_bottlenecks, systems]
     do_not_recommend_if: [weak_economics]

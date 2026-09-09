@@ -194,7 +194,7 @@ leak_hypotheses:
     primary_hook_template: I noticed you're advertising garage-door repair in {market}. When one of those paid calls comes in and the office can't answer live, what happens next?
     backup_hook_templates:
       - What happens after hours or when several calls hit at once?
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [missed_call_roi]
     must_not_claim: [missed_call_rate, lost_revenue_amount]
   - hypothesis_id: replacement_follow_up
@@ -207,7 +207,7 @@ leak_hypotheses:
       - What happens to a full-door or opener replacement estimate that does not close on the first visit?
     primary_hook_template: Who follows up replacement estimates that don't close during the technician's first visit?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [unsold_estimate_roi]
     must_not_claim: [all_estimates_recoverable]
   - hypothesis_id: scheduling_capacity
@@ -221,7 +221,7 @@ leak_hypotheses:
       - What breaks if call volume doubles?
     primary_hook_template: If call volume doubled tomorrow, what part of scheduling or customer communication would break first?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [staff_replacement]
   - hypothesis_id: attribution
@@ -234,28 +234,33 @@ leak_hypotheses:
       - Can Google Ads be tied to actual completed repair/replacement revenue?
     primary_hook_template: Can you trace a paid search call all the way to the completed garage-door job and revenue?
     backup_hook_templates: []
-    offer_families: [AI_Growth_Systems]
+    offer_families: [ai_growth_systems]
     roi_tool_ids: [attribution_roi]
     must_not_claim: [agency_waste]
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles: [Owner, Founder, President]
     relevant_hypothesis_ids: [missed_call_recovery, replacement_follow_up, scheduling_capacity, attribution]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [Operations Manager, General Manager, Service Manager]
     relevant_hypothesis_ids: [missed_call_recovery, scheduling_capacity]
     priority: 1
   - role_category: office_manager
+    canonical_role_category: office_manager
     titles: [Office Manager, Dispatch Manager, Customer Service Manager]
     relevant_hypothesis_ids: [missed_call_recovery, scheduling_capacity]
     priority: 1
   - role_category: sales_leadership
+    canonical_role_category: sales
     titles: [Sales Manager, Installation Sales Manager]
     relevant_hypothesis_ids: [replacement_follow_up]
     priority: 2
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [Marketing Manager, Marketing Director]
     relevant_hypothesis_ids: [attribution]
     priority: 2
@@ -324,12 +329,12 @@ discovery_question_banks:
 
 offer_mapping:
   - opportunity_category: missed_call_recovery
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Add overflow, acknowledgment, callback and CRM capture around CSRs/dispatch.
     required_discovery_before_recommending: [call_volume, current_overflow, field_service_system]
     do_not_recommend_if: [strong_existing_workflow]
   - opportunity_category: replacement_follow_up
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Standardize next-action tasks and follow-up for replacement opportunities.
     required_discovery_before_recommending: [estimate_volume, current_followup]
     do_not_recommend_if: [minimal_replacement_work]

@@ -6,7 +6,7 @@ import { resetDatabase, makeUser } from './helpers.js';
 import { syncVerticalProfiles, getVerticalProfile } from '../src/domain/verticals.js';
 import { upsertAccount, recordEvidence } from '../src/domain/accounts.js';
 import {
-  deriveHypotheses, storeHypotheses, storedCategory, UNMAPPED_CATEGORIES,
+  deriveHypotheses, storeHypotheses, storedCategory, PROMOTED_CATEGORIES,
 } from '../src/domain/hypotheses.js';
 import { getAccountDetail } from '../src/domain/accountDetail.js';
 
@@ -200,7 +200,7 @@ test('a superseded statement stops disqualifying', async () => {
 
 // ------------------------------------------------------------- the vocabulary ---
 
-test('a category the schema has no word for is filed as other, with its own name kept', () => {
+test('a category the profiles use is stored as itself, not as other', () => {
   assert.equal(storedCategory('sales_follow_up'), 'follow_up',
     'a spelling of an existing category should map, not become other');
   assert.equal(storedCategory('no_show_recovery'), 'appointment_no_show');
@@ -208,9 +208,11 @@ test('a category the schema has no word for is filed as other, with its own name
   assert.equal(storedCategory('customer_status_communication'), 'customer_communication');
   assert.equal(storedCategory('speed_to_lead'), 'speed_to_lead');
 
-  for (const concept of UNMAPPED_CATEGORIES) {
-    assert.equal(storedCategory(concept), 'other',
-      `${concept} was given a home in the schema's vocabulary that nobody chose`);
+  // These four used to collapse into 'other'. Migration 047 gave them a home, so a
+  // call pack can tell an intake problem from an administrative one.
+  for (const concept of PROMOTED_CATEGORIES) {
+    assert.equal(storedCategory(concept), concept,
+      `${concept} is still being collapsed into another category`);
   }
 });
 
@@ -306,4 +308,69 @@ test('a hypothesis is never presented as a fact', async () => {
   assert.deepEqual(rows.map((row) => row.confidence), ['unknown'],
     'nothing observable about a website or an ad tells us what happens inside their '
     + 'office, so a derived hypothesis must not claim confidence');
+});
+
+// ------------------------------- the four categories, all the way through -------
+
+test('a promoted category survives profile, persistence and call pack', async () => {
+  // The lossy collapse: `intake`, `capacity`, `governance` and `repetitive_admin`
+  // describe materially different business problems and all four were stored as
+  // `other`, so analytics, ranking and a call pack could only see "not one of the
+  // ones we named". Migration 047 gave them a home; this walks one the whole way.
+  const { buildCallPack } = await import('../src/callbrain/callPack.js');
+  const accountId = await account('law-firms');
+  // The trigger the governance hypothesis actually declares: their own site saying
+  // they use AI. Seeded through the claim key the profile maps that signal to.
+  const claimKey = await claimKeyFor('law-firms', 'explicit_ai_usage_signal');
+  await evidence(accountId, claimKey, { category: 'systems' });
+
+  const derived = await deriveHypotheses(accountId);
+  const governance = derived.find((item) => item.sourceCategory === 'governance');
+  assert.ok(governance,
+    'law-firms declares a governance hypothesis and it did not derive');
+  assert.equal(governance!.storedCategory, 'governance',
+    'the authoring category was collapsed on the way to storage');
+
+  await storeHypotheses(accountId, derived);
+
+  // Persistence keeps both: what the runtime files it under, and what its author
+  // called it. They agree now, and the second is what makes the promotion checkable.
+  const { rows } = await query<{ category: string; source_category: string }>(
+    `select category, source_category from opportunity_hypotheses
+      where account_id = $1 and is_current and source_hypothesis_id = $2`,
+    [accountId, governance!.hypothesisId]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.category, 'governance');
+  assert.equal(rows[0]!.source_category, 'governance');
+
+  // And it reaches the thing a rep or an agent reads.
+  const pack = await buildCallPack(accountId);
+  const categories = [pack!.primaryHypothesisCategory, pack!.backupHypothesisCategory]
+    .filter(Boolean);
+  assert.ok(categories.length > 0, 'the call pack carries no hypothesis category');
+  const stored = await query<{ category: string }>(
+    `select distinct category from opportunity_hypotheses
+      where account_id = $1 and is_current`, [accountId]);
+  assert.ok(!stored.rows.some((row) => row.category === 'other'),
+    'something still landed in other: '
+    + stored.rows.map((row) => row.category).join(', '));
+});
+
+test('each of the four promoted categories can be stored and read back', async () => {
+  const accountId = await account('roofing');
+  for (const category of PROMOTED_CATEGORIES) {
+    await query(
+      `insert into opportunity_hypotheses
+         (account_id, category, hypothesis_text, source_category, generated_by)
+       values ($1, $2, $3, $2, 'deterministic')`,
+      [accountId, category, `A ${category} problem, stated as itself.`]);
+  }
+  const { rows } = await query<{ category: string; source_category: string }>(
+    `select category, source_category from opportunity_hypotheses
+      where account_id = $1 order by category`, [accountId]);
+  assert.deepEqual(rows.map((row) => row.category), [...PROMOTED_CATEGORIES].sort());
+  for (const row of rows) {
+    assert.equal(row.category, row.source_category,
+      'a category and its authoring word disagree, which is the collapse returning');
+  }
 });

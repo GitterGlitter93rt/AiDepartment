@@ -219,7 +219,7 @@ leak_hypotheses:
     primary_hook_template: I noticed you're advertising {service} in {market}. What happens if one of those paid calls comes in and the office doesn't reach them immediately?
     backup_hook_templates:
       - What happens to electrical calls after hours?
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [missed_call_roi]
     must_not_claim: [missed_call_rate, lost_revenue_amount]
   - hypothesis_id: estimate_follow_up
@@ -233,7 +233,7 @@ leak_hypotheses:
       - Can management see open estimate value by age?
     primary_hook_template: What happens to a larger electrical estimate that doesn't close the first time?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [unsold_estimate_roi]
     must_not_claim: [universal_project_value]
   - hypothesis_id: technician_capacity
@@ -246,7 +246,7 @@ leak_hypotheses:
       - What administrative work are licensed technicians doing that does not require electrical judgment?
     primary_hook_template: What technician admin would you remove first if the system could handle it reliably?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [staff_replacement, automate_electrical_judgment]
   - hypothesis_id: attribution
@@ -259,28 +259,33 @@ leak_hypotheses:
       - Which campaigns produce sold electrical work rather than just calls?
     primary_hook_template: Can you trace your Google campaigns all the way to sold electrical jobs and revenue?
     backup_hook_templates: []
-    offer_families: [AI_Growth_Systems]
+    offer_families: [ai_growth_systems]
     roi_tool_ids: [attribution_roi]
     must_not_claim: [agency_waste]
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles: [Owner, Founder, President]
     relevant_hypothesis_ids: [missed_after_hours, estimate_follow_up, technician_capacity, attribution]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [Operations Manager, Service Manager]
     relevant_hypothesis_ids: [missed_after_hours, technician_capacity]
     priority: 1
   - role_category: office_manager
+    canonical_role_category: office_manager
     titles: [Office Manager, Customer Service Manager]
     relevant_hypothesis_ids: [missed_after_hours]
     priority: 1
   - role_category: sales_leadership
+    canonical_role_category: sales
     titles: [Sales Manager, Comfort Advisor Manager, Project Sales Manager]
     relevant_hypothesis_ids: [estimate_follow_up]
     priority: 2
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [Marketing Manager, Marketing Director]
     relevant_hypothesis_ids: [attribution]
     priority: 2
@@ -349,12 +354,12 @@ discovery_question_banks:
 
 offer_mapping:
   - opportunity_category: missed_call_recovery
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Improve routing, acknowledgment, callback and CRM capture around the existing office/dispatch team.
     required_discovery_before_recommending: [call_volume, current_after_hours, systems]
     do_not_recommend_if: [strong_existing_workflow]
   - opportunity_category: estimate_follow_up
-    possible_offer_families: [AI_Implementation, AI_Growth_Systems]
+    possible_offer_families: [ai_implementation, ai_growth_systems]
     positioning: Standardize next actions and visibility for larger unsold estimates.
     required_discovery_before_recommending: [estimate_volume, current_followup, systems]
     do_not_recommend_if: [minimal_estimate_volume]

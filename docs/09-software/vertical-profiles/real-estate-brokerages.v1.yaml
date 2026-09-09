@@ -227,6 +227,13 @@ public_signal_rules:
       - open_house_capture
       - long_term_nurture
     score_rule_reference: vertical_priority_signal_only
+  - signal_id: home_value_CTA
+    category: pipeline
+    evidence_claim_key: home_valuation_cta
+    confidence_required: confirmed
+    why_it_matters: A home valuation offer is a seller-side capture route, which is what seller follow-up is about.
+    possible_hypothesis_ids:
+      - seller_follow_up
 
 customer_journey:
   - stage_id: demand
@@ -351,8 +358,9 @@ leak_hypotheses:
     description: Real estate cycles can be months long, making timing, status and next-action discipline important.
     trigger_signals:
       - active_meta_ads
-      - portal_leads
       - online_lead_capture
+    aspirational_trigger_signals:
+      - portal_leads
       - large_team_signal
     disqualifying_signals:
       - prospect_confirms_strong_CRM_nurture_and_reporting
@@ -376,9 +384,10 @@ leak_hypotheses:
     title: Future seller inquiries may lack structured next steps
     description: Home-value and listing inquiries may be valuable long before the homeowner is ready to sign a listing agreement.
     trigger_signals:
-      - seller_campaign_signal
       - home_value_CTA
       - active_meta_ads
+    aspirational_trigger_signals:
+      - seller_campaign_signal
     disqualifying_signals:
       - strong_seller_nurture_confirmed
     public_fact_requirements: []
@@ -401,8 +410,9 @@ leak_hypotheses:
     description: Geography, lead type, price segment, language, availability and round-robin rules can create routing complexity.
     trigger_signals:
       - multiple_offices
-      - large_team_signal
+    aspirational_trigger_signals:
       - portal_leads
+      - large_team_signal
     disqualifying_signals:
       - prospect_confirms_strong_routing_and_visibility
     public_fact_requirements: []
@@ -426,8 +436,9 @@ leak_hypotheses:
     trigger_signals:
       - active_google_search_ads
       - active_meta_ads
-      - portal_leads
       - multiple_offices
+    aspirational_trigger_signals:
+      - portal_leads
     disqualifying_signals:
       - prospect_confirms_closed_loop_source_to_close_reporting
     public_fact_requirements: []
@@ -450,8 +461,9 @@ leak_hypotheses:
     description: CRM notes, reminders, drafting, open-house follow-up, tagging and summaries can take time from client relationships.
     trigger_signals:
       - visible_hiring
-      - large_team_signal
       - multiple_offices
+    aspirational_trigger_signals:
+      - large_team_signal
     disqualifying_signals: []
     public_fact_requirements: []
     questions_to_verify:
@@ -470,6 +482,7 @@ leak_hypotheses:
 
 decision_maker_roles:
   - role_category: broker_owner
+    canonical_role_category: owner
     titles:
       - broker owner
       - managing broker
@@ -481,6 +494,7 @@ decision_maker_roles:
       - agent_capacity
     priority: 1
   - role_category: sales_operations
+    canonical_role_category: sales
     titles:
       - sales manager
       - director of sales
@@ -493,6 +507,7 @@ decision_maker_roles:
       - agent_capacity
     priority: 1
   - role_category: ISA_lead_management
+    canonical_role_category: sales
     titles:
       - ISA manager
       - inside sales manager
@@ -504,6 +519,7 @@ decision_maker_roles:
       - seller_follow_up
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles:
       - marketing director
       - marketing manager
@@ -513,6 +529,7 @@ decision_maker_roles:
       - speed_to_lead
     priority: 2
   - role_category: office_admin
+    canonical_role_category: office_manager
     titles:
       - office manager
       - transaction coordinator manager
@@ -755,6 +772,7 @@ objection_guidance:
       - AI should replace agents
     manual_reference: module-26-real-estate-brokerages-industry-playbook.md#19-objections
   - objection_id: CRM_already_nurtures
+    overrides_generic_objection: crm
     match_phrases:
       - our CRM already nurtures
     principle: Existing automation is positive if used and measured well.

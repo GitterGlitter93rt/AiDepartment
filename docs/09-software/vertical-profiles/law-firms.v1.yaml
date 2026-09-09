@@ -252,6 +252,27 @@ public_signal_rules:
       - administrative_capacity
       - first_response_follow_up
     score_rule_reference: module4c_growth_plus1
+  - signal_id: explicit_ai_usage_signal
+    category: systems
+    evidence_claim_key: ai_usage_promoted
+    confidence_required: confirmed
+    why_it_matters: A firm that advertises using AI is a different governance conversation from one that has never mentioned it.
+    possible_hypothesis_ids:
+      - ai_governance
+  - signal_id: ai_job_posting_signal
+    category: growth
+    evidence_claim_key: ai_hiring_mentioned
+    confidence_required: confirmed
+    why_it_matters: Their own careers page mentioning AI, which is hiring intent stated in public. No job board is consulted.
+    possible_hypothesis_ids:
+      - ai_governance
+  - signal_id: call_tracking_signal
+    category: systems
+    evidence_claim_key: call_tracking_vendor_on_site
+    confidence_required: confirmed
+    why_it_matters: A call-tracking vendor named on their own site means calls are already being measured.
+    possible_hypothesis_ids:
+      - retained_client_attribution
 
 customer_journey:
   - stage_id: need
@@ -356,6 +377,7 @@ leak_hypotheses:
     trigger_signals:
       - active_google_search_ads
       - after_hours_language
+    aspirational_trigger_signals:
       - phone_heavy_site
     disqualifying_signals:
       - prospect_confirms_strong_measured_after_hours_intake
@@ -408,7 +430,7 @@ leak_hypotheses:
     description: Consultation capacity can be protected with reminders, easy rescheduling and appropriate human follow-up.
     trigger_signals:
       - consultation_cta
-      - online_scheduling
+      - consultation_cta
     disqualifying_signals:
       - prospect_confirms_high_show_rate_and_strong_recovery
     public_fact_requirements: []
@@ -457,6 +479,7 @@ leak_hypotheses:
     trigger_signals:
       - visible_intake_hiring
       - multiple_offices
+    aspirational_trigger_signals:
       - high_intake_signal
     disqualifying_signals: []
     public_fact_requirements: []
@@ -501,6 +524,7 @@ leak_hypotheses:
 
 decision_maker_roles:
   - role_category: managing_partner
+    canonical_role_category: owner
     titles:
       - managing partner
       - partner
@@ -511,6 +535,7 @@ decision_maker_roles:
       - administrative_capacity
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles:
       - COO
       - operations manager
@@ -524,6 +549,7 @@ decision_maker_roles:
       - ai_governance
     priority: 1
   - role_category: intake
+    canonical_role_category: intake
     titles:
       - intake director
       - intake manager
@@ -535,6 +561,7 @@ decision_maker_roles:
       - consultation_no_show
     priority: 1
   - role_category: marketing_business_development
+    canonical_role_category: marketing
     titles:
       - marketing director
       - marketing manager
@@ -544,6 +571,7 @@ decision_maker_roles:
       - first_response_follow_up
     priority: 2
   - role_category: technology_governance
+    canonical_role_category: operations
     titles:
       - IT director
       - CIO
@@ -819,6 +847,7 @@ objection_guidance:
       - our system automatically makes you compliant
     manual_reference: module-15-law-firms-industry-playbook.md#32-law-firm-objections
   - objection_id: existing_legal_platform
+    overrides_generic_objection: crm
     match_phrases:
       - we already have Clio
       - we already have Filevine

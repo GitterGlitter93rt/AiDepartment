@@ -243,6 +243,34 @@ public_signal_rules:
       - employee_sales_capacity
       - multi_market_consistency
     score_rule_reference: module4c_growth_plus1
+  - signal_id: replacement_focus
+    category: high_value_service
+    evidence_claim_key: replacement_service_focus
+    confidence_required: confirmed
+    why_it_matters: A roofer whose own site leads with replacement rather than repair is selling larger proposals, which is what makes unsold follow-up material.
+    possible_hypothesis_ids:
+      - unsold_proposal_follow_up
+  - signal_id: storm_landing_page
+    category: surge
+    evidence_claim_key: storm_hail_service_promoted
+    confidence_required: confirmed
+    why_it_matters: A dedicated storm or hail page is the company saying it takes storm work. It says nothing about whether a storm has happened, which is storm_market_signal.
+    possible_hypothesis_ids:
+      - storm_surge_capacity
+  - signal_id: hail_wind_offer
+    category: surge
+    evidence_claim_key: storm_hail_service_promoted
+    confidence_required: confirmed
+    why_it_matters: A wind-and-hail offer is the same company-level fact as a storm page, read from a different phrase.
+    possible_hypothesis_ids:
+      - storm_surge_capacity
+  - signal_id: call_tracking_signal
+    category: systems
+    evidence_claim_key: call_tracking_vendor_on_site
+    confidence_required: confirmed
+    why_it_matters: A call-tracking vendor named on their own site means somebody is already measuring calls, which changes the attribution conversation.
+    possible_hypothesis_ids:
+      - attribution_gap
 
 customer_journey:
   - stage_id: demand
@@ -348,6 +376,7 @@ leak_hypotheses:
       - replacement_focus
       - inspection_quote_cta
       - financing_promoted
+    aspirational_trigger_signals:
       - sales_team_signal
     disqualifying_signals:
       - prospect_confirms_strong_measured_follow_up
@@ -397,9 +426,16 @@ leak_hypotheses:
     title: Storm surges may overwhelm normal lead and office capacity
     description: A storm can create temporary lead volume that exceeds ordinary phone, routing and follow-up capacity.
     trigger_signals:
-      - storm_market_signal
       - storm_landing_page
       - hail_wind_offer
+    # A condition of the place, not of the company. Kept as its own field because a
+    # company trigger and a market condition are different claims about different
+    # subjects, and using one as evidence for the other is what the old combined
+    # `storm_hail_market_signal` did. Evaluated only when a weather/event source
+    # exists; until then it neither qualifies nor disqualifies anybody, and ordinary
+    # roofing discovery proceeds without it.
+    market_condition_signals:
+      - storm_market_signal
     disqualifying_signals:
       - prospect_confirms_strong_surge_playbook
     public_fact_requirements: []
@@ -448,6 +484,7 @@ leak_hypotheses:
     trigger_signals:
       - visible_hiring
       - multiple_locations
+    aspirational_trigger_signals:
       - high_sales_team_signal
     disqualifying_signals: []
     public_fact_requirements: []
@@ -467,6 +504,7 @@ leak_hypotheses:
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles:
       - owner
       - founder
@@ -477,6 +515,7 @@ decision_maker_roles:
       - storm_surge_capacity
     priority: 1
   - role_category: sales_leadership
+    canonical_role_category: sales
     titles:
       - sales manager
       - director of sales
@@ -487,6 +526,7 @@ decision_maker_roles:
       - employee_sales_capacity
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles:
       - general manager
       - operations manager
@@ -497,6 +537,7 @@ decision_maker_roles:
       - attribution_gap
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles:
       - marketing director
       - marketing manager
@@ -505,6 +546,7 @@ decision_maker_roles:
       - attribution_gap
     priority: 2
   - role_category: office_admin
+    canonical_role_category: office_manager
     titles:
       - office manager
       - administrator
@@ -740,6 +782,7 @@ objection_guidance:
       - your reps are dropping leads
     manual_reference: module-12-roofing-industry-playbook.md#28-roofing-objections
   - objection_id: existing_crm
+    overrides_generic_objection: crm
     match_phrases:
       - we already have a CRM
     principle: Existing software is positive if it works.

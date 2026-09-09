@@ -236,6 +236,20 @@ public_signal_rules:
       - front_office_capacity
       - multi_location_consistency
     score_rule_reference: module4c_growth_plus1
+  - signal_id: customer_status_language
+    category: customer_communication
+    evidence_claim_key: customer_status_updates_promoted
+    confidence_required: confirmed
+    why_it_matters: A shop that promises status updates has a process to keep; the promise is on their own site either way.
+    possible_hypothesis_ids:
+      - customer_status_capacity
+  - signal_id: call_tracking_signal
+    category: systems
+    evidence_claim_key: call_tracking_vendor_on_site
+    confidence_required: confirmed
+    why_it_matters: A call-tracking vendor named on their own site means calls are already being measured.
+    possible_hypothesis_ids:
+      - attribution_gap
 
 customer_journey:
   - stage_id: damage
@@ -338,9 +352,10 @@ leak_hypotheses:
     description: New estimate calls can collide with customer pickups, insurer calls and status requests.
     trigger_signals:
       - active_google_search_ads
-      - phone_heavy_site
       - hail_service
       - visible_hiring
+    aspirational_trigger_signals:
+      - phone_heavy_site
     disqualifying_signals:
       - prospect_confirms_strong_measured_overflow_process
     public_fact_requirements:
@@ -365,8 +380,9 @@ leak_hypotheses:
     description: Written estimates that do not immediately schedule can disappear from view without structured follow-up.
     trigger_signals:
       - online_estimate_cta
+      - active_google_search_ads
+    aspirational_trigger_signals:
       - high_estimate_volume_signal
-      - paid_acquisition
     disqualifying_signals:
       - prospect_confirms_strong_measured_estimate_follow_up
     public_fact_requirements: []
@@ -390,8 +406,9 @@ leak_hypotheses:
     description: Customers may repeatedly call for repair status when reliable progress data is not pushed consistently.
     trigger_signals:
       - customer_status_language
+      - multiple_locations
+    aspirational_trigger_signals:
       - busy_front_office_signal
-      - multi_location_signal
     disqualifying_signals:
       - prospect_confirms_strong_automated_status_process
     public_fact_requirements: []
@@ -459,6 +476,7 @@ leak_hypotheses:
 
 decision_maker_roles:
   - role_category: owner_general_manager
+    canonical_role_category: owner
     titles:
       - owner
       - general manager
@@ -470,6 +488,7 @@ decision_maker_roles:
       - front_office_capacity
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles:
       - operations manager
       - regional manager
@@ -480,6 +499,7 @@ decision_maker_roles:
       - multi_location_consistency
     priority: 1
   - role_category: customer_service
+    canonical_role_category: intake
     titles:
       - office manager
       - CSR manager
@@ -490,6 +510,7 @@ decision_maker_roles:
       - front_office_capacity
     priority: 2
   - role_category: estimator_sales
+    canonical_role_category: sales
     titles:
       - estimator manager
       - sales manager
@@ -499,6 +520,7 @@ decision_maker_roles:
       - attribution_gap
     priority: 2
   - role_category: marketing
+    canonical_role_category: marketing
     titles:
       - marketing director
       - marketing manager
@@ -724,6 +746,7 @@ roi_tools:
 
 objection_guidance:
   - objection_id: management_software_already_does_that
+    overrides_generic_objection: crm
     match_phrases:
       - our management software already does that
     principle: If it works, leave it alone; test configuration and adoption rather than attacking the platform.

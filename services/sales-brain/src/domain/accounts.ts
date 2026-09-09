@@ -373,17 +373,28 @@ async function upsertNamedContact(
   );
   if (existing[0]) return existing[0].contact_id;
 
+  // Classified against the vertical's own declared titles first, then the generic
+  // patterns. "Managing Partner" filed as unknown until the profiles' sixty-five
+  // declared roles were given canonical mappings; the raw title is kept exactly as
+  // the source gave it either way, and the row records which route decided.
+  const { classifyRole } = await import('./roles.js');
+  const role = await classifyRole({
+    rawTitle: input.contactTitle, verticalProfileId: input.verticalProfileId ?? null,
+  });
+
   const { rows } = await client.query<{ contact_id: string }>(
     `insert into contacts (account_id, location_id, first_name, last_name, full_name, raw_title,
                            role_category, company_relationship, employer_match, role_match,
                            currentness, role_confidence, decision_maker_priority,
-                           source_provider, observed_at)
+                           source_provider, observed_at, normalized_title, role_classified_by)
      values ($1, $2, $3, $4, $5, $6,
-             $7, 'unknown', 'UNCERTAIN', 'VALID_FALLBACK', 'UNKNOWN', 'UNKNOWN_ROLE', 50, $8, now())
+             $7, 'unknown', 'UNCERTAIN', 'VALID_FALLBACK', 'UNKNOWN', 'UNKNOWN_ROLE', 50, $8, now(),
+             $9, $10)
      returning contact_id`,
     [
       accountId, locationId, first, last, fullName, input.contactTitle ?? null,
-      roleCategoryFromTitle(input.contactTitle), options.discoverySource,
+      role.canonicalRoleCategory, options.discoverySource,
+      role.normalizedTitle, role.classifiedBy,
     ],
   );
   return rows[0]!.contact_id;

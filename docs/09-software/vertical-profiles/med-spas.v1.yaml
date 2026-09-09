@@ -225,7 +225,7 @@ leak_hypotheses:
     primary_hook_template: I noticed you're running campaigns for {service_or_offer}. Once one of those paid inquiries comes in, how quickly does somebody respond and what happens if they don't book the first time?
     backup_hook_templates:
       - Do your DMs, lead forms, calls and website forms all enter the same follow-up process?
-    offer_families: [AI_Growth_Systems, AI_Implementation]
+    offer_families: [ai_growth_systems, ai_implementation]
     roi_tool_ids: [lead_response_roi]
     must_not_claim: [ad_spend_amount, lead_loss_amount, treatment_suitability]
   - hypothesis_id: consultation_no_show
@@ -239,7 +239,7 @@ leak_hypotheses:
       - How fast can an empty slot be refilled?
     primary_hook_template: What happens after a consultation no-show or late cancellation—does the system recover the prospect and the slot?
     backup_hook_templates: []
-    offer_families: [AI_Implementation]
+    offer_families: [ai_implementation]
     roi_tool_ids: [no_show_roi]
     must_not_claim: [every_no_show_recoverable]
   - hypothesis_id: unbooked_follow_up
@@ -252,7 +252,7 @@ leak_hypotheses:
       - What happens when a legitimate prospect needs time, has a scheduling issue, or has a financing question?
     primary_hook_template: What happens to a legitimate treatment inquiry that doesn't book during the first conversation?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, AI_Growth_Systems]
+    offer_families: [ai_implementation, ai_growth_systems]
     roi_tool_ids: [lead_response_roi]
     must_not_claim: [pressure_clinical_treatment]
   - hypothesis_id: coordinator_capacity
@@ -265,7 +265,7 @@ leak_hypotheses:
       - Which repetitive scheduling, DM, follow-up or CRM task consumes the most coordinator time?
     primary_hook_template: If your best coordinator had five extra hours each week, where would you want that time spent?
     backup_hook_templates: []
-    offer_families: [AI_Implementation, Managed_AI_Department]
+    offer_families: [ai_implementation, managed_ai_department]
     roi_tool_ids: [employee_capacity_roi]
     must_not_claim: [staff_replacement]
   - hypothesis_id: attribution
@@ -279,28 +279,33 @@ leak_hypotheses:
       - Can you compare cost per consultation show and acquired client?
     primary_hook_template: Can you trace a campaign from lead through consultation show and paying-client outcome using an appropriate privacy-safe business metric?
     backup_hook_templates: []
-    offer_families: [AI_Growth_Systems]
+    offer_families: [ai_growth_systems]
     roi_tool_ids: [attribution_roi]
     must_not_claim: [revenue_without_client_data]
 
 decision_maker_roles:
   - role_category: owner_founder
+    canonical_role_category: owner
     titles: [Owner, Founder, Medical Director Owner]
     relevant_hypothesis_ids: [meta_speed_to_lead, coordinator_capacity, attribution]
     priority: 1
   - role_category: operations
+    canonical_role_category: operations
     titles: [Operations Manager, Director of Operations]
     relevant_hypothesis_ids: [consultation_no_show, unbooked_follow_up, coordinator_capacity]
     priority: 1
   - role_category: office_manager
+    canonical_role_category: office_manager
     titles: [Practice Manager, Office Manager, Front Desk Manager]
     relevant_hypothesis_ids: [consultation_no_show, coordinator_capacity]
     priority: 1
   - role_category: marketing
+    canonical_role_category: marketing
     titles: [Marketing Director, Marketing Manager, Growth Manager]
     relevant_hypothesis_ids: [meta_speed_to_lead, attribution]
     priority: 1
   - role_category: other_relevant
+    canonical_role_category: unknown
     titles: [Patient Coordinator, Treatment Coordinator]
     relevant_hypothesis_ids: [unbooked_follow_up, consultation_no_show]
     priority: 2
@@ -377,12 +382,12 @@ discovery_question_banks:
 
 offer_mapping:
   - opportunity_category: speed_to_lead
-    possible_offer_families: [AI_Growth_Systems, AI_Implementation]
+    possible_offer_families: [ai_growth_systems, ai_implementation]
     positioning: Improve routing, immediate response, scheduling and follow-up around coordinators without automating clinical decisions.
     required_discovery_before_recommending: [lead_channels, response_time, current_systems, privacy_scope]
     do_not_recommend_if: [strong_existing_workflow]
   - opportunity_category: coordinator_capacity
-    possible_offer_families: [AI_Implementation, Managed_AI_Department]
+    possible_offer_families: [ai_implementation, managed_ai_department]
     positioning: Reduce repetitive lead/scheduling/admin work while the team retains patient/client relationships and clinical judgment.
     required_discovery_before_recommending: [task_volume, system_access, privacy_requirements]
     do_not_recommend_if: [privacy_requirements_not_met]

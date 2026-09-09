@@ -64,6 +64,11 @@ interface Recogniser {
  */
 export function recognisedClaimKeys(): string[] { return Object.keys(RECOGNISERS); }
 
+/** Claim keys produced from term lists the profiles themselves declare. */
+export function profileTermClaimKeys(): string[] {
+  return PROFILE_TERM_SIGNALS.map((entry) => entry.claimKey);
+}
+
 const RECOGNISERS: Record<string, Recogniser> = {
   emergency_24_7_service: {
     category: 'urgency',
@@ -170,7 +175,131 @@ const RECOGNISERS: Record<string, Recogniser> = {
       /\bservice (?:plan|club)\b/i, /\bannual (?:plan|agreement)\b/i,
     ],
   },
+  // --- signals the profiles referenced and nothing could produce ----------------
+  //
+  // Each of these was a trigger naming a signal its own profile never declared, and
+  // each is a fact a company states about itself on its own pages. The claim is
+  // always what was seen -- not what it implies about how they operate.
+  storm_hail_service_promoted: {
+    // roofing: `storm_landing_page` and `hail_wind_offer`. The company half of what
+    // `storm_hail_market_signal` used to conflate. Their words about their service,
+    // not evidence that hail has fallen anywhere.
+    category: 'surge',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\bstorm damage\b/i, /\bhail damage\b/i, /\bwind (?:and|&) hail\b/i,
+      /\bstorm restoration\b/i, /\binsurance claim (?:help|assistance|specialists?)\b/i,
+      /\bfree storm inspection\b/i, /\bhail inspection\b/i,
+    ],
+  },
+  call_tracking_vendor_on_site: {
+    // Five verticals trigger on `call_tracking_signal`. `CALL_TRACKING_NUMBER` is an
+    // endpoint role nothing has ever set, so endpoint evidence cannot support this.
+    // A named vendor on their own site can, and the claim stays that narrow.
+    category: 'systems',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\bcallrail\b/i, /\bcalltrackingmetrics\b/i, /\bwhatconverts\b/i,
+      /\bcallfire\b/i, /\binvoca\b/i, /\bcall tracking\b/i,
+    ],
+  },
+  customer_status_updates_promoted: {
+    // collision-repair: `customer_status_language`. A shop that promises updates has
+    // a process to keep; one that does not has a gap worth asking about.
+    category: 'customer_communication',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\btext (?:updates?|notifications?)\b/i, /\bstatus updates?\b/i,
+      /\bkeep you (?:updated|informed|posted)\b/i, /\brepair (?:status|tracker|updates?)\b/i,
+      /\bcustomer portal\b/i, /\btrack your (?:repair|claim|vehicle)\b/i,
+    ],
+  },
+  ai_usage_promoted: {
+    // law-firms: `explicit_ai_usage_signal`. A firm that advertises using AI is a
+    // different conversation from one that has never mentioned it.
+    category: 'systems',
+    ttlHours: 24 * 30,
+    patterns: [
+      /\bai-?powered\b/i, /\bpowered by ai\b/i, /\bai-?assisted\b/i,
+      /\bartificial intelligence\b/i, /\bmachine learning\b/i,
+      /\bwe use ai\b/i, /\bai (?:intake|chat|assistant)\b/i,
+    ],
+  },
+  ai_hiring_mentioned: {
+    // law-firms: `ai_job_posting_signal`. Both halves must be on the same page, so a
+    // marketing sentence about AI somewhere else on the site does not satisfy it --
+    // and no job board is consulted, only their own careers page.
+    category: 'growth',
+    ttlHours: 24 * 14,
+    patterns: [
+      /\bartificial intelligence\b/i, /\bai\b/, /\bmachine learning\b/i,
+      /\bautomation\b/i,
+    ],
+    requiresAll: [
+      /\b(?:careers?|join our team|we\'re hiring|were hiring|now hiring|open (?:roles?|positions?))\b/i,
+    ],
+  },
+  home_valuation_cta: {
+    // real-estate-brokerages: `home_value_CTA`. A seller-side capture route, which is
+    // what the seller_follow_up hypothesis is about.
+    category: 'pipeline',
+    ttlHours: 24 * 14,
+    patterns: [
+      /\bwhat(?:'|\u2019)?s my home worth\b/i, /\bhome valuation\b/i,
+      /\bhome value (?:estimate|report|tool)\b/i, /\bfree home (?:value|valuation)\b/i,
+      /\bwhat is my (?:home|house) worth\b/i,
+    ],
+  },
+
 };
+
+
+/**
+ * Signals whose words the vertical profile supplies, not this file.
+ *
+ * `derived_signals` in a profile holds term lists an author wrote for exactly this
+ * purpose -- hvac's `replacement_service_focus_from_website_terms`, and the
+ * `crm_frontend_signal_examples` several trades share -- and nothing read them. A
+ * recogniser whose phrases live in the profile is the right shape for these: the
+ * trade knows its own vocabulary better than this file does, and a new term is then
+ * an authoring change rather than a code change.
+ *
+ * Matched as whole words so `installation` does not fire on `installations` being
+ * absent, and so a product name is a name rather than a substring.
+ */
+const PROFILE_TERM_SIGNALS: {
+  claimKey: string; category: string; ttlHours: number; section: string;
+}[] = [
+  {
+    claimKey: 'replacement_service_focus',
+    category: 'high_value_service',
+    ttlHours: 24 * 30,
+    section: 'replacement_service_focus_from_website_terms',
+  },
+  {
+    claimKey: 'crm_frontend_on_site',
+    category: 'systems',
+    ttlHours: 24 * 30,
+    section: 'crm_frontend_signal_examples',
+  },
+];
+
+function profileTermsFor(
+  definition: Record<string, unknown> | null, section: string,
+): string[] {
+  const derived = definition?.['derived_signals'] as Record<string, unknown> | undefined;
+  const listed = derived?.[section];
+  if (!Array.isArray(listed)) return [];
+  return listed
+    .map((term) => String(term).trim())
+    .filter((term) => term.length >= 3);
+}
+
+/** A term the profile wrote, as a whole-word pattern. */
+function termPattern(term: string): RegExp {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  return new RegExp(`\\b${escaped}\\b`, 'i');
+}
 
 /** The signals this vertical says it cares about, and that we can read from a page. */
 export async function readableSignalsFor(
@@ -183,13 +312,26 @@ export async function readableSignalsFor(
     .map((rule) => (rule as Record<string, unknown>)['evidence_claim_key'])
     .filter((key): key is string => typeof key === 'string');
 
-  return declared
+  const readable = declared
     .filter((key) => RECOGNISERS[key])
     .map((key) => ({
       claimKey: key,
       category: RECOGNISERS[key]!.category,
       ttlHours: RECOGNISERS[key]!.ttlHours,
     }));
+
+  // And the ones whose words the profile supplies. Included only when the profile
+  // actually declares terms: an empty list is a vertical that has not written any,
+  // and reading nothing is better than reading somebody else's.
+  for (const signal of PROFILE_TERM_SIGNALS) {
+    if (!declared.includes(signal.claimKey)) continue;
+    if (profileTermsFor(definition, signal.section).length === 0) continue;
+    readable.push({
+      claimKey: signal.claimKey, category: signal.category, ttlHours: signal.ttlHours,
+    });
+  }
+
+  return readable;
 }
 
 /**
@@ -206,10 +348,24 @@ export async function extractFirstPartySignals(input: {
   const wanted = await readableSignalsFor(input.verticalProfileId);
   if (wanted.length === 0) return [];
 
+  const definition = input.verticalProfileId
+    ? await getVerticalProfile(input.verticalProfileId) as Record<string, unknown> | null
+    : null;
   const found = new Map<string, SignalObservation>();
 
   for (const signal of wanted) {
-    const recogniser = RECOGNISERS[signal.claimKey]!;
+    // A recogniser from this file, or one whose phrases the profile wrote. Built the
+    // same way either way, so both produce the same evidence with the same
+    // provenance -- the company's own sentence, and the page it was on.
+    const profileTerms = PROFILE_TERM_SIGNALS
+      .find((entry) => entry.claimKey === signal.claimKey);
+    const recogniser: Recogniser = profileTerms
+      ? {
+        category: profileTerms.category,
+        ttlHours: profileTerms.ttlHours,
+        patterns: profileTermsFor(definition, profileTerms.section).map(termPattern),
+      }
+      : RECOGNISERS[signal.claimKey]!;
     for (const page of input.pages) {
       if (found.has(signal.claimKey)) break;
       for (const pattern of recogniser.patterns) {
