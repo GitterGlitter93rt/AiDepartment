@@ -480,3 +480,128 @@ describe('The three industry pages behind this sprint\'s demand signals', () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------
+// Technical SEO invariants found during this sprint's audit.
+// ---------------------------------------------------------------------
+
+describe('Every page can be shared without rendering a grey box', () => {
+  const routes = ['/', '/ai-crm-integration/', '/industries/roofing/', '/go/roofing/', '/resources/what-is-ai-conversion-tracking/'];
+
+  test('og:image is present, absolute, and points at a file that exists', () => {
+    for (const route of routes) {
+      const html = page(route);
+      const src = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+      assert.ok(src, `${route}: no og:image`);
+      assert.ok(src!.startsWith('https://'), `${route}: og:image is not absolute — scrapers do not resolve relative URLs`);
+      const local = src!.slice(SITE.length);
+      assert.ok(existsSync(join(DIST, local.slice(1))), `${route}: og:image ${local} is not in the build`);
+    }
+  });
+
+  test('the declared dimensions match the actual file', () => {
+    const file = join(DIST, 'og-default.png');
+    const buf = readFileSync(file);
+    // PNG IHDR: width and height are big-endian uint32 at bytes 16 and 20.
+    const width = buf.readUInt32BE(16);
+    const height = buf.readUInt32BE(20);
+    assert.equal(width, 1200);
+    assert.equal(height, 630);
+    const html = page('/');
+    assert.match(html, /<meta property="og:image:width" content="1200">/);
+    assert.match(html, /<meta property="og:image:height" content="630">/);
+    // 1.91:1 is what every major scraper crops to.
+    assert.ok(Math.abs(width / height - 1.91) < 0.02, 'social cards are cropped to roughly 1.91:1');
+  });
+
+  test('twitter:image matches, and both carry alt text', () => {
+    const html = page('/');
+    const og = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+    const tw = html.match(/<meta name="twitter:image" content="([^"]+)"/)?.[1];
+    assert.equal(og, tw);
+    assert.match(html, /<meta property="og:image:alt" content="[^"]{10,}"/);
+    assert.match(html, /<meta name="twitter:image:alt" content="[^"]{10,}"/);
+  });
+
+  test('the image is small enough that a scraper will actually fetch it', () => {
+    const bytes = readFileSync(join(DIST, 'og-default.png')).length;
+    assert.ok(bytes < 1_000_000, `og-default.png is ${bytes} bytes — over the 1MB some scrapers refuse`);
+  });
+});
+
+describe('The deploy artefact carries the redirect, compression and caching rules', () => {
+  const htaccess = readFileSync(join(DIST, '.htaccess'), 'utf8');
+
+  test('it ships in dist/, or none of it reaches production', () => {
+    assert.equal(htaccess, readFileSync(join(ROOT, 'public/.htaccess'), 'utf8'));
+  });
+
+  test('the legacy campaign link and the retired audit route are real 301s', () => {
+    assert.match(htaccess, /RewriteRule \^assessment\/\?\$ \/free-ai-assessment\/ \[R=301,QSA,L\]/);
+    assert.match(htaccess, /RewriteRule \^ai-department-audit\/\?\$ \/comprehensive-ai-business-audit\/ \[R=301,QSA,L\]/);
+    // QSA on both: a redirect that eats the campaign parameters loses
+    // the attribution the redirect existed to rescue.
+    for (const rule of htaccess.match(/RewriteRule [^\n]+/g) ?? []) {
+      assert.match(rule, /QSA/, `redirect drops the query string: ${rule}`);
+    }
+  });
+
+  test('every directive is guarded, so a host without the module does not 500', () => {
+    const guarded = ['mod_rewrite.c', 'mod_deflate.c', 'mod_expires.c', 'mod_headers.c'];
+    for (const mod of guarded) {
+      assert.ok(htaccess.includes(`<IfModule ${mod}>`), `${mod} block missing`);
+    }
+    // No directive outside an IfModule except ErrorDocument, which is core.
+    const outside = htaccess
+      .replace(/<IfModule[\s\S]*?<\/IfModule>/g, '')
+      .split('\n')
+      .filter((l) => l.trim() && !l.trim().startsWith('#') && !l.startsWith('ErrorDocument'));
+    assert.deepEqual(outside, [], 'unguarded directive outside an IfModule block');
+  });
+
+  test('HTML is never cached like a hashed asset', () => {
+    assert.match(htaccess, /ExpiresByType text\/html "access plus 0 seconds"/);
+    assert.match(htaccess, /\(html\|xml\|txt\)\$[\s\S]*?max-age=0, must-revalidate/);
+    assert.match(htaccess, /\(css\|js\|woff2\)\$[\s\S]*?max-age=31536000, immutable/);
+  });
+
+  test('already-compressed formats are not re-compressed', () => {
+    const compression = htaccess.match(/<IfModule mod_(deflate|brotli)\.c>[\s\S]*?<\/IfModule>/g) ?? [];
+    assert.equal(compression.length, 2);
+    for (const block of compression) {
+      for (const wasteful of ['image/png', 'image/jpeg', 'image/webp', 'font/woff2', 'application/pdf']) {
+        assert.equal(block.includes(wasteful), false, `re-compressing ${wasteful} costs CPU for nothing`);
+      }
+    }
+  });
+});
+
+describe('The campaign landing pages stay light', () => {
+  test('a /go/ page ships less JavaScript than the paid-social funnels', () => {
+    const jsBytes = (route: string) => {
+      const html = page(route);
+      return [...html.matchAll(/<script[^>]*src="(\/_astro\/[^"]+)"/g)]
+        .map((m) => readFileSync(join(DIST, m[1].slice(1))).length)
+        .reduce((a, b) => a + b, 0);
+    };
+    for (const route of ['/go/law-firms/', '/go/roofing/']) {
+      const bytes = jsBytes(route);
+      assert.ok(bytes > 0, `${route}: no module script — analytics would not run`);
+      assert.ok(bytes < 8_000, `${route}: ${bytes} bytes of module JS is more than a cold-email page should carry`);
+      assert.ok(bytes <= jsBytes('/plumbing-ai/'), `${route} is heavier than a VSL funnel page`);
+    }
+  });
+
+  test('no third-party script beyond the shared GTM container', () => {
+    for (const route of ['/go/law-firms/', '/go/roofing/']) {
+      const html = page(route);
+      const external = [...html.matchAll(/<script[^>]*src="(https?:\/\/[^"]+)"/g)].map((m) => m[1]);
+      for (const src of external) {
+        assert.match(src, /googletagmanager\.com/, `${route}: unexpected third-party script ${src}`);
+      }
+      // Specifically: no Cal.com embed. See
+      // docs/analytics/conversion-event-taxonomy.md section 9.
+      assert.equal(/cal\.com\/embed|embed\.js/.test(html), false, `${route}: a Cal.com embed was added`);
+    }
+  });
+});

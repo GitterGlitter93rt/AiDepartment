@@ -5,6 +5,17 @@ interface Props {
   title: string;
   description: string;
   path: string; // e.g. "/" or "/ai-consulting/"
+  /**
+   * Social sharing image. Absolute URL, or a site-root path like
+   * "/og-something.png" which is resolved against SITE.domain — Open
+   * Graph requires an absolute URL, and a relative one silently renders
+   * as no image at all.
+   *
+   * Omit it and every page gets the site default. Until this had a
+   * default, every share of every URL on this site — LinkedIn, Slack,
+   * an iMessage preview, a forwarded cold-email link — rendered as a
+   * grey box.
+   */
   ogImage?: string;
   noindex?: boolean;
   /**
@@ -20,6 +31,9 @@ interface Props {
 
 const { title, description, path, ogImage, noindex = false, robots } = Astro.props;
 const canonicalUrl = new URL(path, SITE.domain).toString();
+
+// Absolute, always. Scrapers do not resolve relative image URLs.
+const socialImageUrl = new URL(ogImage ?? SITE.defaultSocialImage, SITE.domain).toString();
 
 // An explicit directive wins; otherwise the boolean produces the
 // existing default. Null means "emit no robots meta at all", which is
@@ -47,9 +61,16 @@ const isNoindex = robotsDirective !== null && robotsDirective.includes('noindex'
 <meta property="og:description" content={description} />
 <meta property="og:url" content={canonicalUrl} />
 <meta property="og:site_name" content={SITE.name} />
-{ogImage && <meta property="og:image" content={ogImage} />}
+<meta property="og:image" content={socialImageUrl} />
+{/* Dimensions let a scraper lay out the card before it has fetched the
+    image, which is what stops the first share of a new URL rendering
+    without one. */}
+<meta property="og:image:width" content={String(SITE.defaultSocialImageSize.width)} />
+<meta property="og:image:height" content={String(SITE.defaultSocialImageSize.height)} />
+<meta property="og:image:alt" content={`${SITE.name} — ${SITE.tagline}`} />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
-{ogImage && <meta name="twitter:image" content={ogImage} />}
+<meta name="twitter:image" content={socialImageUrl} />
+<meta name="twitter:image:alt" content={`${SITE.name} — ${SITE.tagline}`} />

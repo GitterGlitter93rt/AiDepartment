@@ -33,3 +33,73 @@ ErrorDocument 404 /404.html
   RewriteEngine On
   RewriteRule ^assessment/?$ /free-ai-assessment/ [R=301,QSA,L]
 </IfModule>
+
+# ---------------------------------------------------------------------
+# Retired route
+# ---------------------------------------------------------------------
+# /ai-department-audit -> /comprehensive-ai-business-audit/
+#
+# astro.config.mjs already emits a meta-refresh stub at this path so the
+# URL can never 404 on a host without mod_rewrite. A meta refresh is a
+# weak redirect signal, though: Google treats it as a hint rather than
+# the permanent move it actually is, and the stub costs the visitor a
+# render. Where mod_rewrite is available, a real 301 wins and the stub
+# is simply never served.
+#
+# QSA so campaign parameters survive the hop.
+<IfModule mod_rewrite.c>
+  RewriteRule ^ai-department-audit/?$ /comprehensive-ai-business-audit/ [R=301,QSA,L]
+</IfModule>
+
+# ---------------------------------------------------------------------
+# Compression
+# ---------------------------------------------------------------------
+# Text assets only. Images, fonts (woff2) and PDFs are already
+# compressed, and re-compressing them costs CPU for nothing.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/x-javascript
+  AddOutputFilterByType DEFLATE application/json application/xml application/rss+xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css text/xml
+  AddOutputFilterByType BROTLI_COMPRESS application/javascript application/x-javascript
+  AddOutputFilterByType BROTLI_COMPRESS application/json application/xml application/rss+xml
+  AddOutputFilterByType BROTLI_COMPRESS image/svg+xml
+</IfModule>
+
+# ---------------------------------------------------------------------
+# Caching
+# ---------------------------------------------------------------------
+# Everything Astro emits under /_astro/ carries a content hash in its
+# filename, so a change produces a new URL and the old one can be cached
+# indefinitely. HTML must NOT be cached that way — a deploy has to be
+# visible immediately, and these pages are the deploy.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 month"
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType application/xml "access plus 1 hour"
+  ExpiresByType text/plain "access plus 1 hour"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/avif "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Content-hashed build output: immutable, so a browser never
+  # revalidates it.
+  <FilesMatch "^.*\.(css|js|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # HTML: revalidate every time. sitemap.xml and robots.txt too — a
+  # stale sitemap is worse than an extra request.
+  <FilesMatch "\.(html|xml|txt)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>
