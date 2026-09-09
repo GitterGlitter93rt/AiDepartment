@@ -76,6 +76,37 @@ const siteSchema = websiteSchema();
 
     <SEO title={title} description={description} path={path} ogImage={ogImage} noindex={noindex} robots={robots} />
 
+    {/* Developer-traffic marker. Must run BEFORE the GTM snippet so the
+        value is on the dataLayer when the container initialises and the
+        very first page_view can carry it.
+
+        Why this exists: the 28-day baseline contained sessions from
+        tagassistant.google.com and a "test" source, because GTM loads
+        identically on localhost, preview builds and production, and
+        nothing distinguished them. Executive reporting was counting our
+        own QA.
+
+        What it does NOT do: block GTM off production. Tag Assistant and
+        GTM Preview are how this site is QA'd, and a container that will
+        not load outside production cannot be tested before it ships.
+        This marks the traffic instead of hiding it, which is also what
+        GA4's own Internal Traffic filter expects — see
+        docs/analytics/ga4-operator-checklist.md.
+
+        On production this pushes nothing at all: the hostname matches,
+        the branch is skipped, and the dataLayer is byte-identical to
+        before this existed. Non-PII by construction — a fixed string. */}
+    <script is:inline define:vars={{ productionHost: SITE.domain.replace('https://', '') }}>
+      window.dataLayer = window.dataLayer || [];
+      try {
+        if (window.location.hostname !== productionHost) {
+          window.dataLayer.push({ traffic_type: 'internal' });
+        }
+      } catch (e) {
+        /* never let a reporting nicety break the page */
+      }
+    </script>
+
     {/* Google Tag Manager — approved container GTM-5G8Q7KKZ (Sprint 9).
         GA4 (G-GLSRPH43L4) is managed through this container, not loaded
         separately, to avoid a duplicate/redundant gtag.js snippet. */}
