@@ -78,7 +78,17 @@ export type ProducerId =
   /** Something a prospect said, kept verbatim in `prospect_statements`. */
   | 'PROSPECT_STATEMENT'
   /** A listings/maps adapter. */
-  | 'BUSINESS_LISTINGS';
+  | 'BUSINESS_LISTINGS'
+  /**
+   * `src/probe/evidence.ts` reading the Speed-to-Lead probe ledger.
+   *
+   * A producer rather than a missing capability, because code does write these: the
+   * ledger, the attribution ladder and the latency arithmetic all exist. What the
+   * ledger holds -- simulated probes today, live ones only after a separate
+   * authorization -- is a property of the data, and the reader filters to live rows
+   * so a dry-run row can never reach a rep as a measurement.
+   */
+  | 'PROBE_LEDGER';
 
 /**
  * A capability we would have to have before a signal could ever be collected.
@@ -499,6 +509,150 @@ const SIGNALS: CanonicalSignal[] = [
     freshnessHours: null,
     aliases: [],
     consumers: ['import/importer', 'workers/marketMiner'],
+  },
+
+  // --- what happened to one lead we submitted -----------------------------------
+  //
+  // Every signal here takes the RELATIONSHIP subject, and that is a load-bearing
+  // decision rather than a filing choice. The subject of the fact is the interaction
+  // we observed, not the company: a COMPANY-subject latency signal reads as "their
+  // response time", which is exactly the claim the vertical profiles forbid with
+  // `must_not_claim: [current_response_time_without_measurement]`. One probe is one
+  // inquiry on one date and never becomes a rate, an average or a benchmark.
+  //
+  // None of them lists NO. A probe that failed, or a response that could not be
+  // attributed, says nothing whatever about the company.
+  {
+    id: 'lead_response_probe_completed',
+    subject: 'RELATIONSHIP',
+    valueType: 'OBSERVED',
+    description: 'A controlled lead-response audit was submitted to this company and '
+      + 'reached a measured outcome with resolved attribution. A fact about one '
+      + 'inquiry on one date, never a statement about how they handle leads generally.',
+    // No NO and no NOT_OBSERVED: a probe that failed is NOT_CHECKED, because that
+    // failure was ours or the form's.
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'lead_response_latency',
+    subject: 'RELATIONSHIP',
+    valueType: 'COUNT',
+    description: 'Seconds between submitting one controlled inquiry and the first '
+      + 'response attributable to it, of any actor type. Includes automated '
+      + 'acknowledgements, so it is not a measure of human follow-up.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'human_response_latency',
+    subject: 'RELATIONSHIP',
+    valueType: 'COUNT',
+    description: 'Seconds to the first contact from a person that engaged the '
+      + 'inquiry, requiring HUMAN actor evidence and HIGH or MEDIUM attribution. An '
+      + 'automated acknowledgement never satisfies this.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'after_hours_response_gap',
+    subject: 'RELATIONSHIP',
+    valueType: 'COUNT',
+    description: 'Seconds a lead submitted outside a company business-hours window '
+      + 'waited for a human. Produced only when those hours are actually known: '
+      + 'without them, whether 10 PM was after hours is not a fact we hold.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'paid_lead_followup_gap',
+    subject: 'RELATIONSHIP',
+    valueType: 'COUNT',
+    description: 'Human response latency for a probe selected because the company is '
+      + 'currently paying for demand. The same measurement as human_response_latency, '
+      + 'narrowed to the case where a slow answer is being paid for twice.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'no_human_followup_observed',
+    subject: 'RELATIONSHIP',
+    valueType: 'OBSERVED',
+    description: 'A closed audit window in which no human contact attributable to the '
+      + 'inquiry arrived on the channels we monitored. YES means that absence was '
+      + 'observed inside the window; NOT_OBSERVED means a human did follow up. Never '
+      + 'a claim that the company does not respond: they may have rung a number we '
+      + 'did not monitor or mailed an address we did not watch.',
+    // Deliberately no NO. "They never follow up" is not something one bounded
+    // observation can establish, and NO is the state that would let it try.
+    states: ['YES', 'NOT_OBSERVED', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'response_channel',
+    subject: 'RELATIONSHIP',
+    valueType: 'CATEGORY',
+    description: 'Which channel the first attributable response to a controlled '
+      + 'inquiry arrived on: SMS, CALL, EMAIL or MULTIPLE. A fact about that one '
+      + 'response, not about which channels the company generally uses.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'response_actor_type',
+    subject: 'RELATIONSHIP',
+    valueType: 'CATEGORY',
+    description: 'Whether the first attributable response came from a person, a '
+      + 'system, or something we could not tell apart: HUMAN, AUTOMATED or UNKNOWN. '
+      + 'UNKNOWN is a real answer, and absence of automation evidence is not a human.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
+  },
+  {
+    id: 'response_attribution_confidence',
+    subject: 'RELATIONSHIP',
+    valueType: 'CATEGORY',
+    description: 'How sure we are that a response belonged to our inquiry: HIGH, '
+      + 'MEDIUM, LOW or NONE. It travels with every other probe signal, because a '
+      + 'latency nobody can attribute is not a latency anybody may quote.',
+    states: ['YES', 'NOT_CHECKED', 'UNKNOWN'],
+    producers: ['PROBE_LEDGER'],
+    requiredCapability: null,
+    freshnessHours: 24 * 180,
+    aliases: [],
+    consumers: ['probe/evidence', 'domain/hypotheses'],
   },
 ];
 

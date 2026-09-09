@@ -338,7 +338,12 @@ Extract:
 - locations;
 - public staff/decision-maker clues.
 
-Do not submit fake forms, appointments, legal inquiries, patient inquiries, or quote requests.
+Do not submit fake forms, appointments, legal inquiries, patient inquiries, or quote
+requests — except an explicitly authorized Your AI Department Speed-to-Lead Probe executed exclusively through the governed `LEAD_RESPONSE_PROBE` subsystem under `outbound-sales-brain-speed-to-lead-probe-spec.md`. The exception does not apply to research crawlers, browser fallback, generic automation, appointments, dispatch requests, emergency requests, legal/medical inquiries, or any other code path.
+
+Appointments, dispatch requests and legal/medical inquiries remain prohibited
+outright: the exception is for a neutral request for information, never for
+anything that books, dispatches, or opens a professional-client matter.
 
 ### Front-End Technology Adapter
 
@@ -1728,7 +1733,8 @@ Production autonomous outbound must remain disabled until all are true.
 
 - research sources preserved;
 - fact/hypothesis separation tested;
-- no fake form submissions;
+- no fake form submissions, other than an authorized Speed-to-Lead Probe through
+  the `LEAD_RESPONSE_PROBE` subsystem (probe spec §2, §12);
 - canonical score matches Module 4C test fixtures;
 - stale ad evidence refresh works.
 

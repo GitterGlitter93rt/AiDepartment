@@ -12,7 +12,9 @@ Before any phase:
 - production autonomous dialing remains OFF;
 - automatic GitHub Actions remain manual-only unless Michael explicitly changes that;
 - no real-prospect calls during development;
-- no fake lead/form submissions;
+- no fake lead/form submissions except an explicitly authorized Your AI Department Speed-to-Lead Probe executed exclusively through the governed `LEAD_RESPONSE_PROBE` subsystem under `outbound-sales-brain-speed-to-lead-probe-spec.md`. The exception does not apply to research crawlers, browser fallback, generic automation, appointments, dispatch requests, emergency requests, legal/medical inquiries, or any other code path. Live probing
+  additionally requires `PROBE_SUBMISSION_ENABLED` and a non-zero cap, both of
+  which default to off and zero;
 - no secrets in repo;
 - work/test locally on EdgeXpert first;
 - every phase report includes tests, results, blockers and next step.
@@ -157,7 +159,9 @@ Pass targets:
 - technology signal precision acceptable;
 - zero active-ad inference from pixel/tag alone;
 - zero backend-workflow claims from frontend signal;
-- no form submission.
+- no form submission. Website intelligence never submits anything: the probe
+  subsystem is a separate, ledgered path and must not be reachable from the
+  research crawler or its browser fallback.
 
 ---
 

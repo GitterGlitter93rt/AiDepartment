@@ -43,6 +43,13 @@ const IDENTITY = 'Your AI Department';
  * resolution proved.
  */
 export function openingLineFor(resolution: InboundResolution): string {
+  if (resolution.mode === 'INBOUND_PROBE_RESPONSE') {
+    // Not the returning-call opener. This person is calling back about an inquiry we
+    // submitted, so "thanks for calling us back" would be true of the call and
+    // wrong about the relationship -- and the default branch below would have said
+    // exactly that.
+    return `Thanks for calling ${IDENTITY}. Who am I speaking with?`;
+  }
   if (resolution.mode === 'INBOUND_GENERAL') {
     // Every general opening is the same sentence on purpose. A caller we could not
     // identify must not be able to tell from the greeting whether we hold a record
@@ -132,6 +139,27 @@ function prohibitionsFor(resolution: InboundResolution): string[] {
 export function buildInboundContext(resolution: InboundResolution): InboundContext {
   const openingLine = openingLineFor(resolution);
   const prohibitions = prohibitionsFor(resolution);
+
+  if (resolution.mode === 'INBOUND_PROBE_RESPONSE') {
+    return {
+      mode: resolution.mode, openingLine, nextAction: resolution.nextAction,
+      prohibitions: [
+        'Do not claim to be a customer, and do not invent a service situation.',
+        'Do not request service, a quote, an appointment, or a site visit.',
+        'Do not name the company being audited back to the caller.',
+        'Do not transfer this call to a person at Your AI Department.',
+        'Do not keep the caller on the line once you know who they are.',
+      ],
+      injectionFlagged: false,
+      contextBlock: 'This call is a response to a lead-response audit Your AI '
+        + 'Department submitted. Establish which company is calling by asking once, '
+        + 'plainly: "Which company are you calling from?" Then thank them, confirm '
+        + 'nothing further is needed, and end the call. If they ask directly what '
+        + 'this is, say Your AI Department is measuring how quickly lead enquiries '
+        + 'get answered, and offer to exclude them from future audits. Their time '
+        + 'is the cost of this measurement; spend as little of it as possible.',
+    };
+  }
 
   if (resolution.mode === 'INBOUND_GENERAL') {
     const reason = resolution.ambiguityReason

@@ -41,8 +41,30 @@ test('nothing in the schema is shaped like a store for raw web pages', async () 
   // evidence_records.claim_text is a claim, not a page. A column called html or
   // page_body would be a cache of somebody else's website, which is a licence
   // question and an unbounded disk cost at the same time.
-  assert.deepEqual(suspicious, [],
-    `columns that look like a raw page store: ${suspicious.map((c) => `${c.table}.${c.column}`).join(', ')}`);
+  //
+  // One named exception, and it is named rather than renamed. This guard caught
+  // `probe_inbound_events.message_body` when the Speed-to-Lead ledger landed, and it
+  // was right to: that column holds third-party prose. It stays because it *is* the
+  // evidence -- a self-identifying SMS is an attribution rung, the cross-probe
+  // automation fingerprint is computed from the body, and without it an AMBIGUOUS
+  // verdict cannot be reviewed. What was missing was a bound, so the column now
+  // carries a 2000-character check constraint and ingestion truncates to match. The
+  // guard keeps working for everything else.
+  const allowed = new Set(['probe_inbound_events.message_body']);
+  const unexpected = suspicious.filter((c) => !allowed.has(`${c.table}.${c.column}`));
+  assert.deepEqual(unexpected, [],
+    `columns that look like a raw page store: ${unexpected.map((c) => `${c.table}.${c.column}`).join(', ')}`);
+});
+
+test('the one allowed inbound-message column is bounded', async () => {
+  // The exception above is only defensible while it cannot grow without limit, so
+  // the bound is asserted here rather than trusted to a comment.
+  const { rows } = await query<{ def: string }>(
+    `select pg_get_constraintdef(oid) as def from pg_constraint
+      where conrelid = 'probe_inbound_events'::regclass and contype = 'c'`);
+  const bound = rows.find((row) => /message_body/.test(row.def));
+  assert.ok(bound, 'probe_inbound_events.message_body has no length constraint');
+  assert.match(bound!.def, /char_length\(message_body\) <= 2000/);
 });
 
 test('no column is shaped like a place to keep audio', async () => {

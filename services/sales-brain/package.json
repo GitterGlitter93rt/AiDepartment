@@ -33,7 +33,8 @@
     "manifest": "tsx src/bin/manifest.ts",
     "support": "tsx src/bin/support-bundle.ts",
     "profiles:validate": "tsx src/bin/profile-contract.ts",
-    "canary:packet": "tsx src/bin/canary-packet.ts"
+    "canary:packet": "tsx src/bin/canary-packet.ts",
+    "probe:packet": "tsx src/bin/probe-packet.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

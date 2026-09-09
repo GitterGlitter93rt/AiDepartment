@@ -171,6 +171,30 @@ export const config = {
     emailEnabled: bool('OUTBOUND_EMAIL_ENABLED', false),
   },
 
+  /**
+   * The Speed-to-Lead probe.
+   *
+   * A third switch on purpose. `outbound.dialEnabled` and `outbound.emailEnabled`
+   * govern talking to a prospect we chose; this governs submitting a form to one, and
+   * neither of the other two implies it. Nor does the DataForSEO governance gate:
+   * different spend, different counterparty, different risk.
+   *
+   * Every cap defaults to zero, so enabling the switch alone still submits nothing.
+   * That is deliberate -- a single flag flip must not become a hundred submissions.
+   */
+  probe: {
+    submissionEnabled: bool('PROBE_SUBMISSION_ENABLED', false),
+    globalNightlyCap: numeric('PROBE_GLOBAL_NIGHTLY_CAP', 0, { min: 0 }),
+    perMarketNightlyCap: numeric('PROBE_PER_MARKET_NIGHTLY_CAP', 0, { min: 0 }),
+    perVerticalNightlyCap: numeric('PROBE_PER_VERTICAL_NIGHTLY_CAP', 0, { min: 0 }),
+    cooldownDays: numeric('PROBE_COOLDOWN_DAYS', 180, { min: 1 }),
+    /** Hours a closed probe's number is held before reallocation. */
+    quarantineHours: numeric('PROBE_NUMBER_QUARANTINE_HOURS', 72, { min: 0 }),
+    /** Kills every probe path regardless of any other setting. */
+    killSwitch: bool('PROBE_KILL_SWITCH', false),
+    aliasDomain: optional('PROBE_ALIAS_DOMAIN', 'probes.youraidepartment.ai'),
+  },
+
   worker: {
     concurrency: numeric('WORKER_CONCURRENCY', 2, { min: 1 }),
     pollIntervalMs: numeric('WORKER_POLL_INTERVAL_MS', 2000, { min: 100 }),

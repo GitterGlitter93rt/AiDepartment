@@ -266,9 +266,9 @@ That product is useful before an AI places a single prospect call.
 
 # 15. NON-NEGOTIABLE RULES
 
-- no fake lead/form submissions — unqualified today; a controlled, authorized
-  exception is *designed* in `outbound-sales-brain-speed-to-lead-probe-spec.md`
-  and remains unauthorized until Michael amends this rule (that spec §3, §22)
+- no fake lead/form submissions except an explicitly authorized Your AI Department Speed-to-Lead Probe executed exclusively through the governed `LEAD_RESPONSE_PROBE` subsystem under `outbound-sales-brain-speed-to-lead-probe-spec.md`. The exception does not apply to research crawlers, browser fallback, generic automation, appointments, dispatch requests, emergency requests, legal/medical inquiries, or any other code path. Approved
+  2026-09-09; the dry-run subsystem is built and live probing stays disabled
+  pending a separate explicit live authorization
 - no invented ad spend
 - no invented revenue/ROI
 - no active-ad claim from pixel/tag alone

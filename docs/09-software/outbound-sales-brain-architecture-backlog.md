@@ -236,7 +236,8 @@
 # P. SPEED-TO-LEAD RESPONSE PROBE
 
 Authority: `outbound-sales-brain-speed-to-lead-probe-spec.md`.
-Status: **designed, not implemented, not authorized.** Dry-run only.
+Status: **dry-run subsystem implemented and merged; live probing disabled.**
+Classification: `SPEED_TO_LEAD_CODE_READY_LIVE_BLOCKED`.
 
 Why it exists: `speed_to_lead` fires today from ad presence, and the profiles then
 forbid saying anything about actual response time
@@ -267,23 +268,42 @@ subsystem is that measurement.
 - [x] Identify the five standing prohibitions this conflicts with, by document and
       section.
 - [x] Enumerate the compliance/consent/terms decisions Michael must approve.
-- [ ] Ledger + pool schema and migration.
-- [ ] Collision-aware allocator with franchise-cluster fixtures.
-- [ ] `INBOUND_PROBE_RESPONSE` mode in the inbound resolver.
-- [ ] Actor-type classifier + cross-probe fingerprint.
-- [ ] Latency arithmetic including the null-business-hours path.
-- [ ] Email alias mechanism and inbound token resolution.
-- [ ] Signal registry entries + `LEAD_RESPONSE_PROBE` capability.
-- [ ] Dry-run submitter, fixture site, full simulation suite.
-- [ ] Rep-facing renderer with confidence gating.
-- [ ] **BLOCKED — Michael:** amend the five standing "no fake form submission"
-      prohibitions, or the subsystem stays in dry-run permanently.
-- [ ] **BLOCKED — Michael:** approve conduct, consent-checkbox, terms, identity,
-      vertical-eligibility, volume and suppression decisions (spec §22).
-- [ ] **BLOCKED — counsel:** consent representation on third-party forms; terms-of-use
-      exposure.
+- [x] Ledger + pool schema and migration.
+- [x] Collision-aware allocator with franchise-cluster fixtures.
+- [x] `INBOUND_PROBE_RESPONSE` mode in the inbound resolver.
+- [x] Actor-type classifier + cross-probe fingerprint.
+- [x] Latency arithmetic including the null-business-hours path.
+- [x] Email alias mechanism and inbound token resolution.
+- [x] Signal registry entries, producer `PROBE_LEDGER` (a producer, not a missing
+      capability: the contract test forbids declaring both, and code does write them).
+- [x] Dry-run submitter, fixture site, full simulation suite.
+- [x] Rep-facing renderer with confidence gating.
+- [x] Five-outcome response model: nothing / automated / human / UNKNOWN actor /
+      inconclusive. UNKNOWN actor is a response, not a no-response, and an event that
+      could not be attributed destroys the absence claim as well as the response one.
+- [x] Regression pins for all five defects found during implementation:
+      millisecond-vs-minute timezone offset, checkbox label text leakage,
+      `NO_RESPONSE_WINDOW_1` dropping out of the attributable set, `PROBE_AUDIT`
+      reading as a contact suppression, and the milestone-column close-window bug.
+- [x] Narrow pending-migration tolerance: only a missing `probe_pool_numbers`
+      relation is absorbed, and `probeRegressions` pins that every other database
+      error still fails visibly.
+- [x] Operator packet reconciles -- one bucket per prospect, summing to the batch,
+      with the overlapping stage counters labelled as stage counts.
+- [x] **Michael, 2026-09-09:** amended all five "no fake form submission"
+      prohibitions to carry one narrow, governed exception. Principle kept, scope
+      changed.
+- [x] **Michael, 2026-09-09:** conduct, consent-checkbox, terms, identity,
+      vertical-eligibility, volume and suppression decisions all resolved (spec §22).
+- [x] **Counsel no longer blocks the dry run.** V1 never checks a third-party consent
+      or attestation checkbox, so the consent-representation question is not reached.
+      Counsel remains a blocker for expanding live coverage to forms that need one.
+- [ ] **BLOCKED — Michael:** explicit live authorization and rollout stage; real
+      Twilio numbers; a separated alias sending domain; a live submission transport,
+      which this build deliberately does not contain.
 - [ ] Do **not** wire probe signals into the Module 4C canonical score without a
-      separate decision, fixtures and a score-version bump.
+      separate decision, fixtures and a score-version bump. Deliberately not done:
+      the owner will decide after seeing how the evidence behaves.
 - [ ] Do **not** conflate live-probe authorization with the DataForSEO paid canary
       gate (`DATAFORSEO_GOVERNANCE_REVIEWED`, SB-B3). Different spend, different
       counterparty, different risk.

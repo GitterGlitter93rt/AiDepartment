@@ -27,7 +27,23 @@ import {
  *     initiation; somebody who rings us voluntarily is answered.
  */
 
-export type InboundMode = 'INBOUND_CALLBACK' | 'INBOUND_GENERAL';
+export type InboundMode =
+  | 'INBOUND_CALLBACK'
+  | 'INBOUND_GENERAL'
+  /**
+   * Somebody is answering a Speed-to-Lead probe.
+   *
+   * Decided by the number they rang rather than the number they rang from: a call to
+   * a probe pool number is a response to an audit, whoever is on the line. It is
+   * resolved here rather than in a second resolver because the alternative -- a
+   * parallel path with its own idea of what a known caller is -- is how two systems
+   * come to disagree about who someone is.
+   *
+   * `accountId` stays null in this mode even when attribution succeeds. The person
+   * calling works for the company being audited; naming it back to them would
+   * disclose the audit's target to its subject.
+   */
+  | 'INBOUND_PROBE_RESPONSE';
 
 /** What the agent may act on, and how sure we are of it. */
 export type FactConfidence = 'OBSERVED' | 'INFERRED' | 'UNKNOWN';
@@ -224,7 +240,11 @@ async function loadSignals(accountId: string, now: Date): Promise<SignalRow> {
                   and (s.expires_at is null or s.expires_at > $2::timestamptz)) as dnc_suppression,
        exists (select 1 from suppressions s
                 where s.account_id = $1 and s.is_active and s.scope in ('ACCOUNT','CONTACT')
-                  and s.suppression_type <> 'DNC'
+                  -- PROBE_AUDIT is excluded deliberately. "Do not audit us again" is
+                  -- narrower than "do not contact us", and reporting it here would
+                  -- have told the inbound agent a company was suppressed for contact
+                  -- because it declined a lead-response test.
+                  and s.suppression_type not in ('DNC','PROBE_AUDIT')
                   and (s.expires_at is null or s.expires_at > $2::timestamptz)) as other_suppression`,
     [accountId, now]);
   return rows[0]!;
@@ -314,8 +334,68 @@ export interface ResolveInput {
   now?: Date;
 }
 
+/**
+ * Is the number they rang one of ours for probing?
+ *
+ * Checked before endpoint matching, because the destination settles the mode
+ * regardless of the origin. A prospect whose own number we happen to hold, ringing a
+ * probe number, is still answering a probe.
+ */
+async function probePoolNumberFor(toNumber: string | undefined): Promise<string | null> {
+  const normalized = normalizePhone(toNumber);
+  if (!normalized) return null;
+  try {
+    const { rows } = await query<{ pool_number_id: string }>(
+      `select pool_number_id from probe_pool_numbers where e164 = $1`, [normalized]);
+    return rows[0]?.pool_number_id ?? null;
+  } catch (error) {
+    if (isMissingProbeTable(error)) return null;
+    throw error;
+  }
+}
+
+/** The one table this tolerance is for. */
+const PROBE_POOL_TABLE = 'probe_pool_numbers';
+
+/**
+ * Whether a failure is specifically "the probe pool table has not been created yet".
+ *
+ * Deliberately two conditions, not one. The probe tables arrive in migration 049 and
+ * this query sits on the realtime inbound path, so a build deployed ahead of its
+ * migration must not take the voice line down -- but a bare `code === '42P01'` check
+ * would also swallow a missing `accounts`, and a resolver that answers "not a probe"
+ * when the schema is broken is guessing rather than degrading.
+ *
+ * Everything else propagates: a connection failure, a permission error, a renamed
+ * column, a missing table that is not this one. `probeTolerance.test.ts` pins that.
+ */
+export function isMissingProbeTable(error: unknown): boolean {
+  const candidate = error as { code?: string; message?: string } | null;
+  if (!candidate || candidate.code !== '42P01') return false;
+  return typeof candidate.message === 'string'
+    && candidate.message.includes(PROBE_POOL_TABLE);
+}
+
 export async function resolveInboundMode(input: ResolveInput): Promise<InboundResolution> {
   const now = input.now ?? new Date();
+
+  const poolNumberId = await probePoolNumberFor(input.toNumber);
+  if (poolNumberId) {
+    return {
+      ...generalResult({ reasonCodes: ['inbound_on_probe_pool_number'], now }),
+      mode: 'INBOUND_PROBE_RESPONSE',
+      // Identity is resolved by the probe ladder against the ledger, not here, and
+      // it is never spoken to the caller either way.
+      nextAction: 'ANSWER_WITHOUT_SALES_CONTEXT',
+      withheld: [
+        { key: 'account_identity',
+          reason: 'the caller works for the company being audited' },
+        { key: 'probe_existence',
+          reason: 'the audit is not announced unless the caller asks directly' },
+      ],
+    };
+  }
+
   const matches = await matchEndpoints(input.fromNumber);
 
   if (matches.length === 0) {

@@ -1,7 +1,7 @@
 # Your AI Department — Speed-to-Lead Probe Number Pool Specification
 
-**Status:** Architecture authority — **design only. No live probing authorized by this document.**  
-**Date:** 2026-09-09  
+**Status:** Architecture authority — **dry-run subsystem implemented. Live probing remains disabled: `SPEED_TO_LEAD_CODE_READY_LIVE_BLOCKED`.**  
+**Date:** 2026-09-09 (product decisions resolved and dry-run built the same day)  
 **Purpose:** Measure what actually happens to a new web/paid lead at a prospect company — acknowledgement, first human contact, channel, latency — through a controlled, authorized, attributable audit, using a small shared pool of Twilio numbers rather than one number per prospect.  
 **Implementation owner:** Claude Code  
 **Architecture:** ChatGPT  
@@ -40,27 +40,34 @@ typical performance, and §18 exists to keep that distinction.
 
 # 2. WHAT IS AND IS NOT AUTHORIZED
 
-Authorized by this document:
+Built and merged:
 
-- the design, schema, state machine, attribution logic and signals below;
-- implementation behind a **dry-run/simulated** mode that submits nothing (§21);
-- fixtures and tests against simulated forms and simulated inbound events.
+- the ledger, pool, identity registry and state machine (migration 049);
+- the collision-aware allocator, with deferral;
+- the attribution ladder, as a third mode on the existing inbound resolver;
+- actor typing, cross-probe fingerprinting, latency arithmetic, alias tokens;
+- the dry-run submitter, the fixture forms, and the operator packet.
 
-**Not** authorized by this document:
+**Still not authorized, and disabled in code:**
 
 - any live form submission to any real company;
 - purchasing Twilio numbers for a probe pool;
 - enabling the inbound probe agent on a live number;
-- any bulk or autonomous probing.
+- any bulk or autonomous probing;
+- checking any third-party consent, terms or attestation checkbox (§22.3).
 
-A future live probe requires explicit written authorization from Michael, per §22.
+Live probing requires **all** of: `PROBE_SUBMISSION_ENABLED=true`, a non-zero global
+cap, a non-zero per-market cap, a non-zero per-vertical cap, the kill switch off, and
+a live submission transport, which this build does not contain. Every one of those
+defaults to off or zero, so no single flag flip can start a submission.
+
 That authorization is **separate from and must not be conflated with** the DataForSEO
 paid canary gate (`DATAFORSEO_GOVERNANCE_REVIEWED`, SB-B3). Those are different
 spends, different counterparties and different risks. Neither implies the other.
 
 ---
 
-# 3. STANDING PROHIBITIONS THIS SUBSYSTEM CONFLICTS WITH
+# 3. THE PROHIBITIONS THIS SUBSYSTEM CONFLICTED WITH, AND HOW THEY WERE AMENDED
 
 This is the part that cannot be resolved by writing a new document, and it is
 recorded here rather than left for somebody to discover during implementation.
@@ -88,11 +95,24 @@ Three more scope themselves around the same boundary:
 - `market-miner-untrusted-content-security-spec.md` §16 (line 284) — "Browser
   fallback must prevent accidental form submission/booking/message."
 
+**Resolved 2026-09-09.** All five were amended by the project owner to carry a narrow
+exception, in these words:
+
+> No fake lead/form submissions except an explicitly authorized Your AI Department
+> Speed-to-Lead Probe executed exclusively through the governed `LEAD_RESPONSE_PROBE`
+> subsystem under `outbound-sales-brain-speed-to-lead-probe-spec.md`. The exception
+> does not apply to research crawlers, browser fallback, generic automation,
+> appointments, dispatch requests, emergency requests, legal/medical inquiries, or any
+> other code path.
+
+The safety principle was kept rather than deleted. What changed is its scope, from
+"never" to "only here, and only when authorized".
+
 Consequences, stated plainly:
 
-1. **These prohibitions are not reinterpreted by this document and are not waived by
-   it.** Until Michael amends those five lines, the live probe cannot run, and
-   the dry-run mode in §21 is not an exception to them because it submits nothing.
+1. There is exactly **one** governed active-submission path, and it is the probe
+   worker. Appointments, dispatch requests and legal/medical inquiries stay
+   prohibited outright -- the exception is for a neutral request for information.
 2. The §16 security rule must **stay** as written. A probe submission is a
    deliberate, authorized, ledger-backed action taken by the probe worker. It must
    never be reachable from the research crawler, and "accidental submission is
@@ -301,6 +321,31 @@ Sole occupancy of a pool number is deliberately absent from this ladder.
 
 **Absence of automation evidence is not evidence of a human.** An unclassifiable
 response stays UNKNOWN, and UNKNOWN never satisfies a human-response signal.
+
+Nor is **UNKNOWN the same fact as no response**, which is the distinction the first
+implementation lost. Deciding whether a probe got a reply from the six milestone
+columns meant an UNKNOWN-actor event -- which deliberately populates none of them --
+closed the probe as `NO_RESPONSE_FINAL` while the same row carried an elapsed
+response time. The inbound event ledger is the authority on whether a response
+arrived; the milestone columns only say what kind it was.
+
+## 8.3.1 Five outcomes, not two
+
+Every consumer distinguishes all five. Collapsing any pair produces a claim we
+cannot defend, in one direction or the other:
+
+| Outcome | `no_human_followup_observed` | Human latency | Terminal status |
+| --- | --- | --- | --- |
+| nothing attributable arrived | YES — the absence really was observed | NOT_OBSERVED | `NO_RESPONSE_FINAL` |
+| automated only | YES | NOT_OBSERVED | `ATTRIBUTED` |
+| human | NOT_OBSERVED | stated | `ATTRIBUTED` |
+| attributed, actor UNKNOWN | **UNKNOWN** — our classification failed, which is not their absence | **UNKNOWN** | `ATTRIBUTED` |
+| inconclusive: LOW/NONE confidence, or named among an ambiguous event's candidates | **UNKNOWN** — one of those events may have been them, so no absence was observed | UNKNOWN | unchanged; the renderer refuses |
+
+The last row is the subtle one. An event that reached this probe's pool number
+without being confidently attributable destroys the *absence* claim as well as the
+response claim: "nobody answered" is unsafe when something answered and we could not
+tell whose it was.
 
 ## 8.4 First meaningful contact
 
@@ -526,6 +571,10 @@ Windows are configurable. Defaults: window 1 = 4 business hours; final = 72 hour
 wall-clock, extended to the end of the next business day so an after-hours
 submission is not scored against a closed office.
 
+The final window can always terminate a probe, including straight from `SUBMITTED`.
+A worker outage between the two sweeps must not strand a probe for ever holding its
+Account and its pool number.
+
 ---
 
 # 14. AUTHORIZATION AND SAFETY MODEL
@@ -590,12 +639,20 @@ permanently and recorded as a suppression.
 
 # 17. SIGNALS AND CANONICAL FACTS
 
-Declared in `src/domain/signalRegistry.ts`. Until the subsystem is implemented, each
-is declared with **no producer** and a `requiredCapability`, which is the established
-pattern (`active_meta_ad`, `storm_hail_market_signal`) and means the validator reports
-`SOURCE_UNAVAILABLE` — understood, not collectable — rather than a defect.
+Declared in `src/domain/signalRegistry.ts` with the producer `PROBE_LEDGER`.
 
-New capability: `LEAD_RESPONSE_PROBE`.
+This corrects what this section originally said. The pre-implementation plan was to
+declare them with **no producer** and a `requiredCapability`, the `active_meta_ad`
+pattern. That is now the wrong shape, and the contract test says so: a signal may
+declare a producer **or** a missing capability and never both, because they cannot
+both be true. Code does write these signals -- the ledger, the ladder and the latency
+arithmetic all exist -- so the producer is real and the capability would be a lie.
+
+What is *not* yet true is that any live probe has run. That is a property of the
+**data**, not of the registry: with no live rows, every signal reads `NOT_CHECKED`,
+which is exactly right and needs no special casing. `probeSignalsFor()` filters to
+`execution_mode = 'LIVE'` by default, so the simulated rows the dry run produces are
+invisible to it.
 
 Subject is `RELATIONSHIP` for every probe-derived fact. This is deliberate and it is
 the load-bearing decision in this section: the subject of the fact is **the
@@ -650,6 +707,12 @@ Non-negotiable:
    observed, on which channels, within which window.
 5. A single probe is n=1. Nothing in this subsystem may produce a rate, an average, a
    "typically", or a comparison to a benchmark from one probe.
+6. **Attribution confidence gates claims about a response, not the absence of one.**
+   A probe where nothing came back has nothing to attribute, so its confidence stays
+   NONE -- and gating the whole signal set on that suppressed the one thing the probe
+   did establish. A closed window with no attributable response is a real bounded
+   observation; reporting it as "we cannot say anything" threw the finding away while
+   keeping the cost of having probed.
 
 ---
 
@@ -733,9 +796,16 @@ Default and, until §22, only mode.
 - `PROBE_SUBMISSION_ENABLED=false` — the submitter resolves the form, builds the
   payload, validates eligibility, computes the digest and writes the ledger row, then
   stops. Nothing leaves the machine.
-- Local fixture site — the pattern already used elsewhere in this project — serves
-  forms covering: plain form, form with consent checkbox, dispatch-only form,
-  CAPTCHA-guarded form, `+`-rejecting validator, and a form that 500s.
+- Fixture forms are **real markup parsed in-process**, not served over HTTP. The
+  plan was a local fixture site; what was built is better, because there is then no
+  network primitive anywhere in `src/probe` at all -- a stronger guarantee than a
+  loopback server plus a promise not to point it outward. The same parser a live path
+  would use reads them, so the analyzer is tested against markup rather than against
+  hand-built descriptors that encode my own assumptions about form shape.
+- Ten fixtures: plain form, optional checkbox, mandatory consent gate, mandatory
+  terms gate, dispatch-only, CAPTCHA, anti-automation notice, `+`-rejecting
+  validator, required-VIN/claim-number, and a call-only page with no form. Server
+  error and mid-submission crash are simulated transport outcomes.
 - Simulated inbound events exercise every §7 tier and every §8 actor case, including
   the two that must fail: a colliding franchise pair, and an unknown-ANI call with
   two plausible probes.
@@ -745,65 +815,69 @@ Default and, until §22, only mode.
 
 Acceptance for the dry-run phase: every §13 transition exercised; every §7 tier
 exercised including AMBIGUOUS; `FAILED` and `AMBIGUOUS` provably produce no signal;
-`no_human_followup_observed` provably cannot render as "No"; collision allocator
-provably defers rather than forcing; unique-open-probe index provably rejects a
-duplicate.
+`no_human_followup_observed` provably cannot render as "No"; all five §8.3.1 outcomes
+provably distinct; collision allocator provably defers rather than forcing;
+unique-open-probe index provably rejects a duplicate.
+
+The packet also **reconciles**: every prospect lands in exactly one bucket and the
+buckets sum to the batch. The stage counters beside it overlap by lifecycle stage --
+one probe is prepared, then acknowledged, then answered -- and are labelled as stage
+counts rather than presented as a partition. A report whose numbers do not add up
+invites the reader to assume the awkward rows were dropped.
 
 ---
 
-# 22. DECISIONS MICHAEL MUST APPROVE BEFORE ANY LIVE PROBE
+# 22. THE PRODUCT DECISIONS, AS RESOLVED
 
-Engineering cannot decide these, and none is a technical question.
+Resolved by the project owner on 2026-09-09. Recorded here as the authority for what
+the code now does, with what remains open named at the end.
 
-1. **Amend the standing prohibitions in §3.** Five lines across three
-   architecture-authority documents forbid fake form submissions without qualification. They must be
-   amended to carve out an authorized, ledgered, rate-limited lead-response audit —
-   or this subsystem stays in dry-run permanently. Naming the lines is engineering's
-   job; changing them is not.
-2. **Is a controlled fake inquiry acceptable conduct toward a prospect?** It consumes
-   a salesperson's time and may hold a dispatch slot. §12 and §15 minimize that; they
-   do not eliminate it. This is the ethical decision underneath the legal ones, and
-   it should be made explicitly rather than inherited from a schema.
-3. **Form consent checkboxes.** Many forms carry "I agree to be contacted, including
-   by automated calls/texts". Checking it submits a consent representation on behalf
-   of an identity that does not exist. The mitigating fact is real — the number is
-   YAD's and YAD does consent to be contacted on it — but whether that makes the
-   representation truthful is a question for counsel, not for this document.
-4. **Target terms of use.** Automated submission and false information are prohibited
-   by many sites' terms. Whether YAD accepts that exposure, and whether a terms gate
-   makes a target ineligible outright, needs a decision. §12.3 already refuses
-   CAPTCHA circumvention regardless.
-5. **Fictitious identity policy.** Which names, which email domain, and whether a
-   probe may ever decline to identify itself when asked. §15 currently says it always
-   identifies YAD when asked directly.
-6. **Vertical eligibility.** §12.2 is engineering's floor. The commercial list of
-   verticals YAD is willing to probe is Michael's.
-7. **Volume, cooldown and caps.** Nightly cap, per-market cap, cooldown length.
-   Defaults in this document are conservative placeholders, not recommendations.
-8. **Recording/transcription** of inbound probe calls — separately, if ever (§16).
-9. **Suppression on request.** Confirmation that an audited company asking to be
-   excluded is honoured permanently, and whether it also suppresses sales outreach.
+| # | Decision | Resolution |
+| --- | --- | --- |
+| 1 | Amend the five prohibitions | **Yes**, narrowly, keeping the safety principle (§3) |
+| 2 | Is a controlled fake inquiry acceptable conduct | **Yes** in principle: one neutral inquiry, no story, no urgency, no dispatch, minimum of the prospect's time |
+| 3 | Third-party consent checkboxes | **Never checked in V1.** A mandatory one makes the form `INELIGIBLE_CONSENT_GATE`. Coverage is sacrificed deliberately to stay out of the consent-representation question |
+| 4 | Terms / anti-automation gates | **Ineligible in V1.** No circumvention, no CAPTCHA solving, no clicking through. Record what was presented; never infer terms we did not see |
+| 5 | Identity | Registered YAD-controlled fictitious identities only, versioned via `submitted_identity_id`. No detailed life situation |
+| 6 | V1 verticals | Roofing, HVAC, plumbing, collision repair, real estate — **and** form-level eligibility on top |
+| 7 | Volume | ~100/night is the engineering target, **not** an authorization. Every cap defaults to 0; staged rollout A/B/C/D is a decision each time, never automatic promotion |
+| 8 | Recording | **No** recording, **no** transcription, in V1 |
+| 9 | Suppression | "Do not audit us" is permanent probe suppression; contact language additionally applies ordinary DNC. Ambiguous language fails closed |
 
-Legal conclusions belong to qualified counsel. This document identifies the
-questions and refuses to answer them.
+Because of Decision 3, **counsel is not a blocker for the dry-run subsystem**: V1
+never makes a consent representation, so the unresolved question is not reached.
+Counsel remains a blocker for expanding live coverage to forms that require one.
+
+## Still open before any live probe
+
+- explicit live authorization, and which rollout stage (A: one probe; B: ≤10/night;
+  C: ≤25/night; D: ≤100/night);
+- purchase of real Twilio pool numbers;
+- an SPF/DKIM/DMARC-separated alias subdomain;
+- a live submission transport, which this build deliberately does not contain;
+- whether probe signals ever affect the Module 4C canonical score (§17: not yet).
+
+Legal conclusions remain with qualified counsel. This document records the owner's
+product decisions and does not substitute for that.
 
 ---
 
 # 23. IMPLEMENTATION ORDER
 
-Not started, and deliberately sequenced so the parts that cannot cause harm come
-first and the part that can comes last.
+Sequenced so the parts that cannot cause harm came first and the part that can comes
+last. Items 1-9 are built, tested and merged; item 10 is where it stops.
 
-1. Ledger schema, pool schema, state machine, unique-open-probe index.
-2. Collision-aware allocator + deferral, with fixtures for franchise clusters.
-3. Attribution ladder as an extension of `src/inbound/resolver.ts`; `INBOUND_PROBE_RESPONSE`.
-4. Actor-type classifier including the cross-probe template fingerprint.
-5. Latency arithmetic, including the null-business-hours path.
-6. Email alias mechanism and inbound token resolution.
-7. Signal registry entries with `LEAD_RESPONSE_PROBE`, no producers.
-8. Dry-run submitter + fixture site + full simulation suite (§21).
-9. Rep-facing renderer with confidence gating and the refuse-if-incomplete rule.
-10. **Stop.** Live enablement requires §22.
+1. [x] Ledger schema, pool schema, state machine, unique-open-probe index.
+2. [x] Collision-aware allocator + deferral, with fixtures for franchise clusters.
+3. [x] Attribution ladder as an extension of `src/inbound/resolver.ts`; `INBOUND_PROBE_RESPONSE`.
+4. [x] Actor-type classifier including the cross-probe template fingerprint.
+5. [x] Latency arithmetic, including the null-business-hours path.
+6. [x] Email alias mechanism and inbound token resolution.
+7. [x] Signal registry entries, producer `PROBE_LEDGER` (see §17: a producer, not a
+   missing capability).
+8. [x] Dry-run submitter + fixture site + full simulation suite (§21).
+9. [x] Rep-facing renderer with confidence gating and the refuse-if-incomplete rule.
+10. [ ] **Stopped here.** Live enablement requires §22.
 
 ---
 
@@ -816,6 +890,9 @@ first and the part that can comes last.
 - No response observed is a bounded observation, never "they did not respond".
 - An automated acknowledgement is never human follow-up.
 - Absence of automation evidence is never evidence of a human.
+- An UNKNOWN actor is a response, not a no-response.
+- An event that could not be attributed destroys the absence claim too.
+- Confidence gates a stated response time, never an observed absence.
 - Raw and business-hours-adjusted latency are always presented together.
 - Unknown business hours produce null, never zero.
 - One inquiry is n=1 and never becomes a rate or an average.
