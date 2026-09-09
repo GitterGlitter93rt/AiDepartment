@@ -34,10 +34,20 @@ chmod 600 "$TARGET"
 # the tables that matter before rotating anything out.
 #
 # The verification lives in its own script so it can be pointed at any archived dump
-# by hand, and so the regression suite exercises the same code this runs. `set -e`
-# means a non-zero exit here aborts before the retention sweep below -- which is what
-# kept five nights of dumps from being rotated away while validation was broken.
-"$PACKAGE_DIR/deploy/verify-backup.sh" "$TARGET"
+# by hand, and so the regression suite exercises the same code this runs.
+#
+# Its output is captured and re-emitted from this process on purpose. In a systemd
+# user unit only the main process's streams reach the journal: a child's stdout and
+# stderr are both dropped, verified by experiment. Left uncaptured, a failed
+# verification would appear in the journal as a bare non-zero exit with no reason --
+# which is worse than the misleading "missing table accounts" this whole change
+# exists to fix, because at least that named something.
+if ! VERIFICATION="$("$PACKAGE_DIR/deploy/verify-backup.sh" "$TARGET" 2>&1)"; then
+  printf '%s\n' "$VERIFICATION" >&2
+  echo "BACKUP FAILED: verification of $TARGET failed; nothing was rotated" >&2
+  exit 1
+fi
+printf '%s\n' "$VERIFICATION"
 
 find "$BACKUP_DIR" -maxdepth 1 -type f -name 'yad_sales_*.sql.gz' -mtime "+${RETAIN_DAYS}" -delete
 

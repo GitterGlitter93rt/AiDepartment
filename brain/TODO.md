@@ -315,7 +315,43 @@ A task should appear in only one status section. Dependencies may be referenced 
   answered from the tables the product already keeps; the outbound-AI line cannot
   read OK while a live call exists.
 
+## 🟢 Completed — Runtime separation and the backup that was never broken (2026-09-09)
+
+- [x] **SB-R1 — Five nights of good backups reported as a missing accounts table.**
+  `zgrep -q` plus systemd's `IgnoreSIGPIPE=yes`: `grep -q` closes the pipe at the
+  first match, `gzip` gets EPIPE instead of dying by signal, and zgrep reports failure
+  on a dump that contains the table. Interactively the same command passed, which is
+  why five nights read as a database fault. `accounts` was named every night only
+  because it is first in the required list and the loop stopped there — six tables
+  required, one ever checked. **Gate:** every historical dump verified valid (70
+  tables, gzip OK, `COPY public.accounts` present); verification moved to
+  `deploy/verify-backup.sh`; 10 regressions including a fixture shaped so the EPIPE
+  reproduces deterministically.
+- [x] **SB-R2 — Child output is invisible in a systemd user unit.** A defect
+  introduced by the refactor and caught before it shipped: a child's stdout *and*
+  stderr are both dropped, so a failed verification would have been a bare non-zero
+  exit. `backup.sh` captures and re-emits. **Gate:** the failure path proven in the
+  journal, naming every missing table and saying nothing was rotated.
+- [x] **SB-R3 — Dedicated runtime.** `/home/roothecks/YAD-Sales-Brain/services/sales-brain`,
+  worktree locked, `.env` copied at mode 600 and never printed,
+  `deploy/assert-runtime.sh` refusing any tree that is not this branch — discriminating
+  on tracked-ness, which is what made the orphaned runtime look fine. Backup unit
+  repointed and green through its own unit. **Gate:** suite 1714/1714 from the new
+  runtime; docs/09-software/SALES-BRAIN-RUNTIME.md written.
+
 ## 🚧 Blocked — Outbound Sales Brain (needs Michael)
+
+- [ ] **SB-R4 — API/worker cutover, stopped at the schema boundary.** The staged units
+  are written and not installed (`/home/roothecks/yad-sales-runtime-rollback-20260909/staged-units/`).
+  The API's current `ExecStartPre` runs `dist/bin/migrate.js`, which executes DDL, so
+  the restart was not performed. 48 applied / 48 on branch / 0 pending / 0 checksum
+  drift, so the migrator would do nothing — but it is still a schema-touching step and
+  needs explicit authorization. **Separately:** the API's first `ExecStartPre` points
+  at `deploy/docker-compose.yml` in the old path and **that file is missing**, so the
+  API cannot currently restart at all. It runs, but a crash or reboot leaves it down.
+  Three options are recorded in the Issue #3 checkpoint; the staged unit omits the
+  migration step, which is the recommended one.
+
 
 - [ ] **SB-B1 — Azure app registration** for michael@youraidepartment.ai: tenant ID, client ID,
   client secret, `Calendars.ReadWrite` *application* permission with admin consent. Blocks real

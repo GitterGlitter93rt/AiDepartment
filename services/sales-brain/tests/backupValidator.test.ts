@@ -200,3 +200,56 @@ test('backup.sh verifies before it rotates, and delegates to the same script', (
   assert.match(script, /set -euo pipefail/,
     'without set -e a failed verification would not stop the rotation');
 });
+
+test('backup.sh re-emits the verification so a failure says why', () => {
+  // In a systemd user unit only the main process's streams reach the journal: a
+  // child's stdout *and* stderr are both dropped, which was verified by experiment
+  // on this box. Moving verification into its own script therefore risked making a
+  // failed backup appear as a bare non-zero exit with no reason -- worse than the
+  // misleading "missing table accounts" this change exists to fix, because that at
+  // least named something.
+  const script = readFileSync('deploy/backup.sh', 'utf8');
+  assert.match(script, /VERIFICATION="\$\("\$PACKAGE_DIR\/deploy\/verify-backup\.sh"/,
+    'backup.sh no longer captures the verifier output, so a failure would be silent '
+    + 'in the journal');
+  assert.match(script, /printf '%s\\n' "\$VERIFICATION" >&2/,
+    'the captured diagnostics are not re-emitted on failure');
+  assert.match(script, /printf '%s\\n' "\$VERIFICATION"\n/,
+    'the captured confirmation is not re-emitted on success');
+  assert.match(script, /nothing was rotated/,
+    'a failed verification does not say that rotation was skipped');
+
+  // Capturing must not become swallowing: the status is still checked.
+  assert.match(script, /if ! VERIFICATION=/,
+    'the verifier exit status is no longer checked');
+  const exitAt = script.indexOf('BACKUP FAILED: verification of');
+  const rotateAt = script.indexOf('-mtime "+${RETAIN_DAYS}" -delete');
+  assert.ok(exitAt > 0 && exitAt < rotateAt,
+    'the failure path does not precede the retention sweep');
+});
+
+test('the runtime guard refuses a tree that is not the Sales Brain', () => {
+  // The other half of the incident: the services ran from the general checkout,
+  // which was later switched to a website branch that does not track services/ at
+  // all. The source, the migrations and backup.sh vanished while api and worker kept
+  // running from an ignored dist for days, and nothing failed at the moment it broke.
+  const guard = readFileSync('deploy/assert-runtime.sh', 'utf8');
+  assert.match(guard, /EXPECTED_BRANCH="feature\/outbound-sales-brain"/,
+    'the guard does not pin the branch it must run from');
+  // Tracked-ness is the exact discriminator: those files existed as ignored
+  // artefacts in the broken runtime and were absent as tracked source.
+  assert.match(guard, /git ls-files --error-unmatch/,
+    'the guard checks files exist rather than that they are tracked, which is the '
+    + 'condition that made the orphaned runtime look fine');
+  for (const required of ['deploy/backup.sh', 'deploy/verify-backup.sh', 'migrations']) {
+    assert.ok(guard.includes(required), `the guard does not require ${required}`);
+  }
+  assert.match(guard, /mode is \$ENV_MODE, expected 600/,
+    'the guard does not check that .env is not world-readable');
+
+  const result = spawnSync('bash', ['deploy/assert-runtime.sh'], { encoding: 'utf8' });
+  assert.equal(result.status, 0,
+    `the guard rejects its own runtime: ${result.stderr}`);
+  assert.match(result.stdout, /on feature\/outbound-sales-brain at [0-9a-f]{7}/,
+    'the guard does not report which commit is running');
+});
