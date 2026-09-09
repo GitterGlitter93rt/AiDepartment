@@ -292,7 +292,20 @@ The centralized strategy-call link appears at four placements plus the mobile st
 
 ---
 
-## 10. Related documents
+## 10. Sprint 15 addendum — GA4 configuration drift (2026-09-09)
+
+A live GA4 audit found the website taxonomy above intact and the **GA4 configuration** out of step with it. Recorded here so this document is not read as describing GA4's state:
+
+- **114 Key Events in 28 days, zero of them bookings.** `booking_click_enterprise` (51) and `booking_click_strategy` (44) were configured as Key Events. They are clicks toward a scheduler and are classified as diagnostics in §3 above.
+- **Four Key Events exist in GA4 for events no code emits:** `appointment_booked`, `qualify_lead`, `close_convert_lead`, `purchase`. Zero occurrences of any of them in the repository.
+- **`booking_confirmed` does not appear in the GA4 event report at all**, despite being the site's only booked-call conversion. Cause is one of: no real booking occurred, the Cal.com redirect is unconfigured, or GTM renames it to `appointment_booked`. See `docs/analytics/ga4-operator-checklist.md` Part B.
+- **299 `view_search_results` events** on a site with no search feature — GA4 Enhanced Measurement reading the `keyword=` Google Ads ValueTrack parameter. See `docs/analytics/view-search-results-investigation.md`.
+
+§2 of this document still holds without change: **`call_booked` means `booking_confirmed`**, and no second event may be created for it.
+
+---
+
+## 11. Related documents
 
 - `docs/analytics/smartlead-campaign-links.md` — the exact URLs to paste into Smartlead
 - `docs/analytics/smartlead-experiment-plan.md` — the reply-first / call-first test
