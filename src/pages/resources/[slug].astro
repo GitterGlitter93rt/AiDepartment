@@ -6,6 +6,7 @@ import Container from '../../components/Container.astro';
 import Button from '../../components/Button.astro';
 import CTABand from '../../components/interior/CTABand.astro';
 import { PRIMARY_CTA, SITE } from '../../lib/site';
+import { articleSchema, breadcrumbSchema } from '../../lib/schema';
 
 export async function getStaticPaths() {
   const resources = await getCollection('resources');
@@ -25,35 +26,22 @@ const validRelated = relatedEntries.filter((r): r is NonNullable<typeof r> => Bo
 
 const canonicalPath = `/resources/${entry.id}/`;
 
-const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
+// Built by src/lib/schema.ts. Typing these here is what produced the
+// two defects a live crawl found: the Article had no `image`, and the
+// author/publisher Organizations had no `logo`.
+const article = articleSchema({
   headline: entry.data.title,
   description: entry.data.description,
+  path: canonicalPath,
   datePublished: entry.data.publishDate,
   dateModified: entry.data.updatedDate || entry.data.publishDate,
-  author: {
-    '@type': 'Organization',
-    name: SITE.name,
-    url: SITE.domain,
-  },
-  publisher: {
-    '@type': 'Organization',
-    name: SITE.name,
-    url: SITE.domain,
-  },
-  mainEntityOfPage: new URL(canonicalPath, SITE.domain).toString(),
-};
+});
 
-const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-    { '@type': 'ListItem', position: 2, name: 'Resources', item: new URL('/resources/', SITE.domain).toString() },
-    { '@type': 'ListItem', position: 3, name: entry.data.title, item: new URL(canonicalPath, SITE.domain).toString() },
-  ],
-};
+const breadcrumbs = breadcrumbSchema([
+  { name: 'Home', item: SITE.domain },
+  { name: 'Resources', item: new URL('/resources/', SITE.domain).toString() },
+  { name: entry.data.title, item: new URL(canonicalPath, SITE.domain).toString() },
+]);
 ---
 
 <BaseLayout
@@ -61,8 +49,8 @@ const breadcrumbSchema = {
   description={entry.data.description}
   path={canonicalPath}
 >
-  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} is:inline />
-  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} is:inline />
+  <script type="application/ld+json" set:html={JSON.stringify(article)} is:inline />
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbs)} is:inline />
 
   <Section tone="light">
     <Container>

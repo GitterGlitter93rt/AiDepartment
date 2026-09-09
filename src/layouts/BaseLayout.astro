@@ -10,7 +10,7 @@ import MetaPixel from '../components/MetaPixel.astro';
 import FunnelHeader from '../components/funnel/FunnelHeader.astro';
 import FunnelFooter from '../components/funnel/FunnelFooter.astro';
 import { SITE } from '../lib/site';
-import { LEGAL_ENTITY } from '../lib/businessIdentity';
+import { organizationSchema, websiteSchema } from '../lib/schema';
 
 interface Props {
   title: string;
@@ -46,26 +46,13 @@ const {
   includeOrgSchema = false,
 } = Astro.props;
 
-// name stays the consumer brand — that is what people search for and
-// what every other page calls this business. legalName carries the
-// registered entity, which is the field schema.org provides for exactly
-// this situation and which lets a Twilio reviewer reconcile the site
-// with the registered A2P Brand without the brand being renamed.
-const organizationSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: SITE.name,
-  legalName: LEGAL_ENTITY,
-  url: SITE.domain,
-  description: SITE.defaultDescription,
-};
-
-const websiteSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: SITE.name,
-  url: SITE.domain,
-};
+// Both nodes are built by src/lib/schema.ts rather than typed here.
+// They were typed here, and the copy had no logo — which is what a live
+// crawl reported as "Organization missing logo". name still stays the
+// consumer brand and legalName still carries the registered entity;
+// that split is Sprint 13's and is preserved in the builder.
+const orgSchema = organizationSchema();
+const siteSchema = websiteSchema();
 ---
 
 <!doctype html>
@@ -108,8 +95,8 @@ const websiteSchema = {
 
     {includeOrgSchema && (
       <>
-        <script type="application/ld+json" set:html={JSON.stringify(organizationSchema)} is:inline />
-        <script type="application/ld+json" set:html={JSON.stringify(websiteSchema)} is:inline />
+        <script type="application/ld+json" set:html={JSON.stringify(orgSchema)} is:inline />
+        <script type="application/ld+json" set:html={JSON.stringify(siteSchema)} is:inline />
       </>
     )}
   </head>

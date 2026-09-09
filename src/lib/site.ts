@@ -25,6 +25,19 @@ export const SITE = {
   /** Must match the actual file. Emitted as og:image:width/height so a
    * scraper can lay the card out before it has fetched the image. */
   defaultSocialImageSize: { width: 1200, height: 630 },
+  /**
+   * The brand logo used in Organization structured data.
+   *
+   * This is the existing YAD mark already shipped for the favicon and
+   * web-manifest set — a real brand asset, not a graphic created for
+   * schema. A live crawl reported "Organization missing logo" on the
+   * homepage and inside every Article's publisher object; this is the
+   * value that fixes both, emitted absolute by src/lib/schema.ts.
+   */
+  logoImage: '/icon-512.png',
+  /** Must match the actual file. 512x512 clears Google's 112x112
+   * minimum for an Organization logo. */
+  logoImageSize: { width: 512, height: 512 },
 };
 
 export interface NavItem {
