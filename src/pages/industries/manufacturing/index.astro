@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -8,7 +9,7 @@ import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
 import FAQSection from '../../../components/interior/FAQSection.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const transformationAreas = [
   { icon: 'megaphone', title: 'Sales & RFQ Workflows', description: 'RFQ intake, information extraction, quote preparation support, routing, follow-up, and CRM integration.' },
@@ -40,6 +41,14 @@ const faqs = [
   description="Speed up manufacturing RFQ response and quoting with AI-assisted document workflows and reporting — while engineering and pricing decisions stay with your team."
   path="/industries/manufacturing/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Manufacturing', item: `${SITE.domain}/industries/manufacturing/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="Manufacturing"
     headline="AI-Assisted Workflows for Manufacturing Sales and Operations"

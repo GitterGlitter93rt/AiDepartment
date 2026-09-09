@@ -1,18 +1,39 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../../components/interior/SectionHeading.astro';
 import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const callGroups = [
   { label: 'Call Handling', steps: [{ text: 'Call Received', icon: 'phone' }, { text: 'AI-Assisted Answering', icon: 'bot' }] },
   { label: 'Scheduling & Dispatch', steps: [{ text: 'Appointment Booked', icon: 'calendar' }, { text: 'Confirmation & Reminder', icon: 'message-square' }, { text: 'Technician Dispatched', icon: 'truck' }] },
   { label: 'Completion', steps: [{ text: 'Customer Update', icon: 'zap' }, { text: 'Job Complete', icon: 'check-circle-2' }] },
+];
+
+const csrTasks = [
+  { icon: 'phone-missed', title: 'After-Hours and Overflow Answering', description: 'The 7pm no-heat call and the third call arriving while two are already on hold — answered, captured, and passed on rather than sent to voicemail.' },
+  { icon: 'clipboard-list', title: 'Structured Intake', description: 'Name, address, system type, what is happening, and whether it is an emergency — collected the same way on every call, regardless of who is available.' },
+  { icon: 'calendar-clock', title: 'Appointment Booking', description: 'Booking approved appointment types into real availability while the customer is still on the phone, instead of promising a callback.' },
+  { icon: 'route', title: 'Dispatch Handoff', description: 'A complete job record reaching dispatch with the details a technician needs, rather than three lines someone typed while the phone was ringing again.' },
+  { icon: 'repeat', title: 'Follow-Up and Confirmation', description: 'Confirmations, reminders, and follow-up on unsold estimates and maintenance-agreement renewals, running without anyone remembering to start them.' },
+  { icon: 'users', title: 'Escalation to a Person', description: 'A clear, immediate route to a human for anything urgent, unusual, or upsetting — the part that decides whether customers trust the system at all.' },
+];
+
+const faqs = [
+  { question: 'What is an AI CSR, and is it just an answering service?', answer: 'An answering service takes a message. What people mean by an AI CSR is a system that handles the whole first interaction — answering, collecting structured intake information, checking real availability, booking an approved appointment type, and putting a complete job record into your field service software. The difference that matters operationally is whether your dispatcher starts the morning with a booked appointment or with a stack of callbacks to make.' },
+  { question: 'Will it replace our office staff?', answer: 'No, and most HVAC companies we talk to are already short-handed in the office. The work goes to the repetitive parts — the after-hours calls, the overflow during a heat wave, the confirmations, the follow-up on unsold estimates — so your CSRs spend their time on the calls that need judgment and on customers who are already upset.' },
+  { question: 'What happens during a heat wave when call volume triples?', answer: 'That is the case worth designing for, and it is the one that exposes whatever is fragile the rest of the year. A system that answers and captures consistently during a surge is worth more than one that is marginally faster on an ordinary Tuesday. It is also the week where a missed call is most likely to become a competitor\'s install.' },
+  { question: 'Can AI diagnose an HVAC problem over the phone?', answer: 'No, and it should not try. Diagnosis, repair-versus-replace advice, pricing, and anything involving safety require a qualified technician. What automation handles is the scheduling and information-gathering around that judgment — getting the right job, with the right details, to the right technician.' },
+  { question: 'Do customers know they are talking to an AI system?', answer: 'Yes. Disclosure is the right call practically as well as ethically — the systems that work are the ones where a caller understands what they are talking to and can reach a person the moment they need one.' },
+  { question: 'Will it work with our field service software?', answer: 'That is the assumption we start from. How it connects depends on what your platform supports — a direct API, a webhook, or an integration platform — and checking that honestly is part of the early work rather than something discovered later.' },
 ];
 
 const opportunities = [
@@ -27,9 +48,17 @@ const opportunities = [
 
 <BaseLayout
   title="AI for HVAC Companies | Your AI Department"
-  description="Answer every HVAC call, book more jobs, and protect your reputation with AI-assisted intake, scheduling, and follow-up built for a speed-driven business."
+  description="AI CSR and call handling for HVAC companies: answer after-hours and overflow calls, collect structured intake, book appointments, and hand a complete job to dispatch."
   path="/industries/hvac/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'HVAC', item: `${SITE.domain}/industries/hvac/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="HVAC"
     headline="Help Your HVAC Company Capture More Calls, Book More Jobs, and Improve Operational Efficiency"
@@ -63,6 +92,45 @@ const opportunities = [
     </Container>
   </Section>
 
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="AI CSR"
+        heading="What an AI CSR Actually Does for an HVAC Company"
+        support="The phrase gets used loosely. Here is the specific work, and where it stops."
+      />
+      <p class="prose-p">A customer service representative in an HVAC company does more than answer a phone. They decide whether a call is an emergency, get an address right, ask the questions a technician will need answered, check what the schedule can actually absorb, book something the customer will keep, and get it into the system dispatch works from. An answering service does the first minute of that. The rest is where jobs are won and lost.</p>
+      <p class="prose-p">What an AI system can genuinely take on is the repetitive share of that work — the calls arriving at 7pm, the fourth call during a heat wave when two CSRs are already on the phone, the confirmation nobody sent, the unsold estimate nobody followed up. What it should not take on is the judgment.</p>
+      <CapabilityGrid items={csrTasks} columns={3} tone="light" />
+      <p class="prose-note">None of this replaces a CSR. It changes what they spend the day on — from re-typing addresses and returning voicemails to the calls where a person actually changes the outcome.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for HVAC Companies With Real Call Volume"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for companies that are:"
+        fitItems={[
+          'Missing calls after hours, during seasonal peaks, or while the office is already on the phone',
+          'Running enough call volume that intake consistency is a real operational problem',
+          'Already using field service software or a CRM that can be integrated with',
+          'Spending on Google Ads or local search and unsure which spend produces booked jobs',
+          'Losing unsold estimates and maintenance-agreement renewals to follow-up that never happens',
+        ]}
+        notFitHeading="Probably not the right fit if:"
+        notFitItems={[
+          'Call volume is low enough that one person comfortably handles every call',
+          'You are looking for AI to make diagnostic or pricing decisions without a technician involved',
+          'There is no system of record yet for jobs and customers',
+        ]}
+      />
+    </Container>
+  </Section>
+
   <Section tone="dark">
     <Container>
       <SectionHeading
@@ -71,6 +139,29 @@ const opportunities = [
         support="Automated, well-timed review requests can help ensure strong service work actually shows up in your online reputation, not just in customer satisfaction."
         tone="dark"
       />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions From HVAC Operators" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Where to Go From Here"
+      />
+      <p class="prose-p">If the immediate problem is calls going unanswered, start with <a href="/ai-agent-development/">AI phone and voice agents</a>. If the details are reaching people but not the system of record, that is <a href="/ai-crm-integration/">AI CRM integration</a>. If you are spending on ads and cannot tell which spend produced a booked job, that is <a href="/conversion-tracking-analytics/">conversion tracking and attribution</a>.</p>
+      <p class="cross-links">
+        <a href="/resources/how-ai-can-recover-missed-calls-for-home-service-companies/">Recovering missed calls</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/why-speed-to-lead-matters/">Why speed to lead matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-home-service-companies-can-automate-estimate-follow-up/">Automating estimate follow-up</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/home-services/">All home services</a>
+      </p>
     </Container>
   </Section>
 
@@ -84,6 +175,41 @@ const opportunities = [
 </BaseLayout>
 
 <style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-note {
+    color: var(--color-slate-gray);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-top: 28px;
+    text-align: center;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
   .mid-cta {
     text-align: center;
     margin-top: 28px;

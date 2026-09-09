@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -41,15 +42,13 @@ const faqs = [
   description="Practical AI for legitimate defense and aerospace enterprise operations — internal knowledge, training, and document workflows — with strict data boundaries and human oversight."
   path="/industries/defense-aerospace/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'Defense & Aerospace', item: `${SITE.domain}/industries/defense-aerospace/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Defense & Aerospace', item: `${SITE.domain}/industries/defense-aerospace/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="Defense & Aerospace"

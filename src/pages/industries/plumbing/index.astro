@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -42,15 +43,13 @@ const faqs = [
   description="Every missed call is a booked job for a competitor. Capture more plumbing calls, recover missed ones, dispatch faster, and follow up every estimate."
   path="/industries/plumbing/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'Plumbing', item: `${SITE.domain}/industries/plumbing/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Plumbing', item: `${SITE.domain}/industries/plumbing/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="Plumbing"

@@ -1,18 +1,39 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
 import SectionHeading from '../../../components/interior/SectionHeading.astro';
 import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const intakeGroups = [
   { label: 'Intake', steps: [{ text: 'Lead Arrives', icon: 'inbox' }, { text: 'Immediate Response', icon: 'zap' }] },
   { label: 'Qualification', steps: [{ text: 'Intake & Information Collection', icon: 'clipboard-list' }, { text: 'Consultation Scheduled', icon: 'calendar' }] },
   { label: 'Case / Attribution', steps: [{ text: 'CRM Entry & Source Attribution', icon: 'database' }, { text: 'Follow-Up', icon: 'repeat' }] },
+];
+
+const intakeStages = [
+  { icon: 'phone-missed', title: 'The Call Nobody Answered', description: 'Evenings, weekends, and the hour your intake person is on another line. A caller who reaches voicemail is a caller deciding whether to try the next firm on the list.' },
+  { icon: 'clipboard-list', title: 'The Questions Asked Every Time', description: 'What happened, when, where, whether anyone else is involved, whether they have spoken to another firm — collected consistently rather than depending on who picked up.' },
+  { icon: 'shield', title: 'Conflict and Fit Screening', description: 'Gathering the information a conflicts check needs, and flagging the matters that are plainly outside what your firm handles — so a person is not spending twenty minutes discovering it.' },
+  { icon: 'calendar-clock', title: 'Getting the Consultation Scheduled', description: 'A time on the calendar while the person is still engaged, rather than a callback that takes three days and often ends in silence.' },
+  { icon: 'database', title: 'Into the Case System', description: 'Details reaching the case management or CRM record automatically, so nobody re-keys an intake form at the end of the day.' },
+  { icon: 'repeat', title: 'The Follow-Up Nobody Ran', description: 'Consultations never confirmed, documents requested but never sent, prospects who went quiet — sequences that keep working without anyone remembering them.' },
+];
+
+const faqs = [
+  { question: 'Can AI handle legal intake without giving legal advice?', answer: 'Yes, and the boundary has to be explicit in how the system is built rather than left to judgment in the moment. Collecting facts, screening for obvious fit, and scheduling a consultation are administrative. Assessing a matter, estimating value, and advising on a course of action are the practice of law and stay with your attorneys.' },
+  { question: 'Will this replace our intake staff?', answer: 'No. Most firms we talk to have intake staff who are already stretched, and the value is in what they stop doing — returning voicemails, re-typing forms, chasing callbacks — not in having fewer of them. The calls that need a person still go to a person.' },
+  { question: 'What about confidentiality and potential-client information?', answer: 'Any system handling potential-client information needs explicit decisions about what is collected, where it is stored, who can see it, and how long it is kept. Those decisions belong to the firm and are made as part of the design, not discovered afterwards. Retention in particular is worth deciding deliberately, because an intake system quietly accumulates information about people who never became clients.' },
+  { question: 'How does this handle a conflicts check?', answer: 'It gathers the information a conflicts check needs and puts it in front of the right person. The check itself, and the decision that follows it, stay with the firm — an automated conflicts clearance is not something any firm should want.' },
+  { question: 'Will it work with our case management software?', answer: 'That is the starting assumption. How it connects depends on what your platform exposes — a direct API, a webhook, or an integration platform — and establishing that early is part of the work rather than something found out late.' },
+  { question: 'Do callers know they are speaking to an AI system?', answer: 'Yes. Disclosure is the right call practically as well as ethically, and for a firm it is also a reputational question: a potential client who discovers it later has learned something about the firm they were not told.' },
 ];
 
 const opportunities = [
@@ -27,9 +48,17 @@ const opportunities = [
 
 <BaseLayout
   title="AI for Law Firms | Your AI Department"
-  description="Never let an unanswered call cost your firm a case: AI-assisted intake, consultation scheduling, and client communication that support the practice of law."
+  description="AI-assisted intake for law firms: answer after-hours calls, collect intake information consistently, schedule consultations, and keep follow-up moving — while legal judgment stays with your attorneys."
   path="/industries/law-firms/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Law Firms', item: `${SITE.domain}/industries/law-firms/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="Law Firms"
     headline="Help Your Law Firm Respond Faster, Reduce Administrative Work, and Build a Smarter Growth System"
@@ -63,6 +92,43 @@ const opportunities = [
     </Container>
   </Section>
 
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Matters Stall"
+        heading="Six Places Between the First Call and the Consultation"
+        support="Each one is administrative. None of them requires legal judgment, and all of them are where a potential client quietly becomes someone else's client."
+      />
+      <CapabilityGrid items={intakeStages} columns={3} tone="light" />
+      <p class="prose-note">A firm rarely loses a matter because of the consultation. It loses it before the consultation was ever scheduled.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Who This Is For"
+        heading="Built for Firms With More Inquiries Than Intake Capacity"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for firms that are:"
+        fitItems={[
+          'Receiving inquiries outside business hours, or faster than intake staff can consistently handle them',
+          'Spending on advertising or search and unsure which spend produces signed matters',
+          'Already using case management or a CRM that can be integrated with',
+          'Losing consultations to scheduling delays rather than to fit',
+          'Repeating the same intake questions on every call, inconsistently',
+        ]}
+        notFitHeading="Probably not the right fit if:"
+        notFitItems={[
+          'Inquiry volume is low enough that one person handles every one of them well',
+          'You are looking for AI to assess matters or advise potential clients',
+          'The firm has no system of record for matters and contacts yet',
+        ]}
+      />
+    </Container>
+  </Section>
+
   <Section tone="dark">
     <Container>
       <SectionHeading
@@ -71,6 +137,29 @@ const opportunities = [
         support="AI systems should clearly identify when human involvement is required. The goal is reducing lost opportunities and repetitive work — not automating professional judgment."
         tone="dark"
       />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="FAQ" heading="Common Questions From Firms" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Next Steps"
+        heading="Where to Go From Here"
+      />
+      <p class="prose-p">If the immediate problem is calls going unanswered, start with <a href="/ai-agent-development/">AI phone and voice agents</a>. If intake details are collected but never reach the case system, that is <a href="/ai-crm-integration/">AI CRM integration</a>. If you are advertising and cannot tell which spend produced a signed matter rather than a form fill, that is <a href="/conversion-tracking-analytics/">conversion tracking and attribution</a>.</p>
+      <p class="cross-links">
+        <a href="/resources/why-speed-to-lead-matters/">Why speed to lead matters</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/what-business-processes-should-not-be-automated/">What should not be automated</a>&nbsp;&bull;&nbsp;
+        <a href="/resources/how-to-track-google-ads-leads-to-revenue/">Tracking ads to revenue</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional services</a>
+      </p>
     </Container>
   </Section>
 
@@ -84,6 +173,41 @@ const opportunities = [
 </BaseLayout>
 
 <style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-note {
+    color: var(--color-slate-gray);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-top: 28px;
+    text-align: center;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
   .mid-cta {
     text-align: center;
     margin-top: 28px;

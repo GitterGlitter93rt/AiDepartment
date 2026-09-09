@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -41,15 +42,13 @@ const faqs = [
   description="Connect lead response, site-visit scheduling, estimate follow-up, and marketing attribution for screen enclosure and outdoor-structure companies."
   path="/industries/screen-enclosure-companies/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'Screen Enclosure Companies', item: `${SITE.domain}/industries/screen-enclosure-companies/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Screen Enclosure Companies', item: `${SITE.domain}/industries/screen-enclosure-companies/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="Screen Enclosures & Outdoor Structures"

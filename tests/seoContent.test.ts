@@ -319,3 +319,164 @@ describe('The conversion-tracking cluster answers "ai conversion tracking" witho
     assert.notEqual(h1Of(service), h1Of(resource));
   });
 });
+
+// ---------------------------------------------------------------------
+// Industry pages: consistency, and the three carrying demand signals.
+//
+// The industry pages were built across several sprints and drifted into
+// two tiers. The later ones carried BreadcrumbList schema, an FAQ, a
+// fit/not-fit section and links into the resource cluster; nine earlier
+// ones carried none of that, because the pattern lived in whichever page
+// happened to be open when the next one was written.
+// ---------------------------------------------------------------------
+
+import { INDUSTRIES } from '../src/lib/industries.ts';
+
+describe('Every industry page carries breadcrumb schema', () => {
+  test('all 28 emit a BreadcrumbList, from the shared component', () => {
+    for (const industry of INDUSTRIES) {
+      const html = page(industry.href);
+      assert.ok(html.includes('"@type":"BreadcrumbList"'), `${industry.href}: no breadcrumb schema`);
+    }
+    // The component, not 28 copies — which is how nine of them ended up
+    // without it in the first place.
+    const usingComponent = INDUSTRIES.filter((i) =>
+      readFileSync(join(ROOT, `src/pages${i.href}index.astro`), 'utf8').includes('<BreadcrumbSchema'),
+    );
+    assert.equal(usingComponent.length, INDUSTRIES.length, 'every industry page must use BreadcrumbSchema.astro');
+    for (const industry of INDUSTRIES) {
+      const src = readFileSync(join(ROOT, `src/pages${industry.href}index.astro`), 'utf8');
+      assert.equal(src.includes("'@type': 'BreadcrumbList'"), false, `${industry.href}: still inlines the schema`);
+    }
+  });
+
+  test('the crumb trail is Home / Industries / the page, with correct positions and URLs', () => {
+    for (const industry of INDUSTRIES) {
+      const html = page(industry.href);
+      const block = html.match(/\{"@context":"https:\/\/schema\.org","@type":"BreadcrumbList"[\s\S]*?\}\]\}/)?.[0];
+      assert.ok(block, `${industry.href}: breadcrumb JSON not found`);
+      const parsed = JSON.parse(block!);
+      assert.equal(parsed.itemListElement.length, 3);
+      assert.deepEqual(parsed.itemListElement.map((e: any) => e.position), [1, 2, 3]);
+      assert.equal(parsed.itemListElement[0].item, SITE);
+      assert.equal(parsed.itemListElement[1].item, `${SITE}/industries/`);
+      assert.equal(parsed.itemListElement[2].item, SITE + industry.href, `${industry.href}: last crumb points elsewhere`);
+    }
+  });
+
+  test('the final crumb matches what the page calls itself, not a nav label', () => {
+    // /industries/home-services/ is listed in the nav registry as
+    // "Home Services (Overview)" to disambiguate a dropdown. Schema has
+    // to match visible content, and no visitor sees "(Overview)" as the
+    // page identity — though the mega-menu is still free to use it.
+    const html = page('/industries/home-services/');
+    const block = html.match(/\{"@context":"https:\/\/schema\.org","@type":"BreadcrumbList"[\s\S]*?\}\]\}/)![0];
+    const last = JSON.parse(block).itemListElement[2];
+    assert.equal(last.name, 'Home Services');
+    assert.equal(last.item, `${SITE}/industries/home-services/`);
+  });
+});
+
+describe('The three industry pages behind this sprint\'s demand signals', () => {
+  const targets = [
+    { route: '/industries/hvac/', label: 'HVAC' },
+    { route: '/industries/law-firms/', label: 'law firms' },
+    { route: '/industries/roofing/', label: 'roofing' },
+  ];
+
+  test('each is now substantial rather than a stub', () => {
+    for (const { route, label } of targets) {
+      const html = page(route);
+      assert.ok(wordsOf(html) > 900, `${label}: ${wordsOf(html)} words is still a stub`);
+      assert.ok(h2sOf(html).length >= 6, `${label}: only ${h2sOf(html).length} sections`);
+    }
+  });
+
+  test('each answers objections and qualifies the reader', () => {
+    for (const { route, label } of targets) {
+      const html = page(route);
+      const text = visibleText(mainContent(html));
+      assert.match(h2sOf(html).join(' | '), /Common Questions/i, `${label}: no FAQ`);
+      assert.match(text, /Probably not the right fit if/i, `${label}: no disqualification`);
+      // Disclosure is a position this business takes, not a footnote.
+      assert.match(text, /talking to an AI|speaking to an AI/i, `${label}: no disclosure answer`);
+    }
+  });
+
+  test('each links into services and the resource cluster', () => {
+    for (const { route, label } of targets) {
+      const links = bodyLinks(page(route));
+      for (const target of ['/ai-agent-development/', '/ai-crm-integration/', '/conversion-tracking-analytics/']) {
+        assert.ok(links.has(target), `${label}: missing link to ${target}`);
+      }
+      const resources = [...links].filter((l) => l.startsWith('/resources/'));
+      assert.ok(resources.length >= 3, `${label}: only ${resources.length} resource links`);
+    }
+  });
+
+  test('none of them tells an owner to replace their staff', () => {
+    for (const { route, label } of targets) {
+      const text = visibleText(mainContent(page(route)));
+      for (const pattern of [
+        /replace (your |their )?(staff|employees|team|CSRs?|intake staff)/i,
+        /\bfire (your|their) \w+/i,
+        /\bcut headcount\b/i,
+      ]) {
+        assert.equal(pattern.test(text), false, `${label}: staff-replacement framing — ${pattern}`);
+      }
+      assert.match(text, /(No\.|no,) /i, 'the FAQ answers the question directly');
+    }
+  });
+
+  test('HVAC answers the "AI CSR" query specifically', () => {
+    const html = page('/industries/hvac/');
+    assert.match(h2sOf(html).join(' | '), /AI CSR/i, 'the query needs its own section heading');
+    const text = visibleText(mainContent(html));
+    assert.match(text, /answering service/i, 'the section must distinguish itself from an answering service');
+    assert.match(text, /dispatch/i);
+    assert.match(text, /after[- ]hours/i);
+    assert.match(text, /overflow|heat wave|surge/i);
+    // And it must not claim AI does the technician's job.
+    assert.equal(/AI can diagnose|diagnoses? (the )?(problem|fault)/i.test(text), false);
+  });
+
+  test('the law-firm page keeps legal judgment with attorneys, explicitly', () => {
+    const text = visibleText(mainContent(page('/industries/law-firms/')));
+    assert.match(text, /without giving legal advice|practice of law/i);
+    assert.match(text, /conflicts check/i, 'a firm will ask about conflicts before anything else');
+    assert.match(text, /retention|how long it is kept/i, 'intake accumulates data on non-clients');
+    assert.equal(/\bAI (attorney|lawyer|paralegal)\b/i.test(text), false);
+  });
+
+  test('the roofing page promises no jobs, revenue, or claim outcomes', () => {
+    const text = visibleText(mainContent(page('/industries/roofing/')));
+    for (const pattern of [
+      /\bguarantee/i,
+      /\bclose rate\b/i,
+      /\b\d{1,3}\s?% (more|increase|higher)/i,
+      /assess(es)? (storm )?damage automatically/i,
+    ]) {
+      assert.equal(pattern.test(text), false, `roofing: ${pattern}`);
+    }
+    assert.match(text, /storm|hail/i);
+    assert.match(text, /insurance/i);
+  });
+
+  test('the organic industry pages and the /go/ campaign pages stay distinct', () => {
+    // Same audience, different job. If their H1s or titles converged,
+    // the noindex would be papering over a real duplication.
+    for (const [organic, campaign] of [
+      ['/industries/law-firms/', '/go/law-firms/'],
+      ['/industries/roofing/', '/go/roofing/'],
+    ]) {
+      const a = page(organic);
+      const b = page(campaign);
+      assert.notEqual(titleOf(a), titleOf(b));
+      assert.notEqual(h1Of(a), h1Of(b));
+      assert.notEqual(descOf(a), descOf(b));
+      // And the organic page is the one that gets to be indexed.
+      assert.equal(/<meta name="robots"/.test(a), false, `${organic} must stay indexable`);
+      assert.match(b, /<meta name="robots" content="noindex, follow">/);
+    }
+  });
+});

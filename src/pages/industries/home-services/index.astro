@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -49,15 +50,13 @@ const operatingSystemGroups = [
   description="A shared operating-system view of lead response, booking, dispatch, and attribution across home-service trades, connecting to trade-specific AI implementations."
   path="/industries/home-services/"
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE.domain },
-      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${SITE.domain}/industries/` },
-      { '@type': 'ListItem', position: 3, name: 'Home Services', item: `${SITE.domain}/industries/home-services/` },
-    ],
-  })} />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Home Services', item: `${SITE.domain}/industries/home-services/` },
+    ]}
+  />
 
   <InteriorHero
     eyebrow="Home Services"

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
 import Section from '../../../components/Section.astro';
 import Container from '../../../components/Container.astro';
 import InteriorHero from '../../../components/interior/InteriorHero.astro';
@@ -8,7 +9,7 @@ import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
 import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
 import FAQSection from '../../../components/interior/FAQSection.astro';
 import CTABand from '../../../components/interior/CTABand.astro';
-import { PRIMARY_CTA, SECONDARY_CTA } from '../../../lib/site';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
 
 const transformationAreas = [
   { icon: 'calendar', title: 'Patient / Customer Access', description: 'Scheduling support, routing, administrative communication, reminders, and information collection.' },
@@ -37,6 +38,14 @@ const faqs = [
   description="Free up healthcare administrative staff — not clinical judgment — with AI-assisted scheduling, documentation, and workflow support built for medical practices."
   path="/industries/healthcare/"
 >
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Industries', item: `${SITE.domain}/industries/` },
+      { name: 'Healthcare', item: `${SITE.domain}/industries/healthcare/` },
+    ]}
+  />
+
   <InteriorHero
     eyebrow="Healthcare"
     headline="Practical AI for Healthcare Administrative and Operational Systems"
