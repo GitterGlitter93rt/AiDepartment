@@ -1,0 +1,111 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+
+const lastUpdated = 'September 9, 2026';
+---
+
+<BaseLayout
+  title="SMS Consent & Messaging | Your AI Department"
+  description="SMS consent, customer-care messaging, opt-out, and privacy disclosures for Your AI Department, a business brand operated by Catastrophic Solutions LLC."
+  path="/sms-consent/"
+>
+  <Section tone="light">
+    <Container>
+      <div class="legal-doc">
+        <h1>SMS Consent &amp; Messaging</h1>
+        <p class="legal-updated">Last updated: {lastUpdated}</p>
+
+        <p><strong>Your AI Department is a business brand operated by Catastrophic Solutions LLC.</strong> This page describes the customer-care text messaging program associated with youraidepartment.ai and the consent flow used when a visitor chooses to receive text messages.</p>
+
+        <h2>Sender and Messaging Use Case</h2>
+        <p>The sender is <strong>Catastrophic Solutions LLC, operating the Your AI Department brand</strong>. Our SMS use case is customer care. Text messages are used to communicate with people who have asked us about our services and have separately agreed to receive text messages.</p>
+        <p>Messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support related to an inquiry or requested service.</p>
+
+        <h2>Website Opt-In Flow</h2>
+        <p>Where a website form offers SMS messaging, the visitor first provides a mobile phone number and then sees a separate, optional SMS consent checkbox. The SMS checkbox is <strong>unchecked by default</strong>. The visitor must affirmatively select it to consent to customer-care text messages.</p>
+        <p>Submitting a form, providing a phone number, requesting assessment results, or agreeing to general contact does <strong>not</strong> by itself enroll a visitor in SMS messaging. SMS consent is separate and is not required to submit an inquiry, complete an assessment, schedule a call, purchase anything, or receive our services.</p>
+
+        <h2>Consent Disclosure Presented With the Checkbox</h2>
+        <div class="consent-example" aria-label="SMS consent disclosure example">
+          <p>I agree to receive customer-care text messages from Your AI Department, operated by Catastrophic Solutions LLC, at the mobile number provided. Messages may include requested follow-up, appointment coordination or reminders, and support. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. See our Privacy Policy and Terms of Use.</p>
+        </div>
+
+        <h2>Message Frequency and Charges</h2>
+        <p>Message frequency varies based on the nature of your inquiry, appointments, and support needs. Message and data rates may apply according to your wireless carrier and plan.</p>
+
+        <h2>Opt Out and Help</h2>
+        <p>Reply <strong>STOP</strong> at any time to opt out. You may receive one final message confirming the opt-out. Reply <strong>HELP</strong> for help, or email <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>.</p>
+
+        <h2>Mobile Privacy</h2>
+        <p><strong>We do not share, sell, rent, or provide mobile phone numbers, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes.</strong></p>
+        <p>Service providers such as telecommunications or messaging platforms may process mobile information only as necessary to transmit and support messages on our behalf. For complete details, see our <a href="/privacy/#sms-privacy">Privacy Policy</a>.</p>
+
+        <h2>Terms</h2>
+        <p>Additional program terms, including opt-out, help, frequency, and carrier information, are available in our <a href="/terms/#sms-terms">SMS Messaging Terms</a>.</p>
+
+        <h2>Contact</h2>
+        <p>
+          Catastrophic Solutions LLC<br />
+          Operating the Your AI Department brand<br />
+          2220 County Road 210 W, STE 108-504<br />
+          Jacksonville, Florida 32259<br />
+          <a href="mailto:michael@youraidepartment.ai">michael@youraidepartment.ai</a>
+        </p>
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>
+
+<style>
+  .legal-doc {
+    max-width: 760px;
+    margin-inline: auto;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--color-slate-gray);
+  }
+
+  .legal-doc h1 {
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-bottom: 8px;
+  }
+
+  .legal-updated {
+    font-size: 0.85rem;
+    color: var(--color-slate-gray);
+    margin-bottom: 32px;
+  }
+
+  .legal-doc h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-block: 32px 12px;
+  }
+
+  .legal-doc p {
+    margin-bottom: 14px;
+  }
+
+  .legal-doc a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .consent-example {
+    margin-block: 14px 22px;
+    padding: 18px;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-card);
+    background: var(--color-pure-white);
+  }
+
+  .consent-example p {
+    margin: 0;
+    color: var(--color-near-black);
+  }
+</style>
