@@ -35,8 +35,8 @@
 //   - Nothing here invents a person, a rating, a review, a price, or an
 //     FAQ. Schema must describe what is actually on the page.
 
-import { SITE } from './site';
-import { LEGAL_ENTITY } from './businessIdentity';
+import { SITE } from './site.ts';
+import { LEGAL_ENTITY } from './businessIdentity.ts';
 
 /** Resolve a site-root path to an absolute URL. */
 export function absoluteUrl(path: string): string {

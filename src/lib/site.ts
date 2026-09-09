@@ -2,11 +2,14 @@
 // Canonical domain + nav structure per docs/02-website/sitemap.md (v2.0, canonical)
 // and docs/02-website/technical-seo-spec.md.
 
-import { SCHEDULING } from './scheduling';
-import { LEGAL_ROUTES } from './businessIdentity';
-import { INDUSTRIES, industriesByCategory } from './industries';
+// Explicit .ts extensions so the Node test runner can import this
+// module directly, matching src/lib/attribution.ts and
+// src/lib/bookingConfirmation.ts. Astro/Vite resolve them unchanged.
+import { SCHEDULING } from './scheduling.ts';
+import { LEGAL_ROUTES } from './businessIdentity.ts';
+import { INDUSTRIES, industriesByCategory } from './industries.ts';
 
-export { SCHEDULING } from './scheduling';
+export { SCHEDULING } from './scheduling.ts';
 
 export const SITE = {
   name: 'Your AI Department',
