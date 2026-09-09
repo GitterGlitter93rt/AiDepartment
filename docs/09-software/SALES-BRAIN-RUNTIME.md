@@ -62,6 +62,52 @@ It requires the runtime to be a *committed* state. A file that exists on disk bu
 not tracked on this branch fails the guard, which is precisely the condition that
 made the orphaned runtime look fine.
 
+## Schema deployment is explicit, never a side effect of a restart
+
+**Ordinary service startup must not mutate the database schema.** The API unit used
+to carry `ExecStartPre=/usr/bin/env node dist/bin/migrate.js`, which meant every API
+restart applied DDL — and so did every crash-loop recovery, every `systemctl restart`
+and every reboot. The restart counter reached 592 on 4 September. Each of those
+attempts would have run migrations.
+
+That is the wrong shape for two reasons. A restart is the thing you reach for when
+something is already wrong, so it is the worst possible moment to also change the
+schema. And a service that applies DDL on boot makes a reboot a deployment, which
+means nobody can restart the portal without also accepting a schema change they did
+not choose.
+
+Normal operations do exactly what they say:
+
+| operation | what it does |
+| --- | --- |
+| API restart | starts the API |
+| worker restart | starts the worker |
+| reboot | restores the services |
+
+None of the three touches the schema.
+
+### Deploying a schema change
+
+Schema deployment is a separate, deliberate act:
+
+```
+cd /home/roothecks/YAD-Sales-Brain/services/sales-brain
+./deploy/stack.sh status                 # 1. what is pending, and what is running
+systemctl --user start yad-sales-backup.service
+./deploy/verify-backup.sh <newest dump>  # 2. take and verify a backup first
+node dist/bin/migrate.js                 # 3. apply, intentionally
+./deploy/stack.sh status                 # 4. verify applied == on disk
+systemctl --user restart yad-sales-api yad-sales-worker   # 5. only if needed
+```
+
+`stack.sh status` reports `migrations applied` against `migrations on disk`, and the
+worker records `build_sha` and `migrations_expected` in `worker_instances`, so a
+build serving a schema it does not expect is visible rather than inferred.
+
+**Do not reintroduce a migration step into the API or worker `ExecStartPre` without an
+explicit architectural decision.** The units in `deploy/systemd/` are the installed
+reality; a reinstall from them must not quietly restore DDL-on-boot.
+
 ## Operating it
 
 ```

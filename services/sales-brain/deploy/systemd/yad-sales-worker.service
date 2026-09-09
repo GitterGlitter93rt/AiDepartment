@@ -1,29 +1,34 @@
 [Unit]
 Description=YAD Sales Brain research worker (Market Miner, contact resolution)
-Documentation=file:///home/roothecks/AiDepartment/docs/09-software/outbound-sales-brain-edge-xpert-sales-portal-deployment-spec.md
+Documentation=file:///home/roothecks/YAD-Sales-Brain/docs/09-software/SALES-BRAIN-RUNTIME.md
 After=network-online.target yad-sales-api.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/roothecks/AiDepartment/services/sales-brain
+# The dedicated Sales Brain worktree, not the general repository checkout.
+WorkingDirectory=/home/roothecks/YAD-Sales-Brain/services/sales-brain
 Environment=NODE_ENV=production
 Environment=LOG_LEVEL=info
+# Refuses to start from a tree that is not the Sales Brain on its own branch, with a
+# build that matches its source.
+ExecStartPre=/home/roothecks/YAD-Sales-Brain/services/sales-brain/deploy/assert-runtime.sh --built
 # Heavy crawling runs here, never on the API process and never on the voice gateway.
+# As with the API, ordinary startup does not migrate: see SALES-BRAIN-RUNTIME.md.
 ExecStart=/usr/bin/env node dist/bin/worker.js
 Restart=always
 RestartSec=10
 # Research is background work; it must never starve the portal.
 Nice=10
 IOSchedulingClass=idle
-StandardOutput=append:/home/roothecks/AiDepartment/services/sales-brain/logs/worker.log
-StandardError=append:/home/roothecks/AiDepartment/services/sales-brain/logs/worker.err.log
+StandardOutput=append:/home/roothecks/YAD-Sales-Brain/services/sales-brain/logs/worker.log
+StandardError=append:/home/roothecks/YAD-Sales-Brain/services/sales-brain/logs/worker.err.log
 
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
-ReadWritePaths=/home/roothecks/AiDepartment/services/sales-brain/logs
+ReadWritePaths=/home/roothecks/YAD-Sales-Brain/services/sales-brain/logs
 
 [Install]
 WantedBy=default.target
