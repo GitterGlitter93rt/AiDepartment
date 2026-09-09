@@ -3,7 +3,9 @@
 **Branch:** `sprint13-outbound-conversion-seo`
 **Branched from:** `sprint12-industry-content-expansion` @ `cbbdca2`
 **Date:** 2026-09-09
-**Status:** implemented and verified locally. **Not pushed, not deployed.** Two external configurations are still required before parts of it produce data — see §M.
+**Status:** implemented, verified, and **backed up on `origin`** at `84b0dc206a0d2db93f2c0d06c1eeaa09c811094e`. **Not merged, not deployed.**
+
+**One deployment blocker remains:** the live SiteGround `.htaccess` must be read and merged by hand before `dist/` is uploaded — see §A2a. Two external configurations (Cal.com, GTM/GA4) are still required before parts of this sprint produce data — see §M.
 
 ---
 
@@ -19,15 +21,64 @@ Doing this sprint's work on the checked-out branch would have built it on top of
 
 **This is an open reconciliation item, not something this sprint fixed.** See §Q3.
 
-### A2. Production is ahead of GitHub, and the repository says so
+### A2. The repository said production was ahead of GitHub. It was, once — but not any more
 
 `brain/WEBSITE.md` and `brain/TODO.md` (WEB-003, INPUT-005) record that **production contains fixes not present at any GitHub head**, and that source synchronisation is required before overwriting website code.
 
-This sprint was written to respect that:
+**That warning is stale, and this sprint was built defensively before it was known to be stale.** The defensive posture is worth keeping either way, so it is described here as written:
 
 - Every new capability is a **new file**. The `/go/` pages, the outbound module, `BreadcrumbSchema.astro`, both resources, the OG image and its generator, and all new tests are additive.
 - Edits to existing files are **surgical and individually described** in §B, so they can be re-applied by hand against the production source if it turns out to differ.
 - Nothing in the assessment engine, the quick-assessment app, the audit page, or the lead-submission path was touched.
+
+### A2a. The production-source audit, and what it established
+
+A read-only audit on 2026-09-09 established that **`cbbdca2` is the deployed production source**, and therefore that Sprint 13 cannot regress a production-only change. The brain's warning predates the sync by one day and was never updated.
+
+**The sequence that resolved it.** The brain snapshot is dated 2026-08-30 and inspected sprint12 at `989ee8a`. Two commits landed after that inspection:
+
+- `64adcc1` (2026-08-31) — *"feat: preserve production funnels and add Smartlead attribution"*. Its message states: *"Captures the exact deployed production source, which until now existed only in the deployment workspace. Verified against live production before committing: normalized HTML for /, /ai-assessment/, /free-ai-assessment/ and /comprehensive-ai-business-audit/ matches this tree's build output."*
+- `cbbdca2` (2026-09-01) — *"fix: preserve assessment forms and track rep attribution"*.
+
+**Evidence gathered independently of those commit messages:**
+
+| Signal | Finding |
+|---|---|
+| `last-modified` on `https://youraidepartment.ai/` | `Tue, 01 Sep 2026 05:42:08 GMT` — **18 minutes after `cbbdca2` was committed**, and unchanged when re-checked on 2026-09-09. Nothing has been deployed since. |
+| Content-hashed shared libraries | `attribution.DFbyELri.js`, `repAttribution.BR-s0p-j.js`, `scheduling.DUe-L1wn.js` — production's filenames *and* bytes are identical to this tree's build. Astro hashes on content, so an identical hash is an identical source file. These three are untouched by Sprint 13. |
+| Production's `booking-confirmed` bundle | Decompiles to exactly `buildBookingConfirmedEvent(bookingType, repCode)` — two parameters, `sessionStorage`, key `yai_booking_confirmed_seen`, `.slice(-20)`. That is `cbbdca2` unmodified. |
+| Production's assessment bundle | Contains `captureContactDraft`, `a-contact-error`, `aria-invalid`, `showContactError` — the `cbbdca2` contact-form preservation fix. |
+| All 28 industry pages, production vs local build | 16 byte-identical; 9 differ only by the `BreadcrumbList` schema Sprint 13 adds; 3 differ by the deliberate Sprint 13 deepening. **No production-only content anywhere.** |
+| Production `sitemap.xml` | 117 URLs, every one present in this branch. Nothing live is missing from Git. |
+| `/assessment/?utm_…` | Real HTTP 301 preserving the query string, and a real 404 with the branded page — so `public/.htaccess` from `64adcc1` is live at the origin. |
+
+**Each brain claim, tested against `cbbdca2`:** `booking_click_comprehensive_audit` present · Cal.com $495 audit flow present · the corrected `#a-quick-start-btn` handler present · the retired on-site audit form and `paid_audit_request_submit` both gone.
+
+**Conclusion: no Sprint 13 modification can overwrite a production-only change, because there are none.** WEB-003 and INPUT-005 were completed by `64adcc1` + `cbbdca2`; only the brain never recorded it. See §Q3 for the brain reconciliation that is still owed.
+
+### A2b. The remaining deployment risk is the live SiteGround `.htaccess`
+
+This is now the **only** unresolved deployment blocker, and it is not a Git problem.
+
+`dist/.htaccess` ships from `public/.htaccess`. The live SiteGround web-root `.htaccess` is **not readable from this environment** — it returns HTTP 403 over the web (correctly), and there is no SSH, SFTP or credential access configured on this machine.
+
+Read-only probes prove that live rules exist which are **not represented in Git**:
+
+| Probe | Result | Inference |
+|---|---|---|
+| `/favicon.svg` | `cache-control: max-age=31536000` **and an `Expires` header** | `mod_expires` is active at the origin. The pre-Sprint-13 `public/.htaccess` has no `Expires` block, so this is SiteGround-managed. |
+| `/sitemap.xml` | `max-age=15552000` (180 days) | A **different** TTL from the assets, which is the signature of an `ExpiresByType` block rather than a single CDN-wide setting. |
+| `/.git/config` → `403` while `/package.json` → `404` | Different status codes | Something explicitly blocks `.git`, and it is not in `public/.htaccess`. |
+| `http://` → `https://`, `www` → apex | Both 301 | Origin or Cloudflare; cannot be attributed without reading the file. |
+
+**Two behaviour changes to expect once the merge is done**, both improvements but both worth naming:
+
+- `/sitemap.xml` moves from a 180-day browser cache to `max-age=0, must-revalidate`. A sitemap cached for six months is actively harmful.
+- HTML gains `Cache-Control: public, max-age=0, must-revalidate`; it currently has none.
+
+Note also that Cloudflare already serves `content-encoding: br`, so the origin-side compression directives are largely redundant behind the CDN — correct for direct-origin requests, but do not expect a visible change.
+
+**Do not overwrite the live file.** §M5 has the exact merge procedure.
 
 ### A3. The existing architecture is good, and was extended rather than replaced
 
@@ -327,11 +378,56 @@ Website work is complete; none of the below needs a code change. Full lists in t
 
 ### M3. Deployment
 
-Static output. Upload the contents of `dist/` to the SiteGround web root. `.htaccess` ships inside `dist/` and must be uploaded with it — the 301s, compression and cache policy are all in it. Node ≥22.12.0 to build; no runtime required.
+Static output. Upload the contents of `dist/` to the SiteGround web root. Node ≥22.12.0 to build; no runtime required.
+
+**`.htaccess` is the exception: do NOT upload `dist/.htaccess` as-is.** Complete §M5 first.
 
 ### M4. Search Console
 
 After deploy: submit `sitemap.xml`, and request indexing for `/ai-crm-integration/`, the logistics resource, and `/resources/what-is-ai-conversion-tracking/`. **Do not** submit the `/go/` routes.
+
+### M5. The `.htaccess` merge — the one blocking manual step
+
+Nothing else in this sprint requires a manual file merge. This does, because the live file contains rules that exist nowhere in Git (§A2b), and `dist/.htaccess` would replace it wholesale.
+
+**Step 1 — obtain the live file.** In SiteGround Site Tools → **File Manager** (or over SFTP/SSH), download the `.htaccess` in the **document root** of `youraidepartment.ai` — the directory that contains `index.html`, `favicon.svg` and `sitemap.xml`. On SiteGround this is normally:
+
+```
+~/www/youraidepartment.ai/public_html/.htaccess
+```
+
+Take a timestamped copy before touching anything:
+
+```
+cp .htaccess .htaccess.pre-sprint13-$(date +%Y%m%d)
+```
+
+**Step 2 — classify every block in it.** Expect three categories:
+
+| Category | What to do |
+|---|---|
+| **A — in both** | `ErrorDocument 404 /404.html` and the `^assessment/?$` → `/free-ai-assessment/` `[R=301,QSA,L]` rule. Keep once; they are identical. |
+| **B — live only** | Anything SiteGround wrote: SG Optimizer blocks, `ExpiresByType` / `ExpiresActive`, `mod_pagespeed`, PHP handler (`AddHandler`/`SetHandler`, `php_value`), HTTPS or www canonicalisation, `.git`/dotfile denials, `Options -Indexes`. **Keep all of it.** These are the rules this sprint must not destroy. |
+| **C — Git only** | The new Sprint 13 additions: the `^ai-department-audit/?$` 301, the `mod_deflate`/`mod_brotli` blocks, and the `mod_expires` + `mod_headers` cache policy. **Add these.** |
+
+**Step 3 — resolve the one real conflict.** If the live file has its own `ExpiresByType` / cache block (the probes say it almost certainly does), the two cache policies overlap. The Sprint 13 policy is the correct one and should win, because it is the only one that distinguishes content-hashed immutable assets from HTML and XML. Replace the live cache block rather than stacking both — two `ExpiresByType` blocks for the same MIME type is ambiguous and the result depends on load order.
+
+Keep everything else from category B untouched.
+
+**Step 4 — order matters.** Put SiteGround's PHP-handler and canonicalisation directives first, then the redirects, then compression, then caching, then `ErrorDocument`. `RewriteRule` evaluation is order-sensitive; `ExpiresByType` and `Header set` are not.
+
+**Step 5 — verify immediately after upload**, and be ready to restore the `.pre-sprint13` copy:
+
+```
+curl -sI 'https://youraidepartment.ai/assessment/?utm_id=probe'   # 301, query preserved
+curl -sI  https://youraidepartment.ai/ai-department-audit/         # 301 (was 200 + meta refresh)
+curl -sI  https://youraidepartment.ai/zzz-no-such-page/            # 404, branded page
+curl -sI  https://youraidepartment.ai/sitemap.xml                  # max-age=0, must-revalidate
+curl -sI  https://youraidepartment.ai/                             # 200
+curl -sI  https://youraidepartment.ai/.git/config                  # still 403
+```
+
+If any of those regress, restore the backup copy first and diagnose second. A broken `.htaccess` can take the whole site down; every directive in `public/.htaccess` is `<IfModule>`-guarded so a missing module is a no-op, but a syntax error is not.
 
 ---
 
@@ -401,13 +497,15 @@ The riskiest single change for measurement continuity is `sessionStorage` → `l
 
 - `brain/TODO.md`, `brain/TRACKING.md` and `brain/WEBSITE.md` **do not know about this sprint.** When the lineages are reconciled, TRACK-003's list of missing GTM events should gain the three new diagnostics, and `brain/TRACKING.md` should absorb `docs/analytics/conversion-event-taxonomy.md` (or point at it).
 - The `CLAUDE.md` on this branch has no "Operational Project Brain" section, so an agent working here will not be told to read `brain/`.
-- **WEB-003 / INPUT-005 remain open.** Production is still ahead of GitHub, and that should be resolved before this branch is deployed over it.
+- **WEB-003 / INPUT-005 are in fact complete, but the brain still says otherwise.** They were resolved by `64adcc1` + `cbbdca2` on 2026-08-31/09-01 and independently confirmed by the audit in §A2a. Until the brain is corrected it will send the next person — as it sent this one — chasing a blocker that no longer exists. The correction owed to `brain/WEBSITE.md` and `brain/TODO.md` should record the **deployed commit SHA** and the **`last-modified` timestamp it was verified against**; had those two facts been written down, the entire audit would have been a two-line check.
 
 **Q4. No Cal.com inline embed.** Investigated and rejected, with reasons, in `docs/analytics/conversion-event-taxonomy.md` §9. Briefly: it would put `/booking-confirmed/` inside an iframe and risk silently breaking the only real conversion signal; it would bypass the site's existing `<a href>` attribution enrichment and require a parallel mechanism; and it is a third-party script on a mobile-first page with a near-zero JS budget. The centralized link appears at four placements plus the sticky bar instead.
 
 **Q5. The OG image is a first pass.** It is assembled only from things already in the repository — brand tokens, the existing YAD mark, the brand name, `SITE.tagline`. It invents no claim. It should be replaced whenever a properly designed asset exists; `tools/generate-og-image.py` is the recipe, and `SITE.defaultSocialImage` is the one place to point at a new file.
 
-**Q6. Nothing was pushed.** No repository documentation establishes an approved push workflow for this branch, and pushing is outward-facing. The branch is local and ready.
+**Q6. The branch is backed up on `origin`, and nothing is merged.** `sprint13-outbound-conversion-seo` was pushed on approval and `origin/sprint13-outbound-conversion-seo` matches local `HEAD`. No merge, no PR merge, no deploy, and no change to any other branch on `origin`. The PR targets `sprint12-industry-content-expansion` — **never `main`**, which is still the 14 August site and would regress everything.
+
+**Q7. The two lineages now have separate worktrees, so they cannot be confused.** `/home/roothecks/YAD-Sales-Brain` holds `feature/outbound-sales-brain`. The website worktree could not be renamed to `/home/roothecks/YAD-Website` in the same pass, because it is the *main* worktree and its branch is checked out there — and because three live systemd units point into it. That is sales-brain infrastructure work, tracked separately, and deliberately out of scope for website deployment.
 
 ---
 
