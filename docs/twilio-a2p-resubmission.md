@@ -198,7 +198,7 @@ Four forms exist. Audited against the **built** site, not the source, so client-
 | `/sms-consent/` | Yes, required — it is the messaging-preference form | **Yes — the only one on the site.** `sms_opt_in`, unchecked, not required, badged Optional | `terms_accepted` (Terms of Use + Privacy Policy; contains no agreement to receive messages) | Not applicable — but it submits fully with SMS declined |
 | `/contact/` | Optional field, no `required` | None | `consent` — permission to reply to the inquiry. Does not mention SMS or text messages | **Yes** |
 | `/free-ai-assessment/` (quick) | Optional field, no `required` | None | `consent` — permission to process the answers. Does not mention SMS. Plus `marketingOptIn`, optional, email only | **Yes** |
-| `/ai-assessment/` (full) | Optional field, no `required` | None | `consent`, same wording. Plus `marketingOptIn`, optional, email only | **Yes** |
+| `/ai-assessment/full/` (comprehensive) | Optional field, no `required` | None | `consent`, same wording. Plus `marketingOptIn`, optional, email only | **Yes** |
 
 Every phone field outside `/sms-consent/` is optional and carries, associated to the input via `aria-describedby`, the line: *"A phone number alone does not opt you in to text messages. To receive customer-care texts, use our SMS Consent page."*
 
@@ -222,7 +222,7 @@ Do this in a private window with no session, on the deployed site, after the CDN
 8. [ ] No error appears anywhere in that flow, and focus is never thrown to the SMS checkbox.
 9. [ ] Repeat with the SMS box ticked → a different confirmation, the one that records consent.
 10. [ ] `/terms/#sms-terms` contains "Accepting these Terms is not an SMS opt-in" and no agreement to receive messages.
-11. [ ] `/contact/` and `/free-ai-assessment/` submit successfully with the phone field left empty, and neither has any SMS checkbox at all.
+11. [ ] `/contact/`, `/free-ai-assessment/` and `/ai-assessment/full/` submit successfully with the phone field left empty, and none has any SMS checkbox at all.
 
 **The round-1 checkpoints, re-verified**
 
