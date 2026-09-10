@@ -122,11 +122,68 @@ export type DiscoveryStatus =
   /** An asynchronous task was accepted and its results are not ready yet. */
   | 'PENDING'
   /** The provider answered with something this adapter cannot read. */
-  | 'MALFORMED';
+  | 'MALFORMED'
+  /**
+   * The saved market was switched off before this search was submitted, so nothing
+   * new was bought. Deliberately not `ZERO_RESULTS`: nobody looked. Deliberately not
+   * a failure either -- it is our own decision, like `BUDGET_EXHAUSTED`.
+   */
+  | 'MARKET_DISABLED';
 
 /** The statuses that mean the provider actually answered the question we asked. */
 export function providerAnswered(status: DiscoveryStatus): boolean {
   return status === 'OK' || status === 'ZERO_RESULTS';
+}
+
+/**
+ * May this run still buy a search of this market?
+ *
+ * `enabled` was read once, by the scheduler, when the job was queued. A market
+ * switched off after that -- and before the worker got to it, or between the first
+ * and the third search of a multi-search plan -- went on buying, because nothing
+ * downstream ever looked again. The window is not theoretical: a scheduled run sits
+ * in the queue behind however much else is in flight, and a plan of N searches
+ * submits N times over the life of one handler.
+ *
+ * So this is asked immediately before each submission rather than once at the start,
+ * and it is re-read from the database each time rather than cached. Off means: create
+ * no *new* chargeable task. It does not mean abandon a task already paid for, and the
+ * caller keeps collecting those either way -- see the collect branch, which runs
+ * first and is deliberately not gated on this.
+ *
+ * Two things it deliberately does not refuse:
+ *
+ *   - a run with no saved market behind it (somebody typed a ZIP into Find
+ *     Prospects). There is no `enabled` to consult and nothing to respect.
+ *   - a run a person asked for. `enabled` is the switch for unattended
+ *     self-maintenance -- that is all the scheduler reads it for, and the operations
+ *     page says so in those words ("nothing is being maintained on its own"). A
+ *     human pressing search on a market they have paused is spending their own
+ *     budget deliberately, and treating the pause as a prohibition would be
+ *     inventing a contract the product has never had. Nothing in the codebase yet
+ *     writes this column, so the manual case has no precedent to contradict.
+ */
+export async function mayBuyNewSearch(job: {
+  market_id: string | null; requested_by: string | null;
+}): Promise<{ allowed: true } | { allowed: false; reason: string }> {
+  if (!job.market_id) return { allowed: true };
+  if (job.requested_by) return { allowed: true };
+
+  const { rows } = await query<{ enabled: boolean; name: string }>(
+    `select enabled, name from saved_markets where market_id = $1`, [job.market_id]);
+  // A market that has been deleted underneath a queued run is not a market we should
+  // be buying searches of either.
+  if (rows.length === 0) {
+    return { allowed: false,
+      reason: 'This saved market no longer exists, so no new search was submitted. '
+        + 'Anything already paid for was still collected.' };
+  }
+  if (rows[0]!.enabled) return { allowed: true };
+  return { allowed: false,
+    reason: 'This market was switched off after this refresh was queued, so no new '
+      + 'search was submitted and nothing was charged. Any search already paid for '
+      + 'was still collected, and any task the provider still owes us is still '
+      + 'outstanding -- switching a market off does not cancel it.' };
 }
 
 /**
@@ -424,6 +481,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   let providerDuplicates = 0;
   let costUsd = 0;
   let costKnown = false;
+  /** Searches already paid for whose results this run went back for. */
+  let collectedPaid = 0;
   const statuses: DiscoveryStatus[] = [];
   const pendingTaskIds: string[] = [];
   const discoveryNotes: string[] = [];
@@ -536,6 +595,15 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       // restarted, or the task was simply slower than the poll -- going back for it
       // is both cheaper and more honest than buying the same market twice.
       const outstanding = await openProviderTask(adapter.name, fingerprint);
+
+      // Asked once per search, and only when a purchase is actually on the table --
+      // not once at the top of the handler, because the question is whether *this*
+      // submission may happen and a plan of N searches asks it N times. Read fresh
+      // each time: a market switched off between the first search and the third has
+      // to stop the third.
+      const buy = (!outstanding && !budgetExhausted)
+        ? await mayBuyNewSearch(job) : null;
+
       if (outstanding && adapter.collect) {
         const attempts = await recordCollectionAttempt(outstanding.provider_task_id);
         result = await adapter.collect(outstanding.provider_native_id, searchRequest);
@@ -561,6 +629,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
           // away. Leaving it PENDING means a crash costs one more collection call
           // and nothing else, because ingestion resolves to the same Accounts.
           collected = outstanding.provider_task_id;
+          collectedPaid += 1;
         } else {
           await closeProviderTask({
             providerTaskId: outstanding.provider_task_id, status: 'FAILED',
@@ -576,6 +645,10 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         // Nothing outstanding to collect and no room to buy: this is the one place
         // the ceiling refuses work, and it refuses it before the money is spent.
         result = refusedDiscovery('BUDGET_EXHAUSTED', budgetRefusalReason(spend));
+      } else if (buy && !buy.allowed) {
+        // A market switched off after this run was queued. Nothing new is bought;
+        // anything already paid for was collected by the branch above.
+        result = refusedDiscovery('MARKET_DISABLED', buy.reason);
       } else {
         // What the provider has cost today is read from provider_usage, and only
         // adapters write to it. So the daily ceiling protects us from exactly the
@@ -652,7 +725,17 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   }
 
   const answered = statuses.filter(providerAnswered).length;
-  const failed = statuses.length - answered;
+  /**
+   * Searches we chose not to buy because the market was switched off.
+   *
+   * Held apart from `failed` deliberately. Nothing failed: no provider was asked, so
+   * calling the run PARTIAL -- "some providers answered and some could not" -- would
+   * blame a provider for our own decision, and would put a healthy market into the
+   * failure backoff on the way out.
+   */
+  const declined = statuses.filter((status) => status === 'MARKET_DISABLED').length;
+  const stillOwed = statuses.filter((status) => status === 'PENDING').length;
+  const failed = statuses.length - answered - declined;
 
   /**
    * What actually happened, in the operator's terms.
@@ -677,13 +760,41 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     // earlier under the ceiling did search this market, and reporting it as blocked
     // would hide businesses that are now in inventory.
     : budgetExhausted && answered === 0 ? 'DISCOVERY_BLOCKED'
+    // A task the provider still owes us outranks our own refusal to buy more. The
+    // task row is untouched and still PENDING -- switching a market off does not
+    // cancel a search already paid for -- and the market has to keep saying so, or
+    // the one fact an operator needs about an outstanding purchase disappears the
+    // moment somebody pauses the market.
+    : stillOwed > 0 && answered === 0 && failed === 0 ? 'PROVIDER_PENDING'
     : statuses.every((status) => status === 'PENDING') ? 'PROVIDER_PENDING'
+    // Our own switch stopped the buying and nothing was collected: not an empty
+    // market, not a provider outage, and not a market that failed.
+    : declined > 0 && answered === 0 && failed === 0 ? 'MARKET_DISABLED'
     : answered === 0 ? 'PROVIDER_UNAVAILABLE'
     : failed > 0 ? 'PARTIAL'
     : providerRows > 0 ? 'COMPLETED'
     : 'ZERO_RESULTS';
 
   const failureSummary = discoveryNotes.length > 0 ? ` ${discoveryNotes.join('; ')}` : '';
+
+  /**
+   * A paused market that still had work owed to it.
+   *
+   * "Disabled" and "a search we had already paid for came back" are both true at
+   * once, and the run reports the second on its merits -- it did find businesses, and
+   * calling that anything but a completed search would hide them. But an operator
+   * reading a COMPLETED market refresh on a market they switched off is owed the
+   * first fact too, or the page reads as though the pause did nothing. Said here
+   * rather than folded into the outcome, because the outcome is about what happened
+   * and this is about what will not happen next.
+   */
+  const paused = job.market_id && !job.requested_by
+    ? !(await mayBuyNewSearch(job)).allowed : false;
+  const pausedNote = !paused ? ''
+    : collectedPaid > 0
+      ? ` This market is switched off for new refreshes; ${collectedPaid} search(es) `
+        + 'already paid for were still collected, and nothing new was bought.'
+      : ' This market is switched off for new refreshes, so nothing new was bought.';
   const outcomeReason =
     outcome === 'DISCOVERY_BLOCKED' && budgetExhausted
       ? budgetRefusalReason(spend)
@@ -698,11 +809,15 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     : outcome === 'PARTIAL'
       ? `${answered} provider(s) answered and ${failed} could not, so this is part of the `
         + `market, not all of it.${failureSummary}`
+    : outcome === 'MARKET_DISABLED'
+      ? `This market is switched off, so no new search was bought.${failureSummary}`
     : outcome === 'ZERO_RESULTS'
       ? `${answered} provider(s) searched this market and returned nothing usable.`
+        + (declined > 0 ? failureSummary : '') + pausedNote
     : `${providerRows} provider row(s): ${providerDuplicates} duplicate(s), `
       + `${providerRejected + funnel.rejected} unusable, ${funnel.matchedExisting} already `
-      + `in inventory, ${funnel.created} new business(es) added.`;
+      + `in inventory, ${funnel.created} new business(es) added.`
+      + (declined > 0 ? failureSummary : '') + pausedNote;
 
   if (job.market_id) {
     await query(

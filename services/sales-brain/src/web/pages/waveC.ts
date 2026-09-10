@@ -155,6 +155,10 @@ const JOB_OUTCOME_LABEL: Record<string, { label: string; tone: SemanticState }> 
   PROVIDER_UNAVAILABLE: { label: 'Provider unavailable', tone: 'destructive' },
   PARTIAL: { label: 'Partly searched', tone: 'warning' },
   PROVIDER_PENDING: { label: 'Provider still working', tone: 'info' },
+  // Neutral, not a warning: nothing went wrong, an operator switched the market off.
+  // Without an entry here it fell through to the bare "Ran" pill, which is the
+  // sentence this whole map exists to stop.
+  MARKET_DISABLED: { label: 'Market switched off — not searched', tone: 'neutral' },
   FAILED: { label: 'Failed', tone: 'destructive' },
 };
 
@@ -196,7 +200,9 @@ function discoveredCell(job: any): RawHtml {
   if (job.job_type === 'zip_research') {
     return html`<span class="muted small" title="This job only refreshes accounts we already hold.">not searched</span>`;
   }
-  if (job.outcome === 'DISCOVERY_BLOCKED' || job.outcome === 'PROVIDER_UNAVAILABLE') {
+  if (job.outcome === 'DISCOVERY_BLOCKED' || job.outcome === 'PROVIDER_UNAVAILABLE'
+      || job.outcome === 'MARKET_DISABLED') {
+    // A dash, not a zero. "0 new" is a claim about the market; nobody looked.
     return html`<span class="muted small">—</span>`;
   }
   return html`<strong>${job.discovered_new ?? 0}</strong>`;

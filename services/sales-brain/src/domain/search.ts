@@ -230,7 +230,13 @@ export type DiscoveryState =
   /** A provider searched and added companies we did not have. */
   | 'FOUND_NEW'
   /** The last successful search is old enough that the market may have moved. */
-  | 'STALE';
+  | 'STALE'
+  /**
+   * The market was switched off, so the last run bought nothing. Distinct from
+   * ZERO_RESULTS, which this used to fall through to: a paused market reported
+   * itself as a market a provider had searched and found empty.
+   */
+  | 'MARKET_DISABLED';
 
 export interface DiscoveryCoverage {
   state: DiscoveryState;
@@ -795,6 +801,12 @@ export async function discoveryCoverageFor(input: {
       return { ...shared, state: 'PARTIAL' };
     case 'ZERO_RESULTS':
       return { ...shared, state: 'ZERO_RESULTS' };
+    // Without this the fall-through below reads provider_rows = 0 and
+    // discovered_new = 0 and concludes ZERO_RESULTS -- "a provider searched this
+    // market and found nothing usable" -- about a run in which no provider was
+    // asked anything, because an operator had paused the market.
+    case 'MARKET_DISABLED':
+      return { ...shared, state: 'MARKET_DISABLED' };
     default:
       break;
   }

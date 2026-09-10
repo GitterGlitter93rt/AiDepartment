@@ -257,7 +257,14 @@ export async function recordMarketOutcome(input: {
   // Re-dued soon rather than immediately: the budget resets at midnight and a market
   // that comes straight back would spin through the scheduler all evening for
   // nothing.
-  const weDeclined = input.outcome === 'DISCOVERY_BLOCKED';
+  //
+  // MARKET_DISABLED is the same kind of fact, one switch over: somebody paused the
+  // market after the run was queued, so no new search was bought. Counting it as a
+  // failure would mean a market accrued backoff for being switched off -- and the
+  // backoff would then be waiting for it when it was switched back on, which is the
+  // exact compounding described above.
+  const weDeclined = input.outcome === 'DISCOVERY_BLOCKED'
+    || input.outcome === 'MARKET_DISABLED';
 
   await query(
     `update saved_markets

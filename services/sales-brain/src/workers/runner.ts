@@ -42,6 +42,12 @@ export type JobOutcome =
   | 'PARTIAL'
   | 'NOTHING_TO_DO'
   | 'ZERO_RESULTS'
+  /**
+   * The saved market was switched off before a new search could be submitted, so
+   * nothing was bought. Not a failure and not an empty market: our own decision,
+   * taken after the run was already queued.
+   */
+  | 'MARKET_DISABLED'
   | 'FAILED';
 
 /**

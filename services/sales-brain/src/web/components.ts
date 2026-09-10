@@ -281,6 +281,14 @@ function discoveryNote(
         <span>A provider searched ${geographyLabel} and returned no usable business.
         That is a real answer about this market, not a failure.</span>
       </div>`;
+    case 'MARKET_DISABLED':
+      return html`<div class="coverage-note">
+        <span class="dot"></span>
+        <span>This market is switched off, so the last refresh did not buy a search
+        of ${geographyLabel}. Nothing was charged and nothing failed -- and this says
+        nothing about whether ${geographyLabel} has businesses in it. Any search
+        already paid for was still collected.</span>
+      </div>`;
     case 'MATCHED_EXISTING':
       return html`<div class="coverage-note">
         <span class="dot"></span>
