@@ -6,6 +6,27 @@
 // the URL with no login, no JavaScript trick and no hidden session, and
 // see the full disclosure sitting next to an unchecked checkbox.
 //
+// Twilio error 30923 (forced consent) was the opposite failure, and it
+// was ours. The checkbox below carries no `required` and no `checked`,
+// so the markup always read as optional — but the submit handler used
+// to refuse the form unless the box was ticked:
+//
+//     if (!smsOptIn) { showError('...please check the consent box...'); return; }
+//
+// The page had been written on the assumption that a submission without
+// consent was meaningless, so it existed only to record a "yes". To a
+// reviewer filling the form in and declining, that assumption is
+// indistinguishable from making consent a condition of proceeding —
+// which is exactly what 30923 means. Declining is now an outcome the
+// form accepts, records as `sms_opt_in: 'no'`, and confirms.
+//
+// Three separate facts are collected and stored separately, because
+// collapsing any two of them is the thing carriers object to:
+//
+//     phone number provided   !=  SMS consent
+//     Terms of Use accepted   !=  SMS consent
+//
+//
 // Indexable and in the sitemap, matching /privacy/ and /terms/. A
 // compliance page that search engines are told to ignore is a page a
 // reviewer may struggle to find, and there is nothing here worth
@@ -29,7 +50,7 @@ import {
   WEBSITE_DOMAIN,
 } from '../../lib/businessIdentity';
 
-const lastUpdated = 'September 9, 2026';
+const lastUpdated = 'September 10, 2026';
 const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
 ---
 
@@ -51,7 +72,9 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
         <p>Messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support related to an inquiry or requested service.</p>
 
         <h2 id="opt-in">Optional SMS Opt-In</h2>
-        <p>Enter your mobile number below only if you want customer-care text messaging. The SMS consent checkbox is optional and unchecked by default. A phone number without the checked consent box is not treated as SMS consent.</p>
+        <p>Use the form below to tell us whether you want customer-care text messages. <strong>The SMS checkbox is optional, unchecked by default, and the form submits whether you check it or not.</strong></p>
+        <p><strong>Declining text messages costs you nothing.</strong> You can still submit this form, contact us, complete an assessment, schedule a call, purchase, and receive every service we sell. Text messaging is a convenience we offer, never a condition of doing business with us.</p>
+        <p>Accepting our <a href={LEGAL_ROUTES.terms}>Terms of Use</a> is required to use this website. Agreeing to receive text messages is a <strong>separate, optional</strong> choice and is never bundled into the Terms, into a purchase, or into creating any account. A phone number without the checked consent box is not treated as SMS consent.</p>
 
         <form id="sms-consent-form" class="sms-form" novalidate>
           {/* Honeypot. Hidden from sight and from assistive technology,
@@ -68,35 +91,59 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
           <div class="field">
             <label for="sms-phone">Mobile Phone <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
             <input type="tel" id="sms-phone" name="phone" required autocomplete="tel" inputmode="tel" aria-describedby="sms-phone-hint sms-form-error" />
-            <p id="sms-phone-hint" class="field-hint">Used only to send the customer-care messages you consent to below.</p>
+            <p id="sms-phone-hint" class="field-hint">Used only to send the customer-care messages you opt in to below. If you leave the optional SMS box unchecked, we will not text this number.</p>
           </div>
 
+          {/* The REQUIRED permission, kept deliberately adjacent to the
+              optional one so the difference is visible in a screenshot.
+              This is the site's mandatory agreement — and its label says
+              in as many words that accepting it is not an SMS opt-in.
+              Twilio 30923 is about these two being fused; here they are
+              two controls, two names, and two stored fields. */}
+          <div class="perm-checkbox required-checkbox">
+            <input type="checkbox" id="sms-terms-accept" name="terms_accepted" required aria-describedby="sms-terms-note sms-form-error" />
+            <label for="sms-terms-accept">
+              <span class="perm-badge perm-badge-required">Required</span>
+              I have read and agree to the <a href={LEGAL_ROUTES.terms}>Terms of Use</a> and <a href={LEGAL_ROUTES.privacy}>Privacy Policy</a>.
+            </label>
+          </div>
+          <p id="sms-terms-note" class="field-hint">Accepting the Terms of Use does <strong>not</strong> opt you in to text messages, and no part of the Terms asks you to agree to receive them.</p>
+
           {/* The consent control. Separate from every other permission on
-              the site, unchecked, and not marked required — a visitor
-              may submit nothing at all and leave, which is the point of
-              "consent is not a condition of purchase". */}
-          <div class="sms-checkbox">
-            <input type="checkbox" id="sms-opt-in" name="sms_opt_in" aria-describedby="sms-form-error" />
+              the site, unchecked, and not marked required — and, since
+              30923, not enforced as required by the submit handler
+              either. A visitor may leave it unchecked, submit, and be
+              told plainly that no messages will be sent. */}
+          <div class="perm-checkbox sms-checkbox">
+            <input type="checkbox" id="sms-opt-in" name="sms_opt_in" aria-describedby="sms-opt-in-note sms-form-error" />
             <label for="sms-opt-in">
+              <span class="perm-badge perm-badge-optional">Optional</span>
               {SMS_CONSENT_DISCLOSURE_LEAD}<a href={LEGAL_ROUTES.smsPrivacyAnchor}>Privacy Policy</a> and <a href={LEGAL_ROUTES.smsTermsAnchor}>Terms of Use</a>.
             </label>
           </div>
+          <p id="sms-opt-in-note" class="field-hint">Leave this box unchecked to decline text messages. The form still submits, we record that you declined, and we will not text you.</p>
 
           <div id="sms-form-error" class="form-status error" role="alert" aria-live="assertive" hidden></div>
-          <button type="submit" class="submit-button">Submit SMS Consent</button>
+          <button type="submit" class="submit-button">Submit</button>
         </form>
 
-        {/* Revealed only after the consent record is confirmed delivered.
-            tabindex="-1" so the script can move focus here, which is the
-            only reliable way a screen-reader user learns the submission
-            succeeded. */}
+        {/* Two success states, because there are two valid outcomes and
+            only one of them is a consent record. Both are revealed only
+            after delivery is confirmed. tabindex="-1" so the script can
+            move focus, which is the only reliable way a screen-reader
+            user learns the submission succeeded. */}
         <div id="sms-form-success" class="form-status success" role="status" tabindex="-1" hidden>
           <strong>Thank you.</strong> Your SMS consent has been recorded. We may send customer-care messages related to your inquiry or requested service. Reply STOP at any time to opt out, or HELP for help.
+        </div>
+
+        <div id="sms-form-declined" class="form-status success" role="status" tabindex="-1" hidden>
+          <strong>Thank you — your form was submitted.</strong> You did <strong>not</strong> opt in to text messages, so we will not send you any. Nothing else is affected: you can still contact us, complete an assessment, schedule a call, purchase, and receive every service we offer. If you change your mind, return to this page and check the optional box.
         </div>
 
         <h2>How Consent Works</h2>
         <p>SMS consent is separate from general website use, assessment submission, scheduling, and other contact permissions. Submitting a general form, providing a phone number elsewhere on the Site, requesting assessment results, or purchasing a service does <strong>not</strong> by itself enroll a visitor in this SMS program.</p>
         <p>Consent is not required to submit an inquiry, complete an assessment, schedule a call, purchase anything, or receive our services.</p>
+        <p><strong>You may decline SMS messaging and still complete every form on this Site, including the one above.</strong> Declining does not block a submission, a purchase, an account, or support, and we do not ask again as a condition of anything.</p>
         <p>We may also record consent verbally during a live conversation with someone who has already contacted us, after reading the same disclosure aloud and receiving a clear affirmative answer. We do not send a text message to ask someone to opt in.</p>
 
         <h2>Message Frequency and Charges</h2>
@@ -137,7 +184,8 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
   const form = document.getElementById('sms-consent-form');
   const errorBox = document.getElementById('sms-form-error');
   const successBox = document.getElementById('sms-form-success');
-  const optIn = document.getElementById('sms-opt-in');
+  const declinedBox = document.getElementById('sms-form-declined');
+  const termsBox = document.getElementById('sms-terms-accept');
 
   // Same public Web3Forms key and endpoint the contact form and both
   // assessments already use. This is a publishable key by design; it is
@@ -182,6 +230,11 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
 
     const name = String(data.get('name') || '').trim();
     const phone = String(data.get('phone') || '').trim();
+    const termsAccepted = Boolean(data.get('terms_accepted'));
+
+    // The optional one. Read, recorded, and never validated — there is
+    // deliberately no `if (!smsOptIn) return` here. See the 30923 note
+    // at the top of this file: a gate on this value is the defect.
     const smsOptIn = Boolean(data.get('sms_opt_in'));
 
     if (!name) {
@@ -189,13 +242,13 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
       return;
     }
     if (!phone) {
-      showError('Please enter the mobile number that should receive messages.', document.getElementById('sms-phone'));
+      showError('Please enter your mobile number.', document.getElementById('sms-phone'));
       return;
     }
-    if (!smsOptIn) {
+    if (!termsAccepted) {
       showError(
-        'To record SMS consent, please check the consent box above. Consent is optional — you can leave this page without opting in.',
-        optIn,
+        'Please accept the Terms of Use and Privacy Policy to continue. Agreeing to receive text messages is optional and separate — you can submit this form without it.',
+        termsBox,
       );
       return;
     }
@@ -210,14 +263,23 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           access_key: WEB3FORMS_ACCESS_KEY,
-          subject: `SMS customer-care opt-in — ${brandName}`,
+          subject: smsOptIn
+            ? `SMS customer-care opt-in — ${brandName}`
+            : `SMS opt-in DECLINED (no consent) — ${brandName}`,
           from_name: `${brandName} SMS Consent`,
-          // The consent record. Everything below is the evidence we would
-          // need to produce if a specific opt-in were ever questioned:
-          // who, what number, which exact disclosure, from where, when.
+          // The record. Everything below is the evidence we would need to
+          // produce if a specific opt-in were ever questioned: who, what
+          // number, which exact disclosure, from where, when — and, just
+          // as importantly, whether the answer was yes or no.
           name,
           phone,
-          sms_opt_in: 'yes',
+          // Three facts, three fields, never collapsed. A number in
+          // `phone` is not consent; `terms_accepted` is not consent;
+          // only `sms_opt_in: 'yes'` is consent.
+          phone_provided: 'yes',
+          terms_accepted: 'yes',
+          sms_opt_in: smsOptIn ? 'yes' : 'no',
+          record_type: smsOptIn ? 'sms_opt_in' : 'sms_opt_in_declined',
           sms_program: `${brandName} customer care`,
           sms_use_case: 'CUSTOMER_CARE',
           brand: brandName,
@@ -232,8 +294,9 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
       if (!response.ok || !body?.success) throw new Error('delivery failed');
 
       form.hidden = true;
-      successBox?.removeAttribute('hidden');
-      successBox?.focus();
+      const panel = smsOptIn ? successBox : declinedBox;
+      panel?.removeAttribute('hidden');
+      panel?.focus();
 
       // Diagnostic only, and only now — after delivery was confirmed.
       // No name, no phone, no email, no consent text. It is not a lead
@@ -246,13 +309,18 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
           event: 'sms_consent_submit',
           consent_version: consentVersion,
           source_page: '/sms-consent/',
+          // Since 30923 the form accepts a decline, so the event has to
+          // say which outcome it was. Without this parameter a decline
+          // and a consent would be one indistinguishable number, which
+          // is the reporting failure Sprint 15 exists to prevent.
+          sms_opt_in: smsOptIn ? 'yes' : 'no',
         });
       } catch {
         /* analytics must never affect whether consent was recorded */
       }
     } catch {
       showError(
-        `We could not record your SMS consent right now, so no consent has been saved. Please try again in a moment, or email ${supportEmail}.`,
+        `We could not record your messaging preference right now, so no consent has been saved and nothing was submitted. Please try again in a moment, or email ${supportEmail}.`,
       );
     } finally {
       submitting = false;
@@ -323,19 +391,46 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
     color: var(--color-slate-gray);
   }
 
-  .sms-checkbox {
+  /* The note that belongs to a permission box, not to a text input. */
+  .perm-checkbox + .field-hint {
+    margin: 0 0 18px;
+    padding-left: 16px;
+  }
+
+  .perm-checkbox {
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 12px;
     align-items: start;
-    margin: 20px 0;
+    margin: 20px 0 8px;
     padding: 16px;
     background: var(--color-cloud-white);
     border: 1px solid var(--color-border-light);
     border-radius: 8px;
   }
 
-  .sms-checkbox input {
+  /* The two permissions are deliberately not styled alike. A reviewer
+     comparing them in a screenshot should be able to tell which one is
+     mandatory without reading a word. */
+  .required-checkbox { border-left: 4px solid var(--color-slate-gray); }
+  .sms-checkbox { border-left: 4px solid var(--color-electric-blue); }
+
+  .perm-badge {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: 1px;
+  }
+
+  .perm-badge-required { background: #e5e7eb; color: #374151; }
+  .perm-badge-optional { background: #dbeafe; color: #1e40af; }
+
+  .perm-checkbox input {
     /* A 44px-ish tap target on a control that legally has to be a
        deliberate act. */
     width: 20px;
@@ -344,12 +439,12 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
     flex-shrink: 0;
   }
 
-  .sms-checkbox input[aria-invalid='true'] {
+  .perm-checkbox input[aria-invalid='true'] {
     outline: 2px solid #9f1239;
     outline-offset: 2px;
   }
 
-  .sms-checkbox label {
+  .perm-checkbox label {
     font-size: 0.9rem;
     line-height: 1.6;
     color: var(--color-near-black);
@@ -381,8 +476,8 @@ const consentSourceUrl = `${WEBSITE_DOMAIN}${LEGAL_ROUTES.smsConsent}`;
      readable rather than becoming a grey block beside a tiny box. */
   @media (max-width: 520px) {
     .sms-form { padding: 16px; }
-    .sms-checkbox { padding: 14px; gap: 10px; }
-    .sms-checkbox label { font-size: 0.88rem; }
+    .perm-checkbox { padding: 14px; gap: 10px; }
+    .perm-checkbox label { font-size: 0.88rem; }
     .submit-button { width: 100%; }
   }
 </style>
