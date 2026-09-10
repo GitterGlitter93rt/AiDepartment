@@ -37,11 +37,28 @@ async function enqueue(input: {
 
   if (rows[0]) return { jobId: rows[0].job_id, created: true };
 
+  // Joining an existing run, which is the right answer: the work is already queued
+  // and a second row would only buy the same thing twice.
+  //
+  // But who asked has to survive the join. The idempotency key deliberately does not
+  // include the requester -- a market is a market however the request arrived -- so a
+  // person clicking search on a market the scheduler has already queued is folded
+  // into an automatic run, and an automatic pass is folded into a person's run. That
+  // was harmless while both ran identically. It is not harmless now that the
+  // market_mine handler asks whether a *person* wanted this work before it will buy
+  // a search of a paused market: the answer would depend on which request happened to
+  // arrive first, so the same two clicks in the other order spend money or do not.
+  //
+  // A requester is therefore recorded onto a run that had none. It only ever moves
+  // from nobody to somebody -- a person did ask for this work, and that stays true --
+  // and it never overwrites one person with another, because the first to ask is the
+  // one who asked.
   const existing = await query<{ job_id: string }>(
-    `select job_id from jobs
+    `update jobs
+        set requested_by = coalesce(requested_by, $2)
       where idempotency_key = $1 and status in ('QUEUED','RUNNING')
-      order by created_at desc limit 1`,
-    [input.idempotencyKey],
+      returning job_id`,
+    [input.idempotencyKey, input.requestedBy ?? null],
   );
   return { jobId: existing.rows[0]?.job_id ?? '', created: false };
 }

@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
+import { DEFAULT_REFRESH_INTERVAL_HOURS } from '../workers/marketScheduler.js';
 import { schemaState } from '../db/migrate.js';
 import { SCORE_VERSION } from '../scoring/model.js';
 import { buildIdentity } from '../release/identity.js';
@@ -180,6 +181,35 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        (select count(*)::int from saved_markets where enabled and consecutive_failures > 0)
          as markets_failing,
 
+       -- Enabled, due, and not moving.
+       --
+       -- The comment below this query has always said that is the number that
+       -- separates inventory which maintains itself from a page that looks busy, and
+       -- nothing computed it. A market with no failures and no blocker reads OK
+       -- however long it has been sitting there, so a worker that stopped sweeping,
+       -- or a backlog that never drains, or an in-flight ceiling nothing ever clears,
+       -- all present as "scheduled and none is failing".
+       --
+       -- "Due" on its own is normal -- a market becomes due and waits for the next
+       -- sweep. Overdue by more than its own refresh interval is not: it has missed a
+       -- whole cycle. That threshold comes from the market's own cadence rather than
+       -- from a constant invented here, so a market asking to be looked at hourly is
+       -- judged hourly and one asking daily is judged daily.
+       --
+       -- Markets already counted as blocked are excluded, because they are reported
+       -- with their reason and this would say the same thing twice.
+       (select count(*)::int from saved_markets
+         where enabled and blocker_reason is null and next_refresh_at is not null
+           and next_refresh_at < now()
+               - ((coalesce(refresh_interval_hours, $3)) || ' hours')::interval)
+         as markets_overdue,
+       (select coalesce(max(extract(epoch from (now() - next_refresh_at)) / 3600), 0)::int
+          from saved_markets
+         where enabled and blocker_reason is null and next_refresh_at is not null
+           and next_refresh_at < now()
+               - ((coalesce(refresh_interval_hours, $3)) || ' hours')::interval)
+         as markets_overdue_oldest_hours,
+
        -- Today's provider spend, and how much of it is estimated rather than
        -- confirmed: a day whose cost is mostly estimated is a day nobody can hold
        -- the provider to.
@@ -195,7 +225,8 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
        (select count(*)::int from accounts
          where manual_tier is not null and merged_into_account_id is null
            and (score_version is null or score_version <> $2)) as scores_stale_policy`,
-    [String(HEARTBEAT_STALE_AFTER_MS), SCORE_VERSION],
+    [String(HEARTBEAT_STALE_AFTER_MS), SCORE_VERSION,
+     String(DEFAULT_REFRESH_INTERVAL_HOURS)],
   );
   const row = rows[0]!;
   const number = (key: string): number => Number(row[key] ?? 0);
@@ -538,9 +569,14 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
   const marketsEnabled = number('markets_enabled');
   const marketsBlocked = number('markets_blocked');
   const marketsFailing = number('markets_failing');
+  const marketsOverdue = number('markets_overdue');
+  const overdueHours = number('markets_overdue_oldest_hours');
   add('markets', 'Are the saved markets being kept up?',
     marketsEnabled === 0 ? 'UNKNOWN'
       : marketsBlocked >= marketsEnabled ? 'BLOCKED'
+      // Ahead of the failure count: a market being backed off is still being
+      // scheduled, and one that has missed a whole cycle is not moving at all.
+      : marketsOverdue > 0 ? 'ATTENTION'
       : marketsFailing > 0 ? 'ATTENTION' : 'OK',
     marketsEnabled === 0 ? 'none configured' : `${marketsEnabled} enabled`,
     marketsEnabled === 0
@@ -549,6 +585,12 @@ export async function operationalSnapshot(): Promise<OperationalSnapshot> {
       : marketsBlocked >= marketsEnabled
         ? `Every enabled market is blocked: ${marketsBlocked} of ${marketsEnabled}. `
           + 'None of them is being refreshed.'
+        : marketsOverdue > 0
+          ? `${marketsOverdue} market(s) are overdue by more than a full refresh `
+            + `interval, the oldest by ${overdueHours}h. They are enabled, nothing `
+            + 'says they are blocked, and nothing has failed -- so the scheduler or '
+            + 'the worker is not getting to them, which no other number here would '
+            + 'show.'
         : marketsFailing > 0
           ? `${marketsFailing} market(s) have failed at least once in a row and are being `
             + 'backed off. They are still scheduled, just less often.'

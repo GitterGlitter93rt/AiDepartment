@@ -35,7 +35,8 @@
     "profiles:validate": "tsx src/bin/profile-contract.ts",
     "canary:packet": "tsx src/bin/canary-packet.ts",
     "probe:packet": "tsx src/bin/probe-packet.ts",
-    "blocka": "tsx src/bin/block-a.ts"
+    "blocka": "tsx src/bin/block-a.ts",
+    "blockb": "tsx tests/support/blockBPacket.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

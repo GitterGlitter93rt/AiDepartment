@@ -14,6 +14,10 @@ import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { recordProviderTask } from '../src/miner/providerTasks.js';
 import { searchFingerprintPrefix } from '../src/miner/searchPlan.js';
 import { discoveryCoverageFor } from '../src/domain/search.js';
+import { operationalSnapshot } from '../src/api/operations.js';
+import { runConvergence, runPauseInBacklog } from './support/blockBConverge.js';
+import { sustainableMarketCount, SWEEP_INTERVAL_MS,
+         MAX_MARKETS_IN_FLIGHT, DEFAULT_REFRESH_INTERVAL_HOURS } from '../src/workers/marketScheduler.js';
 import { resetDatabase, makeUser } from './helpers.js';
 
 /**
@@ -545,4 +549,384 @@ test('B2-1 a paused market comes back promptly rather than being backed off', as
   // The declined-retry window, not an exponential failure backoff.
   assert.ok(hours > DECLINED_RETRY_HOURS - 1 && hours < DECLINED_RETRY_HOURS + 1,
     `a paused market was re-dued in ${hours.toFixed(1)}h, not the declined window`);
+});
+
+// =============================================================================
+// B2-2 · a manual request and a scheduled pass are one job, and who asked survives
+// =============================================================================
+
+/**
+ * `discoveryFingerprint` deliberately omits the requester: a market is a market
+ * however the request arrived, and a person clicking search on a market the
+ * scheduler has already queued should join that run rather than buy the same search
+ * twice. Joining is right. Losing who asked is not.
+ *
+ * This was harmless while both paths ran identically. B2-1 made it consequential: the
+ * handler now asks whether a *person* wanted this work before it will buy a search of
+ * a paused market, so the answer depended on which request happened to arrive first
+ * -- the same two clicks in the other order would spend money or not.
+ */
+test('B2-2 a person joining an automatic run is recorded as having asked', async () => {
+  const adapter = countingAdapter({ businesses: 1 });
+  registerDiscoveryAdapter(adapter);
+  const marketId = await market('B2 Collision Scheduled First');
+  const operator = await makeUser('B2 Collision Operator', 'SALES_MANAGER');
+
+  // The scheduler gets there first.
+  const scheduled = await scheduleDueMarkets();
+  assert.equal(scheduled.queued, 1);
+  const before = await jobsFor(marketId);
+  assert.equal(before.length, 1);
+  assert.equal(before[0]!.requested_by, null, 'a scheduled run should have no requester');
+
+  // Then a person asks for the same market.
+  const { rows } = await query<Record<string, any>>(
+    `select geography_definition from saved_markets where market_id = $1`, [marketId]);
+  const manual = await enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta',
+    geographyValue: String(rows[0]!.geography_definition.value),
+    marketId, requestedBy: operator.userId, miningMode: 'advertiser_first',
+  });
+  // Joined, not duplicated.
+  assert.equal(manual.created, false);
+  assert.equal(manual.jobId, before[0]!.job_id);
+  const after = await jobsFor(marketId);
+  assert.equal(after.length, 1, 'the same market was queued twice');
+  assert.equal(after[0]!.requested_by, operator.userId,
+    'a person asked for this run and the job does not say so');
+});
+
+test('B2-2 joining never overwrites the person who asked first', async () => {
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  const marketId = await market('B2 Collision Manual First');
+  const first = await makeUser('B2 First Asker', 'SALES_MANAGER');
+  const second = await makeUser('B2 Second Asker', 'SALES_MANAGER');
+  const { rows } = await query<Record<string, any>>(
+    `select geography_definition from saved_markets where market_id = $1`, [marketId]);
+  const zip = String(rows[0]!.geography_definition.value);
+
+  await enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: zip,
+    marketId, requestedBy: first.userId, miningMode: 'advertiser_first' });
+  await enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: zip,
+    marketId, requestedBy: second.userId, miningMode: 'advertiser_first' });
+
+  const jobs = await jobsFor(marketId);
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0]!.requested_by, first.userId,
+    'the second asker took credit for the first asker’s run');
+});
+
+test('B2-2 a scheduled pass joining a person’s run does not become automatic',
+  async () => {
+  // The other direction. A scheduler pass folding into a human's queued run must not
+  // strip the human's authorization off it -- that would turn a request somebody made
+  // into an unattended refresh, and against a paused market it would then be refused.
+  const adapter = countingAdapter({ businesses: 1 });
+  registerDiscoveryAdapter(adapter);
+  const marketId = await market('B2 Collision Human First');
+  const operator = await makeUser('B2 Human First', 'SALES_MANAGER');
+  const { rows } = await query<Record<string, any>>(
+    `select geography_definition from saved_markets where market_id = $1`, [marketId]);
+
+  await enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta',
+    geographyValue: String(rows[0]!.geography_definition.value),
+    marketId, requestedBy: operator.userId, miningMode: 'advertiser_first' });
+
+  // The scheduler comes along and finds the market already queued.
+  const pass = await scheduleDueMarkets();
+  assert.equal(pass.queued, 0, 'the scheduler queued a second run for one market');
+
+  const jobs = await jobsFor(marketId);
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0]!.requested_by, operator.userId,
+    'a scheduler pass stripped the requester off a run a person asked for');
+});
+
+// =============================================================================
+// B2-3 · what to buy is snapshotted at enqueue; whether to buy is current
+// =============================================================================
+
+/**
+ * Two questions that look alike and must not be answered the same way.
+ *
+ * The handler reads its vertical and geography from the job payload, not from
+ * `saved_markets`. That is deliberate and load-bearing: the provider-task
+ * fingerprint an outstanding search is matched on was built from that snapshot, so a
+ * handler that re-read an edited market would compute a different fingerprint, fail
+ * to find the task it had already paid for, and buy the search again. The most
+ * expensive bug available in this file, reachable by a change that would look like
+ * an improvement.
+ *
+ * `enabled` is the opposite. It is not a description of what to search, it is a
+ * standing instruction about whether to spend, and the whole point of B2-1 is that it
+ * is read at the moment of spending. Pinned together so the distinction is on the
+ * record rather than inferred.
+ */
+test('B2-3 editing a market mid-flight does not change what the queued run searches',
+  async () => {
+  let searchedZip: string | null = null;
+  registerDiscoveryAdapter({
+    name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover(request): Promise<DiscoveryResult> {
+      searchedZip = request.geographyValue ?? null;
+      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
+        rejectedRows: 0, duplicateRows: 0 };
+    },
+  });
+  const marketId = await market('B2 Snapshot', { zip: '32081' });
+
+  await queueScheduledRun(marketId);
+  // The operator repoints the market after the run is queued.
+  await query(
+    `update saved_markets
+        set geography_definition = jsonb_build_object('value', '32082'::text),
+            vertical_profile_id = 'plumbing'
+      where market_id = $1`, [marketId]);
+  await drainQueue();
+
+  assert.equal(searchedZip, '32081',
+    'the queued run followed an edit made after it was queued, so its fingerprint no '
+    + 'longer matches the task it may already have paid for');
+});
+
+test('B2-3 whether to buy is read at the moment of buying, not snapshotted', async () => {
+  // Same fixture shape, opposite expectation: this one must see the change.
+  const adapter = countingAdapter({ businesses: 1 });
+  registerDiscoveryAdapter(adapter);
+  const marketId = await market('B2 Snapshot Enabled', { zip: '32083' });
+
+  await queueScheduledRun(marketId);
+  await setEnabled(marketId, false);
+  await drainQueue();
+
+  assert.equal(adapter.submissions(), 0,
+    'the enabled flag was snapshotted at enqueue along with the search definition');
+});
+
+// =============================================================================
+// B2-4 · four freshness facts that must not collapse into one
+// =============================================================================
+
+test('B2-4 attempted, succeeded, refreshed and mined stay four separate facts',
+  async () => {
+  // A market searched every hour and failing every hour has a recent attempt and no
+  // coverage. A market searched successfully that found only companies we already
+  // hold has coverage and no new inventory. Collapsing any pair of these makes the
+  // page unable to tell an operator which is happening.
+  registerDiscoveryAdapter(countingAdapter({ businesses: 0 }));
+  const marketId = await market('B2 Freshness Zero', { zip: '32085' });
+  await queueScheduledRun(marketId);
+  await drainQueue();
+
+  const { rows } = await query<Record<string, any>>(
+    `select last_attempted_at, last_success_at, last_refresh_at, last_mined_at,
+            last_outcome
+       from saved_markets where market_id = $1`, [marketId]);
+  const row = rows[0]!;
+  // The provider answered, so it succeeded -- an empty market is a working provider.
+  assert.equal(row.last_outcome, 'ZERO_RESULTS');
+  assert.ok(row.last_success_at, 'a provider that answered was not recorded as success');
+  assert.ok(row.last_refresh_at, 'the run did not record a refresh');
+  // But nothing was mined: no new company entered inventory.
+  assert.equal(row.last_mined_at, null,
+    'a search that added nothing recorded a mining date, so "last mined" now means '
+    + '"last searched" and an operator cannot tell coverage from growth');
+});
+
+test('B2-4 a market that fails has an attempt and no success', async () => {
+  registerDiscoveryAdapter({
+    name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover(): Promise<DiscoveryResult> {
+      return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
+        duplicateRows: 0, reason: 'the provider is down' };
+    },
+  });
+  const marketId = await market('B2 Freshness Failing', { zip: '32086' });
+  // Through the scheduler, because `last_attempted_at` is the scheduler's own
+  // fairness cursor -- the thing `order by last_attempted_at asc nulls first` reads
+  // so no market starves behind a busier one. It is written where the turn is taken
+  // and it is deliberately not an operator-facing "last tried": nothing displays it,
+  // and a manual search does not move it, which is right, because a person searching
+  // by hand should not cost the market its place in the queue.
+  await scheduleDueMarkets();
+  await drainQueue();
+
+  const { rows } = await query<Record<string, any>>(
+    `select last_attempted_at, last_success_at, last_refresh_at, last_outcome,
+            consecutive_failures
+       from saved_markets where market_id = $1`, [marketId]);
+  assert.ok(rows[0]!.last_attempted_at, 'the scheduler took a turn and did not record it');
+  assert.ok(rows[0]!.last_refresh_at, 'a run that executed recorded no refresh');
+  assert.equal(rows[0]!.last_success_at, null,
+    'a provider outage was recorded as a successful search');
+  assert.equal(rows[0]!.last_outcome, 'PROVIDER_UNAVAILABLE');
+  assert.equal(rows[0]!.consecutive_failures, 1);
+});
+
+test('B2-4 a manual search does not move the scheduler’s fairness cursor', async () => {
+  // The other half of what that column means. If a manual search moved it, a rep
+  // searching a market by hand would send it to the back of the automatic queue.
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  const marketId = await market('B2 Fairness Cursor', { zip: '32091' });
+  const operator = await makeUser('B2 Cursor Operator', 'SALES_MANAGER');
+
+  await enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32091',
+    marketId, requestedBy: operator.userId, miningMode: 'advertiser_first' });
+  await drainQueue();
+
+  const { rows } = await query<Record<string, any>>(
+    `select last_attempted_at, last_refresh_at from saved_markets where market_id = $1`,
+    [marketId]);
+  assert.equal(rows[0]!.last_attempted_at, null,
+    'a manual search cost the market its place in the scheduler queue');
+  assert.ok(rows[0]!.last_refresh_at,
+    'a manual search that ran did not record that the market was refreshed');
+});
+
+// =============================================================================
+// B2-5 · scheduler health truth
+// =============================================================================
+
+/**
+ * The comment above this check has always said that a market which is "enabled, due
+ * and not moving" is the difference between inventory that maintains itself and a
+ * page that looks busy. Nothing computed it. A market with no failures and no
+ * blocker read OK however long it had been sitting there, so a worker that stopped
+ * sweeping, a backlog that never drains, and an in-flight ceiling nothing clears all
+ * presented as "scheduled and none is failing".
+ *
+ * Overdue is judged against the market's own cadence -- more than one full refresh
+ * interval past due, so it has missed a whole cycle -- rather than a constant
+ * invented for the check. Being merely due is normal and stays silent.
+ */
+test('B2-5 a market that has missed a whole cycle is not reported as healthy',
+  async () => {
+  await market('B2 Health Overdue', { zip: '32087',
+    dueAt: new Date(Date.now() - 40 * 3_600_000).toISOString() });
+
+  const snapshot = await operationalSnapshot();
+  const markets = snapshot.checks.find((check) => check.id === 'markets');
+  assert.ok(markets, 'the markets health check is missing');
+  assert.equal(markets!.state, 'ATTENTION',
+    'a market 40h past a 24h refresh interval was reported as healthy');
+  assert.match(String(markets!.detail), /overdue/i);
+  assert.match(String(markets!.detail), /1 market/);
+});
+
+test('B2-5 a market merely due is not called overdue', async () => {
+  // Due and waiting for the next sweep is the normal state of a healthy market. If
+  // this warned, the check would warn constantly and stop being read.
+  await market('B2 Health Just Due', { zip: '32088',
+    dueAt: new Date(Date.now() - 60_000).toISOString() });
+
+  const snapshot = await operationalSnapshot();
+  const markets = snapshot.checks.find((check) => check.id === 'markets');
+  assert.equal(markets!.state, 'OK',
+    'a market one minute past due was reported as a problem');
+  assert.doesNotMatch(String(markets!.detail), /overdue/i);
+});
+
+test('B2-5 an overdue market already carrying a blocker is not counted twice',
+  async () => {
+  const marketId = await market('B2 Health Blocked', { zip: '32089',
+    dueAt: new Date(Date.now() - 40 * 3_600_000).toISOString() });
+  await query(
+    `update saved_markets set blocker_reason = 'No discovery provider is configured.'
+      where market_id = $1`, [marketId]);
+
+  const snapshot = await operationalSnapshot();
+  const markets = snapshot.checks.find((check) => check.id === 'markets');
+  // Every enabled market is blocked, and that is the sentence it should get -- with
+  // its reason -- rather than the overdue one saying the same thing differently.
+  assert.equal(markets!.state, 'BLOCKED');
+  assert.match(String(markets!.detail), /blocked/i);
+});
+
+test('B2-5 a paused market is not counted against scheduler health', async () => {
+  // An operator's own decision must not read as the system failing to keep up.
+  await market('B2 Health Paused', { enabled: false, zip: '32090',
+    dueAt: new Date(Date.now() - 40 * 3_600_000).toISOString() });
+
+  const snapshot = await operationalSnapshot();
+  const markets = snapshot.checks.find((check) => check.id === 'markets');
+  assert.equal(markets!.state, 'UNKNOWN',
+    'a paused market was counted as an enabled one');
+  assert.match(String(markets!.detail), /none configured|no saved market/i);
+});
+
+// =============================================================================
+// B2-6 · the backlog drains, the restart costs nothing, and the bill is right
+// =============================================================================
+
+/**
+ * The shape over time, which no single-cycle test can show.
+ *
+ * The last scheduler defect of this kind took thirty simulated days to see, because
+ * one cycle looked perfectly correct: a market with an outstanding provider task was
+ * skipped, so the task was never collected, and the market quietly retired. What
+ * makes that class of bug visible is running the thing until it either converges or
+ * does not.
+ *
+ * A smaller market count than the operator packet uses, because the invariants are
+ * the same at twenty as at a hundred and the suite has to finish.
+ */
+test('B2-6 a backlog drains, converges, and buys each search exactly once', async () => {
+  const report = await runConvergence({ markets: 20, restartAtPass: 3 });
+
+  assert.deepEqual(report.problems, [],
+    `the packet's own checks failed:\n  ${report.problems.join('\n  ')}`);
+  assert.equal(report.refreshed, 20, 'the backlog did not converge');
+  assert.equal(report.stillDue, 0);
+  assert.equal(report.submissions, 20,
+    'the number of searches bought is not the number of markets');
+  assert.deepEqual(report.boughtTwice, [], 'a market was searched more than once');
+  assert.ok(report.peakInFlight <= MAX_MARKETS_IN_FLIGHT,
+    `${report.peakInFlight} markets were in flight, over the ceiling`);
+
+  // A reboot with every market overdue must not fire them all at once. The first
+  // pass is the one that would have done it.
+  assert.ok(report.passes[0]!.due >= 20, 'the fixture did not actually create a backlog');
+  assert.ok(report.passes[0]!.queued <= MAX_MARKETS_IN_FLIGHT,
+    `the first pass queued ${report.passes[0]!.queued} of ${report.passes[0]!.due} due`);
+
+  // And the restart was real: jobs were re-leased rather than lost.
+  assert.ok(report.recoveredAfterRestart > 0,
+    'the simulated crash recovered nothing, so it proved nothing');
+});
+
+test('B2-6 a market paused mid-backlog leaves the bill and comes back for one search',
+  async () => {
+  const result = await runPauseInBacklog();
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.submissionsWhilePaused, 0, 'a paused market was charged for');
+  assert.equal(result.churnedJobs, 0, 'a paused market churned jobs');
+  assert.equal(result.submissionsAfterResume, 1,
+    'resuming a market cost more than the one search it was owed');
+  assert.equal(result.outcome, 'MARKET_DISABLED');
+});
+
+/**
+ * Bounding throughput has an arithmetic consequence that was never written down: the
+ * system can refresh a fixed number of markets a day, and past that the backlog grows
+ * faster than it drains. Every market still gets a fair turn -- nothing starves -- but
+ * "due" stops meaning "about to be searched".
+ *
+ * Pinned so the number moves only when somebody changes a limit on purpose, and so
+ * the three settings that produce it cannot drift apart silently.
+ */
+test('B2-6 the sustainable market count is the arithmetic of the three limits',
+  async () => {
+  const sweepsPerDay = (DEFAULT_REFRESH_INTERVAL_HOURS * 3_600_000) / SWEEP_INTERVAL_MS;
+  assert.equal(sustainableMarketCount(),
+    Math.floor(sweepsPerDay * MAX_MARKETS_IN_FLIGHT));
+  // At the defaults: 3 markets per 15-minute sweep, 96 sweeps a day.
+  assert.equal(sustainableMarketCount(), 288);
+  // A market asking to be looked at more often is judged on its own cadence.
+  assert.equal(sustainableMarketCount(1), 12);
 });

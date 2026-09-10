@@ -40,6 +40,38 @@ export const MAX_MARKETS_PER_PASS = numeric('MARKET_SCHEDULER_BATCH', 5, { min: 
 export const MAX_MARKETS_IN_FLIGHT = numeric('MARKET_SCHEDULER_IN_FLIGHT', 3, { min: 1 });
 
 /**
+ * How often the worker asks this scheduler what is due.
+ *
+ * Declared beside the limits it interacts with rather than only in the worker,
+ * because the three of them together are what decide how many saved markets this
+ * system can actually keep up with -- see `sustainableMarketCount`. The worker reads
+ * the same value.
+ */
+export const SWEEP_INTERVAL_MS = numeric('REFRESH_SWEEP_INTERVAL_MS', 15 * 60_000,
+  { min: 1000 });
+
+/**
+ * How many saved markets this configuration can genuinely maintain.
+ *
+ * The backlog is bounded on purpose -- a reboot with ninety stale markets must not
+ * fire ninety paid searches in the same second -- and bounding throughput has an
+ * arithmetic consequence nobody had written down: at most `MAX_MARKETS_IN_FLIGHT`
+ * markets move per sweep, so the system can refresh a fixed number of markets per
+ * day, and beyond that number the backlog grows faster than it drains. Every market
+ * still gets a turn, in fair order, but "due" stops meaning "about to be searched"
+ * and starts meaning "in a queue that never empties".
+ *
+ * At the defaults: 3 markets per 15-minute sweep is 288 a day, so a 24-hour refresh
+ * interval sustains a few hundred markets and not thousands. This is a capacity
+ * statement, not a defect, and it belongs somewhere an operator can find it before
+ * they add the market that tips it over.
+ */
+export function sustainableMarketCount(refreshIntervalHours = DEFAULT_REFRESH_INTERVAL_HOURS): number {
+  const sweepsPerInterval = (refreshIntervalHours * 3_600_000) / SWEEP_INTERVAL_MS;
+  return Math.floor(sweepsPerInterval * MAX_MARKETS_IN_FLIGHT);
+}
+
+/**
  * How soon a market comes back after we declined to search it.
  *
  * Long enough not to spin through the scheduler all evening on a spent budget, short

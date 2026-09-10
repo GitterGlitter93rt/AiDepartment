@@ -26,7 +26,7 @@ console.log(
 );
 
 // A periodic sweep so a Saved Market does not drift stale while nobody is looking.
-const SWEEP_INTERVAL_MS = numeric('REFRESH_SWEEP_INTERVAL_MS', 15 * 60_000, { min: 1000 });
+const { SWEEP_INTERVAL_MS } = await import('../workers/marketScheduler.js');
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
 const { reconcileMissingResearch, recomputeStaleScores, scoreUnscoredResearched } =
