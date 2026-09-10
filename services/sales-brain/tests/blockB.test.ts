@@ -9,9 +9,9 @@ import {
   registerDiscoveryAdapter, clearDiscoveryAdapters, mayBuyNewSearch,
   type DiscoveryAdapter, type DiscoveryResult,
 } from '../src/workers/marketMiner.js';
-import { scheduleDueMarkets, DECLINED_RETRY_HOURS } from '../src/workers/marketScheduler.js';
+import { scheduleDueMarkets, DECLINED_RETRY_HOURS, backoffHours } from '../src/workers/marketScheduler.js';
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
-import { recordProviderTask } from '../src/miner/providerTasks.js';
+import { recordProviderTask, MAX_TASK_COLLECTIONS } from '../src/miner/providerTasks.js';
 import { searchFingerprintPrefix } from '../src/miner/searchPlan.js';
 import { discoveryCoverageFor } from '../src/domain/search.js';
 import { operationalSnapshot } from '../src/api/operations.js';
@@ -929,4 +929,241 @@ test('B2-6 the sustainable market count is the arithmetic of the three limits',
   assert.equal(sustainableMarketCount(), 288);
   // A market asking to be looked at more often is judged on its own cadence.
   assert.equal(sustainableMarketCount(1), 12);
+});
+
+// =============================================================================
+// B2-7 · a market that always fails must not take the scheduler with it
+// =============================================================================
+
+/**
+ * The job-level version of this is proven: a poison job does not stop the queue
+ * behind it. The scheduler-level version is a different question, because the
+ * scheduler chooses *which* markets get the batch, and a market that fails
+ * instantly comes back around faster than one that does real work.
+ *
+ * Two ways it could go wrong and neither would look like an error: the poison market
+ * consumes a slot every pass and the healthy ones are served late, or it is retried
+ * so hard that its own backoff never takes effect.
+ */
+test('B2-7 a market that always fails does not starve the healthy ones', async () => {
+  const perZip = new Map<string, number>();
+  registerDiscoveryAdapter({
+    name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover(request): Promise<DiscoveryResult> {
+      const zip = String(request.geographyValue ?? '');
+      perZip.set(zip, (perZip.get(zip) ?? 0) + 1);
+      if (zip === '32900') {
+        return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
+          duplicateRows: 0, reason: 'this market always fails' };
+      }
+      return { status: 'OK',
+        businesses: [{ name: `Poison Neighbour ${++sequence}`, website: null,
+          phone: `904-555-${String(4000 + sequence).slice(-4)}` }],
+        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125 };
+    },
+  });
+
+  // The poison market is the oldest, so fairness ordering hands it the first slot.
+  const poison = await market('B2 Poison', { zip: '32900',
+    dueAt: new Date(Date.now() - 72 * 3_600_000).toISOString() });
+  const healthy: string[] = [];
+  for (let index = 0; index < 5; index += 1) {
+    healthy.push(await market(`B2 Poison Neighbour ${index}`, { zip: `329${10 + index}`,
+      dueAt: new Date(Date.now() - 48 * 3_600_000).toISOString() }));
+  }
+
+  for (let pass = 0; pass < 6; pass += 1) {
+    await scheduleDueMarkets();
+    await drainQueue();
+  }
+
+  // Every healthy market was served.
+  const { rows } = await query<{ market_id: string; last_success_at: Date | null }>(
+    `select market_id, last_success_at from saved_markets`);
+  const byId = new Map(rows.map((row) => [row.market_id, row.last_success_at]));
+  for (const marketId of healthy) {
+    assert.ok(byId.get(marketId),
+      'a healthy market was never served while a failing one held the scheduler');
+  }
+  assert.equal(byId.get(poison), null, 'the poison market should not have succeeded');
+
+  // And it did not get a disproportionate share of the spend: its own backoff pushes
+  // it out, so it is tried a handful of times rather than every pass.
+  const poisonAttempts = perZip.get('32900') ?? 0;
+  assert.ok(poisonAttempts >= 1, 'the poison market was never actually tried');
+  assert.ok(poisonAttempts <= 3,
+    `the failing market was searched ${poisonAttempts} times in 6 passes, so its `
+    + 'backoff is not holding and it is spending money on every sweep');
+
+  // Its backoff grew rather than staying flat.
+  const { rows: poisonRow } = await query<{ consecutive_failures: number }>(
+    `select consecutive_failures from saved_markets where market_id = $1`, [poison]);
+  assert.ok(poisonRow[0]!.consecutive_failures >= 1);
+  assert.ok(backoffHours(poisonRow[0]!.consecutive_failures) >= 1);
+});
+
+// =============================================================================
+// B2-8 · a provider that flaps
+// =============================================================================
+
+test('B2-8 alternating failure and success does not accumulate backoff', async () => {
+  // A provider that fails, works, fails, works. Each success has to clear the debt
+  // completely: if any of it survives, a market on a flaky provider drifts further
+  // out of date every cycle while every individual pass looks correct.
+  let call = 0;
+  registerDiscoveryAdapter({
+    name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover(): Promise<DiscoveryResult> {
+      call += 1;
+      if (call % 2 === 1) {
+        return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
+          duplicateRows: 0, reason: 'flapping' };
+      }
+      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
+        rejectedRows: 0, duplicateRows: 0 };
+    },
+  });
+  const marketId = await market('B2 Flapping', { zip: '32901' });
+
+  const failureCounts: number[] = [];
+  for (let cycle = 0; cycle < 4; cycle += 1) {
+    await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'
+                  where market_id = $1`, [marketId]);
+    await scheduleDueMarkets();
+    await drainQueue();
+    const { rows } = await query<{ consecutive_failures: number }>(
+      `select consecutive_failures from saved_markets where market_id = $1`, [marketId]);
+    failureCounts.push(rows[0]!.consecutive_failures);
+  }
+
+  // fail, succeed, fail, succeed -> 1, 0, 1, 0. Never 1, 0, 2, 0.
+  assert.deepEqual(failureCounts, [1, 0, 1, 0],
+    `backoff accumulated across a flap: ${failureCounts.join(', ')}`);
+});
+
+// =============================================================================
+// B2-9 · a paid task survives however many restarts it takes
+// =============================================================================
+
+test('B2-9 an outstanding task is collected across repeated scheduler restarts',
+  async () => {
+  // Durability within one process is proven. This is the same task surviving several
+  // scheduler passes, each standing in for a restart, because that is what a worker
+  // that keeps crashing actually looks like -- and the failure mode is silent: the
+  // money is gone, the answer is sitting at the provider, and nobody goes back for it.
+  let collections = 0;
+  let submissions = 0;
+  registerDiscoveryAdapter({
+    name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover(): Promise<DiscoveryResult> {
+      submissions += 1;
+      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
+        duplicateRows: 0, providerTaskId: `restart-task-${submissions}` };
+    },
+    async collect(): Promise<DiscoveryResult> {
+      collections += 1;
+      // Not ready for the first two restarts, then it answers.
+      if (collections < 3) {
+        return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
+          duplicateRows: 0 };
+      }
+      return { status: 'OK',
+        businesses: [{ name: `Restart Survivor ${++sequence}`, website: null,
+          phone: `904-555-${String(4500 + sequence).slice(-4)}` }],
+        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125 };
+    },
+  });
+  const marketId = await market('B2 Restart Recovery', { zip: '32902' });
+
+  // First pass buys the search and the provider takes it.
+  await scheduleDueMarkets();
+  await drainQueue();
+  assert.equal(submissions, 1);
+  const { rows: pendingRow } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks where status = 'PENDING'`);
+  assert.equal(pendingRow[0]!.n, 1, 'the accepted task was not remembered');
+
+  // Three more passes, each one a restart: due again, collected again, never re-bought.
+  for (let restart = 0; restart < 3; restart += 1) {
+    await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'
+                  where market_id = $1`, [marketId]);
+    const pass = await scheduleDueMarkets();
+    assert.equal(pass.collecting, 1,
+      'the scheduler did not report that this run exists to collect rather than to buy');
+    await drainQueue();
+  }
+
+  assert.equal(submissions, 1,
+    `${submissions} searches were bought for one market across restarts`);
+  assert.equal(collections, 3, 'the outstanding task was not collected each time');
+
+  // The answer reached inventory and the task is closed with its cost.
+  const { rows: accounts } = await query<{ n: number }>(
+    `select count(*)::int as n from accounts where canonical_name like 'Restart Survivor%'`);
+  assert.equal(accounts[0]!.n, 1, 'a search paid for and delivered was never ingested');
+  const { rows: tasks } = await query<{ status: string; cost_usd: string | null }>(
+    `select status, cost_usd from provider_tasks`);
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0]!.status, 'COLLECTED');
+  assert.equal(Number(tasks[0]!.cost_usd), 0.0125);
+});
+
+test('B2-9 a task the provider never delivers is given up on, and the market moves on',
+  async () => {
+  // The other end of the same rope. Polling for ever is not durability, it is a
+  // market that can never be refreshed again -- and the operator has to be able to
+  // see that a search was paid for and never arrived.
+  let submissions = 0;
+  registerDiscoveryAdapter({
+    name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover(): Promise<DiscoveryResult> {
+      submissions += 1;
+      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
+        duplicateRows: 0, providerTaskId: `never-delivered-${submissions}` };
+    },
+    async collect(): Promise<DiscoveryResult> {
+      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
+        duplicateRows: 0 };
+    },
+  });
+  const marketId = await market('B2 Never Delivered', { zip: '32903' });
+
+  await scheduleDueMarkets();
+  await drainQueue();
+
+  // Enough restarts to exhaust the collection bound.
+  for (let restart = 0; restart < MAX_TASK_COLLECTIONS + 1; restart += 1) {
+    await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'
+                  where market_id = $1`, [marketId]);
+    await scheduleDueMarkets();
+    await drainQueue();
+  }
+
+  const { rows: abandoned } = await query<{ n: number; error_code: string | null }>(
+    `select count(*)::int as n, min(error_code) as error_code from provider_tasks
+      where status = 'ABANDONED'`);
+  assert.equal(abandoned[0]!.n, 1,
+    'a task the provider never delivered is still being polled');
+  assert.equal(abandoned[0]!.error_code, 'NEVER_DELIVERED');
+
+  // And the market is searchable again rather than permanently owed, which is the
+  // shape of the defect that retired a saved market for thirty simulated days: one
+  // PENDING answer that was never collected and never given up on.
+  //
+  // Note what is *not* claimed here. Once the dead task is abandoned the next run
+  // buys a fresh search, so the market is legitimately owed a task again and
+  // `collecting` is 1 -- correctly. My first version of this test asserted 0 and was
+  // wrong: "nothing outstanding" and "not stuck on a task that will never arrive"
+  // are different statements, and only the second one is the invariant.
+  assert.ok(submissions >= 2,
+    'after giving up on the undelivered task the market was never searched again');
+  const { rows: fresh } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks
+      where status = 'PENDING' and provider_native_id <> 'never-delivered-1'`);
+  assert.equal(fresh[0]!.n, 1,
+    'the market bought a new search, so exactly one new task should be outstanding');
 });
