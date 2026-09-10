@@ -306,15 +306,37 @@ export interface CanarySearchReport {
   failureReason: string | null;
 }
 
+/**
+ * States in which no provider was asked anything.
+ *
+ * The distinction the canary exists to make. A search we declined to buy is not a
+ * search that failed and it is certainly not a search that was submitted: the first
+ * costs nothing and tells us nothing, the second costs money and tells us the
+ * provider is unwell. Reporting them together on the one artifact whose purpose is
+ * to say exactly what was bought, before somebody authorises more of it, is the
+ * wrong number to be wrong.
+ *
+ * BUDGET_EXHAUSTED and MARKET_DISABLED are our own controls refusing to spend.
+ * NOT_CONFIGURED and GOVERNANCE_BLOCKED are a run that could not have asked anybody.
+ * None of them reached a provider.
+ */
+const NOT_SUBMITTED_STATES = new Set([
+  'BUDGET_EXHAUSTED', 'MARKET_DISABLED', 'NOT_CONFIGURED', 'GOVERNANCE_BLOCKED',
+]);
+
 export interface CanaryReport {
   jobId: string;
   outcome: string | null;
   outcomeReason: string | null;
   perSearch: CanarySearchReport[];
   totals: {
+    /** Searches that actually reached a provider. What the money followed. */
     searchesSubmitted: number;
+    /** Searches this system declined to buy, or could not have bought. */
+    searchesRefused: number;
     searchesCompleted: number;
     searchesPending: number;
+    /** Searches that reached a provider and came back wrong. */
     searchesFailed: number;
     providerRows: number;
     usableBusinesses: number;
@@ -368,8 +390,12 @@ export async function canaryReport(jobId: string): Promise<CanaryReport | null> 
     newAccounts: Number(row['created'] ?? 0),
     costUsd: row['costUsd'] === null || row['costUsd'] === undefined
       ? null : Number(row['costUsd']),
+    // The search's own sentence where there is one, falling back to the bare status
+    // so a run recorded before the reason was carried still says something.
     failureReason: row['status'] && !['OK', 'ZERO_RESULTS'].includes(String(row['status']))
-      ? String(row['status']) : null,
+      ? (row['reason'] ? `${String(row['status'])}: ${String(row['reason'])}`
+                       : String(row['status']))
+      : null,
   }));
 
   // Accounts this run touched, so research and scoring completion are about the
@@ -423,11 +449,16 @@ export async function canaryReport(jobId: string): Promise<CanaryReport | null> 
     outcomeReason: job.outcome_reason,
     perSearch,
     totals: {
-      searchesSubmitted: perSearch.length,
+      // Attempted is not submitted. `perSearch` has a row per search the run
+      // considered, and a run can now submit some and refuse others in the same pass,
+      // because the daily ceiling is consulted per call rather than per run.
+      searchesSubmitted: states.filter((state) => !NOT_SUBMITTED_STATES.has(state)).length,
+      searchesRefused: states.filter((state) => NOT_SUBMITTED_STATES.has(state)).length,
       searchesCompleted: states.filter((state) => state === 'OK' || state === 'ZERO_RESULTS').length,
       searchesPending: states.filter((state) => state === 'PENDING').length,
       searchesFailed: states.filter(
-        (state) => !['OK', 'ZERO_RESULTS', 'PENDING'].includes(state)).length,
+        (state) => !['OK', 'ZERO_RESULTS', 'PENDING'].includes(state)
+          && !NOT_SUBMITTED_STATES.has(state)).length,
       providerRows: perSearch.reduce((sum, row) => sum + row.providerRows, 0),
       usableBusinesses: perSearch.reduce((sum, row) => sum + row.usableRows, 0),
       excludedByVertical: Number(progress['excludedByVertical'] ?? 0),
@@ -466,7 +497,9 @@ export function renderCanaryReport(report: CanaryReport): string {
 
   const totals = report.totals;
   lines.push('', '  totals');
-  lines.push(`     searches   ${totals.searchesSubmitted} submitted, `
+  lines.push(`     searches   ${totals.searchesSubmitted} submitted`
+    + `${totals.searchesRefused > 0
+        ? `, ${totals.searchesRefused} refused before spending` : ''}, `
     + `${totals.searchesCompleted} completed, ${totals.searchesPending} pending, `
     + `${totals.searchesFailed} failed`);
   lines.push(`     rows       ${totals.providerRows} provider, ${totals.usableBusinesses} usable, `

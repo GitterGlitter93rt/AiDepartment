@@ -494,6 +494,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     status: DiscoveryStatus; providerRows: number; usableRows: number;
     duplicateRows: number; rejectedRows: number; costUsd: number | null;
     providerTaskId: string | null; created: number; matchedExisting: number;
+    reason: string | null;
   }[] = [];
 
   // The ceiling is consulted per submission, inside the loop below, because a run
@@ -715,6 +716,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       usableRows: result.businesses.length, duplicateRows: result.duplicateRows,
       rejectedRows: result.rejectedRows, costUsd: result.costUsd ?? null,
       providerTaskId: result.providerTaskId ?? null,
+      // Each search's own explanation. It was dropped here and only survived in the
+      // run-level notes, so the canary -- whose stated job is to account for every
+      // search separately -- could say a search was BUDGET_EXHAUSTED without saying
+      // that the daily ceiling is what refused it.
+      reason: result.reason ?? null,
       created: 0, matchedExisting: 0,
     });
 
