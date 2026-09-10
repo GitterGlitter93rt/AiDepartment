@@ -143,13 +143,39 @@ async function completeJob(jobId: string, progress: JobResult | void): Promise<v
   // A handler's own reason quotes provider messages, so it goes through the same
   // filter as an exception does.
   const reason = progress?.outcomeReason ? redactSecrets(progress.outcomeReason) : null;
-  await query(
+  const write = (value: string, note: string | null): Promise<unknown> => query(
     `update jobs set status = 'SUCCEEDED', completed_at = now(), leased_by = null,
                      leased_until = null, last_error = null, progress = $2,
                      outcome = $3, outcome_reason = $4
       where job_id = $1`,
-    [jobId, JSON.stringify(progress ?? {}), outcome, reason],
+    [jobId, JSON.stringify(progress ?? {}), value, note],
   );
+
+  try {
+    await write(outcome, reason);
+  } catch (error) {
+    // An outcome this database has never heard of.
+    //
+    // Both callers wrap the handler and this write in one try/catch, so a rejected
+    // outcome was indistinguishable from a handler that threw: the work had already
+    // happened -- businesses ingested, provider task closed, market outcome recorded
+    // -- and the job was then marked for retry, the handler run again, and finally
+    // recorded FAILED. Measured at three executions of a handler that succeeded every
+    // time, with a raw check-constraint string as the only explanation.
+    //
+    // The cause is almost never the handler. It is a build that knows an outcome value
+    // its schema does not, which is what an unapplied migration looks like from in
+    // here. So the successful work keeps its record, the handler is not run again, and
+    // the operator gets the actual diagnosis instead of Postgres's.
+    if ((error as { code?: string }).code !== '23514') throw error;
+    const explanation =
+      `This job succeeded and reported the outcome "${outcome}", which this database `
+      + 'does not recognise, so it is recorded as COMPLETED instead. That mismatch is '
+      + 'a schema behind the running build -- check for an unapplied migration -- and '
+      + 'not a fault in the work, which was done once and is not being repeated.'
+      + (reason ? ` The handler said: ${reason}` : '');
+    await write('COMPLETED', explanation.slice(0, 600));
+  }
 }
 
 /**

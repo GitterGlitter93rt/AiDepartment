@@ -131,3 +131,96 @@ test('C1 the queue still drains completely under continuous inflow', async () =>
     `select count(*)::int as n from jobs where status = 'FAILED'`);
   assert.equal(failed[0]!.n, 0, 'anti-starvation ordering broke a job');
 });
+
+// =============================================================================
+// C2 · a build that knows an outcome its schema does not
+// =============================================================================
+
+/**
+ * Not hypothetical: this repository is in exactly that state right now. Migration
+ * 050 adds MARKET_DISABLED to `jobs_outcome_check` and is deliberately unapplied in
+ * production, so a build carrying it that ran against the live schema would hit this
+ * on the first market anybody paused.
+ *
+ * What used to happen, measured: both callers wrap the handler and the completion
+ * write in one try/catch, so a rejected outcome was indistinguishable from a handler
+ * that threw. The work had already happened -- businesses ingested, provider task
+ * closed, market outcome recorded -- and the job was marked for retry, the handler
+ * run again, and finally recorded FAILED after three executions of a handler that
+ * succeeded every time. The only explanation an operator got was a raw
+ * check-constraint string, which points at the job rather than at the unapplied
+ * migration that actually caused it.
+ */
+let unknownOutcomeRuns = 0;
+registerHandler('blockc_unknown_outcome', async () => {
+  unknownOutcomeRuns += 1;
+  return { outcome: 'A_VALUE_THIS_SCHEMA_HAS_NEVER_HEARD_OF' as never,
+           outcomeReason: 'the work itself went fine' };
+});
+
+test('C2 an unrecognised outcome does not turn successful work into a failure',
+  async () => {
+  unknownOutcomeRuns = 0;
+  await query(`insert into jobs (job_type, payload, max_attempts)
+               values ('blockc_unknown_outcome', '{}'::jsonb, 3)`);
+
+  // Several passes, so a retry loop would show up as repeated execution.
+  for (let pass = 0; pass < 5; pass += 1) {
+    await query(`update jobs set run_after = now() - interval '1 second'
+                  where job_type = 'blockc_unknown_outcome'`);
+    await drainQueue(5);
+  }
+
+  assert.equal(unknownOutcomeRuns, 1,
+    `the handler ran ${unknownOutcomeRuns} times: work that succeeded is being `
+    + 'repeated because its outcome could not be recorded');
+
+  const { rows } = await query<Record<string, any>>(
+    `select status, outcome, outcome_reason, last_error, attempts from jobs
+      where job_type = 'blockc_unknown_outcome'`);
+  const job = rows[0]!;
+  assert.equal(job.status, 'SUCCEEDED', 'successful work was recorded as failed');
+  assert.equal(job.outcome, 'COMPLETED');
+  assert.equal(job.last_error, null);
+
+  // And the reason names the real cause rather than quoting Postgres at somebody.
+  assert.match(job.outcome_reason, /A_VALUE_THIS_SCHEMA_HAS_NEVER_HEARD_OF/,
+    'the outcome the handler actually reported is not recorded anywhere');
+  assert.match(job.outcome_reason, /unapplied migration/,
+    'the operator is not pointed at the schema, which is the usual cause');
+  assert.match(job.outcome_reason, /not being repeated/);
+  assert.doesNotMatch(job.outcome_reason, /check constraint/,
+    'the operator is still being shown the database’s own error text');
+});
+
+test('C2 a handler that genuinely throws is still a failure', async () => {
+  // The fix must not swallow real faults. Only the completion write is forgiving, and
+  // only for the one error the database raises when it does not know a value.
+  registerHandler('blockc_real_throw', async () => {
+    throw new Error('the provider is on fire');
+  });
+  await query(`insert into jobs (job_type, payload, max_attempts)
+               values ('blockc_real_throw', '{}'::jsonb, 1)`);
+  await drainQueue(5);
+
+  const { rows } = await query<Record<string, any>>(
+    `select status, outcome, last_error from jobs where job_type = 'blockc_real_throw'`);
+  assert.equal(rows[0]!.status, 'FAILED');
+  assert.equal(rows[0]!.outcome, 'FAILED');
+  assert.match(rows[0]!.last_error, /on fire/);
+});
+
+test('C2 a known outcome is recorded exactly as the handler reported it', async () => {
+  // The ordinary path, unchanged: no explanation bolted onto a normal run.
+  registerHandler('blockc_known_outcome', async () => ({
+    outcome: 'ZERO_RESULTS' as const, outcomeReason: 'nothing in this market' }));
+  await query(`insert into jobs (job_type, payload) values ('blockc_known_outcome','{}'::jsonb)`);
+  await drainQueue(5);
+
+  const { rows } = await query<Record<string, any>>(
+    `select status, outcome, outcome_reason from jobs
+      where job_type = 'blockc_known_outcome'`);
+  assert.equal(rows[0]!.status, 'SUCCEEDED');
+  assert.equal(rows[0]!.outcome, 'ZERO_RESULTS');
+  assert.equal(rows[0]!.outcome_reason, 'nothing in this market');
+});
