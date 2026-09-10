@@ -27,7 +27,15 @@
  * qualifying evidence change. `scoringRulesFingerprint()` and its pinned test make
  * forgetting hard: changing the rule set without bumping the version fails the suite.
  */
-export const SCORE_VERSION = 'module-4c-v2';
+/**
+ * `module-4c-v3` (2026-09-09): the recognizer stopped accepting a *negative*
+ * observation as qualifying evidence. A row recording "we looked and there is no
+ * paid result" -- which is how `advertiserEvidenceFor` represents NOT_OBSERVED --
+ * previously qualified `google_paid_search_confirmed` and awarded +4. The rules and
+ * their points are unchanged; what a recognizer accepts is not, and this comment
+ * exists because the fingerprint below cannot see that kind of change.
+ */
+export const SCORE_VERSION = 'module-4c-v3';
 
 export type ScoreRuleId =
   | 'google_paid_search_confirmed'

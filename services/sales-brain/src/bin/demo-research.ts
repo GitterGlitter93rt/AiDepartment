@@ -5,6 +5,7 @@
  */
 import { withTransaction, query, closePool } from '../db/pool.js';
 import { upsertAccount } from '../domain/accounts.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 import { enqueueContactResearch } from '../workers/enqueue.js';
 import { drainQueue } from '../workers/runner.js';
 import '../workers/contactResearch.js';
@@ -26,9 +27,14 @@ const { accountId } = await withTransaction((client) => upsertAccount(client, {
 }, { discoverySource: 'demo_research' }));
 
 await query(
+  // A fixture writes the score projection directly rather than running the scorer,
+  // so it has to say which policy the numbers it is inventing belong to. Left null,
+  // the row reads as a score of unknown lineage: correct for a real un-recomputed
+  // score, a lie here, and enough to drop the row out of every tier filter.
   `update accounts set manual_tier = 'A', manual_score = 13, advertiser_strength = 'STRONG',
+          score_version = $2,
           last_researched_at = now(), research_fresh_until = now() + interval '3 days'
-    where account_id = $1`, [accountId]);
+    where account_id = $1`, [accountId, SCORE_VERSION]);
 
 const hypothesis = arg('hypothesis', 'after_hours');
 await query(

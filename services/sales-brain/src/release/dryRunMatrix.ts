@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import { upsertAccount, upsertEndpoint, recordEvidence } from '../domain/accounts.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 import { buildCallPack, persistCallPack, type CallPack } from '../callbrain/callPack.js';
 import { evaluateAccount, preflightCall } from '../compliance/eligibility.js';
 import { startCall, respond } from '../callbrain/agent.js';
@@ -122,10 +123,15 @@ async function seed(options: SeedOptions): Promise<Fixture> {
               last_researched_at = now() - greatest(interval '0 days',
                 ($2::text || ' days')::interval * -1),
               manual_tier = $3, manual_score = $4,
+              -- A fixture writes the score projection directly rather than running the scorer,
+              -- so it has to say which policy the numbers it is inventing belong to. Left null,
+              -- the row reads as a score of unknown lineage: correct for a real un-recomputed
+              -- score, a lie here, and enough to drop the row out of every tier filter.
+              score_version = $6,
               primary_vertical_profile_id = $5
         where account_id = $1`,
       [account.accountId, String(freshDays), options.tier ?? 'B', options.score ?? 11,
-       options.vertical ?? null]);
+       options.vertical ?? null, SCORE_VERSION]);
 
     if (options.phone) {
       await upsertEndpoint(client, {

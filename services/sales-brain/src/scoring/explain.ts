@@ -52,13 +52,27 @@ export async function explainScore(accountId: string): Promise<ScoreLineage | nu
     total_points: number; tier: string; score_version: string; calculated_at: Date;
     components: any; canonical_name: string;
   }>(
+    // Newest score *under the current policy* when one exists, and only otherwise
+    // the newest overall.
+    //
+    // `order by calculated_at desc` alone is the obvious version and it is wrong
+    // under replay. `canonical_scores` is append-only history, so a restore, an
+    // import or a clock skew can land an obsolete row with a newer timestamp than
+    // the current one -- and this reader would then explain the Account using a
+    // ruleset that is no longer in force, disagreeing with `accounts.manual_score`
+    // while both claimed to describe the same company.
+    //
+    // Falling back to the newest overall preserves the case that matters the other
+    // way: an Account the recompute sweep has not reached yet still has its v2 score
+    // explained, flagged `policyCurrent: false`, rather than showing nothing.
     `select c.total_points, c.tier, c.score_version, c.calculated_at, c.components,
             a.canonical_name
        from canonical_scores c
        join accounts a on a.account_id = c.account_id
       where c.account_id = $1
-      order by c.calculated_at desc limit 1`,
-    [accountId],
+      order by (c.score_version = $2) desc, c.calculated_at desc
+      limit 1`,
+    [accountId, SCORE_VERSION],
   );
   const score = scoreRows[0];
   if (!score) return null;

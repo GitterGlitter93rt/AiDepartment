@@ -310,6 +310,7 @@ export function coverageNote(coverage: {
   state: string; researchedCount: number; inScopeCount?: number; unclaimedCount: number;
   lastMinedAt: Date | null;
   discoveryAvailable?: boolean; activeJobScope?: string | null; unscoredExcluded?: number;
+  staleScoreExcluded?: number;
   unknownAdvertiserExcluded?: number;
   discovery?: {
     state: string; lastRunAt?: Date | null; reason?: string | null;
@@ -332,6 +333,26 @@ export function coverageNote(coverage: {
       A tier comes from research, so ${unscored === 1 ? 'this one has' : 'these have'}
       not been researched -- not scored badly. Clear the tier filter to see
       ${unscored === 1 ? 'it' : 'them'}.</span>
+    </div>`;
+
+  // The third state, and the reason it gets its own sentence rather than being added
+  // to the count above. "No tier yet" tells a rep nobody has researched the company.
+  // This one has been researched and does have a tier -- it was just earned under a
+  // ruleset that is no longer in force, so it cannot honestly be compared against the
+  // tiers of the rows that are shown. Folding it into the unscored count would tell
+  // the rep to go research a company that has already been researched.
+  const stale = Number(coverage.staleScoreExcluded ?? 0);
+  const staleNote = stale === 0 ? raw('') : html`
+    <div class="coverage-note">
+      <span class="dot"></span>
+      <span><strong>${stale} compan${stale === 1 ? 'y was' : 'ies were'} scored under an
+      older ruleset.</strong> ${stale === 1 ? 'It is' : 'They are'} not in these results
+      because ${stale === 1 ? 'that tier' : 'those tiers'} cannot be compared with the
+      current one -- not because ${stale === 1 ? 'it' : 'they'} scored badly, and not
+      because ${stale === 1 ? 'it has' : 'they have'} not been researched. The worker
+      re-scores ${stale === 1 ? 'it' : 'them'} on its next sweep and
+      ${stale === 1 ? 'it reappears' : 'they reappear'} at whatever tier the current
+      rules give ${stale === 1 ? 'it' : 'them'}.</span>
     </div>`;
 
   // The same collapse, one filter over. An advertising filter drops companies whose
@@ -364,7 +385,7 @@ export function coverageNote(coverage: {
   // Every branch carries these. The stale and fresh branches did not, so a market
   // with aged research never showed the "no search provider" banner at all -- the
   // one sentence an operator needs before reading anything else on the page.
-  const prefix = html`${blocked}${discoveryLine}${hidden}${uncheckedNote}`;
+  const prefix = html`${blocked}${discoveryLine}${hidden}${staleNote}${uncheckedNote}`;
 
   switch (coverage.state) {
     case 'NO_MARKET':

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { pool, query, withTransaction } from '../db/pool.js';
 import { upsertAccount, upsertEndpoint, recordEvidence } from '../domain/accounts.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 
 /**
  * The demonstration fixture for the human-rep pilot.
@@ -114,13 +115,18 @@ export async function seedPilotDemo(options: {
 
       if (!thin) {
         await client.query(
+          // A fixture writes the score projection directly rather than running the scorer,
+          // so it has to say which policy the numbers it is inventing belong to. Left null,
+          // the row reads as a score of unknown lineage: correct for a real un-recomputed
+          // score, a lie here, and enough to drop the row out of every tier filter.
           `update accounts set manual_tier = $2, manual_score = $3,
+                  score_version = $5,
                   advertiser_strength = $4, research_completeness = 'GOOD',
                   last_researched_at = now(),
                   research_fresh_until = now() + interval '30 days'
             where account_id = $1`,
           [result.accountId, company.tier, company.score,
-           company.advertises ? 'MODERATE' : 'NONE']);
+           company.advertises ? 'MODERATE' : 'NONE', SCORE_VERSION]);
       }
       return result;
     });

@@ -97,13 +97,27 @@ test('a research run records which profile produced its evidence', async () => {
 
 test('a scoring policy change says the scores are not comparable', async () => {
   const before = await releaseManifest();
+  // Derived from the current version rather than written out. This test named the
+  // next version as a literal -- 'module-4c-v3' -- and when the scoring policy
+  // actually reached v3 the "after" manifest stopped differing from the "before"
+  // one, so the version-change branch was never taken and the test passed on the
+  // fingerprint branch instead. It went on asserting a sentence that was true for
+  // the wrong reason, which is the failure mode a version-comparison test exists to
+  // catch and the last one it should have.
+  const nextVersion = `${before.scoring.policyVersion}-successor`;
+  assert.notEqual(nextVersion, before.scoring.policyVersion,
+    'the changed-to version is the current one, so nothing about a change is tested');
   const after = {
     ...before,
-    scoring: { policyVersion: 'module-4c-v3', rulesFingerprint: 'different' },
+    scoring: { policyVersion: nextVersion, rulesFingerprint: 'different' },
   };
   const changes = compareManifests(before, after);
   assert.ok(changes.some((change) => /not comparable/.test(change)),
     'a policy change was reported without saying what it costs');
+  // And it names both sides, so an operator reading the diff knows which way it moved.
+  assert.ok(changes.some((change) =>
+    change.includes(before.scoring.policyVersion) && change.includes(nextVersion)),
+    'the report does not say which policy became which');
 });
 
 test('rules changing without the version moving is called out as the worse case', async () => {

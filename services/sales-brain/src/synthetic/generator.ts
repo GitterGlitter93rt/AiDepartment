@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { pool, withTransaction } from '../db/pool.js';
 import { Rng } from './random.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 import {
   FAMILY_NAMES, FIRST_NAMES, MARKETS, NAME_PREFIXES, RESERVED_LINE, STREETS, SUFFIXES,
   SYNTHETIC_MARKER, TITLES, UNICODE_FAMILY_NAMES, VERTICALS,
@@ -358,7 +359,8 @@ async function writeChunk(
     'account_id', 'canonical_name', 'normalized_name', 'legal_name', 'dba_names',
     'account_type', 'primary_vertical_profile_id', 'canonical_domain', 'relationship_state',
     'ownership_state', 'current_owner_user_id', 'ownership_updated_at', 'claimed_at',
-    'manual_score', 'manual_tier', 'advertiser_strength', 'research_completeness',
+    'manual_score', 'manual_tier', 'score_version', 'advertiser_strength',
+    'research_completeness',
     'research_fresh_until', 'last_researched_at', 'location_count_confirmed', 'created_at',
   ]);
   const domains = new Batch('account_domains',
@@ -477,7 +479,11 @@ async function writeChunk(
       plan.ownershipState, plan.ownerUserId,
       plan.ownerUserId ? rng.daysAgo(1, 60, DATASET_ORIGIN) : null,
       plan.ownerUserId ? rng.daysAgo(1, 60, DATASET_ORIGIN) : null,
-      plan.score, plan.tier, plan.advertiserStrength,
+      // The generator invents a score rather than running the scorer, so it says which
+      // policy the number belongs to -- and says the same thing here as in the
+      // `canonical_scores` row below. Left blank, a 100k-row dataset would be a
+      // population of scores with no lineage, which every tier filter now excludes.
+      plan.score, plan.tier, SCORE_VERSION, plan.advertiserStrength,
       plan.researchFreshness === 'stale' ? 'STALE'
         : plan.researchFreshness === 'unknown' ? 'THIN'
         : rng.weighted([['COMPLETE', 2], ['GOOD', 4], ['PARTIAL', 3]]),
@@ -687,7 +693,9 @@ async function writeChunk(
       1, 'deterministic', true, rng.daysAgo(1, 200, DATASET_ORIGIN));
     ledger.hypotheses += 1;
 
-    scores.add(plan.accountId, 'v1', plan.score, plan.tier,
+    // Was the literal 'v1', which no scoring policy has ever been called: the ledger
+    // named a version that did not exist while the projection beside it named none.
+    scores.add(plan.accountId, SCORE_VERSION, plan.score, plan.tier,
       JSON.stringify([{ rule_id: 'advertising', points_awarded: advertises ? 4 : 0,
                         points_possible: 5, reason: 'synthetic' }]),
       rng.daysAgo(1, 120, DATASET_ORIGIN));

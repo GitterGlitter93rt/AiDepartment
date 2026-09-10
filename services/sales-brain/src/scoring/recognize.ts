@@ -70,6 +70,38 @@ interface EvidenceRow {
   can_state_as_fact: boolean;
   expired: boolean;
   contradicted: boolean;
+  /**
+   * Read because a row can record a *negative* observation, and the scorer used to
+   * ignore it. See `NEGATIVE_OBSERVATIONS`.
+   */
+  normalized_value: string | null;
+}
+
+/**
+ * Values that mean "we looked, and the answer was no".
+ *
+ * `advertiserEvidenceFor` has always read these -- a row with `normalized_value =
+ * 'no'` is exactly how NOT_OBSERVED is represented, and it is what makes "we checked
+ * and saw nothing" a different fact from "nobody has looked". The scorer did not
+ * read the column at all, so the same row that renders as NOT_OBSERVED to a rep
+ * qualified `google_paid_search_confirmed` and awarded +4. Two readers of one row
+ * disagreeing about whether it is positive evidence.
+ *
+ * No production writer emits a negative value for a scored claim today, so this was
+ * latent rather than live. It would have become live the moment a paid-search check
+ * recorded its own negative result -- which is a feature the advertiser layer is
+ * already built for -- and it would have inflated the score of precisely the
+ * companies that do not qualify.
+ *
+ * Deliberately an explicit list rather than "anything that is not yes": several
+ * claim keys carry a category or a URL in this column (a role category, an exclusion
+ * relationship, a contact path), and treating those as negative would silently
+ * unqualify working rules.
+ */
+const NEGATIVE_OBSERVATIONS = new Set(['no', 'false', 'none', 'not_observed']);
+
+function isNegativeObservation(value: string | null): boolean {
+  return value !== null && NEGATIVE_OBSERVATIONS.has(value.trim().toLowerCase());
 }
 
 /**
@@ -136,6 +168,7 @@ export async function recognizeSignals(accountId: string): Promise<ScoreSignals>
 
   const { rows } = await query<EvidenceRow>(
     `select evidence_id, claim_key, claim_text, confidence, can_state_as_fact,
+            normalized_value,
             (expires_at is not null and expires_at <= now()) as expired,
             (contradicted_by_evidence_id is not null) as contradicted
        from evidence_records
@@ -155,6 +188,8 @@ export async function recognizeSignals(accountId: string): Promise<ScoreSignals>
     const evidence = byClaim.get(rule.claimKey) ?? [];
     const usable = evidence.filter((row) =>
       !row.contradicted && !row.expired
+      // A confidently recorded "no" is confident about the absence, not the presence.
+      && !isNegativeObservation(row.normalized_value)
       && (rule.confidenceRequired !== 'confirmed'
         || row.can_state_as_fact || row.confidence === 'confirmed'));
 

@@ -134,11 +134,12 @@ export async function mergeAccounts(
       account_id: string; ownership_state: string; current_owner_user_id: string | null;
       relationship_state: string; is_suppressed: boolean; canonical_name: string;
       merged_into_account_id: string | null; manual_score: number | null; manual_tier: string | null;
+      score_version: string | null;
       research_fresh_until: Date | null; last_researched_at: Date | null;
     }>(
       `select account_id, ownership_state, current_owner_user_id, relationship_state,
               is_suppressed, canonical_name, merged_into_account_id, manual_score,
-              manual_tier, research_fresh_until, last_researched_at
+              manual_tier, score_version, research_fresh_until, last_researched_at
          from accounts where account_id in ($1, $2) order by account_id for update`,
       [first, second],
     );
@@ -187,6 +188,23 @@ export async function mergeAccounts(
     const ownershipState = suppressed ? 'SUPPRESSED'
       : keepOwner ? 'CLAIMED' : 'UNCLAIMED';
 
+    // The score projection and its lineage move together.
+    //
+    // The score and the tier below are chosen independently -- best score, best tier --
+    // so after a merge of two records scored under different rulesets they can come from
+    // different policies, and the survivor's stored `score_version` would then name a
+    // policy that did not produce the numbers beside it. That is worse than not knowing:
+    // search treats a current version as comparable, so a tier earned under a superseded
+    // ruleset gets laundered into a current one and satisfies a filter that promises
+    // comparable tiers.
+    //
+    // So whenever the merge moves either number, the lineage is unknown and says so.
+    // `recomputeStaleScores()` already sweeps `score_version is null`, and the survivor
+    // now reads the merged record's evidence as well (`mergedIdsFor`), so the rescore
+    // that triggers is work that genuinely needed doing rather than churn.
+    //
+    // Every expression in a single UPDATE reads the pre-update row, so the comparisons
+    // are against the survivor's own values, not the ones being written.
     await client.query(
       `update accounts set
          relationship_state = $2,
@@ -201,6 +219,17 @@ export async function mergeAccounts(
                             when manual_tier is null then $7::text
                             when $7::text < manual_tier then $7::text
                             else manual_tier end,
+         -- The composite belongs to no single policy, so it does not name one.
+         score_version = case
+           when manual_score is distinct from
+                  greatest(coalesce(manual_score, 0), coalesce($6::int, 0))
+             or manual_tier is distinct from
+                  (case when $7::text is null then manual_tier
+                        when manual_tier is null then $7::text
+                        when $7::text < manual_tier then $7::text
+                        else manual_tier end)
+           then null
+           else score_version end,
          research_fresh_until = greatest(research_fresh_until, $8::timestamptz),
          last_researched_at = greatest(last_researched_at, $9::timestamptz),
          updated_at = now()

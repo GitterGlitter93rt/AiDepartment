@@ -1,5 +1,6 @@
 import { withTransaction, query } from '../db/pool.js';
 import { upsertAccount } from '../domain/accounts.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 import { upsertEndpoint } from '../domain/accounts.js';
 import { buildCallPack, persistCallPack } from '../callbrain/callPack.js';
 import { preflightCall, evaluateAccount } from '../compliance/eligibility.js';
@@ -80,9 +81,14 @@ export async function runDryRun(options: { now?: Date } = {}): Promise<DryRunRep
         city: 'Jacksonville', state: 'FL', postalCode: '32256',
       }, { discoverySource: 'dry_run' });
       await client.query(
+        // A fixture writes the score projection directly rather than running the scorer,
+        // so it has to say which policy the numbers it is inventing belong to. Left null,
+        // the row reads as a score of unknown lineage: correct for a real un-recomputed
+        // score, a lie here, and enough to drop the row out of every tier filter.
         `update accounts set research_fresh_until = now() + interval '7 days',
-                last_researched_at = now(), manual_tier = 'B', manual_score = 11
-          where account_id = $1`, [account.accountId]);
+                last_researched_at = now(), manual_tier = 'B', manual_score = 11,
+                score_version = $2
+          where account_id = $1`, [account.accountId, SCORE_VERSION]);
       await upsertEndpoint(client, {
         accountId: account.accountId, contactId: null, locationId: null, type: 'PHONE',
         rawValue: '904-555-0190', endpointRole: 'MAIN_BUSINESS_LINE',

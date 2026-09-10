@@ -247,9 +247,30 @@ test('the runtime guard refuses a tree that is not the Sales Brain', () => {
   assert.match(guard, /mode is \$ENV_MODE, expected 600/,
     'the guard does not check that .env is not world-readable');
 
+  // Running the guard for real. Which half of this is assertable depends on where
+  // the tests are being run from, and that is the point rather than a workaround:
+  // the runtime is now a *frozen* worktree pinned to feature/outbound-sales-brain,
+  // and development happens in a separate worktree on its own branch. This test
+  // previously assumed those were the same tree, so it could only pass while
+  // engineers built inside the live runtime -- exactly the coupling that made an
+  // ordinary edit able to stop the API restarting.
   const result = spawnSync('bash', ['deploy/assert-runtime.sh'], { encoding: 'utf8' });
-  assert.equal(result.status, 0,
-    `the guard rejects its own runtime: ${result.stderr}`);
-  assert.match(result.stdout, /on feature\/outbound-sales-brain at [0-9a-f]{7}/,
-    'the guard does not report which commit is running');
+  const onRuntimeBranch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'],
+    { encoding: 'utf8' }).stdout.trim() === 'feature/outbound-sales-brain';
+
+  if (onRuntimeBranch) {
+    // In the runtime worktree the guard must accept, and must name the commit.
+    assert.equal(result.status, 0,
+      `the guard rejects its own runtime: ${result.stderr}`);
+    assert.match(result.stdout, /on feature\/outbound-sales-brain at [0-9a-f]{7}/,
+      'the guard does not report which commit is running');
+  } else {
+    // Anywhere else it must refuse, and say why in terms an operator can act on.
+    // This is the safety-relevant half, and it is asserted unconditionally.
+    assert.notEqual(result.status, 0,
+      'the guard accepted a tree that is not the pinned runtime branch');
+    assert.match(result.stderr, /RUNTIME REFUSED/);
+    assert.match(result.stderr, /not feature\/outbound-sales-brain/,
+      'the refusal does not say which branch it expected');
+  }
 });

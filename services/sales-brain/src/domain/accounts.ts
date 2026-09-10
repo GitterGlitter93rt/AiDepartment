@@ -494,6 +494,24 @@ export async function upsertEndpoint(
   return endpointId;
 }
 
+/**
+ * A note on capability-gated signals, since this is where one would be written.
+ *
+ * `active_meta_ad` and `storm_hail_market_signal` have no producer and declare a
+ * required capability, and nothing here refuses them. That was briefly "fixed" and
+ * the fix was wrong: the scoring model has a `meta_active_ads_confirmed` rule, the
+ * profiles map to it through `module4c_meta_ads_plus3`, and
+ * `advertiserEvidenceFor` reads a meta row to produce NOT_OBSERVED. The absence of
+ * a producer is a statement about today's integrations, not a prohibition on the
+ * evidence ever existing -- so refusing the write would forbid the path the
+ * architecture is holding open, and break the tests that exercise it.
+ *
+ * What actually governs this: no production writer passes a claim key it did not
+ * hard-code, the registry says which signals have no source, and the profile
+ * validator reports them as SOURCE_UNAVAILABLE rather than as false. Anything that
+ * begins writing evidence from a *variable* claim key should be read against the
+ * registry first.
+ */
 export async function recordEvidence(
   client: Queryable,
   input: {

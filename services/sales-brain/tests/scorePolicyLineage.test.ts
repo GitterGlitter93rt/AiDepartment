@@ -1,7 +1,9 @@
 import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { pool, query, withTransaction } from '../src/db/pool.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
@@ -24,6 +26,19 @@ import { resetDatabase } from './helpers.js';
  * was produced under rules that no longer exist, and looked exactly like a current
  * one. A rep comparing two prospects would have been comparing two policies.
  */
+
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** Every .ts file under a directory, so a new writer cannot land unscanned. */
+function sourceFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) out.push(...sourceFiles(full));
+    else if (entry.name.endsWith('.ts')) out.push(full);
+  }
+  return out;
+}
 
 let sequence = 0;
 
@@ -91,7 +106,11 @@ test('changing the rules without bumping the version fails here', () => {
     'the scoring rules changed: bump SCORE_VERSION and update this fingerprint, so '
     + 'scores produced under the old rules are recomputed rather than silently '
     + 'compared against new ones');
-  assert.equal(SCORE_VERSION, 'module-4c-v2');
+  // v3: the recognizer stopped accepting a negative observation ("we looked and saw
+  // no ad") as qualifying evidence. The fingerprint above is unchanged because the
+  // rules and points are unchanged -- which is precisely the limit this file already
+  // documents, and the reason the version is asserted separately from it.
+  assert.equal(SCORE_VERSION, 'module-4c-v3');
 });
 
 test('a score from an older policy is visible as older, not as current', async () => {
@@ -344,4 +363,85 @@ test('no scoring rule reads an endpoint, by construction', () => {
       `scoring reads ${forbidden}: how reachable a company is has started to change `
       + 'how good it is');
   }
+});
+
+// =============================================================================
+// Every writer of the score projection, not just the scorer
+// =============================================================================
+
+/**
+ * Making the tier filters version-aware turned an invisible omission into a visible
+ * one: six code paths wrote `manual_tier` and `manual_score` straight onto an Account
+ * without ever saying which ruleset produced them. Five were fixtures and demos, one
+ * was `mergeAccounts` composing a score from two records. Each produced a row that
+ * had been researched, had a tier, and was excluded from every tier filter as
+ * un-comparable -- correct behaviour over a value that should have declared itself.
+ *
+ * `scoreAccount` was always right, so a unit test of the scorer could not find any of
+ * them. This finds the next one at the point somebody writes it.
+ */
+test('nothing writes a score onto an Account without saying which policy produced it',
+  () => {
+  const offenders: string[] = [];
+
+  for (const file of sourceFiles(resolve(packageRoot, 'src'))) {
+    const text = readFileSync(file, 'utf8');
+    const relative = file.slice(packageRoot.length + 1);
+
+    // SQL lives in template literals here. Split on backticks and look at each one:
+    // a statement that writes the projection has to name the policy in the same
+    // statement, because that is the only way the two cannot drift apart.
+    const literals = text.split('`');
+    for (let i = 1; i < literals.length; i += 2) {
+      const sql = literals[i]!;
+      if (!/\bmanual_(tier|score)\b/.test(sql)) continue;
+      const writes = /\bupdate\s+accounts\s+set\b/i.test(sql)
+        || /\binsert\s+into\s+accounts\b/i.test(sql);
+      if (!writes) continue;               // a read is free to select either column
+      if (/\bscore_version\b/.test(sql)) continue;
+      offenders.push(`${relative}: writes the score projection with no score_version`);
+    }
+
+    // And the one that builds its column list as an array rather than as SQL. Scoped
+    // to the enclosing array, not the file: the synthetic generator names
+    // 'score_version' in its canonical_scores column list a few lines further down,
+    // and a file-level check therefore passed the very row that was missing it.
+    for (let at = text.indexOf("'manual_tier'"); at !== -1;
+         at = text.indexOf("'manual_tier'", at + 1)) {
+      let depth = 0;
+      let open = -1;
+      for (let i = at; i >= 0; i -= 1) {
+        if (text[i] === ']') depth += 1;
+        else if (text[i] === '[') { if (depth === 0) { open = i; break; } depth -= 1; }
+      }
+      if (open === -1) continue;
+      let close = -1;
+      depth = 0;
+      for (let i = open + 1; i < text.length; i += 1) {
+        if (text[i] === '[') depth += 1;
+        else if (text[i] === ']') { if (depth === 0) { close = i; break; } depth -= 1; }
+      }
+      const columns = text.slice(open, close === -1 ? text.length : close);
+      if (!/'score_version'/.test(columns)) {
+        offenders.push(`${relative}: column list has manual_tier but not score_version`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [],
+    `a score was written with no policy lineage:\n  ${offenders.join('\n  ')}`);
+});
+
+/**
+ * The guard above is worth only as much as its ability to fail, and a scan built on
+ * regexes over source text is exactly the kind of test that quietly matches nothing.
+ */
+test('that guard actually rejects a score written without a policy', () => {
+  const bad = 'await query(`update accounts set manual_tier = $2, manual_score = $3 '
+    + 'where account_id = $1`);';
+  const literals = bad.split('`');
+  const sql = literals[1]!;
+  assert.ok(/\bmanual_(tier|score)\b/.test(sql));
+  assert.ok(/\bupdate\s+accounts\s+set\b/i.test(sql));
+  assert.ok(!/\bscore_version\b/.test(sql), 'the fixture is not the case being guarded');
 });

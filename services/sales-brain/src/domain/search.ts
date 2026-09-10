@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 import type { Role } from './auth.js';
 import { isUuid } from './ids.js';
 
@@ -67,6 +68,45 @@ export type SortKey =
   | 'claimed_at' | 'follow_up_due' | 'company_name';
 
 /**
+ * A score counts as current only when the ruleset that produced it is the one in
+ * force. Anything else is history.
+ *
+ * The filters and sorts below read `manual_tier` / `manual_score`, which are the
+ * *projection* of the newest score -- and after a SCORE_VERSION bump that projection
+ * holds the previous policy's answer until the recompute sweep reaches the Account.
+ * Without this guard a superseded Tier A satisfied `minimumTier=B`, counted toward
+ * the total, and outranked a current Tier B in `recommended_priority`: the surface
+ * used to choose whom to call, driven by a ruleset no longer in force.
+ *
+ * `prospect_inventory` does not expose `score_version`, so the view path correlates
+ * to `accounts` by primary key. That is deliberately not solved with a migration:
+ * the view is defined in one place as a full `create view`, replacing it would mean
+ * reproducing the whole definition, and the view path is only taken when a
+ * lateral-derived filter is already in play.
+ */
+const SCORE_VERSION_LITERAL = (() => {
+  if (!/^[A-Za-z0-9._-]+$/.test(SCORE_VERSION)) {
+    throw new Error(`SCORE_VERSION "${SCORE_VERSION}" cannot be inlined into SQL`);
+  }
+  return `'${SCORE_VERSION}'`;
+})();
+
+const SCORE_IS_CURRENT_ACCOUNTS = `score_version = ${SCORE_VERSION_LITERAL}`;
+const SCORE_IS_CURRENT_VIEW =
+  `exists (select 1 from accounts cur
+            where cur.account_id = prospect_inventory.account_id
+              and cur.score_version = ${SCORE_VERSION_LITERAL})`;
+
+/** Tier and score as they may drive a *current* decision: null when superseded. */
+const CURRENT_TIER_ACCOUNTS = `case when ${SCORE_IS_CURRENT_ACCOUNTS} then manual_tier end`;
+const CURRENT_SCORE_ACCOUNTS = `case when ${SCORE_IS_CURRENT_ACCOUNTS} then manual_score end`;
+const CURRENT_TIER_VIEW = `case when ${SCORE_IS_CURRENT_VIEW} then manual_tier end`;
+const CURRENT_SCORE_VIEW = `case when ${SCORE_IS_CURRENT_VIEW} then manual_score end`;
+
+const tierRank = (expr: string): string =>
+  `case ${expr} when 'A' then 1 when 'B' then 2 when 'C' then 3 when 'D' then 4 else 5 end asc`;
+
+/**
  * The same orders, expressed against `accounts` rather than the view.
  *
  * Only the keys whose columns actually live on accounts. `follow_up_due` reads a
@@ -75,12 +115,12 @@ export type SortKey =
  */
 const SORT_SQL_ACCOUNTS: Partial<Record<SortKey, string>> = {
   recommended_priority:
-    `case a.manual_tier when 'A' then 1 when 'B' then 2 when 'C' then 3 when 'D' then 4 else 5 end asc,
-     a.manual_score desc nulls last, a.last_researched_at desc nulls last`,
-  manual_score: 'a.manual_score desc nulls last',
+    `${tierRank(CURRENT_TIER_ACCOUNTS)},
+     ${CURRENT_SCORE_ACCOUNTS} desc nulls last, a.last_researched_at desc nulls last`,
+  manual_score: `${CURRENT_SCORE_ACCOUNTS} desc nulls last`,
   advertiser_strength:
     `case a.advertiser_strength when 'STRONG' then 1 when 'MODERATE' then 2 when 'WEAK' then 3
-      when 'NONE' then 4 else 5 end asc, a.manual_score desc nulls last`,
+      when 'NONE' then 4 else 5 end asc, ${CURRENT_SCORE_ACCOUNTS} desc nulls last`,
   research_freshness: 'a.last_researched_at desc nulls last',
   claimed_at: 'a.claimed_at desc nulls last',
   company_name: 'a.canonical_name asc',
@@ -88,14 +128,16 @@ const SORT_SQL_ACCOUNTS: Partial<Record<SortKey, string>> = {
 
 const SORT_SQL: Record<SortKey, string> = {
   // Tier first, then score, then advertiser evidence — with unscored rows last
-  // rather than pretending an unknown score is a zero.
+  // rather than pretending an unknown score is a zero, and with a *superseded* score
+  // treated the same way. A 14-point v2 score must not outrank a 7-point current one
+  // as though both were calculated under the same rules.
   recommended_priority:
-    `case manual_tier when 'A' then 1 when 'B' then 2 when 'C' then 3 when 'D' then 4 else 5 end asc,
-     manual_score desc nulls last, last_researched_at desc nulls last`,
-  manual_score: 'manual_score desc nulls last',
+    `${tierRank(CURRENT_TIER_VIEW)},
+     ${CURRENT_SCORE_VIEW} desc nulls last, last_researched_at desc nulls last`,
+  manual_score: `${CURRENT_SCORE_VIEW} desc nulls last`,
   advertiser_strength:
     `case advertiser_strength when 'STRONG' then 1 when 'MODERATE' then 2 when 'WEAK' then 3
-      when 'NONE' then 4 else 5 end asc, manual_score desc nulls last`,
+      when 'NONE' then 4 else 5 end asc, ${CURRENT_SCORE_VIEW} desc nulls last`,
   research_freshness: 'last_researched_at desc nulls last',
   claimed_at: 'claimed_at desc nulls last',
   follow_up_due: 'next_followup_due asc nulls last',
@@ -216,6 +258,18 @@ export interface CoverageSummary {
    * Zero unless a minimum tier was asked for.
    */
   unscoredExcluded?: number;
+  /**
+   * Accounts a tier filter is hiding because their tier came from a superseded
+   * ruleset and has not been recomputed yet.
+   *
+   * Deliberately not folded into `unscoredExcluded`. Three states are distinguishable
+   * and they imply different things: never scored means research is owed, scored
+   * under the current policy means the tier is the answer, and scored under a
+   * superseded policy means the recompute sweep has not reached it. Collapsing the
+   * third into the first would tell an operator to research a company that has
+   * already been researched.
+   */
+  staleScoreExcluded?: number;
   /**
    * Accounts an advertising filter is hiding because nobody has ever checked whether
    * they advertise -- as opposed to having checked and found nothing. Zero unless an
@@ -394,7 +448,12 @@ function buildWhere(
     // the companies were there and simply unscored. They are still excluded from the
     // filtered rows, because a tier filter that ignores the tier is not a filter;
     // what changes is that the page is told how many were left out and why.
-    clauses.push(`manual_tier = any(${push(TIER_ORDER[request.minimumTier] ?? ['A', 'B', 'C', 'D'])})`);
+    // ...and a tier from a superseded ruleset is not a current tier. It stays in the
+    // database as provenance and is reported separately as `staleScoreExcluded`, but
+    // it cannot satisfy a filter that promises a current Tier A/B result.
+    const tierExpr = target === 'accounts' ? CURRENT_TIER_ACCOUNTS : CURRENT_TIER_VIEW;
+    clauses.push(
+      `${tierExpr} = any(${push(TIER_ORDER[request.minimumTier] ?? ['A', 'B', 'C', 'D'])})`);
   }
 
   for (const filter of request.contactability ?? []) {
@@ -543,6 +602,8 @@ export async function searchProspects(
 export async function coverageFor(request: SearchRequest): Promise<CoverageSummary> {
   const unscoredExcluded = request.minimumTier
     ? await countUnscoredInScope(request) : 0;
+  const staleScoreExcluded = request.minimumTier
+    ? await countStaleScoreInScope(request) : 0;
   const { unknownAdvertiserCount } = await import('./advertiserEvidence.js');
   const unknownAdvertiserExcluded = (request.advertising ?? []).length > 0
     ? await unknownAdvertiserCount({
@@ -564,6 +625,9 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
       state: 'NO_MARKET', researchedCount: 0, inScopeCount: 0, unclaimedCount: 0,
       lastMinedAt: null,
       activeJobId: null, discoveryAvailable, activeJobScope: null, unscoredExcluded,
+      // Also reported on this path. Omitting it here made the count silently absent
+      // for every search without a geography -- which is the default view.
+      staleScoreExcluded,
       unknownAdvertiserExcluded,
     };
   }
@@ -659,6 +723,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     discoveryAvailable,
     activeJobScope,
     unscoredExcluded,
+    staleScoreExcluded,
     unknownAdvertiserExcluded,
     discovery,
   };
@@ -761,6 +826,41 @@ function locationExists(predicate: string): string {
  * Counted with the same geography and vertical the search used, so the number is
  * about the market the rep is looking at rather than the whole database.
  */
+/**
+ * Accounts a tier filter is hiding because their tier is from an older ruleset.
+ *
+ * Deliberately a sibling of `countUnscoredInScope` rather than a parameter on it:
+ * the two answers go to different places in the UI and mean different work.
+ */
+async function countStaleScoreInScope(request: SearchRequest): Promise<number> {
+  const conditions: string[] = [
+    'not a.is_suppressed', 'a.merged_into_account_id is null',
+    'a.manual_tier is not null',
+    `(a.score_version is null or a.score_version <> $1)`];
+  const values: unknown[] = [SCORE_VERSION];
+  const geography = request.geography;
+
+  if (request.verticalProfileId) {
+    values.push(request.verticalProfileId);
+    conditions.push(`a.primary_vertical_profile_id = $${values.length}`);
+  }
+  if (geography?.type === 'zip_zcta' && geography.value) {
+    values.push(geography.value.trim());
+    conditions.push(locationExists(`l.postal_code = $${values.length}`));
+  } else if (geography?.type === 'city' && geography.value) {
+    values.push(geography.value.trim());
+    conditions.push(locationExists(`lower(l.city) = lower($${values.length})`));
+  } else if (geography?.type === 'state' && geography.value) {
+    values.push(geography.value.trim());
+    conditions.push(locationExists(`l.state_region = upper($${values.length})`));
+  }
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from accounts a where ${conditions.join(' and ')}`,
+    values);
+  return rows[0]?.n ?? 0;
+}
+
 async function countUnscoredInScope(request: SearchRequest): Promise<number> {
   // Base tables, for the same reason as the coverage counts above: nothing here
   // needs a column the view derives.

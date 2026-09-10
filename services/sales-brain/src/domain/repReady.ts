@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { researchPictureFor, UNKNOWING, type ResearchPicture } from './researchFacts.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 
 /**
  * Whether a record is something a rep can actually work, or only something we found.
@@ -179,15 +180,29 @@ export async function readinessFor(
         : `${dishonest.map((fact) => fact.key).join(', ')} claims something the evidence `
           + 'does not support.');
 
+  // Three distinct answers, not two. "Scored under an older ruleset" was previously
+  // treated as scored, so after a SCORE_VERSION bump a superseded tier read as the
+  // current Module 4C opinion on every rep-facing surface -- the account page said
+  // SUPERSEDED and the operations page counted it, but the record a rep opens said
+  // it was scored. A historical score may stay visible as provenance; it may not be
+  // presented as the current answer.
+  //
+  // Not blocking: `recomputeStaleScores()` in the worker sweep is the work that
+  // meets this, so it is a work item rather than a wall.
+  const scoredUnderCurrentPolicy = account.score_version === SCORE_VERSION;
   add('scored', 'Scored against what we know',
-    account.manual_tier !== null && account.score_version !== null,
+    account.manual_tier !== null && scoredUnderCurrentPolicy,
     account.manual_tier === null
       ? 'Not scored yet, so its position in a ranked list is not a judgement about the '
         + 'company. A tier arrives with research.'
       : account.score_version === null
         ? 'Scored under an unrecorded policy, so this score cannot be compared with '
           + 'any other.'
-        : '');
+        : !scoredUnderCurrentPolicy
+          ? `Scored under ${account.score_version}; the current ruleset is `
+            + `${SCORE_VERSION}. The tier shown is the older opinion and is awaiting `
+            + 'recompute, so it should not be read as the current judgement.'
+          : '');
 
   // --- may we call them --------------------------------------------------------
   const { rows: screenRows } = await query<{ screened: number; phones: number }>(

@@ -15,6 +15,7 @@ import { closePool, withTransaction, query } from '../db/pool.js';
 import { createUser } from '../domain/auth.js';
 import { upsertAccount, recordEvidence, upsertEndpoint } from '../domain/accounts.js';
 import { syncVerticalProfiles } from '../domain/verticals.js';
+import { SCORE_VERSION } from '../scoring/model.js';
 
 const SEED_MARKER = 'seed:synthetic';
 
@@ -241,13 +242,18 @@ async function seedCompanies(markets: Map<string, string>): Promise<number> {
       const accountId = result.accountId;
 
       await client.query(
+        // A fixture writes the score projection directly rather than running the scorer,
+        // so it has to say which policy the numbers it is inventing belong to. Left null,
+        // the row reads as a score of unknown lineage: correct for a real un-recomputed
+        // score, a lie here, and enough to drop the row out of every tier filter.
         `update accounts set manual_score = $2, manual_tier = $3, advertiser_strength = $4,
-                             research_completeness = $5, last_researched_at = now(),
+                             research_completeness = $5, score_version = $6,
+                             last_researched_at = now(),
                              research_fresh_until = now() + interval '3 days'
           where account_id = $1`,
         [
           accountId, company.score, company.tier, company.advertiser,
-          company.tier === 'D' ? 'PARTIAL' : 'GOOD',
+          company.tier === 'D' ? 'PARTIAL' : 'GOOD', SCORE_VERSION,
         ],
       );
 
