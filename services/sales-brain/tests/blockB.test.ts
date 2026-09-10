@@ -1167,3 +1167,54 @@ test('B2-9 a task the provider never delivers is given up on, and the market mov
   assert.equal(fresh[0]!.n, 1,
     'the market bought a new search, so exactly one new task should be outstanding');
 });
+
+test('B2-2 an automatic pass joining an automatic run writes nothing', async () => {
+  // Found in the Block I review of my own work. The provenance write is only correct
+  // when there is a requester to record: with none it is a guaranteed no-op that
+  // still takes a row lock on the commonest path in the system -- the scheduler
+  // joining its own queued runs -- and it newly exposed the join to the foreign key
+  // on `requested_by`, which the select it replaced could not fail on.
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  const marketId = await market('B2 Automatic Join');
+
+  const first = await scheduleDueMarkets();
+  assert.equal(first.queued, 1);
+  const before = await jobsFor(marketId);
+
+  // A second automatic pass finds it already queued.
+  const second = await scheduleDueMarkets();
+  assert.equal(second.queued, 0);
+
+  const after = await jobsFor(marketId);
+  assert.equal(after.length, 1);
+  assert.equal(after[0]!.job_id, before[0]!.job_id);
+  assert.equal(after[0]!.requested_by, null,
+    'an automatic pass invented a requester for a run nobody asked for');
+});
+
+test('B2-2 a requester that does not exist is refused rather than half-written',
+  async () => {
+  // The foreign key is the point: `jobs.requested_by` references `users`, so a
+  // fabricated id cannot be recorded. It must fail, and it must not leave the run
+  // changed -- the same answer the create path gives.
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  const marketId = await market('B2 Ghost Requester');
+  const { rows } = await query<Record<string, any>>(
+    `select geography_definition from saved_markets where market_id = $1`, [marketId]);
+  const zip = String(rows[0]!.geography_definition.value);
+
+  await scheduleDueMarkets();
+  const before = await jobsFor(marketId);
+  assert.equal(before[0]!.requested_by, null);
+
+  await assert.rejects(() => enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: zip,
+    marketId, requestedBy: '00000000-0000-4000-8000-000000000000',
+    miningMode: 'advertiser_first',
+  }));
+
+  const after = await jobsFor(marketId);
+  assert.equal(after.length, 1, 'the refused join created a second run');
+  assert.equal(after[0]!.requested_by, null,
+    'a requester that does not exist was partially recorded');
+});

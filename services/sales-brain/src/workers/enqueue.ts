@@ -53,12 +53,32 @@ async function enqueue(input: {
   // from nobody to somebody -- a person did ask for this work, and that stays true --
   // and it never overwrites one person with another, because the first to ask is the
   // one who asked.
+  // Only written when there is actually a requester to record.
+  //
+  // With no requester the update is a guaranteed no-op -- `coalesce(requested_by,
+  // null)` -- and it would still take a row lock on every automatic dedupe, which is
+  // the common case: the scheduler joins its own queued runs constantly. It would
+  // also newly expose the join path to the foreign key on `requested_by`, which the
+  // select it replaced could not fail on. A caller passing a user id that is not in
+  // `users` would have had its insert rejected on the create path and silently
+  // ignored on the join path; making the join fail too is defensible, but making it
+  // fail while writing nothing is not.
+  if (input.requestedBy) {
+    const claimed = await query<{ job_id: string }>(
+      `update jobs
+          set requested_by = coalesce(requested_by, $2)
+        where idempotency_key = $1 and status in ('QUEUED','RUNNING')
+        returning job_id`,
+      [input.idempotencyKey, input.requestedBy],
+    );
+    return { jobId: claimed.rows[0]?.job_id ?? '', created: false };
+  }
+
   const existing = await query<{ job_id: string }>(
-    `update jobs
-        set requested_by = coalesce(requested_by, $2)
+    `select job_id from jobs
       where idempotency_key = $1 and status in ('QUEUED','RUNNING')
-      returning job_id`,
-    [input.idempotencyKey, input.requestedBy ?? null],
+      order by created_at desc limit 1`,
+    [input.idempotencyKey],
   );
   return { jobId: existing.rows[0]?.job_id ?? '', created: false };
 }
