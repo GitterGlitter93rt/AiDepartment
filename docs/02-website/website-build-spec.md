@@ -993,6 +993,8 @@ dist/
 
 Deployment should be possible by uploading the contents of the production output directory to the appropriate SiteGround web root.
 
+The operational runbook for how this is actually done — build, ZIP, Dropbox handoff, SiteGround upload by Michael, cache purge, live verification — is `docs/10-operations/website-deployment.md`. That document is canonical for deployment mechanics.
+
 ---
 
 # SITEGROUND VPS CAPABILITY
