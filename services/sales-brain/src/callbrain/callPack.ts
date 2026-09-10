@@ -98,7 +98,11 @@ export function prohibitionSentence(token: unknown): string {
   return `Do not claim or decide: ${words}.`;
 }
 
-const UNIVERSAL_PROHIBITIONS = [
+/**
+ * True on every call whatever research found. Exported so a test can assert the pack
+ * carries all of them rather than restating the list and drifting from it.
+ */
+export const UNIVERSAL_PROHIBITIONS = [
   'Do not state or estimate their advertising spend.',
   'Do not state a missed-call rate, close rate, or revenue figure they have not given you.',
   'Do not assert which CRM, phone system or software they use unless they say so.',
@@ -169,18 +173,32 @@ export async function buildCallPack(accountId: string): Promise<CallPack | null>
     [accountId],
   );
 
-  const { rows: statementRows } = await query<{ statement_text: string; category: string }>(
-    `select statement_text, category from prospect_statements
+  const { rows: statementRows } = await query<{
+    statement_text: string; category: string; captured_at: Date;
+  }>(
+    `select statement_text, category, captured_at from prospect_statements
       where account_id = $1 order by captured_at desc limit 10`,
     [accountId],
   );
   // What they have already told us is the strongest thing in the pack, and the one
   // thing we must not make them repeat.
+  //
+  // Dated when they said it, not when the pack was built. `observedAt` is what tells
+  // a rep how old a fact is -- it renders as "seen 3 minutes ago" -- and this was
+  // `new Date()`, so the single strongest item in the pack claimed to be current
+  // however old it was. A rep opening "They previously said: we are switching CRMs in
+  // Q1" would read a two-year-old sentence as this morning's news, and say it back to
+  // somebody who has since switched.
+  //
+  // The same shape as the contact-confidence bug already fixed above: a fact resolved
+  // eighteen months ago reading as current for ever. And the Account page beside it
+  // already renders these from `captured_at`, so two readers of one row disagreed and
+  // the one that was wrong was the one a rep reads on a call.
   for (const statement of statementRows) {
     confirmedFacts.unshift({
       claim: `They previously said: "${statement.statement_text}"`,
       source: 'prospect_statement',
-      observedAt: new Date(),
+      observedAt: statement.captured_at,
       canStateAsFact: true,
     });
   }
