@@ -83,6 +83,32 @@ export function registeredJobTypes(): string[] {
 
 const workerId = `${hostname()}:${process.pid}`;
 
+/**
+ * How long a job waits before its age outranks a newer job's priority.
+ *
+ * Strict priority has no floor. `contact_research` is 40, `account_research` 50 and
+ * `market_mine` 80, so every research job outranks every market search -- including
+ * the research jobs that a market search itself creates, one per business it
+ * discovers. A market refresh queued six hours ago loses to a research job enqueued a
+ * second ago, and keeps losing for as long as research keeps arriving. That is not a
+ * slow queue, it is a starved one, and the numbers make it self-sustaining: mining
+ * generates the very work that outranks mining.
+ *
+ * It also puts two layers of this system in direct contradiction. The scheduler goes
+ * to real trouble not to starve a market -- "the oldest attempt goes first, so no
+ * market can starve behind a busier one" -- and then hands its jobs to a queue that
+ * starves them anyway. Every individual pass looks correct: the scheduler queues, the
+ * worker is busy, nothing fails, and the markets page shows work that is never done.
+ *
+ * So age is a tiebreaker of last resort rather than a reordering. Priority still
+ * decides everything among jobs that are waiting a normal amount of time; only a job
+ * that has been eligible for longer than this gets to go first, and among those,
+ * priority applies again. A rep's research still goes ahead of a background refresh.
+ * It just cannot do so for ever.
+ */
+export const JOB_STARVATION_AFTER_MS = numeric('JOB_STARVATION_AFTER_MS', 60 * 60_000,
+  { min: 1000 });
+
 /** Claims one job atomically. `skip locked` lets several workers share the queue. */
 async function leaseJob(): Promise<JobRecord | null> {
   const { rows } = await query<JobRecord>(
@@ -97,12 +123,17 @@ async function leaseJob(): Promise<JobRecord | null> {
          -- backed-off job and then releasing it would burn a retry on every poll.
          where run_after <= now()
            and (status = 'QUEUED' or (status = 'RUNNING' and leased_until < now()))
-         order by priority asc, run_after asc, created_at asc
+         -- Age first, and only once it is genuinely excessive: see
+         -- JOB_STARVATION_AFTER_MS. Measured from run_after rather than created_at,
+         -- so a job that has been backed off repeatedly does not claim to have been
+         -- starving during the interval it was deliberately asleep.
+         order by (run_after <= now() - ($3 || ' milliseconds')::interval) desc,
+                  priority asc, run_after asc, created_at asc
          for update skip locked
          limit 1
       )
       returning job_id, job_type, payload, attempts, max_attempts, account_id, market_id, requested_by`,
-    [workerId, String(config.worker.leaseSeconds)],
+    [workerId, String(config.worker.leaseSeconds), String(JOB_STARVATION_AFTER_MS)],
   );
   return rows[0] ?? null;
 }
