@@ -29,6 +29,20 @@ const RULE_BY_REFERENCE: Record<string, ScoreRuleId> = {
   vertical_priority_signal_only: undefined as unknown as ScoreRuleId,
 };
 
+/**
+ * The rule a profile's `score_rule_reference` actually feeds, or null.
+ *
+ * Exported so the profile contract can ask the same question the scorer asks rather
+ * than deciding for itself which references are score-bearing. It matters because
+ * one reference deliberately is not: `vertical_priority_signal_only` says a vertical
+ * cares about a signal without it being worth points. A second reader that assumed
+ * every reference scores would report that as a violation -- which is what mine did
+ * on its first run.
+ */
+export function scoreRuleForReference(reference: string): ScoreRuleId | null {
+  return RULE_BY_REFERENCE[reference.trim()] ?? null;
+}
+
 interface SignalRule {
   claimKey: string;
   ruleId: ScoreRuleId;

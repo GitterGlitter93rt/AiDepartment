@@ -3,6 +3,7 @@ import {
   isKnownSignal, isCollectable, nearestSignalNames, signalFor,
   type SignalSubject,
 } from './signalRegistry.js';
+import { scoreRuleForReference } from '../scoring/recognize.js';
 import { resolvePrimaryHookOrder } from './hooks.js';
 import { declaredRoles } from './roles.js';
 import { isKnownOffer, nearestOfferNames, offerFor } from './offerCatalog.js';
@@ -42,12 +43,30 @@ export type ViolationKind =
   /** Two fields claiming authority over the same ordering. */
   | 'COMPETING_HOOK_AUTHORITY'
   /** A hypothesis that can never surface, because nothing it needs is collectable. */
-  | 'HYPOTHESIS_CANNOT_FIRE';
+  | 'HYPOTHESIS_CANNOT_FIRE'
+  /**
+   * A profile wired a signal into the canonical score that the registry does not
+   * list `scoring/recognize` as a consumer of.
+   *
+   * The scorer reads every evidence row an Account has and consumes whichever claim
+   * keys the profile maps to a score rule, so which facts move a company's tier is
+   * decided in profile data rather than in code. That is deliberate and it is how a
+   * vertical expresses its own model -- and it means the boundary between a signal
+   * that informs a rep and a signal that changes a score is a configuration
+   * boundary, held up by nothing.
+   *
+   * The case that matters today is the Speed-to-Lead probe. Its nine signals declare
+   * `['probe/evidence', 'domain/hypotheses']`: they are measurements a rep reads and
+   * a hypothesis fires on, and they must not silently move a Module 4C score. One
+   * line in one profile would do it, every scored company in that vertical would be
+   * re-tiered on the next sweep, and the only trace would be a score that changed.
+   */
+  | 'SIGNAL_NOT_SCOREABLE';
 
 /** Kinds that fail a build. The rest are reported and expected to be read. */
 export const BLOCKING: ReadonlySet<ViolationKind> = new Set<ViolationKind>([
   'UNKNOWN_SIGNAL', 'SUBJECT_MISMATCH', 'MISSING_ROLE_MAPPING', 'UNKNOWN_OFFER',
-  'COMPETING_HOOK_AUTHORITY', 'NO_PRODUCER',
+  'COMPETING_HOOK_AUTHORITY', 'NO_PRODUCER', 'SIGNAL_NOT_SCOREABLE',
 ]);
 
 export interface Violation {
@@ -276,6 +295,43 @@ export async function validateProfiles(): Promise<Violation[]> {
           + 'one, nothing knows whose fact it is, who could produce it, or what its '
           + 'absence means.',
         suggestions: nearestSignalNames(claimKey),
+      });
+    }
+
+    // --- and a signal wired into the score has to be one the score may read -----
+    //
+    // Read from the rule rather than from `declared`, because it is the presence of
+    // `score_rule_reference` that makes a signal score-bearing.
+    for (const rule of profile.public_signal_rules ?? []) {
+      const claimKey = typeof rule?.evidence_claim_key === 'string'
+        ? rule.evidence_claim_key.trim() : '';
+      const reference = typeof rule?.score_rule_reference === 'string'
+        ? rule.score_rule_reference.trim() : '';
+      if (!claimKey || !reference) continue;
+      // Asked of the scorer rather than assumed here. One reference deliberately
+      // feeds no rule -- `vertical_priority_signal_only`, which is how a profile says
+      // it cares about a signal without it being worth points -- and treating every
+      // reference as score-bearing reported the shipped roofing profile as a
+      // violation on this check's first run.
+      if (!scoreRuleForReference(reference)) continue;
+      const signal = signalFor(claimKey);
+      // An unknown claim key is already reported above; not reported twice.
+      if (!signal) continue;
+      if (signal.consumers.includes('scoring/recognize')) continue;
+      violations.push({
+        vertical, section: 'public_signal_rules',
+        path: `public_signal_rules[${String(rule.signal_id ?? claimKey)}]`
+          + '.score_rule_reference',
+        reference: `${claimKey} -> ${reference}`, kind: 'SIGNAL_NOT_SCOREABLE',
+        detail: `"${claimKey}" is consumed by ${signal.consumers.join(', ')} and not `
+          + 'by the scorer. Wiring it to a score rule would make it change company '
+          + 'tiers, which is a decision about what the score means rather than a '
+          + 'profile detail: every scored company in this vertical would be re-tiered '
+          + 'on the next recompute sweep and the only trace would be a score that '
+          + 'moved. If the score should read it, say so in the registry and bump '
+          + 'SCORE_VERSION, so the change is visible and the old scores are marked '
+          + 'as not comparable.',
+        suggestions: [],
       });
     }
 
