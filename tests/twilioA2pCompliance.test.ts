@@ -2,14 +2,23 @@
 // Run with: node --experimental-strip-types --test tests/twilioA2pCompliance.test.ts
 // (requires dist/ — `npm test` builds first.)
 //
-// The campaign was rejected on four codes. Each one is a claim about
-// what the *live site* says, so these assertions run against the built
-// HTML wherever possible rather than the source.
+// The campaign has been rejected on five codes. Each one is a claim
+// about what the *live site* says, so these assertions run against the
+// built HTML wherever possible rather than the source.
 //
 //   30907  website brand did not match the registered sender
 //   30908  Privacy Policy lacked mobile/SMS non-sharing language
 //   30896  opt-in flow did not demonstrate consent
 //   30882  Terms insufficient for the SMS campaign
+//   30923  forced consent — SMS treated as a condition of proceeding
+//
+// 30923 is the reason tests/smsConsentOptional.test.ts exists. Every
+// structural assertion in this file passed on the build that earned
+// that rejection: the checkbox had no `checked` and no `required`, and
+// the submit handler refused the form anyway. Structure is necessary
+// and not sufficient, so the optionality of the opt-in is proved by
+// executing the shipped handler over there. What is asserted here is
+// the part a reviewer reads rather than clicks.
 //
 // These test compliance SEMANTICS, not prose. They do not assert whole
 // paragraphs of legal text — that would break on every copy edit and
@@ -353,6 +362,104 @@ describe('30896: the opt-in page demonstrates consent', () => {
   });
 });
 
+// ============================================================
+// 30923 — consent is never a condition of anything
+// ============================================================
+
+describe('30923: the required agreement and the optional one are separate controls', () => {
+  const html = page('/sms-consent/');
+  const text = visibleText(html);
+
+  test('the mandatory agreement is its own control, with its own name', () => {
+    const terms = html.match(/<input type="checkbox" id="sms-terms-accept"[^>]*>/)?.[0];
+    assert.ok(terms, 'there is no separate Terms acceptance control on the opt-in page');
+    assert.match(terms!, /name="terms_accepted"/, 'the required agreement shares a name with something else');
+    assert.match(terms!, /\srequired/, 'the Terms box is the one that should be required');
+    assert.equal(/\schecked/.test(terms!), false, 'even the required box must not be pre-ticked for the visitor');
+  });
+
+  test('the page tells the visitor, before they submit, that declining is fine', () => {
+    assert.match(text, /submits whether you check it or not/i);
+    assert.match(text, /Declining text messages costs you nothing/i);
+    assert.match(text, /never bundled into the Terms/i);
+    assert.match(text, /may decline SMS messaging and still complete every form/i);
+  });
+
+  test('the two permissions are visually distinguishable, not two identical boxes', () => {
+    assert.match(html, /perm-badge-required/);
+    assert.match(html, /perm-badge-optional/);
+  });
+
+  test('the Terms page states that accepting it is not an SMS opt-in', () => {
+    const terms = visibleText(page('/terms/'));
+    assert.match(terms, /Accepting these Terms is not an SMS opt-in/i);
+    assert.match(terms, /No form on this Site requires the SMS checkbox in order to submit/i);
+  });
+
+  test('the Privacy Policy says the same thing, in its own words', () => {
+    const privacy = visibleText(page('/privacy/'));
+    assert.match(privacy, /Accepting our Terms of Use or this Privacy Policy does not opt you in/i);
+    assert.match(privacy, /three distinct facts/i, 'the storage separation is not described');
+  });
+
+  test('no page on the site ships a required or pre-checked SMS control', () => {
+    // The rejection is site-wide, not page-specific: one forgotten
+    // `required` on any messaging checkbox anywhere re-earns it.
+    const jsBundles = walk(join(DIST, '_astro'), (f) => f.endsWith('.js'));
+    for (const file of [...allHtml(), ...jsBundles]) {
+      const body = readFileSync(file, 'utf8');
+      for (const tag of body.match(/<input[^>]*type=.?"?checkbox[^>]*>/g) ?? []) {
+        const name = tag.match(/name=\\?"([^"\\]*)/)?.[1] ?? '';
+        if (!/sms|text|message/i.test(name)) continue;
+        assert.equal(/\srequired/.test(tag), false, `${file}: "${name}" is a required messaging control`);
+        assert.equal(/\schecked/.test(tag), false, `${file}: "${name}" ships pre-checked`);
+      }
+    }
+  });
+
+  test('a visitor can use the actual services without giving a phone number at all', () => {
+    // "Consumers must be ... able to decline messaging and still utilize
+    // your business services." The services are the contact form and
+    // the two assessments; none of them may require a number.
+    const contactPhone = page('/contact/').match(/<input type="tel"[^>]*>/)?.[0] ?? '';
+    assert.ok(contactPhone, 'the contact phone field vanished');
+    assert.equal(/\srequired/.test(contactPhone), false, 'contact: a phone number is required to submit');
+
+    for (const app of ['src/components/assessment/quickAssessmentApp.ts', 'src/components/assessment/assessmentApp.ts']) {
+      const tag = read(app).match(/<input type="tel"[^>]*>/)?.[0] ?? '';
+      assert.ok(tag, `${app}: the phone field vanished`);
+      assert.equal(/\srequired/.test(tag), false, `${app}: a phone number is required to submit`);
+    }
+  });
+
+  test('the audit in the submission document still describes the site', () => {
+    const doc = read('docs/twilio-a2p-resubmission.md');
+    assert.match(doc, /Every form on the website, classified/);
+    // The claim the document makes, re-derived rather than trusted.
+    const smsBoxes = allHtml().flatMap((f) => {
+      const body = readFileSync(f, 'utf8');
+      return (body.match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [])
+        .filter((t) => /name="sms_opt_in"/.test(t))
+        .map(() => f);
+    });
+    assert.equal(smsBoxes.length, 1, 'the site has more than one SMS checkbox, or none');
+    assert.match(smsBoxes[0], /sms-consent/, 'the SMS checkbox moved off the consent page');
+  });
+
+  test('the consent record separates the number, the agreement, and the answer', () => {
+    const src = read('src/pages/sms-consent/index.astro');
+    assert.match(src, /phone_provided:\s*'yes'/, 'a provided number is not recorded as its own fact');
+    assert.match(src, /terms_accepted:\s*'yes'/, 'Terms acceptance is not recorded as its own fact');
+    assert.match(src, /sms_opt_in:\s*smsOptIn \? 'yes' : 'no'/, 'the SMS answer is not recorded as yes or no');
+    // The three must never be written from one value.
+    assert.equal(
+      /terms_accepted:\s*smsOptIn|phone_provided:\s*smsOptIn|sms_opt_in:\s*termsAccepted/.test(src),
+      false,
+      'two of the three facts are being written from one variable',
+    );
+  });
+});
+
 describe('30896: other phone fields do not silently imply SMS consent', () => {
   test('the contact form says a phone number is not an opt-in, and links the real one', () => {
     const html = page('/contact/');
@@ -399,6 +506,9 @@ describe('The consent record is evidence, and never reaches analytics', () => {
     for (const field of [
       'sms_opt_in', 'sms_program', 'sms_use_case', 'brand', 'legal_entity',
       'consent_source', 'consent_source_url', 'consent_version', 'consent_recorded_at',
+      // 30923: a decline is a record too, and has to be tellable from a
+      // consent by something other than the absence of a field.
+      'terms_accepted', 'phone_provided', 'record_type',
     ]) {
       assert.ok(src.includes(field), `consent payload missing ${field}`);
     }
@@ -503,9 +613,9 @@ describe('Sprint 13 behaviour is intact', () => {
     assert.match(doc, /No screenshots have been captured/);
   });
 
-  test('the rejection matrix covers all four codes with evidence', () => {
+  test('the rejection matrix covers every code with evidence', () => {
     const doc = read('docs/twilio-a2p-resubmission.md');
-    for (const code of ['30907', '30908', '30896', '30882']) {
+    for (const code of ['30907', '30908', '30896', '30882', '30923']) {
       assert.ok(doc.includes(code), `rejection matrix missing ${code}`);
     }
     assert.match(doc, /MANUAL ACTIONS AFTER WEBSITE DEPLOYMENT/);

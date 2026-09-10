@@ -4,7 +4,7 @@ import Section from '../../components/Section.astro';
 import Container from '../../components/Container.astro';
 import { BRAND_NAME, LEGAL_ENTITY, LEGAL_RELATIONSHIP, BUSINESS_ADDRESS_LINES, SUPPORT_EMAIL, LEGAL_ROUTES } from '../../lib/businessIdentity';
 
-const lastUpdated = 'September 9, 2026';
+const lastUpdated = 'September 10, 2026';
 ---
 
 <BaseLayout
@@ -39,6 +39,7 @@ const lastUpdated = 'September 9, 2026';
         <p><strong>Program and sender:</strong> The {BRAND_NAME} customer-care SMS program is operated by {LEGAL_ENTITY}. When you expressly opt in, messages will identify or relate to {BRAND_NAME} and may be sent using telecommunications providers such as Twilio.</p>
         <p><strong>Purpose:</strong> The program is for customer-care communications connected to an inquiry or requested service. Messages may include requested follow-up, answers to service questions, appointment coordination, appointment reminders, and support communications.</p>
         <p><strong>Consent:</strong> SMS consent is optional, collected separately, and is not a condition of purchasing or receiving our services. Merely entering a phone number on a general form does not by itself enroll you in SMS messaging. If you opt in through a website checkbox, that checkbox is presented unchecked and requires an affirmative selection.</p>
+        <p><strong>Accepting these Terms is not an SMS opt-in.</strong> Nothing in these Terms asks you to agree to receive text messages, and accepting them does not enroll you in the SMS program. SMS consent is never bundled into these Terms, into a purchase, into account creation, or into any other required agreement. You may decline text messages, or opt out later, and continue to use the Site and every service we offer on the same terms. No form on this Site requires the SMS checkbox in order to submit.</p>
         <p><strong>Frequency and charges:</strong> Message frequency varies depending on your inquiry, appointments, and support needs. Message and data rates may apply according to your mobile carrier and plan.</p>
         <p><strong>Opt out:</strong> You may reply <strong>STOP</strong> at any time to stop receiving text messages. After an opt-out request, you may receive a final confirmation message and then no further messages unless you later provide new consent where permitted.</p>
         <p><strong>Help:</strong> Reply <strong>HELP</strong> for help, or contact us at <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>

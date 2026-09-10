@@ -86,6 +86,14 @@ export const SMS_PROGRAM_NAME = `${BRAND_NAME} customer-care SMS program`;
  * accepted, not a cosmetic one.
  *
  * Format: sms_<use case>_v<n>_<yyyy>_<mm>
+ *
+ * NOT bumped for the 30923 fix (2026-09-10). That change made declining
+ * a valid outcome of the form and split the required Terms agreement
+ * out into its own control — but SMS_CONSENT_DISCLOSURE_LEAD below, the
+ * text a consenting person actually agreed to, is byte-identical. A
+ * bump would assert that existing opt-ins agreed to different wording
+ * than they did, which is the precise thing this field exists to make
+ * verifiable. Mechanics changing is not the disclosure changing.
  */
 export const SMS_CONSENT_VERSION = 'sms_customer_care_v1_2026_09';
 

@@ -135,7 +135,7 @@ Lines 8 and 9 overlap by design — clicking the primary CTA on a `/go/` page fi
 1. **Never report a `booking_click_*` count as bookings.** 95 clicks, 0 bookings.
 2. **Never report the GA4 Key Event total as sales.** It is whatever someone ticked a box for.
 3. **Never report `cold_lp_view` as people.** It is browsers that ran JavaScript.
-4. **Never report `sms_consent_submit` as a lead.** It is a consent record.
+4. **Never report `sms_consent_submit` as a lead.** It is a consent record — and since the form began accepting declines, only the half of it carrying `sms_opt_in = yes` is even that. Always split the event by `sms_opt_in` before quoting it.
 5. **State zero when it is zero.** Zero honest bookings is better information than 114 fictional conversions.
 6. **Say which layer a number came from** — GA4, Smartlead, Cal.com, or the CRM. They disagree, and knowing which one you quoted is half the value.
 

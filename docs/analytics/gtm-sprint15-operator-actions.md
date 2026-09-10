@@ -46,6 +46,7 @@ Create any that are missing. Each is `Variable Type: Data Layer Variable`, Versi
 | `DLV - lead_id` | `lead_id` | lead events |
 | `DLV - score_band` | `score_band` | ai_assessment_lead_submit |
 | `DLV - consent_version` | `consent_version` | sms_consent_submit |
+| `DLV - sms_opt_in` | `sms_opt_in` | sms_consent_submit |
 | `DLV - source_page` | `source_page` | sms_consent_submit |
 | `DLV - traffic_type` | `traffic_type` | **GA4 config tag** — see §5 |
 | `DLV - utm_id` | `utm_id` | all campaign-enriched events |
@@ -168,10 +169,14 @@ Parameters:  link_url, rep_code, six utm_*
 ```
 Trigger:  CE - sms_consent_submit
 Tag:      GA4 - SMS Consent Submit
-Parameters:  consent_version, source_page
+Parameters:  consent_version, source_page, sms_opt_in
 ```
 
-Only those two. The event carries nothing else, deliberately — the phone number and name go to the lead destination, never to analytics. **Never a Key Event.**
+Only those three. The event carries nothing else, deliberately — the phone number and name go to the lead destination, never to analytics. **Never a Key Event.**
+
+`sms_opt_in` is `yes` or `no`, and is new. Twilio rejected the campaign for forced consent (error 30923) because `/sms-consent/` refused to submit unless the box was ticked; the form now accepts a decline, so the same event name covers two different outcomes. Without this parameter they would be one number, and that number would be read as consents. **If you only add one thing from this section, add this parameter** — a tag that forwards the event without it is worse than no tag, because it reports declines as opt-ins.
+
+If the tag already exists from an earlier workspace, edit it rather than creating a second one.
 
 ### 4.3 Add UTM parameters to the existing booking-click tags
 
