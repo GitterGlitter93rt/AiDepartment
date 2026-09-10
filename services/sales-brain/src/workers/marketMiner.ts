@@ -483,6 +483,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   let costKnown = false;
   /** Searches already paid for whose results this run went back for. */
   let collectedPaid = 0;
+  /** Submissions the daily ceiling refused, counted where the refusal happens. */
+  let budgetRefusals = 0;
   const statuses: DiscoveryStatus[] = [];
   const pendingTaskIds: string[] = [];
   const discoveryNotes: string[] = [];
@@ -494,11 +496,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     providerTaskId: string | null; created: number; matchedExisting: number;
   }[] = [];
 
-  // Before any provider is asked: does another run fit under today's ceiling?
-  // Refused before the money is spent, never after.
+  // The ceiling is consulted per submission, inside the loop below, because a run
+  // buys N searches and "does another run fit" is a question about one call. What is
+  // read here is only the opening position, for the report at the end.
   const { spendPosition, budgetRefusalReason } = await import('../miner/spend.js');
-  const spend = await spendPosition();
-  const budgetExhausted = adapters.length > 0 && spend.wouldExceed;
+  const openingSpend = await spendPosition();
 
   if (adapters.length === 0) {
     discoveryNotes.push(
@@ -601,8 +603,24 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       // submission may happen and a plan of N searches asks it N times. Read fresh
       // each time: a market switched off between the first search and the third has
       // to stop the third.
-      const buy = (!outstanding && !budgetExhausted)
-        ? await mayBuyNewSearch(job) : null;
+      const buy = !outstanding ? await mayBuyNewSearch(job) : null;
+
+      // The ceiling, re-read the same way and for the same reason.
+      //
+      // `spendPosition()` was called once at the top of the handler and its verdict
+      // applied to every search in the plan. Its own arithmetic is about one call --
+      // "would this run fit" uses the assumed cost of a single run -- so a plan of N
+      // searches asked a one-call question once and then made N chargeable calls.
+      // Measured on a $0.10 daily budget: one run submitted eight searches and spent
+      // $0.40, four times the ceiling, and the refusal never fired because at the
+      // moment it was evaluated nothing had been spent yet.
+      //
+      // Re-read here, after each submission has been recorded in provider_usage, the
+      // ceiling holds: the worst case for the *next* call has to fit before that call
+      // is made. That is what the module already says it does -- "the check is a
+      // precondition of the call" -- applied per call rather than per run.
+      const affordable = (!outstanding && (!buy || buy.allowed))
+        ? await spendPosition() : null;
 
       if (outstanding && adapter.collect) {
         const attempts = await recordCollectionAttempt(outstanding.provider_task_id);
@@ -641,10 +659,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         result = refusedDiscovery('PENDING',
           `${adapter.name} accepted this search earlier and cannot be asked for it again, `
           + 'so no second search was submitted.');
-      } else if (budgetExhausted) {
+      } else if (affordable && affordable.wouldExceed) {
         // Nothing outstanding to collect and no room to buy: this is the one place
         // the ceiling refuses work, and it refuses it before the money is spent.
-        result = refusedDiscovery('BUDGET_EXHAUSTED', budgetRefusalReason(spend));
+        budgetRefusals += 1;
+        result = refusedDiscovery('BUDGET_EXHAUSTED', budgetRefusalReason(affordable));
       } else if (buy && !buy.allowed) {
         // A market switched off after this run was queued. Nothing new is bought;
         // anything already paid for was collected by the branch above.
@@ -724,6 +743,10 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    }
   }
 
+  // Read after the run rather than before it, so what the page shows is what was
+  // spent rather than what had been spent by the time the first decision was taken.
+  const closingSpend = await spendPosition();
+
   const answered = statuses.filter(providerAnswered).length;
   /**
    * Searches we chose not to buy because the market was switched off.
@@ -759,7 +782,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     // but only when it actually stopped one. A run that collected a task bought
     // earlier under the ceiling did search this market, and reporting it as blocked
     // would hide businesses that are now in inventory.
-    : budgetExhausted && answered === 0 ? 'DISCOVERY_BLOCKED'
+    // The refusals this run actually made, not a verdict formed before it started.
+    : budgetRefusals > 0 && answered === 0 ? 'DISCOVERY_BLOCKED'
     // A task the provider still owes us outranks our own refusal to buy more. The
     // task row is untouched and still PENDING -- switching a market off does not
     // cancel a search already paid for -- and the market has to keep saying so, or
@@ -796,8 +820,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         + 'already paid for were still collected, and nothing new was bought.'
       : ' This market is switched off for new refreshes, so nothing new was bought.';
   const outcomeReason =
-    outcome === 'DISCOVERY_BLOCKED' && budgetExhausted
-      ? budgetRefusalReason(spend)
+    outcome === 'DISCOVERY_BLOCKED' && budgetRefusals > 0
+      ? budgetRefusalReason(closingSpend)
     : outcome === 'DISCOVERY_BLOCKED'
       ? 'No search provider is configured, so no new business could be found. '
         + `${plan.queued} existing account(s) were queued for refresh.`
@@ -872,9 +896,14 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     searchTermsAvailable: searchPlan.available,
     perSearch,
     costUsd: costKnown ? Number(costUsd.toFixed(4)) : null,
-    spentTodayUsd: spend.spentTodayUsd,
-    dailyBudgetUsd: spend.budgetUsd || null,
-    budgetExhausted,
+    spentTodayUsd: closingSpend.spentTodayUsd,
+    spentTodayUsdBeforeRun: openingSpend.spentTodayUsd,
+    dailyBudgetUsd: closingSpend.budgetUsd || null,
+    // "The ceiling refused at least one submission in this run", which is the thing
+    // an operator is asking. It used to be a verdict formed before the run started,
+    // and so could be false on a run that went on to cross the ceiling.
+    budgetExhausted: budgetRefusals > 0,
+    budgetRefusals,
     notes: discoveryNotes,
   };
 });

@@ -18,12 +18,6 @@ import { numeric } from '../config.js';
  * A value that is not a number is neither: it throws. `$20` read through Number() is
  * NaN, `!(NaN > 0)` is true, and the ceiling would report itself as unset while an
  * operator believed they had capped the day.
- * A value that is not a number is neither: it throws. `$20` read through Number() is
- * NaN, `!(NaN > 0)` is true, and the ceiling would report itself as unset while an
- * operator believed they had capped the day.
- * A value that is not a number is neither: it throws. `$20` read through Number() is
- * NaN, `!(NaN > 0)` is true, and the ceiling would report itself as unset while an
- * operator believed they had capped the day.
  *
  * Read at call time rather than captured at import. A ceiling frozen at module load
  * is a ceiling that ignores anything set after the process started -- and the same
