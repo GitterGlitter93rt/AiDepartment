@@ -162,10 +162,20 @@ export function normalizeGeography(
     };
   }
 
+  // Names what was actually rejected, and which of the two things went wrong.
+  //
+  // This interpolated the *type*, so a caller that omitted the type entirely
+  // produced `"that" is not a geography this system searches` -- a sentence that
+  // mentions neither the type that was missing nor the location that was perfectly
+  // valid. The live canary hit exactly that with a good ZIP, and the message sent
+  // everybody looking at the ZIP.
   return {
     ok: false,
-    message: `"${type ?? 'that'}" is not a geography this system searches. Use a ZIP code, `
-      + 'a city and state, or a state.',
+    message: type
+      ? `"${type}" is not a geography type this system searches, so "${input}" was not `
+        + 'read. Use zip_zcta, city or state.'
+      : `"${input}" arrived with no geography type, so nothing knew whether to read it `
+        + 'as a ZIP code, a city and state, or a state. The caller has to say which.',
   };
 }
 

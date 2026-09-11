@@ -186,6 +186,26 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
   }
 }
 
+/**
+ * Ending the pool, once, however many times it is asked.
+ *
+ * `pg` throws "Called end on pool more than once" on a second call, and the worker
+ * has two shutdown paths that both legitimately want to close: the SIGTERM handler's
+ * two-second deadline, and the normal return from `runWorker()`. Whichever finished
+ * first, the other threw -- from inside an async timer callback with nothing to catch
+ * it, so a deliberate restart exited non-zero with a stack trace instead of the clean
+ * `process.exit(0)` it was trying to reach. Six of those are in the worker's error log.
+ *
+ * Memoised rather than flagged, so concurrent callers await the same shutdown instead
+ * of racing past a boolean that is not yet true. A genuine failure to close still
+ * propagates -- this makes a second close a no-op, not a swallowed error.
+ *
+ * Fixed here rather than in the worker because thirty-five call sites reach it and
+ * "close the pool" should mean the same thing at all of them.
+ */
+let closing: Promise<void> | null = null;
+
 export async function closePool(): Promise<void> {
-  await pool.end();
+  if (!closing) closing = pool.end();
+  return closing;
 }

@@ -85,9 +85,36 @@ if (!requestedBy) {
   process.exit(2);
 }
 
+// The plan already read the location, and the queued job has to be the plan.
+//
+// This passed `geographyType: null` while the plan above printed "32095 ->
+// zip_zcta", so the live path threw away the classification it had just shown an
+// operator and asked for. `normalizeGeography` is told the type rather than
+// guessing it, so a null type matches none of its three branches, the job was
+// queued with `geography_type: null`, and the worker could plan no searches at all
+// -- reported as PROVIDER_UNAVAILABLE, about a provider it never asked. A canary
+// that describes one search and queues a different one is worse than no canary.
+//
+// The operator's original text is passed rather than `plan.geography.value`,
+// because the value is normalised for storage and is not always re-readable on its
+// own: a city normalises to "Jacksonville" without its state, and
+// `normalizeGeography('city', 'Jacksonville')` correctly refuses that as
+// ambiguous. Type plus original text is exactly what `classifyGeography` feeds
+// `normalizeGeography` internally, so this reproduces the plan's own reading
+// instead of adding a second implementation of it.
+if (!plan.geography) {
+  // Unreachable: a plan with no geography carries a NO_LOCATION refusal and
+  // `wouldRun` is false above. Asserted rather than assumed, because the failure it
+  // would cause is the one this comment exists about.
+  process.stderr.write('\nThe plan would run but classified no geography. Refusing to '
+    + 'queue a search whose location nothing agrees on.\n\n');
+  await closePool();
+  process.exit(2);
+}
+
 const job = await enqueueMarketResearch({
   verticalProfileId: options.vertical,
-  geographyType: null,
+  geographyType: plan.geography.type,
   geographyValue: options.location,
   marketId: null,
   requestedBy,

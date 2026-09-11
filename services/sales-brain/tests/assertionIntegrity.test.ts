@@ -125,6 +125,11 @@ test('every file that touches the database resets it, or says why not', () => {
     // Reads source files and the adapter registry. Its one database call is the
     // pool being closed.
     'registrationParity.test.ts',
+    // Ending the pool is the subject, so it must be the last thing this file's
+    // process does and there is nothing after it to reset for. Its only query is
+    // `select 1`, proving the pool was live before it was closed; it reads no
+    // product data and leaves none.
+    'poolShutdown.test.ts',
   ]);
 
   const unreset: string[] = [];
@@ -148,7 +153,11 @@ test('every file that opens the pool closes it', () => {
   for (const file of TEST_FILES) {
     const text = readFileSync(join(TESTS_DIR, file), 'utf8');
     if (!text.includes('db/pool.js')) continue;
-    if (!text.includes('pool.end()')) leaked.push(file);
+    // Either way of closing counts. `closePool()` is the exported way to end the
+    // pool and is what thirty-five call sites in the product use; a file that closes
+    // through it has not leaked anything, and requiring the raw `pool.end()` would
+    // push a test towards reaching past the function that exists for this.
+    if (!text.includes('pool.end()') && !text.includes('closePool()')) leaked.push(file);
   }
   assert.deepEqual(leaked, [], `these files never close the pool:\n${leaked.join('\n')}`);
 });

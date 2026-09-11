@@ -74,6 +74,14 @@ export interface Diagnosis {
   action: string;
 }
 
+/**
+ * How recently a worker must have checked in to count as online.
+ *
+ * Three missed heartbeats at the runner's fifteen-second interval. Named here so the
+ * count and the build list are the same question asked once.
+ */
+const WORKER_ONLINE_WINDOW_SECONDS = 45;
+
 export async function captureDiagnostics(): Promise<Diagnostics> {
   const identity = buildIdentity();
   const schema = await schemaState();
@@ -82,14 +90,29 @@ export async function captureDiagnostics(): Promise<Diagnostics> {
     online: number; known: number; draining: number; last_seconds: number | null;
     builds: string | null;
   }>(
-    `select count(*) filter (where stopped_at is null
-              and last_heartbeat_at > now() - interval '45 seconds')::int as online,
+    // One definition of "online", used by the count and by the build aggregation.
+    //
+    // Every other column here filtered; `builds` did not, so it aggregated build_sha
+    // across every worker this database has ever seen. A box that had been restarted
+    // three times reported three builds, the skew check compared them against the
+    // API's one, and BUILD_SKEW fired permanently -- naming workers that had been
+    // stopped for days. The one condition is written once here and reused, so the
+    // count and the list cannot drift apart again.
+    `with online as (
+       select *,
+              (stopped_at is null
+               and last_heartbeat_at > now() - ($1 || ' seconds')::interval) as is_online
+         from worker_instances
+     )
+     select count(*) filter (where is_online)::int as online,
             count(*)::int as known,
             count(*) filter (where draining_since is not null and stopped_at is null)::int
               as draining,
             extract(epoch from (now() - max(last_heartbeat_at)))::int as last_seconds,
-            string_agg(distinct coalesce(build_sha, 'unknown'), ',') as builds
-       from worker_instances`);
+            string_agg(distinct coalesce(build_sha, 'unknown'), ',')
+              filter (where is_online) as builds
+       from online`,
+    [String(WORKER_ONLINE_WINDOW_SECONDS)]);
   const worker = workerRows[0]!;
 
   const { rows: queueRows } = await query<{

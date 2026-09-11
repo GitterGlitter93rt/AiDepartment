@@ -106,9 +106,25 @@ test('an empty or unsupported geography is refused in words an operator can act 
   assert.equal(empty.ok, false);
   assert.match((empty as { message: string }).message, /Enter a ZIP code/);
 
+  // Names the type it rejected *and* the input it therefore did not read. The
+  // message used to interpolate only the type, so a caller that omitted the type
+  // produced `"that" is not a geography this system searches` -- naming neither the
+  // missing type nor the perfectly good location, which is how a live canary with a
+  // valid ZIP sent everybody to look at the ZIP.
   const unsupported = normalizeGeography('country', 'United States');
   assert.equal(unsupported.ok, false);
-  assert.match((unsupported as { message: string }).message, /not a geography this system searches/);
+  const message = (unsupported as { message: string }).message;
+  assert.match(message, /not a geography type this system searches/);
+  assert.match(message, /country/, 'the rejected type is not named');
+  assert.match(message, /United States/, 'the input that was not read is not named');
+
+  // And a missing type says that, rather than quoting a placeholder.
+  const noType = normalizeGeography(null, '32095');
+  assert.equal(noType.ok, false);
+  const missing = (noType as { message: string }).message;
+  assert.match(missing, /no geography type/);
+  assert.match(missing, /32095/);
+  assert.doesNotMatch(missing, /"that"/);
 });
 
 // ----------------------------------------------------------- what we search for --

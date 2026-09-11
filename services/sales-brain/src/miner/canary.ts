@@ -116,11 +116,24 @@ export async function planCanary(options: CanaryOptions): Promise<CanaryPlan> {
     refusals.push({ code: 'BAD_GEOGRAPHY', message: classified.message });
   }
 
+  // The type from the reading, the text the operator typed.
+  //
+  // This passed `classified.value`, which is normalised for storage: a city
+  // normalises to "Jacksonville" without its state, `planDiscoverySearches`
+  // re-normalises what it is given, and `normalizeGeography('city', 'Jacksonville')`
+  // correctly refuses a city with no state as ambiguous. So the search plan came back
+  // with no geography and no terms, and the canary silently planned nothing for every
+  // city and every state -- it only ever worked for ZIPs, which survive the round
+  // trip unchanged.
+  //
+  // Type plus original text is what `classifyGeography` feeds `normalizeGeography`
+  // itself, so re-reading it here reproduces the same answer rather than a degraded
+  // one.
   const plan = options.vertical && classified?.ok
     ? await planDiscoverySearches({
       verticalProfileId: options.vertical,
       geographyType: classified.type,
-      geographyValue: classified.value,
+      geographyValue: options.location,
       miningMode,
       count: Math.min(count, MAX_CANARY_SEARCHES),
       ...(options.causes ? { causes: options.causes } : {}),
@@ -196,9 +209,12 @@ export async function planCanary(options: CanaryOptions): Promise<CanaryPlan> {
   return {
     vertical: options.vertical,
     locationInput: options.location,
-    geography: plan?.geography
-      ? { type: plan.geography.type, value: plan.geography.value,
-        display: plan.geography.display }
+    // Read from the classification rather than from the search plan's echo of it.
+    // The two are the same answer when a vertical has terms, and when it has none
+    // the search plan is null -- which used to make the plan claim it had not
+    // understood a location it had understood perfectly well.
+    geography: classified?.ok
+      ? { type: classified.type, value: classified.value, display: classified.display }
       : null,
     strategy: miningMode,
     causesRequested: plan?.causesRequested ?? [],
