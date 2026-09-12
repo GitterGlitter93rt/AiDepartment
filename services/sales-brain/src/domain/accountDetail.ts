@@ -3,6 +3,8 @@ import { readinessFor, type Readiness } from './repReady.js';
 import { query } from '../db/pool.js';
 import type { Role } from './auth.js';
 import { prohibitionSentence } from '../callbrain/callPack.js';
+import { entityGate } from './entityStatus.js';
+import { automatedDiscoveryPredicate } from './discoverySources.js';
 
 /**
  * Account detail read model.
@@ -92,6 +94,32 @@ export interface DetailDiscovery {
   observed_at: Date;
 }
 
+/**
+ * How this record came to be believed to be a company, or why it is not.
+ *
+ * The account page could describe everything about a prospect except the one thing
+ * that turned out to matter: whether it is a prospect. A rep opening a News4Jax
+ * article saw a company page with a name, a phone number and a research picture.
+ */
+export interface EntityPicture {
+  status: string;
+  basis: string | null;
+  decidedAt: Date | null;
+  /** True when a person may claim, call or pilot this record. */
+  workable: boolean;
+  /** Why not, in words, when it is not workable. */
+  reason: string;
+  /** True when a discovery run created this, rather than an import or a person. */
+  foundByMachine: boolean;
+  /** The resolver's own sentences, most recent run first. */
+  resolverReasons: string[];
+  /** The class the resolver put the source in, when a run recorded one. */
+  sourceClass: string | null;
+  /** "Found while searching 32095", which is not where the company is. */
+  discoveredForGeography: string | null;
+  discoveredForGeographyType: string | null;
+}
+
 export interface TimelineEvent {
   activity_id: number;
   activity_type: string;
@@ -117,6 +145,12 @@ export interface AccountDetail {
    * moves, and one of them is not skipping the company.
    */
   research: ResearchPicture;
+  /**
+   * Whether this is a company at all, kept apart from whether it is researched.
+   *
+   * These were one idea, and a freshly researched directory satisfied it.
+   */
+  entity: EntityPicture;
   /**
    * Whether a rep can actually work this, and what is left if not.
    *
@@ -308,6 +342,8 @@ export async function getAccountDetail(
     account.current_owner_user_id === viewer.userId ||
     viewer.role === 'SALES_MANAGER' || viewer.role === 'ADMIN';
 
+  const entity = await entityPictureFor(accountId);
+
   return {
     account,
     locations: locations.rows,
@@ -321,6 +357,7 @@ export async function getAccountDetail(
     suppressions: suppressions.rows,
     ownershipEvents: ownershipEvents.rows,
     research: research,
+    entity,
     readiness: (await readinessFor(accountId, research))!,
     prohibitedClaims: await prohibitedClaimsFor(accountId, account.primary_vertical_profile_id),
     suggestedFirstQuestion: firstQuestion,
@@ -370,4 +407,57 @@ export function endpointRoleLabel(role: string): string {
     LOCATION_EMAIL: 'Location mailbox',
   };
   return labels[role] ?? 'Unknown';
+}
+
+/**
+ * The entity picture, assembled from the three places that hold a piece of it.
+ *
+ * The status is on the Account, the resolver's sentences are on the candidate row
+ * from the run that found it, and whether a machine found it at all is in the
+ * activity ledger. None of the three is sufficient alone: an unverified record that
+ * a person typed in is ordinary, and an unverified record a SERP produced is the
+ * thing that put 65 webpages in a rep's list.
+ */
+async function entityPictureFor(accountId: string): Promise<EntityPicture> {
+  // Read from `accounts` rather than from the row the page already has. That row
+  // comes from `prospect_inventory`, and a view's column list is fixed when it is
+  // created -- migration 051's columns are simply not on it, so every field here
+  // would have been undefined and the page would have reported every company as
+  // unverified.
+  const { rows: accountRows } = await query<{
+    entity_status: string | null; entity_status_basis: string | null;
+    entity_status_at: Date | null; discovered_for_geography: string | null;
+    discovered_for_geography_type: string | null; found_by_machine: boolean;
+  }>(
+    `select entity_status, entity_status_basis, entity_status_at,
+            discovered_for_geography, discovered_for_geography_type,
+            exists (select 1 from activities act
+                     where act.account_id = accounts.account_id
+                       and act.activity_type = 'DISCOVERED'
+                       and ${automatedDiscoveryPredicate('act.source_system')}) as found_by_machine
+       from accounts where account_id = $1`, [accountId]);
+  const account = accountRows[0];
+  const foundByMachine = account?.found_by_machine ?? false;
+
+  const { rows: candidateRows } = await query<{
+    source_class: string; reasons: string[] | null;
+  }>(
+    `select source_class, reasons from discovery_candidates
+      where account_id = $1 order by created_at desc limit 1`, [accountId]);
+
+  const gate = entityGate({
+    entityStatus: account?.entity_status ?? null, foundByMachine });
+
+  return {
+    status: account?.entity_status ?? 'legacy_unverified',
+    basis: account?.entity_status_basis ?? null,
+    decidedAt: account?.entity_status_at ?? null,
+    workable: gate.workable,
+    reason: gate.reason,
+    foundByMachine,
+    resolverReasons: candidateRows[0]?.reasons ?? [],
+    sourceClass: candidateRows[0]?.source_class ?? null,
+    discoveredForGeography: account?.discovered_for_geography ?? null,
+    discoveredForGeographyType: account?.discovered_for_geography_type ?? null,
+  };
 }

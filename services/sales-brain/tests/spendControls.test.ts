@@ -13,6 +13,7 @@ import { scheduleDueMarkets } from '../src/workers/marketScheduler.js';
 import { spendPosition, budgetRefusalReason } from '../src/miner/spend.js';
 import { operationalSnapshot } from '../src/api/operations.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * What could accidentally cost Michael money.
@@ -47,8 +48,7 @@ function countingAdapter(): void {
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       calls += 1;
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0, costUsd: 0.01 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), costUsd: 0.01 };
     },
   });
 }
@@ -276,9 +276,8 @@ test('a market we already paid for is still collected when the budget is gone', 
       collections += 1;
       return {
         status: 'OK' as const,
-        businesses: [{ name: 'Collected Air', website: 'https://collectedair.invalid',
-          phone: '904-555-0311', city: 'St. Augustine', state: 'FL', postalCode: '32095' }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
+        observations: observationsFor([{ name: 'Collected Air', website: 'https://collectedair.invalid',
+          phone: '904-555-0311', city: 'St. Augustine', state: 'FL', postalCode: '32095' }]),
         reason: 'collected', providerTaskId: 'paid-task-1',
       };
     },
@@ -331,8 +330,7 @@ test('with nothing outstanding, the ceiling still refuses to buy', async () => {
     isConfigured: () => true,
     async discover() {
       submitted += 1;
-      return { status: 'OK' as const, businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0 };
+      return { status: 'OK' as const, observations: observationsFor([]), };
     },
   });
 

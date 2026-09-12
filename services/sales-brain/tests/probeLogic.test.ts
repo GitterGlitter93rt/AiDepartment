@@ -72,9 +72,9 @@ const poolNumber = (
 
 test('two locations of one franchise share a collision key', () => {
   const a = collisionKeys({ phones: ['+19045550101'], alternatePhones: ['+18005551000'],
-    domain: 'jax.example.com' });
+    domain: 'jax.example' });
   const b = collisionKeys({ phones: ['+19045550202'], alternatePhones: ['+18005551000'],
-    domain: 'staug.example.com' });
+    domain: 'staug.example' });
   assert.ok(collides(a, b), 'a shared toll-free line is one phone system to a caller');
 
   const unrelated = collisionKeys({ phones: ['+19045559999'], domain: 'other.example' });

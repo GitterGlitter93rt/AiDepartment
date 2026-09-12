@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
-import type { DiscoveryAdapter, DiscoveryQuery, DiscoveredBusiness } from '../workers/marketMiner.js';
+import type { DiscoveryAdapter, DiscoveryQuery } from '../workers/marketMiner.js';
+import { resolveObservations, type DiscoveredBusiness } from '../discovery/observation.js';
 
 /**
  * First-benchmark harness for a discovery provider.
@@ -137,7 +138,12 @@ export async function runBenchmark(options: BenchmarkOptions): Promise<Benchmark
     try {
       // The adapter reports why it came back with what it did; the benchmark cares
       // only about yield, so a status other than OK simply contributes no rows.
-      found = (await options.adapter.discover(cell.query)).businesses;
+      // The benchmark resolves the same way the miner does. It used to read a
+      // `businesses` field off the adapter, which measured yield before any promotion
+      // rule ran -- so a provider that returned a page of directories benchmarked as
+      // the most productive one.
+      found = resolveObservations((await options.adapter.discover(cell.query)).observations)
+        .businesses;
     } catch {
       // A failed task still costs, and still counts against both ceilings.
       found = [];

@@ -87,6 +87,21 @@ export async function ingestListings(input: {
       if (result.created) { counts.created += 1; createdAccountIds.push(result.accountId); }
       else counts.matchedExisting += 1;
 
+      // A listings provider resolved the entity itself: the row is a business record
+      // with a provider listing id, a name, a category and usually an address, not a
+      // page that mentions a company. That is the strongest identity this product
+      // gets, and it is the same basis `BUSINESS_LISTING` promotes on in the SERP
+      // resolver -- so a listing that did not say so would leave real companies
+      // unverified and unclaimable, which is the failure the entity gate would cause
+      // rather than prevent.
+      if (result.created) {
+        await client.query(
+          `update accounts set entity_status = 'verified',
+                  entity_status_basis = $2, entity_status_at = now()
+            where account_id = $1 and entity_status = 'legacy_unverified'`,
+          [result.accountId, `a ${input.provider} business listing`]);
+      }
+
       await client.query(
         `insert into search_observations (mining_job_id, provider, source_type, observed_name,
                                           observed_domain, observed_phone, observed_location,

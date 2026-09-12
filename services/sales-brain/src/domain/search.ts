@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import { SCORE_VERSION } from '../scoring/model.js';
 import type { Role } from './auth.js';
 import { isUuid } from './ids.js';
+import { workableEntitySql } from './entityStatus.js';
 
 /**
  * Inventory search over the canonical durable inventory.
@@ -247,6 +248,15 @@ export interface DiscoveryCoverage {
   providerRows: number;
   matchedExisting: number;
   discoveredNew: number;
+  /**
+   * Identities the last run resolved and refused, and ones it could not name.
+   *
+   * The rows are not the point; these are. A market that answers "113 rows, 0 new
+   * companies" reads as a thin market, and the same run reported as "113 rows, 47
+   * identities, 11 directories and 34 pages about companies" reads as what it is.
+   */
+  entitiesRejected: number;
+  entitiesNeedingReview: number;
 }
 
 /** How old a successful discovery run may be before the market is called stale. */
@@ -282,6 +292,15 @@ export interface CoverageSummary {
    * advertising filter was asked for.
    */
   unknownAdvertiserExcluded?: number;
+  /**
+   * Records in this market that nobody may work because nothing has established they
+   * are companies.
+   *
+   * Reported rather than quietly dropped. A market whose inventory falls from 65 to 3
+   * has to say where the other 62 went, or the honest fix looks like data loss -- and
+   * the number is also the measure of how much of a market's inventory was junk.
+   */
+  unverifiedExcluded?: number;
   state:
     | 'FRESH' | 'PARTIAL' | 'STALE' | 'NOT_YET_MINED' | 'NOT_YET_RESEARCHED' | 'REFRESHING'
     /**
@@ -373,6 +392,25 @@ function buildWhere(
     // A client or an active opportunity is not generic cold inventory even if
     // ownership somehow reads UNCLAIMED.
     clauses.push(`relationship_state not in ('CLIENT','PROPOSAL','ACTIVE_OPPORTUNITY')`);
+    // Nor is something nobody has established to be a company.
+    //
+    // Cold inventory is the one list the product hands a rep and says "these are
+    // businesses you can call". Nineteen of the canary's sixty-five were a news
+    // article, a Reddit thread, an HTTP 500 page and a dealer locator, and they sat
+    // in exactly this list. The same rule that refuses the claim decides the list, so
+    // a rep is never shown a row that will be refused when they click it.
+    //
+    // Only the cold list. A record somebody already holds stays visible to them
+    // whatever its status: you cannot hide from a rep what is already in their hands,
+    // and the account page is where they are told what is wrong with it.
+    if (target === 'accounts') {
+      clauses.push(workableEntitySql('a'));
+    } else {
+      needsView();
+      clauses.push(`exists (select 1 from accounts ea
+                             where ea.account_id = prospect_inventory.account_id
+                               and ${workableEntitySql('ea')})`);
+    }
   } else if (ownership === 'MINE') {
     clauses.push(`current_owner_user_id = ${push(viewer.userId)}`);
   } else if (ownership === 'CLAIMED_BY_OTHER') {
@@ -696,12 +734,18 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   // and every poll of the coverage endpoint. Geography is an `exists` rather than a
   // join so an Account with two locations in one ZIP is still one Account.
   const { rows } = await query<{
-    in_scope: number; researched: number; unclaimed: number; fresh: number;
-    last_researched: Date | null;
+    in_scope: number; researched: number; unclaimed: number; unverified: number;
+    fresh: number; last_researched: Date | null;
   }>(
     `select count(*)::bigint as in_scope,
             count(*) filter (where a.last_researched_at is not null)::bigint as researched,
-            count(*) filter (where a.ownership_state = 'UNCLAIMED')::bigint as unclaimed,
+            -- Claimable, which is what the number is read as. It used to count every
+            -- unowned row in the market, including the ones the list will not show
+            -- and the claim will refuse.
+            count(*) filter (where a.ownership_state = 'UNCLAIMED'
+                               and ${workableEntitySql('a')})::bigint as unclaimed,
+            count(*) filter (where a.ownership_state = 'UNCLAIMED'
+                               and not ${workableEntitySql('a')})::bigint as unverified,
             count(*) filter (where a.research_fresh_until > now())::bigint as fresh,
             max(a.last_researched_at) as last_researched
        from accounts a where ${conditions.join(' and ')}`,
@@ -750,6 +794,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
     unscoredExcluded,
     staleScoreExcluded,
     unknownAdvertiserExcluded,
+    unverifiedExcluded: summary.unverified,
     discovery,
   };
 }
@@ -767,7 +812,8 @@ export async function discoveryCoverageFor(input: {
   activeJobId: string | null;
   activeJobScope: 'DISCOVER_NEW' | 'REFRESH_EXISTING' | null;
 }): Promise<DiscoveryCoverage> {
-  const empty = { providerRows: 0, matchedExisting: 0, discoveredNew: 0, reason: null,
+  const empty = { providerRows: 0, matchedExisting: 0, discoveredNew: 0,
+    entitiesRejected: 0, entitiesNeedingReview: 0, reason: null,
     lastRunAt: null } as const;
 
   // A search in flight outranks whatever the last one concluded: the answer is
@@ -779,11 +825,14 @@ export async function discoveryCoverageFor(input: {
   const { rows } = await query<{
     outcome: string | null; outcome_reason: string | null; completed_at: Date | null;
     provider_rows: number; matched_existing: number; discovered_new: number;
+    entities_rejected: number; entities_needing_review: number;
   }>(
     `select outcome, outcome_reason, completed_at,
             coalesce((progress->>'providerRows')::int, 0) as provider_rows,
             coalesce((progress->>'matchedExisting')::int, 0) as matched_existing,
-            coalesce((progress->>'discoveredNew')::int, 0) as discovered_new
+            coalesce((progress->>'discoveredNew')::int, 0) as discovered_new,
+            coalesce((progress->>'entitiesRejected')::int, 0) as entities_rejected,
+            coalesce((progress->>'entitiesNeedingReview')::int, 0) as entities_needing_review
        from jobs
       where job_type = 'market_mine'
         and status in ('SUCCEEDED','FAILED')
@@ -806,6 +855,8 @@ export async function discoveryCoverageFor(input: {
     providerRows: last.provider_rows,
     matchedExisting: last.matched_existing,
     discoveredNew: last.discovered_new,
+    entitiesRejected: last.entities_rejected,
+    entitiesNeedingReview: last.entities_needing_review,
   };
 
   switch (last.outcome) {

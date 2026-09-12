@@ -14,6 +14,7 @@ import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import {
   marketCoverage, renderMarketCoverage, recordSaturation,
 } from '../src/miner/coveragePlan.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * How much of a market we have, and what we have not asked.
@@ -67,13 +68,12 @@ async function mine(found: string[], count = 1): Promise<void> {
       call += 1;
       return {
         status: 'OK',
-        businesses: name
+        observations: observationsFor(name
           ? [{ name, website: `https://${name}.invalid`, phone: null,
             city: null, state: null, postalCode: null,
             resultType: 'ORGANIC', query: request.search?.term ?? null }]
-          : [],
-        providerRows: name ? 1 : 2, rejectedRows: name ? 0 : 2, duplicateRows: 0,
-      };
+          : []),
+        };
     },
   });
   const ops = await makeUser(`Coverage Ops ${Date.now()}${Math.random()}`, 'RESEARCH_OPS');

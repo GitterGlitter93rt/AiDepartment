@@ -11,6 +11,7 @@ import {
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { spendPosition, dailyBudgetUsd, assumedRunCostUsd } from '../src/miner/spend.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Block E: spend safety.
@@ -48,9 +49,9 @@ function chargingAdapter(costPerCall: number, counter: { calls: number }) {
       counter.calls += 1;
       return {
         status: 'OK',
-        businesses: [{ name: `Block E Co ${++sequence}`, website: null,
-          phone: `904-555-${String(2000 + sequence).slice(-4)}` }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: costPerCall,
+        observations: observationsFor([{ name: `Block E Co ${++sequence}`, website: null,
+          phone: `904-555-${String(2000 + sequence).slice(-4)}` }]),
+        costUsd: costPerCall,
       };
     },
   };
@@ -250,8 +251,7 @@ test('E2 a provider that forgets to record its own spending is recorded anyway',
     async discover(): Promise<DiscoveryResult> {
       counter.calls += 1;
       // No costUsd, and no provider_usage row of its own.
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
 

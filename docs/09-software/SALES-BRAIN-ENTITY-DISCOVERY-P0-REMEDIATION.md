@@ -2,14 +2,21 @@
 
 **Baseline:** `8245bd9791f957cc56ea4533177363a1f13215a5` on `feature/outbound-sales-brain`
 **Worktree:** `/home/roothecks/YAD-Sales-Brain-p0-entity-resolution`
-**Status:** design — no production change, no provider traffic
+**Branch:** `fix/sales-brain-p0-entity-resolution`
+**Status:** implemented — no production change, no provider traffic, nothing deployed
+
+This document describes what the code does. Where the first draft described an
+intention that the implementation did not meet, the review said so and the
+implementation changed; those places are marked **(review)** and say what was wrong.
+It is an architecture contract, not an aspiration: if the code and this document
+disagree, one of them is a defect.
 
 Two architecture failures, both proven against the first real production canary
 (`399fb73a-0a8e-4bac-b8a3-6c3831401f23`, Roofing / 32095, 5 paid tasks, ~$0.03).
 
 ---
 
-## 1. Current failure path — entity resolution
+## 1. Original failure path — entity resolution
 
 ```
 provider row
@@ -22,18 +29,18 @@ provider row
   └─ enqueueAccountResearch()         ← it is now researched as a prospect
 ```
 
-Every gate is a *shape* test. None asks whether the row refers to an operating
-business. A Yelp search page has a domain and a title, so it is a business. A
-News4Jax article has a domain and a title, so it is a business.
+Every gate was a *shape* test. None asked whether the row referred to an operating
+business. A Yelp search page has a domain and a title, so it was a business. A
+News4Jax article has a domain and a title, so it was a business.
 
 Measured on the canary: 65 Accounts from **one** search, of which 19 (29%) are not
 companies at all (8 with no domain, 11 third-party publishers/directories), and
-**65 of 65** are named by their SERP result title rather than a business name —
+**65 of 65** were named by their SERP result title rather than a business name —
 including `500` (an HTTP error page on `southeasternroofers.com`) and
 `An 82-year-old Vietnam veteran in St. Augustine says he's ...` (a news article).
 
-Worse, `search_observations` is written *inside* the promotion loop, after
-`upsertAccount`. A row that is rejected leaves **no provenance at all**.
+`search_observations` was written *inside* the promotion loop, after `upsertAccount`.
+A row that was rejected left **no provenance at all**.
 
 ### Cross-entity contamination
 
@@ -42,48 +49,65 @@ lead-generation directory. Research then crawled that directory as the contracto
 official site and attributed its phone number, financing copy and quote form to the
 contractor. The research pipeline worked correctly — on the wrong entity.
 
-## 2. Current failure path — query planner
+## 2. Original failure path — query planner
 
-`searchTaxonomy.ts:144`
-
-```ts
-const all = [
-  ...readGroup(definition, 'high_intent_queries'),   // listed first
-  ...readGroup(definition, 'core_queries'),
-];
-```
-
-then a single one-dimensional sort: `recommendedForPaidSerp` → `intentWeight` desc →
-`priority` asc → **alphabetical**, and `slice(0, budget)`.
-
-For Plumbing every core term is `intent_weight: 4` and every high-intent term is
-`5`, so the entire core group sorts behind the entire service group, and
-`drain cleaning` wins the intent-5 tie **alphabetically**. With `query_budget` 1 the
-market is defined by one narrow service query.
-
-The profiles already encode the distinction — `core_queries` vs
-`high_intent_queries` — and the loader discards it. Four further groups
-(`urgent_queries`, `high_ticket_queries`, `financing_queries`, `commercial_queries`)
-exist in all 13 profiles and are never read at all.
-
-**No profile needs inventing.** All 13 have usable core terms.
+`searchTaxonomy.ts` flattened `high_intent_queries` and `core_queries` into one list
+and applied a single one-dimensional sort, then `slice(0, budget)`. For Plumbing every
+core term is `intent_weight: 4` and every high-intent term is `5`, so the entire core
+group sorted behind the entire service group and `drain cleaning` won the intent-5 tie
+**alphabetically**. With `query_budget` 1 the market was defined by one narrow service
+query. Four further groups (`urgent_queries`, `high_ticket_queries`,
+`financing_queries`, `commercial_queries`) were never read at all.
 
 ---
 
-## 3. Target data flow
+## 3. Data flow as built
 
 ```
 provider row
-  → discovery observation        every row, always, account_id NULL
-  → entity candidate             one per resolved identity per run
-  → classification               source class + attribution evidence
-  → promotion decision           VERIFIED | NEEDS_REVIEW | REJECTED
-      REJECTED   → observation kept, no Account, no research
-      NEEDS_REVIEW → candidate kept, no rep-facing Account, no research
-      VERIFIED   → Account → account research → scoring → readiness
+  → ProviderObservation             normalized by the adapter; the adapter stops here
+  → resolveObservations()           the orchestrator, once, for every provider
+  → EntityCandidate                 one per resolved identity per run
+  → promotion decision              VERIFIED | NEEDS_REVIEW | REJECTED
+      REJECTED     → observation + candidate kept, no Account, no research
+      NEEDS_REVIEW → observation + candidate kept, no Account, no research
+      VERIFIED     → Account → account research → scoring → readiness
 ```
 
-An observation is discovery evidence. It is never an Account.
+Every observation and every candidate is persisted **whether or not anything is
+promoted**. An observation is discovery evidence. It is never an Account.
+
+### 3a. Resolution is not optional **(review)**
+
+The first implementation put `resolveCandidates()` inside the DataForSEO adapter and
+left `businesses` on `DiscoveryResult`. That made the promotion rules that adapter's
+private policy: any other adapter — a second provider, a fixture, the benchmark
+harness — could hand finished companies to `ingestDiscoveries` and skip every check,
+silently. A rule an implementer can decline is not a rule.
+
+`DiscoveryResult` now carries `observations` and has no field on which a finished
+company could arrive. `src/discovery/observation.ts` owns `ProviderObservation`,
+`DiscoveredBusiness` and `resolveObservations()`; `marketMiner` calls it once per
+provider answer; `benchmark.ts` calls it too, so yield is measured after promotion
+rather than before. `dedupeCandidates()`, the old unresolved path, is deleted.
+
+The row counters (`providerRows`, `rejectedRows`, `duplicateRows`) are derived by the
+orchestrator from the observations. An adapter can no longer assert a row count for
+rows nobody can see.
+
+### 3b. Nothing is dropped **(review)**
+
+Persistence used to sit inside `if (result.businesses.length > 0)`. The run that most
+needed explaining — eleven directories and no companies — recorded nothing at all.
+
+`ingestDiscoveries` now writes one `search_observations` row per provider row, with
+`account_id` null, *before* anything is promoted, and links the rows to an Account
+afterwards if one is created. A run that promotes nothing still leaves: the exact
+search recorded as executed, the rows, the candidates, and a reason for each refusal.
+
+`resolveCandidates()` has no path that returns without a candidate for an identity.
+An observation that produces no candidate is an observation an operator cannot see,
+cannot review and cannot correct — and the search was still paid for.
 
 ## 4. Source classification (deterministic, no LLM)
 
@@ -91,7 +115,7 @@ An observation is discovery evidence. It is never an Account.
 
 | Class | May create a candidate | Example signal |
 | --- | --- | --- |
-| `BUSINESS_LISTING` | yes, strong | MAPS_LOCAL / LSA carrying name + phone or address |
+| `BUSINESS_LISTING` | yes, strong | MAPS_LOCAL / LSA carrying name + phone or **observed** address |
 | `OFFICIAL_SITE` | yes, needs corroboration | organic/paid root-domain page whose identity matches |
 | `DIRECTORY` | no | `/biz/`, `/profile/`, many businesses on one domain |
 | `MARKETPLACE` | no | lead-gen quote forms, "get matched" |
@@ -104,52 +128,95 @@ An observation is discovery evidence. It is never an Account.
 **A denylist is a secondary layer, not the architecture.** The load-bearing rules are
 structural and catch a directory nobody has heard of:
 
-1. **Multiplicity** — if two or more distinct candidate identities in one result set
-   resolve to the same registrable domain, that domain is serving *other people's*
-   businesses. It is a directory by behaviour, whatever its name.
+1. **Multiplicity** — two or more distinct candidate names on one registrable domain
+   in one result set means that domain is serving *other people's* businesses. Names
+   are compared on their identifying part only (`nameCore`), paid ad copy is excluded
+   from the count, and one name that is a prefix of another is one company.
 2. **Title shape** — a company is not called "Top 10 Best Roofers in Saint Augustine,
    FL", and a question is not a company.
 3. **Path shape** — a business's own site does not describe it under `/biz/…`.
 4. **Name↔domain divergence** — a title claiming company A on domain B is a page
    *about* A, not A.
 
+### 4a. What counts as one identity
+
+`registrableDomain` is the key every one of those rules groups on, so two things it
+got wrong were worth fixing on their own:
+
+- **A URL is accepted as well as a host.** Inventory stores a website as
+  `https://acme.invalid` and the resolver stores an identity as `acme.invalid`. When
+  those were different strings, every lookup that crossed them — linking an
+  observation to the Account it became, finding the candidate a business came from —
+  matched nothing silently and left the evidence unattached.
+- **A site builder's apex names nobody.** `salazarroofing.wixsite.com` and
+  `coastalair.wixsite.com` are two companies. Collapsing both to `wixsite.com` would
+  merge them into one identity carrying two names — which the multiplicity rule then
+  reads as a directory, so two real small businesses would reject each other for
+  sharing a host. `normalize.ts` had already made this decision for account identity;
+  the resolver now makes the same one, from the same list.
+
 ## 5. Promotion policy
 
 `VERIFIED` requires one of:
 
-- a `BUSINESS_LISTING` observation carrying a business name **and** (phone or
-  address); or
-- an `OFFICIAL_SITE` observation **plus** corroboration: name↔domain consistency, or
-  two independent observations of the same identity agreeing on the name.
+- a `BUSINESS_LISTING` observation carrying a business name **and** (a phone or an
+  address the provider observed **for that business**); or
+- an `OFFICIAL_SITE` observation **plus** corroboration.
 
-`REJECTED` for any non-promotable source class. `NEEDS_REVIEW` for everything else.
+**Corroboration is enforced (review).** The first implementation promoted any
+company-shaped title on any domain, so an unknown lead-generation site presenting one
+contractor's name — one row, too few for the multiplicity rule — became that
+contractor. Three bases are accepted, in descending strength:
 
-The canonical name is **never** the raw page title unless it passes a company-name
-shape test; a listing name is preferred, then a name derived from the domain.
+1. a provider listing for the same registrable domain;
+2. the company name and the domain agree on an identifying word
+   (`brandMatchesDomain`: "Burchfield Roof Services LLC" ↔ `burchfieldroofing.com`;
+   legal suffixes and stop words identify nobody and are excluded);
+3. two independent non-paid results agreeing on the same name for that domain.
+
+With none of the three, the candidate is `NEEDS_REVIEW`: kept, not promoted, not
+researched, not rep-visible.
+
+**A paid placement is not on its own evidence of an operating business (review).**
+Somebody bought an ad; an aggregator, a lead-generation marketplace and a franchise
+portal all buy the same keywords. A paid row promotes only with a listing for the same
+domain. A phone-only identity promotes only when a **non-paid** row names it.
+
+The canonical name is **never** a paid ad's title, and never a raw page title unless
+it passes the company-name shape test. A listing name is preferred, then an own-site
+title, then the domain — and `nameBasis` records which, so no surface implies more
+than is known.
 
 ## 6. Cross-entity attribution (Invariant B)
 
-Research may read a domain only when `account_domains` records it for that account
-with `domain_role = 'primary'` and a verification basis. Facts extracted from any
-other domain are refused rather than guessed. A publisher's executive cannot become a
-contractor's decision maker because the publisher's domain is never that
-contractor's verified domain.
+Research may read a domain only when the account's own verified domain matches.
+Facts extracted from any other domain are refused rather than guessed. A directory the
+resolver has rejected is refused by name for every later account
+(`mayResearchDomainWithHistory`), so the system learns each directory once — including
+ones on no list, which is how `freeroofquote.com` is caught without naming it.
 
 ## 7. Location provenance (Invariant F)
 
-Today `marketMiner.ts:1128` writes the searched ZIP into `locations.postal_code` when
-the provider gave no address. That manufactures a physical location.
+The fallback that wrote the searched ZIP into `locations.postal_code` is deleted. A
+business with no observed address has **no location**.
 
-Three distinct facts, stored separately:
+**A search target is not an address (review).** The adapter's observation carried
+`observedLocation: result.location_name ?? item.address` — two different facts with the
+search target winning, on every row of every response, so a business's own address
+could never win the coalesce and the classifier read the geography we typed as evidence
+that the provider had identified a business. The two are now separate fields:
+`observedBusinessAddress` (from `item.address`) and `searchLocationName` (from
+`result.location_name`). Only the first is ever stored as an address or read as
+identification.
 
 | Fact | Where | Meaning |
 | --- | --- | --- |
-| Discovery context | `account_market_membership` + observation | "found while researching 32095" |
-| Verified location | `locations` | an observed address |
+| Discovery context | `accounts.discovered_for_geography`, `account_market_membership` | "found while researching 32095" |
+| Verified location | `locations` | an address the provider observed |
 | Service area | service-area rows | "serves 32095" |
 
-The fallback is removed. A business with no observed address has **no location**, and
-the read model says "discovered while researching 32095", never "Location: 32095".
+Discovery context is read by search and by coverage planning, so a company found in a
+ZIP still appears in that market without claiming to be located in it.
 
 ## 8. Query architecture (Invariant C)
 
@@ -165,66 +232,179 @@ Phase-aware selection:
 
 1. mandatory PRIMARY entity-discovery coverage
 2. remaining entity-discovery breadth
-3. only then commercial intelligence, if budget was explicitly authorised
+3. only then commercial intelligence
 4. cause/event terms only when explicitly requested
 
 Alphabetical order survives **only** as the final tie-break inside a phase. A vertical
 with no entity-discovery term **fails closed** with
 `This vertical has no configured market-discovery query.`
 
-One authorised query is always PRIMARY entity discovery, and the run is reported as
-incomplete coverage.
+**Purpose reaches the run (review).** The planner made the distinction and then threw
+it away at the adapter boundary: every search, whatever its purpose, created Accounts
+from whatever it found, so "roof financing st augustine" could define the market.
+`DiscoveryQuery.search` now carries `purpose` and `coverageRole`, and
+`ingestDiscoveries` takes the purpose:
+
+- `ENTITY_DISCOVERY` may create Accounts.
+- `COMMERCIAL_INTELLIGENCE` may **only** match companies already held. A company it
+  finds that we do not hold is counted as `notInMarket`, kept as a candidate with a
+  reason, and never promoted.
+
+`SearchPlan` reports `partialDiscoveryCoverage` when the budget did not cover the
+vertical's primary terms, and the paid preview prints it.
 
 ## 9. Paid plan, preview and execution (Invariants D, E)
 
-A canonical plan is built server-side and hashed over every material field: vertical,
-profile version, geography type/value/normalised, mode, causes, the exact ordered
-queries with purpose and channel, provider, provider mode, chargeable task count,
-per-query assumed cost ceiling. Secrets are never in the plan.
+**Implemented (review).** `POST /api/mining/jobs` used to take a vertical and a
+geography and submit chargeable provider tasks immediately.
 
-The plan is persisted with its hash and a short expiry. Confirmation sends the plan
-id and hash only — never query text. The server recomputes the authoritative plan and
-refuses when the hash differs:
+`POST /api/mining/plan` builds a plan server-side, calls no provider, and returns it
+with a `planId` and a `planHash`. The plan is persisted in `search_plan_previews` with
+a short expiry (`SEARCH_PLAN_TTL_SECONDS`, default 15 minutes).
+
+The hash covers every field that changes what is bought: vertical, geography type,
+value and normalised value, market, mining mode, causes, provider, provider mode, the
+ordered queries with their keyword, location, purpose, coverage role, fingerprint and
+whether each is chargeable, the chargeable count, the per-task cost and the estimate.
+It is a canonical string rather than `JSON.stringify`, so key insertion order cannot
+change it. No secret is in the plan or the hash.
+
+`POST /api/mining/jobs` accepts **only** `planId` and `planHash`. There is no field
+through which a query could arrive. The server rebuilds the plan from the stored
+request and refuses unless the rebuilt hash matches both the stored hash and the
+submitted one:
 
 > The research plan changed after you reviewed it. Review the updated plan before
 > submitting paid searches.
 
-Client-supplied queries are ignored entirely.
+A plan is also refused when it has expired, when it was reviewed by somebody else,
+when it has already been used (one review buys one run), when the stored row no longer
+hashes to its own hash, and when the planner refused the vertical.
+
+Each query is labelled **new paid task** or **already submitted — will collect**, so
+the cost shown is the cost charged.
 
 ## 10. Provider idempotency
 
 Unchanged and preserved: fingerprints stay deterministic, an outstanding task is
-collected rather than re-bought, polling is never a purchase, the ceiling is checked
-before each chargeable submission. The preview labels each query **new paid task** or
-**already submitted — will collect**, so cost disclosure is honest.
+collected rather than re-bought, polling is never a purchase, and the ceiling is
+checked before each chargeable submission.
 
-## 11. Readiness (Invariant G)
+## 11. Readiness and the entity gate (Invariant G)
 
 Entity validity, research completion, research freshness, contactability, compliance
-and sales readiness become independent. A freshly researched invalid entity is not
-healthy inventory. Claim and pilot eligibility require a verified entity.
+and sales readiness are independent. A freshly researched invalid entity is not
+healthy inventory.
+
+`entityGate()` (`src/domain/entityStatus.ts`) is the single rule, used by claiming, by
+the pilot, by readiness and by the cold-inventory read model:
+
+- `verified` → workable.
+- `rejected`, `quarantined`, `needs_review` → refused, with a sentence saying why.
+- `legacy_unverified` → refused **if a machine found it**; workable if it was imported
+  or entered by a person.
+
+That last line is the whole of the migration strategy in one rule. Everything in the
+table predates the promotion gate, so the status alone cannot separate the 65 canary
+SERP rows from companies somebody imported. How it was found can, and
+`automatedDiscoveryPredicate` already names the sources that mean "a machine found
+this".
+
+**Consequences (review):**
+
+- Claiming refuses with `ENTITY_UNVERIFIED` and a message.
+- `addCandidate` (pilot) refuses before any call pack is built.
+- `readinessFor` adds a blocking `entity` requirement, separate from the weaker
+  textual `identity` check.
+- Cold inventory (`ownership: UNCLAIMED`) does not list what cannot be claimed, so a
+  rep is never shown a row that will be refused when they click it. A record somebody
+  already holds stays visible to them — you cannot hide what is already in their hands.
+- `coverageFor` reports `unverifiedExcluded`, and the page says so. A market whose
+  inventory falls from 65 to 3 has to say where the other 62 went.
+- `ingestListings()` marks what it creates `verified`: a listings provider resolved the
+  entity itself, which is the same basis `BUSINESS_LISTING` promotes on. Without this
+  the gate would have made real companies unclaimable.
 
 ## 12. Migration strategy
 
-Additive only. Existing Accounts are **not** marked verified and **not** marked
-invalid: mined Accounts take a `legacy_unverified` entity status; imported and
-manually created Accounts keep working, because their provenance is not a SERP row.
-Nothing existing is deleted.
+Additive only. `051_entity_resolution.sql` adds `discovery_candidates`,
+`accounts.entity_status` (default `legacy_unverified`, **not** verified),
+`entity_status_basis`, `entity_status_at`, `discovered_for_geography{,_type}`.
+`052_search_plan_preview.sql` adds `search_plan_previews`. No existing row is deleted
+and no existing Account is declared valid or invalid by either.
 
 ## 13. Canary reprocessing
 
-`discovery:reprocess --job <id> --dry-run` classifies an existing run's Accounts under
-the new rules and reports what *would* change. Apply mode is separate and is not run
-during this remediation.
+`npm run discovery:reprocess -- --job <id> --dry-run` re-reads a run's observations,
+runs today's resolver over them, and prints: how many observations exist, what they
+resolve to now, which Accounts the run created that would not be promoted today and
+why, and which identities would promote that have no Account.
 
-## 14. Design review
+`--dry-run` is **mandatory**, not a default: a flag that defaults to safe is one
+somebody can forget is there. **There is no apply mode in this file.** Nothing is
+created, edited, merged, suppressed or deleted, no research is queued and no provider
+is called. Apply is separate work with its own review, because changing 65 Accounts on
+the strength of a rule change needs a person who has read the output first.
+
+## 14. Transparency
+
+The operator surfaces report the funnel rather than a single number, because "113
+rows and nothing new" reads as a thin market and the same run is honestly "113 rows,
+47 identities, 11 directories and 34 pages about companies":
+
+- job progress carries `providerRows`, `rejectedRows`, `duplicateRows`,
+  `entitiesRejected`, `entitiesNeedingReview`, `notInMarket`, and `perSearch`;
+- `discoveryCoverageFor` exposes the entity counters, and the coverage note on Find
+  Prospects prints what was refused and why;
+- the account page shows the entity status, the basis, the resolver's own sentences,
+  the source class, and "found while searching 32095" as provenance rather than as an
+  address;
+- the doctor's `INGESTION_DROPPED` rule excludes runs that refused promotion, so the
+  most common honest outcome of the resolver is no longer reported as a fault.
+
+## 15. Proving the tests are not decoration
+
+A passing suite proves nothing on its own: a test that asserts what the code happens
+to do passes whatever the code does. Each guarantee was removed in turn and the suite
+re-run, and each removal is caught:
+
+| Mutation | Caught by |
+| --- | --- |
+| Persist only when something promotes | ALL_JUNK_RESPONSE, refused-row provenance, second-adapter bypass |
+| The orchestrator promotes every observation (the Finding 2 defect) | the same three |
+| Any query may create Accounts | B: a commercial query may not introduce a company |
+| The search target wins the address coalesce | an observed address is never masked |
+| A company-shaped title is enough | UNKNOWN_DIRECTORY_SINGLE_ENTRY |
+| Confirm without comparing the plan | plan-changed refusal, invented-hash refusal |
+| An unverified mined record is workable | claiming fails closed, the pilot fails closed |
+
+One mutation was rejected as not a real weakening: dropping the `status === 'VERIFIED'`
+filter in `resolveObservations` changes nothing, because a refused candidate has no
+`resolvedName` and `businessesFromCandidates` skips it. Two independent conditions
+enforce the same rule, which is why the mutation that *does* represent the Finding 2
+defect — the orchestrator building businesses straight from the rows — is the one in
+the table.
+
+## 16. Design review
 
 - *Can Yelp become an Account?* No. `DIRECTORY` never promotes, and the multiplicity
   rule catches an unknown directory.
+- *Can a second adapter skip the rules?* No. There is no `businesses` field to put a
+  company on, and resolution runs in the orchestrator.
+- *Can a run that promotes nothing leave no trace?* No. Observations and candidates
+  are written before promotion, not inside it.
 - *Can News4Jax personnel become a contractor contact?* No. Research only reads a
-  verified primary domain.
-- *Can a search ZIP become a physical ZIP?* No. The fallback is deleted.
-- *Can `drain cleaning` be the sole Plumbing discovery query?* No. One query is
-  always PRIMARY entity discovery.
-- *Can preview and execution differ?* No. The server recomputes and compares hashes.
-- *Can a duplicate confirmation buy twice?* No. Fingerprint + open-task collection.
+  verified domain, and a rejected directory is refused for every later account.
+- *Can a search ZIP become a physical ZIP?* No. The fallback is deleted and the two
+  fields are separate all the way from the provider response.
+- *Can a paid ad on an unknown domain become a company?* No. It needs a listing for
+  the same domain.
+- *Can `drain cleaning` be the sole Plumbing discovery query?* No. One query is always
+  PRIMARY entity discovery, and a financing query cannot create an Account at all.
+- *Can preview and execution differ?* No. The server recomputes and compares hashes,
+  and the submission carries no queries.
+- *Can a duplicate confirmation buy twice?* No. One plan buys one run, and the
+  fingerprint plus open-task collection stops the rest.
+- *Can the canary's 65 records reach a rep?* No. They are `legacy_unverified` and were
+  found by a machine, so the gate refuses them in the list, in the claim and in the
+  pilot.

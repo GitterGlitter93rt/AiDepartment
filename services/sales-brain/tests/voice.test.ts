@@ -30,7 +30,7 @@ async function endpointFor(phone: string): Promise<{ endpointId: string; account
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: 'Riverbend Roofing',
-      website: 'https://riverbend.example.com',
+      website: 'https://riverbend.example',
       phone,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));

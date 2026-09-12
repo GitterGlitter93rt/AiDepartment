@@ -70,6 +70,7 @@ const ROUTES: RouteUnderTest[] = [
   { method: 'POST', path: '/api/accounts/ACCOUNT/reassign', minimum: 'manager' },
   { method: 'POST', path: '/api/accounts/ACCOUNT/rescreen', minimum: 'manager' },
   { method: 'POST', path: '/api/mining/jobs', minimum: 'manager' },
+  { method: 'POST', path: '/api/mining/plan', minimum: 'manager' },
   { method: 'POST', path: '/team/ACCOUNT/reassign', minimum: 'manager' },
   { method: 'POST', path: '/imports/upload', minimum: 'manager' },
   { method: 'POST', path: '/imports/00000000-0000-0000-0000-000000000000/map', minimum: 'manager' },
@@ -110,7 +111,7 @@ async function fixture(): Promise<Fixture> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: 'Authorization Fixture Co',
-      website: 'https://authfixture.example.com',
+      website: 'https://authfixture.example',
       phone: '904-555-0177', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
   return {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyObservation, registrableDomain } from '../src/discovery/sourceClass.js';
-import { resolveCandidates, looksLikeCompanyName,
+import { resolveCandidates, looksLikeCompanyName, brandMatchesDomain,
          type CandidateObservation } from '../src/discovery/resolve.js';
 
 /**
@@ -18,7 +18,7 @@ function row(input: Partial<CandidateObservation>): CandidateObservation {
   rank += 1;
   return {
     resultType: 'ORGANIC', observedName: null, observedDomain: null, observedPhone: null,
-    observedLocation: null, landingUrl: null, position: rank, ...input,
+    observedBusinessAddress: null, landingUrl: null, position: rank, ...input,
   };
 }
 
@@ -34,7 +34,7 @@ test('a provider business listing is the strongest identity we get', () => {
   const candidate = only([row({
     resultType: 'MAPS_LOCAL', observedName: 'Burchfield Roof Services LLC',
     observedDomain: 'burchfieldroofing.com', observedPhone: '904-555-0142',
-    observedLocation: '120 King St, St. Augustine, FL',
+    observedBusinessAddress: '120 King St, St. Augustine, FL',
   })]);
   assert.equal(candidate.sourceClass, 'BUSINESS_LISTING');
   assert.equal(candidate.status, 'VERIFIED');
@@ -193,7 +193,7 @@ test('the same company paid, organic and local resolves to one business', () => 
           observedDomain: 'enterpriseroofingllc.com' }),
     row({ resultType: 'MAPS_LOCAL', observedName: 'Enterprise Roofing, LLC',
           observedDomain: 'enterpriseroofingllc.com', observedPhone: '904-555-0177',
-          observedLocation: '9 Center St, St. Augustine, FL' }),
+          observedBusinessAddress: '9 Center St, St. Augustine, FL' }),
   ]);
   assert.equal(resolved.length, 1);
   assert.equal(resolved[0]!.status, 'VERIFIED');
@@ -225,7 +225,7 @@ test('the canary corpus classifies sanely as a whole', () => {
   const corpus: CandidateObservation[] = [
     row({ resultType: 'MAPS_LOCAL', observedName: 'Burchfield Roof Services LLC',
           observedDomain: 'burchfieldroofing.com', observedPhone: '904-555-0142',
-          observedLocation: 'St. Augustine, FL' }),
+          observedBusinessAddress: 'St. Augustine, FL' }),
     row({ observedName: 'Augustine Contractors LLC', observedDomain: 'augustine.pro' }),
     row({ observedName: 'THE BEST 10 ROOFING IN ST. AUGUSTINE, FL', observedDomain: 'yelp.com' }),
     row({ observedName: 'Top 10 Roofers in Saint Augustine, FL (with Photos)',
@@ -254,4 +254,93 @@ test('the canary corpus classifies sanely as a whole', () => {
     assert.ok(candidate.resolvedName && candidate.resolvedName.length > 2);
     assert.ok(!/^\d+$/.test(candidate.resolvedName));
   }
+});
+
+// ------------------------------------------------- corroboration (review #5) --
+
+test('UNKNOWN_DIRECTORY_SINGLE_ENTRY: a company name on an unrelated domain waits',
+  () => {
+  // One row, so the multiplicity rule cannot see it. A company-shaped title used to be
+  // enough on its own, which meant an unknown lead-generation site showing somebody
+  // else's name became that company.
+  const candidate = only([row({
+    observedName: 'ABC Plumbing LLC', observedDomain: 'someunknownleadsite.com',
+    observedPhone: '904-555-0101', landingUrl: 'https://someunknownleadsite.com/fl/abc',
+  })]);
+  assert.notEqual(candidate.status, 'VERIFIED',
+    'an unknown domain was verified on the strength of a title alone');
+  assert.equal(candidate.status, 'NEEDS_REVIEW');
+  assert.equal(candidate.resolvedName, null);
+  assert.equal(candidate.phone, null, 'a phone from an unattributed page was carried');
+  assert.match(candidate.reasons.join(' '), /nothing yet connects that name to that domain/);
+});
+
+test('LEGITIMATE_OFFICIAL_SITE: name and domain agreeing is corroboration', () => {
+  const candidate = only([row({
+    observedName: 'Burchfield Roof Services LLC', observedDomain: 'burchfieldroofing.com',
+    landingUrl: 'https://burchfieldroofing.com/',
+  })]);
+  assert.equal(candidate.status, 'VERIFIED');
+  assert.match(candidate.reasons.join(' '), /name and the domain agree/);
+});
+
+test('LISTING_LINKS_OFFICIAL_DOMAIN: a listing for the same domain corroborates', () => {
+  // The name and domain need not agree when the provider itself ties them together.
+  const resolved = resolveCandidates([
+    row({ resultType: 'MAPS_LOCAL', observedName: 'Reiter Roofing',
+          observedDomain: 'bettermetalroof.com', observedPhone: '904-555-0177',
+          observedBusinessAddress: '9 Center St, St. Augustine, FL' }),
+    row({ observedName: 'Reiter Roofing', observedDomain: 'bettermetalroof.com' }),
+  ]);
+  assert.equal(resolved.length, 1);
+  assert.equal(resolved[0]!.status, 'VERIFIED');
+});
+
+test('a paid ad on an unknown domain is not automatically the trade', () => {
+  // Review #5: paid traffic proves somebody bought an ad, not that the advertiser is
+  // an operating roofer rather than a marketplace nobody has catalogued yet.
+  const candidate = only([row({
+    resultType: 'PAID_SEARCH_TEXT', observedName: 'Roof Repair — Free Quotes Today',
+    observedDomain: 'unknownquotefunnel.com',
+    landingUrl: 'https://unknownquotefunnel.com/lp/roofing',
+  })]);
+  assert.notEqual(candidate.status, 'VERIFIED',
+    'a paid placement on an unknown domain was promoted to a business');
+  // Retained, not discarded: the placement is still real and still evidence.
+  assert.equal(candidate.status, 'NEEDS_REVIEW');
+});
+
+test('brand agreement is about identifying words, not boilerplate', () => {
+  assert.equal(brandMatchesDomain('Burchfield Roof Services LLC', 'burchfieldroofing.com'), true);
+  assert.equal(brandMatchesDomain('Augustine Contractors LLC', 'augustine.pro'), true);
+  assert.equal(brandMatchesDomain('Cooper Roofing, Inc.', 'cooperroofinginc.com'), true);
+  // "LLC", "Inc" and "The" identify nobody.
+  assert.equal(brandMatchesDomain('ABC Plumbing LLC', 'llcinc.com'), false);
+  assert.equal(brandMatchesDomain('ABC Plumbing LLC', 'someunknownleadsite.com'), false);
+  assert.equal(brandMatchesDomain(null, 'anything.com'), false);
+});
+
+test('two businesses on the same site builder are two businesses', () => {
+  // `wixsite.com` names nobody. Collapsing both to it would merge two companies into
+  // one identity carrying two names, which the multiplicity rule then reads as a
+  // directory -- so two real roofers would reject each other for sharing a host.
+  const resolved = resolveCandidates([
+    row({ resultType: 'MAPS_LOCAL', observedName: 'Salazar Roofing',
+          observedDomain: 'salazarroofing.wixsite.com', observedPhone: '904-555-0181',
+          observedBusinessAddress: '4 King St, St. Augustine, FL' }),
+    row({ resultType: 'MAPS_LOCAL', observedName: 'Coastal Air',
+          observedDomain: 'coastalair.wixsite.com', observedPhone: '904-555-0182',
+          observedBusinessAddress: '8 Bay St, St. Augustine, FL' }),
+  ]);
+  assert.equal(resolved.length, 2, 'two companies on one site builder became one identity');
+  assert.deepEqual(resolved.map((candidate) => candidate.status), ['VERIFIED', 'VERIFIED']);
+});
+
+test('a URL and a bare host are the same identity', () => {
+  // Inventory stores `https://acme.invalid`; the resolver stores `acme.invalid`. When
+  // these disagreed, linking an observation to the Account it became matched nothing
+  // and the evidence was left unattached.
+  assert.equal(registrableDomain('https://acme.invalid/roofing?utm=1'), 'acme.invalid');
+  assert.equal(registrableDomain('acme.invalid'), 'acme.invalid');
+  assert.equal(registrableDomain('HTTPS://WWW.Acme.Invalid:8443/x'), 'acme.invalid');
 });

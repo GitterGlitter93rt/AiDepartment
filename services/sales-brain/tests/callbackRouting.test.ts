@@ -26,7 +26,7 @@ const E164 = '+19045550142';
 async function seedProspect(options: { name?: string } = {}): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: options.name ?? 'Riverbend Roofing',
-    website: 'https://riverbend.example.com',
+    website: 'https://riverbend.example',
     phone: PHONE, city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
   return accountId;

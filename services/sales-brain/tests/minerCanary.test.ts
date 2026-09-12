@@ -16,6 +16,7 @@ import {
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { planCanary, canaryReport, renderCanaryPlan, MAX_CANARY_SEARCHES } from '../src/miner/canary.js';
 import { researchPictureFor } from '../src/domain/researchFacts.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * A market search an operator can read before it costs anything.
@@ -54,18 +55,17 @@ function countingProvider(state: { submits: number; collects: number }) {
       const index = request.search?.index ?? 0;
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           name: `canary${index}.invalid`, website: `https://canary${index}.invalid`,
           phone: null, city: null, state: null, postalCode: null,
           resultType: 'PAID_SEARCH_TEXT', query: request.search?.term ?? null,
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006,
+        }]),
+        costUsd: 0.006,
       };
     },
     async collect(providerTaskId): Promise<DiscoveryResult> {
       state.collects += 1;
-      return { status: 'OK', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, providerTaskId };
+      return { status: 'OK', observations: observationsFor([]), providerTaskId };
     },
   });
 }
@@ -338,9 +338,9 @@ test('a restarted live run collects what it already paid for', async () => {
     async collect(providerTaskId) {
       collects += 1;
       return { status: 'OK' as const,
-        businesses: [{ name: 'collected.invalid', website: 'https://collected.invalid',
-          phone: null, city: null, state: null, postalCode: null }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId };
+        observations: observationsFor([{ name: 'collected.invalid', website: 'https://collected.invalid',
+          phone: null, city: null, state: null, postalCode: null }]),
+        providerTaskId };
     },
   });
 
@@ -396,13 +396,12 @@ test('the report accounts for each search separately', async () => {
       const index = request.search?.index ?? 0;
       if (index === 1) {
         return { status: 'OK',
-          businesses: [{ name: 'mixed.invalid', website: 'https://mixed.invalid',
-            phone: null, city: null, state: null, postalCode: null }],
-          providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006 };
+          observations: observationsFor([{ name: 'mixed.invalid', website: 'https://mixed.invalid',
+            phone: null, city: null, state: null, postalCode: null }]),
+          costUsd: 0.006 };
       }
       if (index === 2) return refusedDiscovery('OUTAGE', 'the provider did not answer');
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 2, rejectedRows: 2,
-        duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
 
@@ -428,8 +427,7 @@ test('a run whose cost no provider declared is not reported as free', async () =
     name: 'canary-silent', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
   const ops = await makeUser(`Canary Silent ${Date.now()}`, 'RESEARCH_OPS');

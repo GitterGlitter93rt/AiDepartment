@@ -2,6 +2,8 @@ import { query, withTransaction } from '../db/pool.js';
 import { preflightCall } from '../compliance/eligibility.js';
 import { buildCallPack, persistCallPack } from '../callbrain/callPack.js';
 import { selectOpener, checkOpener } from '../callbrain/openerSelector.js';
+import { entityGate } from './entityStatus.js';
+import { automatedDiscoveryPredicate } from './discoverySources.js';
 
 /**
  * Sales AI pilot control plane.
@@ -217,9 +219,14 @@ export async function addCandidate(input: {
   const { rows } = await query<{
     endpoint_id: string | null; contact_id: string | null; suppressed: boolean;
     merged_into_account_id: string | null;
+    entity_status: string | null; found_by_machine: boolean;
   }>(
     `select e.endpoint_id, e.contact_id,
-            a.is_suppressed as suppressed, a.merged_into_account_id
+            a.is_suppressed as suppressed, a.merged_into_account_id, a.entity_status,
+            exists (select 1 from activities act
+                     where act.account_id = a.account_id
+                       and act.activity_type = 'DISCOVERED'
+                       and ${automatedDiscoveryPredicate('act.source_system')}) as found_by_machine
        from accounts a
        left join contacts c on c.account_id = a.account_id
        left join contact_endpoints e on e.contact_id = c.contact_id and e.endpoint_type = 'PHONE'
@@ -238,6 +245,12 @@ export async function addCandidate(input: {
     };
   }
   if (row.suppressed) return { ok: false, message: 'This account is suppressed and cannot be called.' };
+
+  // An autonomous call is the strongest thing this product does to a stranger, so it
+  // is the last place to accept "probably a company". Fails closed.
+  const gate = entityGate({
+    entityStatus: row.entity_status, foundByMachine: row.found_by_machine });
+  if (!gate.workable) return { ok: false, message: gate.reason };
 
   const decision = row.endpoint_id
     ? await preflightCall(row.endpoint_id, 'AUTONOMOUS_AI_VOICE')

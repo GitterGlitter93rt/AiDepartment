@@ -65,6 +65,17 @@ export interface SearchPlan {
   /** Set when no plan could be built at all. */
   refusal: { status: 'NOT_CONFIGURED'; reason: string } | null;
   geography: NormalizedGeography | null;
+  /**
+   * True when the budget did not cover this vertical's primary discovery terms.
+   *
+   * The taxonomy is phase-aware and this is where the phases get cut: a budget of one
+   * buys the first primary term and leaves the rest of the market unasked. That is a
+   * legitimate thing to do and an illegitimate thing to report as a searched market,
+   * so the plan says so and the preview prints it.
+   */
+  partialDiscoveryCoverage: boolean;
+  /** True when a commercial-intelligence query fitted in the budget. */
+  commercialIntelligenceIncluded: boolean;
 }
 
 export interface SearchPlanRequest {
@@ -147,6 +158,7 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
     searches: [], requested: request.count, available: 0, limitedBy: null,
     causesAvailable: [], causesRequested: [],
     refusal: { status: 'NOT_CONFIGURED', reason }, geography: null,
+    partialDiscoveryCoverage: false, commercialIntelligenceIncluded: false,
   });
 
   const geography = normalizeGeography(request.geographyType, request.geographyValue);
@@ -192,6 +204,7 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
       refusal: { status: 'NOT_CONFIGURED',
         reason: 'This run was asked for zero searches, so no provider was called.' },
       geography,
+      partialDiscoveryCoverage: false, commercialIntelligenceIncluded: false,
     };
   }
 
@@ -223,6 +236,14 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
     }),
   }));
 
+  // Whether the slice covers the market or a corner of it. Computed from what was
+  // selected against what exists, here rather than in the taxonomy, because this is
+  // where the budget actually cuts.
+  const isPrimaryDiscovery = (entry: { purpose: string; coverageRole: string }): boolean =>
+    entry.purpose === 'ENTITY_DISCOVERY' && entry.coverageRole === 'PRIMARY';
+  const primaryAvailable = usable.filter(isPrimaryDiscovery).length;
+  const primarySelected = searches.filter(isPrimaryDiscovery).length;
+
   return {
     searches,
     requested,
@@ -234,6 +255,9 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
     causesRequested: [...asked].sort(),
     refusal: null,
     geography,
+    partialDiscoveryCoverage: primarySelected < primaryAvailable,
+    commercialIntelligenceIncluded:
+      searches.some((search) => search.purpose === 'COMMERCIAL_INTELLIGENCE'),
   };
 }
 

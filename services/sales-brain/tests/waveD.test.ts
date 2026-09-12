@@ -45,7 +45,7 @@ async function fixture(): Promise<Fixture> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: 'Palmetto Plumbing',
-      website: 'https://palmetto.example.com',
+      website: 'https://palmetto.example',
       phone: '904-555-0142',
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
@@ -626,7 +626,7 @@ test('search finds nothing it has not researched, and says so', async () => {
 test('search ranks an exact company name above an incidental match', async () => {
   const f = await fixture();
   await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Palmetto', website: 'https://palmetto-exact.example.com',
+    canonicalName: 'Palmetto', website: 'https://palmetto-exact.example',
     phone: '904-555-0143', city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
 
@@ -661,7 +661,7 @@ test('search shows the relationship so a rep sees an account already in play', a
 test('a suppressed account sorts below one that can be worked', async () => {
   const f = await fixture();
   const { accountId: workable } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Palmetto Roofing', website: 'https://palmetto-roofing.example.com',
+    canonicalName: 'Palmetto Roofing', website: 'https://palmetto-roofing.example',
     phone: '904-555-0144', city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
   await pool.query(`update accounts set is_suppressed = true where account_id = $1`, [f.accountId]);

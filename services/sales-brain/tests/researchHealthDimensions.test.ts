@@ -11,6 +11,7 @@ import { recordHeartbeat, recordWorkerDraining } from '../src/workers/runner.js'
 import { recordProviderTask } from '../src/miner/providerTasks.js';
 import { clearDiscoveryAdapters, registerDiscoveryAdapter } from '../src/workers/marketMiner.js';
 import { resetDatabase } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Eight independent answers, not one light.
@@ -204,8 +205,7 @@ test('an unset budget does not make a working provider look unavailable', async 
     name: 'configured-two', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover() {
-      return { status: 'ZERO_RESULTS' as const, businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS' as const, observations: observationsFor([]), };
     },
   });
 
@@ -220,8 +220,7 @@ test('a configured provider moves only its own dimension', async () => {
     name: 'configured', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover() {
-      return { status: 'ZERO_RESULTS' as const, businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS' as const, observations: observationsFor([]), };
     },
   });
 

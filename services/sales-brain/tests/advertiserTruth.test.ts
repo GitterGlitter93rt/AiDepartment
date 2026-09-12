@@ -8,7 +8,7 @@ import { advertiserEvidenceFor, unknownAdvertiserCount } from '../src/domain/adv
 import { searchProspects, coverageFor } from '../src/domain/search.js';
 import { scoreAccount } from '../src/scoring/score.js';
 import { scoreResearchedButUnscored } from '../src/workers/researchReconcile.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 
 /**
  * Whether a company is spending money, and how sure we are.
@@ -41,6 +41,9 @@ async function account(name: string): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // These stand for companies the resolver promoted, which is the only way the miner
+  // creates an Account now.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

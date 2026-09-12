@@ -54,7 +54,7 @@ async function fixture(): Promise<Fixture> {
       client,
       {
         canonicalName: 'Northgate Air & Heating',
-        website: 'https://northgate.example.com',
+        website: 'https://northgate.example',
         phone: '904-555-0101',
         city: 'Jacksonville', state: 'FL', postalCode: '32256',
       },
@@ -259,7 +259,7 @@ test('a bulk claim reports per-account results rather than failing wholesale', a
     const { accountId: id } = await withTransaction((client) =>
       upsertAccount(
         client,
-        { canonicalName: `Riverbend ${i}`, website: `https://r${i}.example.com`, phone: `904-555-02${10 + i}` },
+        { canonicalName: `Riverbend ${i}`, website: `https://r${i}.example`, phone: `904-555-02${10 + i}` },
         { discoverySource: 'test' },
       ),
     );

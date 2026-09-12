@@ -15,6 +15,7 @@ import {
 import '../src/workers/contactResearch.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Inventory connection.
@@ -33,7 +34,7 @@ async function seedMarketAccounts(count: number, zip = '32256'): Promise<string[
         client,
         {
           canonicalName: `Riverbend Air ${i}`,
-          website: `https://riverbend${i}.example.com`,
+          website: `https://riverbend${i}.example`,
           phone: `904-555-${String(1000 + i).slice(0, 4)}`,
           city: 'Jacksonville', state: 'FL', postalCode: zip,
           // The same vertical the mining jobs below ask for, so a refresh plan
@@ -150,7 +151,7 @@ test('fresh inventory is not needlessly re-researched', async () => {
 
 test('expired evidence is marked stale so it stops reading as current', async () => {
   const { accountId } = await withTransaction((client) =>
-    upsertAccount(client, { canonicalName: 'Sable Air', website: 'https://sable.example.com' },
+    upsertAccount(client, { canonicalName: 'Sable Air', website: 'https://sable.example' },
       { discoverySource: 'test' }),
   );
   await withTransaction((client) => recordEvidence(client, {
@@ -217,9 +218,8 @@ test('a discovery adapter must be both configured and governance-reviewed to run
     name: 'test-provider', requiresCredential: true,
     isConfigured: () => true,
     discover: async () => ({
-      status: 'ZERO_RESULTS' as const, businesses: [],
-      providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-    }),
+      status: 'ZERO_RESULTS' as const, observations: observationsFor([]),
+      }),
   };
   registerDiscoveryAdapter({ ...base, name: 'unreviewed', governanceReviewed: false });
   assert.equal(
@@ -248,15 +248,14 @@ test('discovered businesses dedupe into existing Accounts and keep ownership', a
     isConfigured: () => true,
     discover: async () => ({
       status: 'OK' as const,
-      businesses: [
+      observations: observationsFor([
         // The same company the rep already owns, spelled differently.
-        { name: 'Riverbend Air 0 LLC', website: 'https://riverbend0.example.com',
+        { name: 'Riverbend Air 0 LLC', website: 'https://riverbend0.example',
           city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
-        { name: 'Brand New Air', website: 'https://brandnew.example.com',
+        { name: 'Brand New Air', website: 'https://brandnew.example',
           city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
-      ],
-      providerRows: 2, rejectedRows: 0, duplicateRows: 0,
-    }),
+      ]),
+      }),
   });
 
   const job = await enqueueMarketResearch({
@@ -276,11 +275,17 @@ test('discovered businesses dedupe into existing Accounts and keep ownership', a
   assert.equal(owner.rows[0]!.current_owner_user_id, rep.userId,
     'rediscovery must not reset ownership');
 
-  // The sighting is recorded as an observation, distinct from durable evidence.
-  const observations = await query<{ n: number }>(
-    `select count(*)::int as n from search_observations where account_id = $1`, [existing],
+  // The sightings are recorded as observations, distinct from durable evidence. Both
+  // rows the provider sent for this company are kept and both are attached to it: a
+  // company that appears twice in one response was seen twice, and collapsing that
+  // into one row would lose the ad copy or the listing depending on which survived.
+  const observations = await query<{ result_type: string | null }>(
+    `select result_type from search_observations where account_id = $1
+      order by result_type`, [existing],
   );
-  assert.equal(observations.rows[0]!.n, 1);
+  assert.equal(observations.rows.length, 2);
+  assert.ok(observations.rows.some((row) => row.result_type === 'paid_search'),
+    'the ad that found them again was not recorded');
 });
 
 test('a market we have found but never looked into does not claim aged research', async () => {

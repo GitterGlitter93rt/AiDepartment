@@ -127,6 +127,12 @@ export async function walkCase(vertical: string, caseId: BlockACase): Promise<Wa
     contactTitle: 'Owner', contactName: 'Dana Fielder',
   }, { discoverySource: 'market_miner:dataforseo' }));
 
+  // These fixtures stand for companies the resolver promoted, which is the only way
+  // the miner creates an Account. Without the stamp they are `legacy_unverified` and
+  // found by a machine -- which is exactly what the canary's 65 webpages are -- and
+  // the entity gate correctly refuses to call them workable.
+  await markWalkEntityVerified(accountId);
+
   let siblingAccountId: string | undefined;
   let siblingName: string | undefined;
 
@@ -217,6 +223,7 @@ export async function walkCase(vertical: string, caseId: BlockACase): Promise<Wa
         contactTitle: 'Owner', contactName: 'Dana Fielder',
       }, { discoverySource: 'market_miner:dataforseo' }));
       siblingAccountId = sibling.accountId;
+      await markWalkEntityVerified(sibling.accountId);
       break;
     }
   }
@@ -257,4 +264,13 @@ export async function walkCase(vertical: string, caseId: BlockACase): Promise<Wa
     hypotheses, pack, objections, offers,
     siblingAccountId, siblingName,
   };
+}
+
+/** A fixture Account stands for a promoted candidate, so it says so. */
+async function markWalkEntityVerified(accountId: string): Promise<void> {
+  await query(
+    `update accounts set entity_status = 'verified',
+            entity_status_basis = 'block A walk fixture: a resolved discovery',
+            entity_status_at = now()
+      where account_id = $1 and entity_status = 'legacy_unverified'`, [accountId]);
 }

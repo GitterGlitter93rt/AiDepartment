@@ -15,7 +15,8 @@ import {
   registerDiscoveryAdapter, clearDiscoveryAdapters, type DiscoveryResult,
 } from '../src/workers/marketMiner.js';
 import { enqueueMarketResearch, enqueueAccountResearch } from '../src/workers/enqueue.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Jobs that will never succeed.
@@ -64,7 +65,7 @@ test('credential shapes are redacted even when nothing is configured', () => {
     'Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l',
     'sent Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     'connect failed postgres://yad:hunter2@db:5432/yad',
-    'called https://api.example.com/serp?api_key=abcd1234efgh',
+    'called https://api.example/serp?api_key=abcd1234efgh',
     'config was password=correcthorsebattery',
   ];
   for (const text of cases) {
@@ -183,8 +184,7 @@ test('a provider that always fails does not fail the job for ever', async () => 
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, reason: 'the provider is down',
+        status: 'OUTAGE', observations: observationsFor([]), reason: 'the provider is down',
       };
     },
   });
@@ -266,6 +266,9 @@ test('a manual retry of a terminally failed job is possible', async () => {
     phone: `904-555-${String(9800 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
 
   await query(
     `insert into jobs (job_type, account_id, status, payload, completed_at, attempts, max_attempts)

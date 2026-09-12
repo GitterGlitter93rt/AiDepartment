@@ -16,6 +16,7 @@ import {
 } from '../src/workers/researchReconcile.js';
 import { spendPosition } from '../src/miner/spend.js';
 import { MAX_TASK_COLLECTIONS } from '../src/miner/providerTasks.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Thirty days of the system running without anybody watching.
@@ -51,12 +52,12 @@ function rotatingProvider(): void {
           const id = `${request.geographyValue}-${cycle}`;
           return {
             status: 'OK',
-            businesses: [{
+            observations: observationsFor([{
               name: `shadow${id}.invalid`, website: `https://shadow${id}.invalid`,
               phone: null, city: null, state: null, postalCode: null,
               resultType: 'PAID_SEARCH_TEXT', query: 'ac repair', position: 1,
-            }],
-            providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006,
+            }]),
+            costUsd: 0.006,
           };
         }
         case 2:
@@ -65,8 +66,7 @@ function rotatingProvider(): void {
         case 3:
           return refusedDiscovery('OUTAGE', 'the provider did not answer');
         default:
-          return { status: 'ZERO_RESULTS', businesses: [], providerRows: 3,
-            rejectedRows: 3, duplicateRows: 0, reason: 'nothing usable' };
+          return { status: 'ZERO_RESULTS', observations: observationsFor([]), reason: 'nothing usable' };
       }
     },
     async collect(providerTaskId): Promise<DiscoveryResult> {
@@ -82,12 +82,12 @@ function rotatingProvider(): void {
       cycle += 1;
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           name: `collected${providerTaskId}.invalid`,
           website: `https://collected${cycle}.invalid`, phone: null,
           city: null, state: null, postalCode: null, resultType: 'ORGANIC',
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId,
+        }]),
+        providerTaskId,
       };
     },
   });

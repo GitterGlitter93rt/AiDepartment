@@ -231,6 +231,7 @@ function discoveryNote(
   discovery: {
     state: string; lastRunAt?: Date | null; reason?: string | null;
     providerRows?: number; matchedExisting?: number; discoveredNew?: number;
+    entitiesRejected?: number; entitiesNeedingReview?: number;
   } | undefined,
   geographyLabel: string,
 ): RawHtml {
@@ -238,6 +239,22 @@ function discoveryNote(
   const rows = Number(discovery.providerRows ?? 0);
   const matched = Number(discovery.matchedExisting ?? 0);
   const added = Number(discovery.discoveredNew ?? 0);
+  const refused = Number(discovery.entitiesRejected ?? 0);
+  const unnamed = Number(discovery.entitiesNeedingReview ?? 0);
+  /**
+   * What happened between the rows and the companies.
+   *
+   * "113 rows and nothing new" is the sentence that made a market look thin when what
+   * had actually happened was that a page of directories and news articles was
+   * correctly refused. The arithmetic is the answer, so it is shown.
+   */
+  const refusedNote = refused + unnamed === 0 ? raw('') : html` Of what came back,
+    ${refused > 0 ? html`${refused} ${refused === 1 ? 'was' : 'were'} not
+    ${refused === 1 ? 'a business' : 'businesses'} &mdash; directories, articles,
+    listicles and the like` : raw('')}${refused > 0 && unnamed > 0 ? raw(', and ') : raw('')}${
+    unnamed > 0 ? html`${unnamed} might be
+    ${unnamed === 1 ? 'a company' : 'companies'} but nothing yet says which
+    ${unnamed === 1 ? 'one' : 'ones'}` : raw('')}.`;
 
   switch (discovery.state) {
     case 'BLOCKED':
@@ -279,7 +296,7 @@ function discoveryNote(
       return html`<div class="coverage-note">
         <span class="dot"></span>
         <span>A provider searched ${geographyLabel} and returned no usable business.
-        That is a real answer about this market, not a failure.</span>
+        That is a real answer about this market, not a failure.${refusedNote}</span>
       </div>`;
     case 'MARKET_DISABLED':
       return html`<div class="coverage-note">
@@ -292,16 +309,16 @@ function discoveryNote(
     case 'MATCHED_EXISTING':
       return html`<div class="coverage-note">
         <span class="dot"></span>
-        <span>The last search of ${geographyLabel} found ${rows} business${rows === 1 ? '' : 'es'},
-        and ${matched === 1 ? 'it was one' : `all ${matched} were ones`} we already hold.
-        The market is covered, not empty.</span>
+        <span>The last search of ${geographyLabel} returned ${rows} row${rows === 1 ? '' : 's'},
+        and ${matched === 1 ? 'the company it identified was one' : `all ${matched} companies it identified were ones`}
+        we already hold. The market is covered, not empty.${refusedNote}</span>
       </div>`;
     case 'FOUND_NEW':
       return html`<div class="coverage-note">
         <span class="dot"></span>
         <span>The last search of ${geographyLabel} added
         ${`${added} compan${added === 1 ? 'y' : 'ies'} we did not have`}${matched > 0
-          ? html`, and matched ${matched} we already held` : ''}.</span>
+          ? html`, and matched ${matched} we already held` : ''}.${refusedNote}</span>
       </div>`;
     case 'STALE':
       return html`<div class="coverage-note warn">
@@ -320,6 +337,7 @@ export function coverageNote(coverage: {
   discoveryAvailable?: boolean; activeJobScope?: string | null; unscoredExcluded?: number;
   staleScoreExcluded?: number;
   unknownAdvertiserExcluded?: number;
+  unverifiedExcluded?: number;
   discovery?: {
     state: string; lastRunAt?: Date | null; reason?: string | null;
     providerRows?: number; matchedExisting?: number; discoveredNew?: number;
@@ -363,6 +381,22 @@ export function coverageNote(coverage: {
       rules give ${stale === 1 ? 'it' : 'them'}.</span>
     </div>`;
 
+  // Not a filter at all, which is why it is worded differently from the two above.
+  // Those say "you filtered these out"; this says "these are not companies, or nobody
+  // has established that they are". Clearing a filter does not bring them back.
+  const unverified = Number(coverage.unverifiedExcluded ?? 0);
+  const unverifiedNote = unverified === 0 ? raw('') : html`
+    <div class="coverage-note">
+      <span class="dot"></span>
+      <span><strong>${unverified} record${unverified === 1 ? '' : 's'} in this market
+      ${unverified === 1 ? 'is' : 'are'} not shown because nothing has established
+      ${unverified === 1 ? 'it names' : 'they name'} a company.</strong>
+      ${unverified === 1 ? 'It was' : 'They were'} created by a search before search
+      results were told apart from businesses. ${unverified === 1 ? 'It is' : 'They are'}
+      still on record and can be reprocessed; ${unverified === 1 ? 'it is' : 'they are'}
+      not inventory.</span>
+    </div>`;
+
   // The same collapse, one filter over. An advertising filter drops companies whose
   // ad status is unknown, and unknown is not the same as checked-and-not-advertising.
   // What external discovery has actually done here. "No rows" used to mean any of
@@ -393,7 +427,7 @@ export function coverageNote(coverage: {
   // Every branch carries these. The stale and fresh branches did not, so a market
   // with aged research never showed the "no search provider" banner at all -- the
   // one sentence an operator needs before reading anything else on the page.
-  const prefix = html`${blocked}${discoveryLine}${hidden}${staleNote}${uncheckedNote}`;
+  const prefix = html`${blocked}${discoveryLine}${unverifiedNote}${hidden}${staleNote}${uncheckedNote}`;
 
   switch (coverage.state) {
     case 'NO_MARKET':

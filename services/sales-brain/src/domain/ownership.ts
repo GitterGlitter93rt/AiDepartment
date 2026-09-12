@@ -1,6 +1,8 @@
 import type pg from 'pg';
 import { withTransaction } from '../db/pool.js';
 import { isManager, type Role } from './auth.js';
+import { entityGate } from './entityStatus.js';
+import { automatedDiscoveryPredicate } from './discoverySources.js';
 
 /**
  * Ownership commands. Server-authoritative and atomic.
@@ -19,6 +21,7 @@ export type ClaimRejectReason =
   | 'CLIENT'
   | 'ACTIVE_OPPORTUNITY'
   | 'CLAIM_LIMIT'
+  | 'ENTITY_UNVERIFIED'
   | 'PERMISSION_DENIED'
   | 'NOT_FOUND';
 
@@ -26,6 +29,14 @@ export interface ClaimOutcome {
   accountId: string;
   ok: boolean;
   reason?: ClaimRejectReason;
+  /**
+   * Why, in words, when a code is not enough to act on.
+   *
+   * "ALREADY_CLAIMED" needs no sentence -- the owner's name is beside it. "This
+   * record has never been established to be a company" does, because the rep's next
+   * move is different and nothing else on the page would tell them.
+   */
+  message?: string;
   ownerUserId?: string | null;
   ownerDisplayName?: string | null;
 }
@@ -51,9 +62,14 @@ async function claimOneInTransaction(
   const { rows } = await client.query<{
     account_id: string; ownership_state: string; relationship_state: string;
     current_owner_user_id: string | null; is_suppressed: boolean; owner_name: string | null;
+    entity_status: string | null; found_by_machine: boolean;
   }>(
     `select a.account_id, a.ownership_state, a.relationship_state, a.current_owner_user_id,
-            a.is_suppressed,
+            a.is_suppressed, a.entity_status,
+            exists (select 1 from activities act
+                     where act.account_id = a.account_id
+                       and act.activity_type = 'DISCOVERED'
+                       and ${automatedDiscoveryPredicate('act.source_system')}) as found_by_machine,
             (select display_name from users where user_id = a.current_owner_user_id) as owner_name
        from accounts a where a.account_id = $1 for update`,
     [accountId],
@@ -63,6 +79,16 @@ async function claimOneInTransaction(
 
   if (account.is_suppressed || account.ownership_state === 'SUPPRESSED') {
     return { accountId, ok: false, reason: 'SUPPRESSED' };
+  }
+
+  // Fails closed. A rep claiming a record is the moment the product asserts this is a
+  // company worth their morning, and nineteen of the canary's sixty-five were not
+  // companies at all. An unverified record is refused here rather than filtered out
+  // of one list and reachable from another.
+  const gate = entityGate({
+    entityStatus: account.entity_status, foundByMachine: account.found_by_machine });
+  if (!gate.workable) {
+    return { accountId, ok: false, reason: 'ENTITY_UNVERIFIED', message: gate.reason };
   }
 
   const relationshipBlock = RELATIONSHIP_BLOCKS[account.relationship_state];

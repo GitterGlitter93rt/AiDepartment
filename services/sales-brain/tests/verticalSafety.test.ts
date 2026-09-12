@@ -2,7 +2,7 @@ import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query, withTransaction } from '../src/db/pool.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 import { syncVerticalProfiles, getVerticalProfile } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { buildCallPack } from '../src/callbrain/callPack.js';
@@ -40,6 +40,9 @@ async function accountIn(vertical: string): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical,
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

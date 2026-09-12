@@ -12,6 +12,7 @@ import {
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { planCanary, canaryReport } from '../src/miner/canary.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Block F: the live DataForSEO canary, rehearsed offline.
@@ -129,9 +130,9 @@ test('F2 a run cut short by the daily ceiling reports what it bought', async () 
       calls += 1;
       return {
         status: 'OK',
-        businesses: [{ name: `Block F Co ${++sequence}`, website: null,
-          phone: `904-555-${String(3300 + sequence).slice(-4)}` }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.05,
+        observations: observationsFor([{ name: `Block F Co ${++sequence}`, website: null,
+          phone: `904-555-${String(3300 + sequence).slice(-4)}` }]),
+        costUsd: 0.05,
       };
     },
   });
@@ -183,8 +184,7 @@ test('F2 a run nobody refused reports no refusals', async () => {
     name: 'blockf-provider', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0, costUsd: 0.01 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), costUsd: 0.01 };
     },
   });
   const operator = await makeUser('Block F Operator 2', 'SALES_MANAGER');
@@ -211,8 +211,7 @@ test('F2 a provider that fails is still reported as a provider failure', async (
     name: 'blockf-provider', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
-      return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, reason: 'the provider is down' };
+      return { status: 'OUTAGE', observations: observationsFor([]), reason: 'the provider is down' };
     },
   });
   const operator = await makeUser('Block F Operator 3', 'SALES_MANAGER');

@@ -15,7 +15,7 @@ import {
 } from '../src/scoring/model.js';
 import { recomputeStaleScores } from '../src/workers/researchReconcile.js';
 import { operationalSnapshot } from '../src/api/operations.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
 
 /**
  * A score you can trust tomorrow, and explain today.
@@ -55,6 +55,9 @@ async function account(): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

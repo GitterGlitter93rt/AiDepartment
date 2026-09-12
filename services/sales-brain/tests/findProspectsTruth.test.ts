@@ -9,7 +9,8 @@ import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { coverageFor, discoveryCoverageFor, DISCOVERY_STALE_AFTER_DAYS } from '../src/domain/search.js';
 import { clearDiscoveryAdapters, registerDiscoveryAdapter } from '../src/workers/marketMiner.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * "No rows" meant eleven different things.
@@ -43,6 +44,8 @@ async function seedAccount(name: string): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way the miner makes one.
+  await markEntityVerified(accountId);
   return accountId;
 }
 
@@ -112,8 +115,8 @@ test('nobody has searched is not the same as nothing is there', async () => {
     name: 'ready', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover() {
-      return { status: 'ZERO_RESULTS' as const, businesses: [],
-        providerRows: 0, rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS' as const, observations: observationsFor([]),
+        };
     },
   });
 
@@ -192,8 +195,11 @@ test('finding only companies we already hold is coverage, not emptiness', async 
   assert.equal(result.discovery!.discoveredNew, 0);
 
   const page = await findPage();
-  assert.match(page, /found 12 businesses/);
-  assert.match(page, /all 12 were ones we already hold/);
+  // Rows, not businesses. Twelve rows is what the provider sent; how many of them
+  // were companies is a separate question this page now keeps separate, because
+  // "found 12 businesses" is exactly the sentence that described a page of articles.
+  assert.match(page, /returned 12 rows/);
+  assert.match(page, /all 12 companies it identified were ones\s+we already hold/);
   assert.match(page, /covered, not empty/);
 });
 
@@ -290,6 +296,7 @@ test('a company with a branch in the ZIP is in that market', async () => {
     phone: '904-555-2401',
     city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  await markEntityVerified(accountId);
 
   await query(
     `insert into locations (account_id, city, state_region, postal_code, is_active,

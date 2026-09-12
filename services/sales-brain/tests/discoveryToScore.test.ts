@@ -9,7 +9,7 @@ import { recordDisposition } from '../src/domain/activities.js';
 import { scoreAccount, latestScore } from '../src/scoring/score.js';
 import { recognizeSignals, signalRulesFor } from '../src/scoring/recognize.js';
 import { searchProspects, coverageFor } from '../src/domain/search.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 
 /**
  * Discovery through to a tier a rep can filter on.
@@ -42,6 +42,8 @@ async function account(name: string, options: { vertical?: string } = {}): Promi
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: options.vertical ?? 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way the miner makes one.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

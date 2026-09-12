@@ -61,7 +61,7 @@ async function rich(): Promise<Rich> {
   const seeded = await withTransaction(async (client) => {
     const { accountId } = await upsertAccount(client, {
       canonicalName: 'Coastal Air & Heat',
-      website: 'https://coastalair.example.com',
+      website: 'https://coastalair.example',
       phone: '904-555-0101',
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' });
@@ -93,14 +93,14 @@ async function rich(): Promise<Rich> {
       accountId, contactId: null, locationId, type: 'PHONE', rawValue: '904-555-0101',
       endpointRole: 'MAIN_BUSINESS_LINE', relationshipToPerson: 'COMPANY_ROUTE',
       qualityState: 'CURRENT_BUSINESS_CONFIRMED', source: 'COMPANY_WEBSITE',
-      sourceReference: 'https://coastalair.example.com/contact', verifiedAt: new Date(),
+      sourceReference: 'https://coastalair.example/contact', verifiedAt: new Date(),
     }))!;
     // Attached to the named person but only ever observed on a directory page.
     const ownerEndpointId = (await upsertEndpoint(client, {
       accountId, contactId, locationId, type: 'PHONE', rawValue: '904-555-0177',
       endpointRole: 'MOBILE_UNKNOWN_USE', relationshipToPerson: 'UNVERIFIED',
       qualityState: 'PUBLIC_OBSERVED_UNVERIFIED', source: 'PUBLIC_DIRECTORY',
-      sourceReference: 'https://directory.example.com/ray', verifiedAt: null,
+      sourceReference: 'https://directory.example/ray', verifiedAt: null,
     }))!;
     await upsertEndpoint(client, {
       accountId, contactId, locationId, type: 'EMAIL', rawValue: 'ray@coastalair.example.com',
@@ -126,14 +126,14 @@ async function rich(): Promise<Rich> {
                                      freshness, precedence_rank)
        values ($1, 'hours', 'after_hours_answering',
                'Their site said 24/7 emergency service in 2023.',
-               'yes', 'likely', false, 'website', 'https://coastalair.example.com/old',
+               'yes', 'likely', false, 'website', 'https://coastalair.example/old',
                now() - interval '400 days', now() - interval '30 days', 'stale', 6)`,
       [accountId]);
     await recordEvidence(client, {
       accountId, category: 'contact', claimKey: 'decision_maker_name',
       claimText: 'A review site listed a different owner name.',
       normalizedValue: 'unknown', confidence: 'contradicted', canStateAsFact: false,
-      sourceType: 'directory', sourceReference: 'https://reviews.example.com',
+      sourceType: 'directory', sourceReference: 'https://reviews.example',
       precedenceRank: 8,
     });
 
@@ -740,7 +740,7 @@ test('a rep sees only their own follow-ups and replies', async () => {
   // A second Account, owned by the other rep, with a follow-up of its own.
   const { accountId: theirs } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northside Electric', website: 'https://northside.example.com',
+      canonicalName: 'Northside Electric', website: 'https://northside.example',
       phone: '904-555-0202', city: 'Jacksonville', state: 'FL', postalCode: '32218',
     }, { discoverySource: 'test' }));
   await claimAccount(theirs, { userId: f.otherId, role: 'SALES_REP', activeClaimTarget: null });

@@ -12,6 +12,7 @@ import {
 } from '../src/workers/marketMiner.js';
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Facts read from one organisation's website may not become facts about another.
@@ -141,13 +142,13 @@ test('33/34. the miner itself never turns the searched ZIP into an address', asy
     async discover(): Promise<DiscoveryResult> {
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           name: 'Nowhere Stated Roofing', website: 'https://nowherestated.invalid',
           phone: '904-555-0155',
           // Exactly the live shape: a SERP row with no address at all.
           city: null, state: null, postalCode: null,
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0,
+        }]),
+        costUsd: 0,
       };
     },
   });

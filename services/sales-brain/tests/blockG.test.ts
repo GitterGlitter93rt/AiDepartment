@@ -9,7 +9,7 @@ import { SCORE_VERSION } from '../src/scoring/model.js';
 import { scoreRuleForReference } from '../src/scoring/recognize.js';
 import { allSignals, signalFor } from '../src/domain/signalRegistry.js';
 import { validateProfiles, BLOCKING } from '../src/domain/profileContract.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
 
 /**
  * Block G: where the Speed-to-Lead probe meets everything that already existed.
@@ -38,6 +38,9 @@ async function account(): Promise<string> {
     phone: `904-555-${String(5100 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095', verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

@@ -22,7 +22,7 @@ async function seedAccount(options: {
   return withTransaction(async (client) => {
     const { accountId } = await upsertAccount(client, {
       canonicalName: options.name,
-      website: `https://${options.name.toLowerCase().replace(/\W+/g, '')}.example.com`,
+      website: `https://${options.name.toLowerCase().replace(/\W+/g, '')}.example`,
       phone: '904-555-0100', city: 'Jacksonville', state: 'FL',
     }, { discoverySource: 'test' });
     await client.query(

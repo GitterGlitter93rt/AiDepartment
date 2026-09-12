@@ -328,13 +328,32 @@ test('the paid row wins over the same company’s organic row', async () => {
   registerConfiguredDiscoveryAdapters(CREDENTIALLED);
   await runMine();
 
-  const { rows } = await query<{ result_type: string; position: number; ad_headline: string }>(
-    `select result_type, position, ad_headline from search_observations
-      where observed_domain like '%coastalairfl%'`);
-  assert.equal(rows.length, 1, 'one company appeared twice in the inventory');
+  // Both rows are on record -- every row a provider sends is, now -- and both belong
+  // to one Account. What "wins" means is which sighting the company is ingested from,
+  // because that is the one carrying the ad copy and the landing page.
+  const { rows } = await query<{ result_type: string; position: number; account_id: string }>(
+    `select result_type, position, account_id from search_observations
+      where observed_domain like '%coastalairfl%' order by position`);
+  assert.equal(rows.length, 2, 'a row the provider sent was not recorded');
+  assert.equal(new Set(rows.map((row) => row.account_id)).size, 1,
+    'one company appeared twice in the inventory');
+
+  const accounts = await query<{ n: number }>(
+    `select count(*)::int as n from accounts where canonical_domain like '%coastalairfl%'`);
+  assert.equal(accounts.rows[0]!.n, 1, 'one company appeared twice in the inventory');
+
   assert.equal(rows[0]!.result_type, 'paid_search',
     'the organic row displaced the paid one, losing the ad evidence');
   assert.equal(rows[0]!.position, 1);
+
+  // The ad evidence itself came from the paid sighting, not the organic one.
+  const evidence = await query<{ claim_key: string }>(
+    `select e.claim_key from evidence_records e
+       join accounts a on a.account_id = e.account_id
+      where a.canonical_domain like '%coastalairfl%'
+        and e.claim_key like 'active_%'`);
+  assert.ok(evidence.rows.some((row) => row.claim_key === 'active_google_search_ad'),
+    'the ad evidence was lost when the rows collapsed');
 });
 
 test('every company in one search stays a separate company', async () => {
@@ -373,10 +392,12 @@ test('what the ad said, where it sat and what was searched are all kept', async 
     provider_native_id: string | null; observed_at: Date;
   }>(`select query, position, ad_headline, advertised_service, landing_url,
              provider_native_id, observed_at
-        from search_observations where result_type = 'paid_search'`);
-  const paid = rows[0]!;
-
-  assert.match(String(paid.ad_headline), /Same-Day AC Repair/,
+        from search_observations where result_type = 'paid_search'
+        order by position`);
+  // Every paid row the response carried is on record, so the one this test is about
+  // is named rather than taken off the top of an unordered result.
+  const paid = rows.find((row) => /Same-Day AC Repair/.test(String(row.ad_headline)))!;
+  assert.ok(paid,
     'the one line a rep can open the call with was dropped between the adapter and the row');
   assert.match(String(paid.query), /ac repair/i);
   assert.equal(paid.position, 1);
@@ -392,7 +413,8 @@ test('a SERP read yesterday is not recorded as read now', async () => {
   await runMine();
 
   const { rows } = await query<{ observed_at: Date }>(
-    `select observed_at from search_observations where result_type = 'paid_search'`);
+    `select distinct observed_at from search_observations where result_type = 'paid_search'`);
+  assert.equal(rows.length, 1, 'the rows of one response were stamped at different times');
   assert.equal(rows[0]!.observed_at.toISOString(), new Date(SERP_READ_AT).toISOString(),
     'the provider told us when it read the page and we stamped the row with collection '
     + 'time instead, which makes an old sighting look like today’s');
@@ -410,8 +432,12 @@ test('a rep can see how we found the company, and quote it', async () => {
   const detail = await getAccountDetail(rows[0]!.account_id,
     { userId: manager.userId, role: 'SALES_MANAGER' });
 
-  assert.equal(detail!.discoveries.length, 1);
-  assert.match(String(detail!.discoveries[0]!.ad_headline), /Same-Day AC Repair/);
+  // Two sightings of one company: the ad and the organic row it also ranks with.
+  // Both are how we found them, and the ad is the one a rep can quote.
+  assert.equal(detail!.discoveries.length, 2);
+  assert.ok(detail!.discoveries.some(
+    (row) => /Same-Day AC Repair/.test(String(row.ad_headline))),
+    'the ad we found them by is not on the page');
 
   const page = renderAccountPage(detail!, { ...manager, role: 'SALES_MANAGER' } as any,
     {} as any, undefined);

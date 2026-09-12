@@ -48,7 +48,7 @@ async function fixture(): Promise<Fixture> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: 'Input Hardening Co',
-      website: 'https://inputhardening.example.com',
+      website: 'https://inputhardening.example',
       phone: '904-555-0193', city: 'Jacksonville', state: 'FL', postalCode: '32095',
     }, { discoverySource: 'test' }));
   return {

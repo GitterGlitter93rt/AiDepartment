@@ -2,7 +2,7 @@ import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query, withTransaction } from '../src/db/pool.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { drainQueue } from '../src/workers/runner.js';
@@ -104,6 +104,9 @@ async function researchedAccount(vertical = 'hvac'): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical,
   }, { discoverySource: 'listings:fixture' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   await enqueueAccountResearch(accountId, null, 'newly_discovered');
   await drainQueue();
   return accountId;

@@ -343,25 +343,94 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  /**
+   * The plan, before any money is spent. Builds nothing chargeable and calls nobody.
+   */
   app.post<{
     Body: {
       verticalProfileId?: string | null;
       geography?: { type?: string; value?: string } | null;
       marketId?: string | null;
+      miningMode?: string | null;
+      queryBudget?: number | null;
+      causes?: string[] | null;
     };
-  }>('/api/mining/jobs', async (request, reply) => {
+  }>('/api/mining/plan', async (request, reply) => {
     const user = requirePermission(request, reply, 'request_market_refresh');
     if (!user) return;
     const marketId = request.body?.marketId;
     if (marketId != null && marketId !== '' && !isUuid(marketId)) {
       return reply.code(400).send({ ok: false, message: 'That market does not exist.' });
     }
-    return enqueueMarketResearch({
+    const { buildPaidPlan, persistPaidPlan } = await import('../miner/planPreview.js');
+    const planRequest = {
       verticalProfileId: request.body?.verticalProfileId ?? null,
       geographyType: request.body?.geography?.type ?? null,
       geographyValue: request.body?.geography?.value ?? null,
-      marketId: request.body?.marketId ?? null,
+      marketId: marketId || null,
+      miningMode: request.body?.miningMode ?? null,
+      // A budget is a number of chargeable searches, so it is bounded here as well as
+      // by the provider's own ceiling: a request for ten thousand is a typo or an
+      // attack, and either way it must not become a plan somebody can confirm.
+      queryBudget: Math.max(0, Math.min(25, Math.floor(Number(request.body?.queryBudget ?? 1)) || 1)),
+      causes: Array.isArray(request.body?.causes)
+        ? request.body.causes.filter((cause) => typeof cause === 'string').slice(0, 10)
+        : null,
+    };
+    const plan = await buildPaidPlan(planRequest);
+    const stored = await persistPaidPlan(plan, user.userId, planRequest);
+    return {
+      ok: true, planId: stored.planId, planHash: stored.planHash,
+      expiresAt: stored.expiresAt, plan,
+    };
+  });
+
+  /**
+   * Submits a plan somebody has reviewed. Nothing else.
+   *
+   * The body carries a plan id and the hash of what was shown. It deliberately
+   * carries no queries: a client that could name the searches could spend the budget
+   * on anything, and the taxonomy would become a suggestion. Anything else in the
+   * body is ignored rather than merged, so there is no field through which a query
+   * could arrive.
+   */
+  app.post<{
+    Body: { planId?: string | null; planHash?: string | null };
+  }>('/api/mining/jobs', async (request, reply) => {
+    const user = requirePermission(request, reply, 'request_market_refresh');
+    if (!user) return;
+
+    const planId = request.body?.planId;
+    const submittedHash = request.body?.planHash;
+    if (!planId || !isUuid(planId) || typeof submittedHash !== 'string' || !submittedHash) {
+      return reply.code(400).send({
+        ok: false,
+        message: 'Review the research plan before submitting paid searches.',
+      });
+    }
+
+    const { confirmPaidPlan, consumePaidPlan } = await import('../miner/planPreview.js');
+    const confirmation = await confirmPaidPlan({
+      planId, planHash: submittedHash, userId: user.userId });
+    if (!confirmation.ok) {
+      // A plan that moved is a normal outcome, not a server error: 409 with the
+      // current plan, so the page can show what changed.
+      return reply.code(confirmation.code === 'CHANGED' ? 409 : 400).send({
+        ok: false, code: confirmation.code, message: confirmation.message,
+        ...(confirmation.plan ? { plan: confirmation.plan } : {}),
+      });
+    }
+
+    const result = await enqueueMarketResearch({
+      verticalProfileId: confirmation.request.verticalProfileId,
+      geographyType: confirmation.request.geographyType,
+      geographyValue: confirmation.request.geographyValue,
+      marketId: confirmation.request.marketId,
       requestedBy: user.userId,
+      ...(confirmation.request.miningMode ? { miningMode: confirmation.request.miningMode } : {}),
+      ...(confirmation.request.queryBudget ? { queryBudget: confirmation.request.queryBudget } : {}),
     });
+    await consumePaidPlan(confirmation.planId, result.jobId ?? null);
+    return { ...result, planId: confirmation.planId };
   });
 }

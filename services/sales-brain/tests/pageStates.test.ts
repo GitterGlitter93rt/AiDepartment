@@ -138,7 +138,7 @@ test('a calendar that is down does not produce an offer of times', async () => {
   const who = await sessions();
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Degraded Provider Co', website: 'https://degraded.example.com',
+      canonicalName: 'Degraded Provider Co', website: 'https://degraded.example',
       phone: '904-555-0188', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
 

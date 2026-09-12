@@ -97,3 +97,23 @@ export async function plannedRequest(overrides: {
     : base;
 }
 
+/**
+ * Marks a fixture Account as an established company.
+ *
+ * Entity status is not a thing `upsertAccount` decides -- deliberately, because the
+ * whole defect was a pipeline that created Accounts from rows nothing had established
+ * to be companies. In production the two callers entitled to say so stamp it: the
+ * miner, for a candidate the resolver promoted, and the listings ingest, for a
+ * business a listings provider resolved.
+ *
+ * A fixture that builds an Account directly is standing in for one of those, so it
+ * has to say so too. Without this the record is `legacy_unverified`, which is exactly
+ * what the canary's 65 webpages are, and the entity gate correctly refuses it.
+ */
+export async function markEntityVerified(accountId: string): Promise<void> {
+  await pool.query(
+    `update accounts set entity_status = 'verified',
+            entity_status_basis = 'test fixture: stands for a resolved discovery',
+            entity_status_at = now()
+      where account_id = $1`, [accountId]);
+}

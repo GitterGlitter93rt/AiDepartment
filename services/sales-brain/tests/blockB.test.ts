@@ -19,6 +19,7 @@ import { runConvergence, runPauseInBacklog } from './support/blockBConverge.js';
 import { sustainableMarketCount, SWEEP_INTERVAL_MS,
          MAX_MARKETS_IN_FLIGHT, DEFAULT_REFRESH_INTERVAL_HOURS } from '../src/workers/marketScheduler.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Block B, defect B2-1: a market switched off after its refresh was queued.
@@ -73,18 +74,17 @@ function countingAdapter(options: {
       if (options.beforeSubmit) await options.beforeSubmit();
       if (options.pending) {
         return {
-          status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-          duplicateRows: 0, providerTaskId: `task-${submissions}-${++sequence}`,
+          status: 'PENDING', observations: observationsFor([]), providerTaskId: `task-${submissions}-${++sequence}`,
         };
       }
       const count = options.businesses ?? 0;
       return {
         status: count > 0 ? 'OK' : 'ZERO_RESULTS',
-        businesses: Array.from({ length: count }, (_, index) => ({
+        observations: observationsFor(Array.from({ length: count }, (_, index) => ({
           name: `Block B Find ${++sequence}-${index}`, website: null,
           phone: `904-555-${String(6000 + sequence).slice(-4)}`,
-        })),
-        providerRows: count, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125,
+        }))),
+        costUsd: 0.0125,
       };
     },
     async collect(): Promise<DiscoveryResult> {
@@ -92,11 +92,11 @@ function countingAdapter(options: {
       if (options.collectResult) return options.collectResult();
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           name: `Block B Collected ${++sequence}`, website: null,
           phone: `904-555-${String(6500 + sequence).slice(-4)}`,
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125,
+        }]),
+        costUsd: 0.0125,
       };
     },
   };
@@ -168,7 +168,7 @@ async function queueScheduledRun(marketId: string): Promise<void> {
 // =============================================================================
 
 test('B2-1.1 enabled at enqueue and at execution: the search is submitted', async () => {
-  const adapter = countingAdapter({ businesses: 2 });
+  const adapter = countingAdapter({ businesses: 2});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Still Enabled');
 
@@ -184,7 +184,7 @@ test('B2-1.1 enabled at enqueue and at execution: the search is submitted', asyn
 });
 
 test('B2-1.2 disabled between enqueue and lease: zero new provider tasks', async () => {
-  const adapter = countingAdapter({ businesses: 2 });
+  const adapter = countingAdapter({ businesses: 2});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Disabled Before Lease');
 
@@ -212,8 +212,7 @@ test('B2-1.3 disabled after the handler starts, before the first submission', as
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       submissions += 1;
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
 
@@ -243,9 +242,9 @@ test('B2-1.4 several planned searches: the ones not yet submitted are not submit
       // The operator disables the market during the first submission.
       if (submissions === 1) await setEnabled(marketId, false);
       return { status: 'OK',
-        businesses: [{ name: `Block B Multi ${++sequence}`, website: null,
-          phone: `904-555-${String(6800 + sequence).slice(-4)}` }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125 };
+        observations: observationsFor([{ name: `Block B Multi ${++sequence}`, website: null,
+          phone: `904-555-${String(6800 + sequence).slice(-4)}` }]),
+        costUsd: 0.0125 };
     },
   });
 
@@ -317,13 +316,13 @@ test('B2-1.6 a returned result is ingested rather than discarded', async () => {
   const adapter = countingAdapter({
     collectResult: () => ({
       status: 'OK',
-      businesses: [
+      observations: observationsFor([
         { name: `Block B Returned A ${++sequence}`, website: null,
           phone: `904-555-${String(7100 + sequence).slice(-4)}` },
         { name: `Block B Returned B ${++sequence}`, website: null,
           phone: `904-555-${String(7200 + sequence).slice(-4)}` },
-      ],
-      providerRows: 2, rejectedRows: 0, duplicateRows: 0, costUsd: 0.02,
+      ]),
+      costUsd: 0.02,
     }),
   });
   registerDiscoveryAdapter(adapter);
@@ -366,7 +365,7 @@ test('B2-1.6 a returned result is ingested rather than discarded', async () => {
 });
 
 test('B2-1.7 a disabled market is not re-queued by later sweeps', async () => {
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Stays Disabled', { enabled: false });
 
   for (let pass = 0; pass < 3; pass += 1) {
@@ -378,7 +377,7 @@ test('B2-1.7 a disabled market is not re-queued by later sweeps', async () => {
 });
 
 test('B2-1.8 a re-enabled market becomes due again on the normal rules', async () => {
-  const adapter = countingAdapter({ businesses: 1 });
+  const adapter = countingAdapter({ businesses: 1});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Re-enabled');
 
@@ -410,7 +409,7 @@ test('B2-1.8 a re-enabled market becomes due again on the normal rules', async (
 });
 
 test('B2-1.9 concurrent scheduler passes still produce one run per market', async () => {
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Concurrent');
 
   // Genuinely concurrent, not sequential: the uniqueness has to come from the
@@ -428,7 +427,7 @@ test('B2-1.9 concurrent scheduler passes still produce one run per market', asyn
 
 test('B2-1.10 a disabled market is never reported as a market with nothing in it',
   async () => {
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Not Zero Results', { zip: '32079' });
 
   await queueScheduledRun(marketId);
@@ -480,7 +479,7 @@ test('B2-1.10 a disabled market is never reported as a market with nothing in it
  */
 test('B2-1 the flag governs unattended refreshes, not a person asking directly',
   async () => {
-  const adapter = countingAdapter({ businesses: 1 });
+  const adapter = countingAdapter({ businesses: 1});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Manual Against Disabled', { enabled: false });
   const operator = await makeUser('B2 Operator', 'SALES_MANAGER');
@@ -537,7 +536,7 @@ test('B2-1 the gate is a decision about one submission, and reads current state'
 });
 
 test('B2-1 a paused market comes back promptly rather than being backed off', async () => {
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Retry Window');
 
   await queueScheduledRun(marketId);
@@ -567,7 +566,7 @@ test('B2-1 a paused market comes back promptly rather than being backed off', as
  * -- the same two clicks in the other order would spend money or not.
  */
 test('B2-2 a person joining an automatic run is recorded as having asked', async () => {
-  const adapter = countingAdapter({ businesses: 1 });
+  const adapter = countingAdapter({ businesses: 1});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Collision Scheduled First');
   const operator = await makeUser('B2 Collision Operator', 'SALES_MANAGER');
@@ -597,7 +596,7 @@ test('B2-2 a person joining an automatic run is recorded as having asked', async
 });
 
 test('B2-2 joining never overwrites the person who asked first', async () => {
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Collision Manual First');
   const first = await makeUser('B2 First Asker', 'SALES_MANAGER');
   const second = await makeUser('B2 Second Asker', 'SALES_MANAGER');
@@ -623,7 +622,7 @@ test('B2-2 a scheduled pass joining a person’s run does not become automatic',
   // The other direction. A scheduler pass folding into a human's queued run must not
   // strip the human's authorization off it -- that would turn a request somebody made
   // into an unattended refresh, and against a paused market it would then be refused.
-  const adapter = countingAdapter({ businesses: 1 });
+  const adapter = countingAdapter({ businesses: 1});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Collision Human First');
   const operator = await makeUser('B2 Human First', 'SALES_MANAGER');
@@ -673,8 +672,7 @@ test('B2-3 editing a market mid-flight does not change what the queued run searc
     isConfigured: () => true,
     async discover(request): Promise<DiscoveryResult> {
       searchedZip = request.geographyValue ?? null;
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
   const marketId = await market('B2 Snapshot', { zip: '32081' });
@@ -695,7 +693,7 @@ test('B2-3 editing a market mid-flight does not change what the queued run searc
 
 test('B2-3 whether to buy is read at the moment of buying, not snapshotted', async () => {
   // Same fixture shape, opposite expectation: this one must see the change.
-  const adapter = countingAdapter({ businesses: 1 });
+  const adapter = countingAdapter({ businesses: 1});
   registerDiscoveryAdapter(adapter);
   const marketId = await market('B2 Snapshot Enabled', { zip: '32083' });
 
@@ -717,7 +715,7 @@ test('B2-4 attempted, succeeded, refreshed and mined stay four separate facts',
   // coverage. A market searched successfully that found only companies we already
   // hold has coverage and no new inventory. Collapsing any pair of these makes the
   // page unable to tell an operator which is happening.
-  registerDiscoveryAdapter(countingAdapter({ businesses: 0 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 0}));
   const marketId = await market('B2 Freshness Zero', { zip: '32085' });
   await queueScheduledRun(marketId);
   await drainQueue();
@@ -742,8 +740,7 @@ test('B2-4 a market that fails has an attempt and no success', async () => {
     name: 'blockb-provider', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
-      return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, reason: 'the provider is down' };
+      return { status: 'OUTAGE', observations: observationsFor([]), reason: 'the provider is down' };
     },
   });
   const marketId = await market('B2 Freshness Failing', { zip: '32086' });
@@ -771,7 +768,7 @@ test('B2-4 a market that fails has an attempt and no success', async () => {
 test('B2-4 a manual search does not move the scheduler’s fairness cursor', async () => {
   // The other half of what that column means. If a manual search moved it, a rep
   // searching a market by hand would send it to the back of the automatic queue.
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Fairness Cursor', { zip: '32091' });
   const operator = await makeUser('B2 Cursor Operator', 'SALES_MANAGER');
 
@@ -954,13 +951,12 @@ test('B2-7 a market that always fails does not starve the healthy ones', async (
       const zip = String(request.geographyValue ?? '');
       perZip.set(zip, (perZip.get(zip) ?? 0) + 1);
       if (zip === '32900') {
-        return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
-          duplicateRows: 0, reason: 'this market always fails' };
+        return { status: 'OUTAGE', observations: observationsFor([]), reason: 'this market always fails' };
       }
       return { status: 'OK',
-        businesses: [{ name: `Poison Neighbour ${++sequence}`, website: null,
-          phone: `904-555-${String(4000 + sequence).slice(-4)}` }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125 };
+        observations: observationsFor([{ name: `Poison Neighbour ${++sequence}`, website: null,
+          phone: `904-555-${String(4000 + sequence).slice(-4)}` }]),
+        costUsd: 0.0125 };
     },
   });
 
@@ -1018,11 +1014,9 @@ test('B2-8 alternating failure and success does not accumulate backoff', async (
     async discover(): Promise<DiscoveryResult> {
       call += 1;
       if (call % 2 === 1) {
-        return { status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0,
-          duplicateRows: 0, reason: 'flapping' };
+        return { status: 'OUTAGE', observations: observationsFor([]), reason: 'flapping' };
       }
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
   const marketId = await market('B2 Flapping', { zip: '32901' });
@@ -1060,20 +1054,18 @@ test('B2-9 an outstanding task is collected across repeated scheduler restarts',
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       submissions += 1;
-      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, providerTaskId: `restart-task-${submissions}` };
+      return { status: 'PENDING', observations: observationsFor([]), providerTaskId: `restart-task-${submissions}` };
     },
     async collect(): Promise<DiscoveryResult> {
       collections += 1;
       // Not ready for the first two restarts, then it answers.
       if (collections < 3) {
-        return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-          duplicateRows: 0 };
+        return { status: 'PENDING', observations: observationsFor([]), };
       }
       return { status: 'OK',
-        businesses: [{ name: `Restart Survivor ${++sequence}`, website: null,
-          phone: `904-555-${String(4500 + sequence).slice(-4)}` }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125 };
+        observations: observationsFor([{ name: `Restart Survivor ${++sequence}`, website: null,
+          phone: `904-555-${String(4500 + sequence).slice(-4)}` }]),
+        costUsd: 0.0125 };
     },
   });
   const marketId = await market('B2 Restart Recovery', { zip: '32902' });
@@ -1122,12 +1114,10 @@ test('B2-9 a task the provider never delivers is given up on, and the market mov
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       submissions += 1;
-      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, providerTaskId: `never-delivered-${submissions}` };
+      return { status: 'PENDING', observations: observationsFor([]), providerTaskId: `never-delivered-${submissions}` };
     },
     async collect(): Promise<DiscoveryResult> {
-      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0 };
+      return { status: 'PENDING', observations: observationsFor([]), };
     },
   });
   const marketId = await market('B2 Never Delivered', { zip: '32903' });
@@ -1174,7 +1164,7 @@ test('B2-2 an automatic pass joining an automatic run writes nothing', async () 
   // still takes a row lock on the commonest path in the system -- the scheduler
   // joining its own queued runs -- and it newly exposed the join to the foreign key
   // on `requested_by`, which the select it replaced could not fail on.
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Automatic Join');
 
   const first = await scheduleDueMarkets();
@@ -1197,7 +1187,7 @@ test('B2-2 a requester that does not exist is refused rather than half-written',
   // The foreign key is the point: `jobs.requested_by` references `users`, so a
   // fabricated id cannot be recorded. It must fail, and it must not leave the run
   // changed -- the same answer the create path gives.
-  registerDiscoveryAdapter(countingAdapter({ businesses: 1 }));
+  registerDiscoveryAdapter(countingAdapter({ businesses: 1}));
   const marketId = await market('B2 Ghost Requester');
   const { rows } = await query<Record<string, any>>(
     `select geography_definition from saved_markets where market_id = $1`, [marketId]);

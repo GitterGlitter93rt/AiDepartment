@@ -7,7 +7,7 @@ import { upsertAccount } from '../src/domain/accounts.js';
 import {
   buildCallPack, prohibitionSentence, UNIVERSAL_PROHIBITIONS,
 } from '../src/callbrain/callPack.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
 
 /**
  * Block H: the words a rep actually says.
@@ -34,6 +34,9 @@ async function account(): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac', contactName: 'Dana Fielder', contactTitle: 'Owner',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

@@ -17,6 +17,7 @@ import { recordProviderTask } from '../src/miner/providerTasks.js';
 import { planDiscoverySearches } from '../src/miner/searchPlan.js';
 import { DECLINED_RETRY_HOURS } from '../src/workers/marketScheduler.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Markets that maintain themselves.
@@ -47,12 +48,11 @@ function workingAdapter(options: { businesses?: number } = {}): DiscoveryAdapter
       const count = options.businesses ?? 0;
       return {
         status: count > 0 ? 'OK' : 'ZERO_RESULTS',
-        businesses: Array.from({ length: count }, (_, index) => ({
+        observations: observationsFor(Array.from({ length: count }, (_, index) => ({
           name: `Scheduled Find ${++sequence}-${index}`, website: null,
           phone: `904-555-${String(9000 + sequence).slice(-4)}`,
-        })),
-        providerRows: count, rejectedRows: 0, duplicateRows: 0,
-      };
+        }))),
+        };
     },
   };
 }
@@ -140,15 +140,14 @@ test('a market with a provider task still owed is collected, not re-bought', asy
     isConfigured: () => true,
     async discover() {
       discovers += 1;
-      return { status: 'ZERO_RESULTS' as const, businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS' as const, observations: observationsFor([]), };
     },
     async collect(providerTaskId) {
       collects += 1;
       return { status: 'OK' as const,
-        businesses: [{ name: 'owed.invalid', website: 'https://owed.invalid', phone: null,
-          city: null, state: null, postalCode: null }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId };
+        observations: observationsFor([{ name: 'owed.invalid', website: 'https://owed.invalid', phone: null,
+          city: null, state: null, postalCode: null }]),
+        providerTaskId };
     },
   });
 
@@ -324,8 +323,7 @@ test('attempted and succeeded stay different facts', async () => {
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        status: 'OUTAGE', businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-        reason: 'the provider is down',
+        status: 'OUTAGE', observations: observationsFor([]), reason: 'the provider is down',
       };
     },
   });
@@ -343,7 +341,7 @@ test('attempted and succeeded stay different facts', async () => {
 });
 
 test('a successful run through the worker records the market as covered', async () => {
-  registerDiscoveryAdapter(workingAdapter({ businesses: 2 }));
+  registerDiscoveryAdapter(workingAdapter({ businesses: 2}));
   const marketId = await market('Covered Market');
 
   await scheduleDueMarkets();

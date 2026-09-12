@@ -1,6 +1,8 @@
 import { query } from '../db/pool.js';
 import { researchPictureFor, UNKNOWING, type ResearchPicture } from './researchFacts.js';
 import { SCORE_VERSION } from '../scoring/model.js';
+import { entityGate } from './entityStatus.js';
+import { automatedDiscoveryPredicate } from './discoverySources.js';
 
 /**
  * Whether a record is something a rep can actually work, or only something we found.
@@ -60,6 +62,9 @@ interface AccountRow {
   suppression_summary: string | null;
   merged_into_account_id: string | null;
   last_researched_at: Date | null;
+  entity_status: string | null;
+  /** True when a discovery run created this, rather than an import or a person. */
+  found_by_machine: boolean;
 }
 
 /**
@@ -88,7 +93,11 @@ export async function readinessFor(
   const { rows } = await query<AccountRow>(
     `select account_id, canonical_name, normalized_name, primary_vertical_profile_id,
             manual_score, manual_tier, score_version, is_suppressed, suppression_summary,
-            merged_into_account_id, last_researched_at
+            merged_into_account_id, last_researched_at, entity_status,
+            exists (select 1 from activities act
+                     where act.account_id = accounts.account_id
+                       and act.activity_type = 'DISCOVERED'
+                       and ${automatedDiscoveryPredicate('act.source_system')}) as found_by_machine
        from accounts where account_id = $1`, [accountId]);
   const account = rows[0];
   if (!account) return null;
@@ -114,6 +123,20 @@ export async function readinessFor(
     true);
 
   // --- identity ----------------------------------------------------------------
+  //
+  // Two separate questions, deliberately, and they used to be one.
+  //
+  // The first is whether this record has been established to refer to an operating
+  // business at all. That is a fact about provenance, it is decided by the resolver
+  // at discovery time, and no amount of research changes it: research on a directory
+  // page completes successfully and produces a directory. It is blocking.
+  //
+  // The second is whether the name reads like a company's. It is a weaker, textual
+  // check, and it stays because a verified entity can still carry a bad name.
+  const gate = entityGate({
+    entityStatus: account.entity_status, foundByMachine: account.found_by_machine });
+  add('entity', 'Established to be a company', gate.workable, gate.reason, true);
+
   add('identity', 'A company, with a name that is one',
     looksLikeACompany(account.canonical_name),
     looksLikeACompany(account.canonical_name) ? ''

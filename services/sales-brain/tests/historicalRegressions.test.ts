@@ -16,7 +16,8 @@ import { operationalSnapshot } from '../src/api/operations.js';
 import { createDataForSeoAdapter, type DataForSeoConfig } from '../src/miner/dataForSeoAdapter.js';
 import { pendingProviderTasks } from '../src/miner/providerTasks.js';
 import { reconcileMissingResearch } from '../src/workers/researchReconcile.js';
-import { resetDatabase, makeUser , plannedRequest } from './helpers.js';
+import { resetDatabase, makeUser , plannedRequest, markEntityVerified } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * The failures we actually had.
@@ -59,7 +60,7 @@ function adapter(result: Partial<DiscoveryResult> & { status: DiscoveryResult['s
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0, ...result };
+        observations: observationsFor([]), ...result };
     },
   };
 }
@@ -106,14 +107,13 @@ test('4. a provider task outlives the worker and is collected, not re-bought', a
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       submissions += 1;
-      return { status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, providerTaskId: 'historical-task' };
+      return { status: 'PENDING', observations: observationsFor([]), providerTaskId: 'historical-task' };
     },
     async collect(taskId: string): Promise<DiscoveryResult> {
       return {
         status: 'OK',
-        businesses: [{ name: 'Collected After Restart', website: null, phone: '904-555-1101' }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId: taskId,
+        observations: observationsFor([{ name: 'Collected After Restart', website: null, phone: '904-555-1101' }]),
+        providerTaskId: taskId,
       };
     },
   });
@@ -143,8 +143,7 @@ test('6. a provider that found only companies we hold is coverage, not zero', as
   }, { discoverySource: 'apollo_purchased_import' }));
 
   registerDiscoveryAdapter(adapter({
-    status: 'OK', providerRows: 1,
-    businesses: [{ name: 'Already Ours', website: null, phone: '904-555-1201' }],
+    status: 'OK', observations: observationsFor([{ name: 'Already Ours', website: null, phone: '904-555-1201' }]),
   }));
 
   const job = await mine();
@@ -163,8 +162,7 @@ test('7. a provider finding an Apollo company keeps one Account and both sources
   }, { discoverySource: 'apollo_purchased_import' }));
 
   registerDiscoveryAdapter(adapter({
-    status: 'OK', providerRows: 1,
-    businesses: [{ name: 'Dual Provenance Co', website: null, phone: '904-555-1301' }],
+    status: 'OK', observations: observationsFor([{ name: 'Dual Provenance Co', website: null, phone: '904-555-1301' }]),
   }));
   await mine();
 
@@ -218,8 +216,7 @@ test('9. spellings of one market are one paid request', () => {
 // 10 --------------------------------------------------------------------------
 test('10. a discovered Account is researched rather than left as a name', async () => {
   registerDiscoveryAdapter(adapter({
-    status: 'OK', providerRows: 1,
-    businesses: [{ name: 'Gets Researched', website: null, phone: '904-555-1401' }],
+    status: 'OK', observations: observationsFor([{ name: 'Gets Researched', website: null, phone: '904-555-1401' }]),
   }));
   await mine();
 
@@ -235,6 +232,9 @@ test('11. an Account whose research is RUNNING is not queued behind itself', asy
     canonicalName: 'Being Researched', website: `https://hist${sequence}.invalid`,
     phone: '904-555-1501', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   await query(
     `update accounts set created_at = now() - interval '1 hour' where account_id = $1`,
     [accountId]);
@@ -254,6 +254,9 @@ test('12. an operator can retry an Account the sweep is holding back', async () 
     canonicalName: 'Held Back', website: `https://hist${sequence}.invalid`,
     phone: '904-555-1601', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   await query(
     `update accounts set created_at = now() - interval '1 hour' where account_id = $1`,
     [accountId]);
@@ -270,8 +273,7 @@ test('12. an operator can retry an Account the sweep is holding back', async () 
 // 13 --------------------------------------------------------------------------
 test('13. a discovery-triggered research run is not recorded as human requested', async () => {
   registerDiscoveryAdapter(adapter({
-    status: 'OK', providerRows: 1,
-    businesses: [{ name: 'Trigger Check Co', website: null, phone: '904-555-1701' }],
+    status: 'OK', observations: observationsFor([{ name: 'Trigger Check Co', website: null, phone: '904-555-1701' }]),
   }));
   await mine();
   await drainQueue(20);
@@ -298,11 +300,10 @@ test('14. a real provider result type is one the database accepts', async () => 
   }
 
   registerDiscoveryAdapter(adapter({
-    status: 'OK', providerRows: 1,
-    businesses: [{
+    status: 'OK', observations: observationsFor([{
       name: 'Typed Result Co', website: null, phone: '904-555-1801',
       resultType: 'PAID_SEARCH_TEXT',
-    }],
+    }]),
   }));
   const job = await mine();
   assert.equal(job['outcome'], 'COMPLETED', 'ingestion threw on the provider result type');
@@ -316,8 +317,7 @@ test('14. a real provider result type is one the database accepts', async () => 
 test('15. the miner KPI counts what the miner writes', async () => {
   const { miningKpis } = await import('../src/api/waveCQueries.js');
   registerDiscoveryAdapter(adapter({
-    status: 'OK', providerRows: 1,
-    businesses: [{ name: 'Counted Co', website: null, phone: '904-555-1901' }],
+    status: 'OK', observations: observationsFor([{ name: 'Counted Co', website: null, phone: '904-555-1901' }]),
   }));
   await mine();
 

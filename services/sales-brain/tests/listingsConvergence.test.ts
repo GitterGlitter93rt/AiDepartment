@@ -19,6 +19,7 @@ import {
 } from '../src/miner/listings.js';
 import { ingestListings, latestListingFacts } from '../src/miner/listingsIngest.js';
 import { researchPictureFor } from '../src/domain/researchFacts.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Three sources, one company, any arrival order.
@@ -159,14 +160,13 @@ async function fromSerp(): Promise<void> {
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: [{
+        observations: observationsFor([{
           name: 'convergence.invalid', website: 'https://convergence.invalid',
           phone: null, city: null, state: null, postalCode: null,
           resultType: 'PAID_SEARCH_TEXT', adHeadline: 'Same-Day AC Repair',
           query: 'ac repair', position: 1,
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
-      };
+        }]),
+        };
     },
   });
   const ops = await makeUser(`Converge Ops ${Date.now()}${Math.random()}`, 'RESEARCH_OPS');

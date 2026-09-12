@@ -22,7 +22,7 @@ beforeEach(async () => { await resetDatabase(); });
 
 async function account(name: string): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: name, website: `https://${name.replace(/\W+/g, '')}.example.com`,
+    canonicalName: name, website: `https://${name.replace(/\W+/g, '')}.example`,
     city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
   return accountId;

@@ -2,7 +2,7 @@ import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query, withTransaction } from '../src/db/pool.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { searchProspects } from '../src/domain/search.js';
@@ -46,6 +46,9 @@ async function account(options: {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'listings:fixture' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
 
   if (options.researched) {
     await query(

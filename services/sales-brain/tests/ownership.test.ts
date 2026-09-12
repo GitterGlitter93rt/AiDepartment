@@ -6,7 +6,7 @@ import { upsertAccount } from '../src/domain/accounts.js';
 import { claimAccount, claimAccounts, releaseAccount, reassignAccount } from '../src/domain/ownership.js';
 import { recordDisposition } from '../src/domain/activities.js';
 import { searchProspects } from '../src/domain/search.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 
 /**
  * The acceptance data tests required before rollout
@@ -79,6 +79,9 @@ test('domain match resolves identity even when the name is written differently',
       { discoverySource: 'market_miner' },
     ),
   );
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(second.accountId);
   assert.equal(second.accountId, first);
   assert.equal(second.matchRule, 'domain');
 });
@@ -166,6 +169,9 @@ test('DNC survives rediscovery and never returns as claimable cold inventory', a
       { discoverySource: 'market_miner' },
     ),
   );
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(rediscovered.accountId);
   assert.equal(rediscovered.accountId, accountId, 'rediscovery resolves to the same Account');
 
   const stillSuppressed = await pool.query(
@@ -206,6 +212,9 @@ test('cross-vertical rediscovery keeps the original owner', async () => {
       { discoverySource: 'market_miner_plumbing' },
     ),
   );
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(again.accountId);
   assert.equal(again.accountId, accountId);
 
   const claimAttempt = await claimAccount(accountId, repB);

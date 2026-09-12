@@ -7,6 +7,7 @@ import {
 import {
   scheduleDueMarkets, MAX_MARKETS_PER_PASS, MAX_MARKETS_IN_FLIGHT,
 } from '../../src/workers/marketScheduler.js';
+import { observationsFor } from '../support/observations.js';
 
 /**
  * A hundred saved markets, a worker that dies in the middle, and the question an
@@ -73,11 +74,11 @@ function packetAdapter(perMarket: Map<string, number>): DiscoveryAdapter {
       sequence += 1;
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           name: `Packet Co ${key}-${sequence}`, website: null,
           phone: `904-555-${String(1000 + (sequence % 8999)).slice(-4)}`,
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.0125,
+        }]),
+        costUsd: 0.0125,
       };
     },
   };

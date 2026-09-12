@@ -1,12 +1,17 @@
 import { query } from '../db/pool.js';
 import { flag, numeric } from '../config.js';
-import { resolveCandidates, type EntityCandidate } from '../discovery/resolve.js';
-import { registrableDomain } from '../discovery/sourceClass.js';
+import {
+  isPaidPlacement,
+  type NormalizedResultType, type ProviderObservation,
+} from '../discovery/observation.js';
 import {
   refusedDiscovery,
-  type DiscoveredBusiness, type DiscoveryAdapter, type DiscoveryQuery,
+  type DiscoveryAdapter, type DiscoveryQuery,
   type DiscoveryResult, type DiscoveryStatus,
 } from '../workers/marketMiner.js';
+
+export type { NormalizedResultType, ProviderObservation };
+export { isPaidPlacement };
 
 /**
  * DataForSEO SERP adapter — the first discovery provider to integrate and benchmark.
@@ -25,11 +30,6 @@ import {
  */
 
 const DEFAULT_BASE_URL = 'https://api.dataforseo.com/v3';
-
-/** Result types this product understands, per the normalization spec §2. */
-export type NormalizedResultType =
-  | 'PAID_SEARCH_TEXT' | 'PAID_LOCAL' | 'LOCAL_SERVICES_AD' | 'SHOPPING_OR_IRRELEVANT_PAID'
-  | 'LOCAL_ORGANIC' | 'ORGANIC' | 'MAPS_LOCAL' | 'KNOWLEDGE_OR_ENTITY' | 'OTHER';
 
 /**
  * Provider item types mapped to ours. An unmapped type becomes OTHER rather than
@@ -54,19 +54,6 @@ const TYPE_MAP: Record<string, NormalizedResultType> = {
 export function normalizeResultType(providerType: string | null | undefined): NormalizedResultType {
   if (!providerType) return 'OTHER';
   return TYPE_MAP[providerType.toLowerCase()] ?? 'OTHER';
-}
-
-/**
- * Result types that can become a prospect. An unclassified block, a knowledge panel
- * or a shopping ad is an observation worth keeping but not a company to research.
- */
-const CANDIDATE_TYPES = new Set<NormalizedResultType>([
-  'PAID_SEARCH_TEXT', 'PAID_LOCAL', 'LOCAL_SERVICES_AD', 'LOCAL_ORGANIC', 'ORGANIC', 'MAPS_LOCAL',
-]);
-
-/** Only these types are evidence that somebody paid for placement. */
-export function isPaidPlacement(type: NormalizedResultType): boolean {
-  return type === 'PAID_SEARCH_TEXT' || type === 'PAID_LOCAL' || type === 'LOCAL_SERVICES_AD';
 }
 
 export interface DataForSeoConfig {
@@ -144,21 +131,14 @@ export interface ProviderResponse {
   tasks?: ProviderTask[];
 }
 
-export interface NormalizedObservation {
-  providerNativeId: string | null;
-  observedName: string | null;
-  observedDomain: string | null;
-  observedPhone: string | null;
-  observedLocation: string | null;
-  resultType: NormalizedResultType;
-  position: number | null;
-  adHeadline: string | null;
-  landingUrl: string | null;
-  advertisedService: string | null;
-  checkUrl: string | null;
-  observedAt: Date;
-  query: string;
-}
+/**
+ * The adapter's output shape is the product's, not the provider's.
+ *
+ * Kept as an alias so a reader of this file can see what `normalizeResponse` returns
+ * without following an import: the definition lives in `discovery/observation.ts`
+ * because the orchestrator, not this adapter, decides what an observation means.
+ */
+export type NormalizedObservation = ProviderObservation;
 
 /**
  * Turns a provider response into observations.
@@ -191,7 +171,17 @@ export function normalizeResponse(
           observedName: item.title?.trim() || null,
           observedDomain: item.domain?.trim().toLowerCase() || null,
           observedPhone: item.phone?.trim() || null,
-          observedLocation: result.location_name ?? item.address ?? null,
+          // Kept apart, never coalesced.
+          //
+          // This was `result.location_name ?? item.address`, which is two different
+          // facts with the search target winning. `location_name` is where we asked
+          // the provider to search -- "St. Augustine,Florida,United States" -- and it
+          // is present on every row of every response, so a business's own address
+          // could never win the coalesce. The classifier then read that field as
+          // evidence a Maps row identified a business, which meant the geography we
+          // typed helped verify the entity.
+          observedBusinessAddress: item.address?.trim() || null,
+          searchLocationName: result.location_name ?? null,
           resultType: type,
           position: item.rank_absolute ?? item.rank_group ?? null,
           adHeadline: isPaidPlacement(type) ? (item.title?.trim() || null) : null,
@@ -342,93 +332,14 @@ function resultFromResponse(
   response: ProviderResponse, keyword: string, cost: number | null,
 ): DiscoveryResult {
   const observations = normalizeResponse(response, { query: keyword });
-
-  // Entity resolution, not a shape test.
-  //
-  // This used to keep any row with a domain, or a name and a phone. A Yelp search
-  // page has all three, so it became a company; so did a News4Jax article, a Reddit
-  // thread and an HTTP 500 error page. `resolveCandidates` asks the question that was
-  // missing -- is this an operating business, and which one -- and it needs the whole
-  // result set, because a domain carrying three different business names is a
-  // directory whatever it is called.
-  const eligible = observations.filter((observation) => CANDIDATE_TYPES.has(observation.resultType));
-  const candidates = resolveCandidates(eligible.map((observation) => ({
-    resultType: observation.resultType,
-    observedName: observation.observedName,
-    observedDomain: observation.observedDomain,
-    observedPhone: observation.observedPhone,
-    observedLocation: observation.observedLocation,
-    landingUrl: observation.landingUrl,
-    position: observation.position,
-  })));
-
-  const verified = candidates.filter((candidate) => candidate.status === 'VERIFIED');
-  const businesses = businessesFromCandidates(verified, eligible);
-
-  // The funnel an operator can check, kept as the arithmetic it always was: rows the
-  // provider sent, minus rows with nothing to identify them, minus rows that collapsed
-  // into another row for the same company, equals the identities that came out.
-  const identified = eligible.filter((observation) =>
-    registrableDomain(observation.observedDomain) || observation.observedPhone?.trim());
-
-  const refused = candidates.length - verified.length;
   return {
-    // Rows came back and none of them identified a business: that is a real answer
-    // about this market, not a failure, and it is reported as one.
-    status: businesses.length > 0 ? 'OK' : 'ZERO_RESULTS',
-    businesses,
-    candidates,
-    providerRows: observations.length,
-    rejectedRows: observations.length - identified.length,
-    duplicateRows: identified.length - candidates.length,
+    // The provider answered. Whether the answer contains a business is not this
+    // adapter's question and it no longer guesses at one: the orchestrator resolves
+    // the rows and downgrades this to ZERO_RESULTS when nothing promotes.
+    status: 'OK',
+    observations,
     costUsd: cost,
-    reason: `${observations.length} row(s) read, ${candidates.length} identit(ies) resolved, `
-      + `${businesses.length} business(es) verified, ${refused} not promoted.`,
   };
-}
-
-/**
- * The promotable candidates, in the shape ingestion already understands.
- *
- * Only verified candidates reach this, and each carries the name the resolver was
- * willing to defend rather than whichever page title ranked highest.
- */
-function businessesFromCandidates(
-  verified: EntityCandidate[], observations: NormalizedObservation[],
-): DiscoveredBusiness[] {
-  const byIdentity = new Map<string, NormalizedObservation>();
-  for (const observation of observations) {
-    const identity = registrableDomain(observation.observedDomain)
-      ?? (observation.observedPhone?.trim() || null);
-    if (!identity || byIdentity.has(identity)) continue;
-    byIdentity.set(identity, observation);
-  }
-
-  const businesses: DiscoveredBusiness[] = [];
-  for (const candidate of verified) {
-    if (!candidate.resolvedName) continue;
-    const seen = byIdentity.get(candidate.identity);
-    businesses.push({
-      name: candidate.resolvedName,
-      // The URL form, as inventory has always stored it. The candidate carries the
-      // registrable domain because that is the identity; this is the address.
-      website: candidate.domain ? `https://${candidate.domain}` : null,
-      phone: candidate.phone,
-      // Deliberately null. A SERP row does not observe an address, and the searched
-      // geography is not one -- see the miner, where that fallback used to live.
-      city: null, state: null, postalCode: null,
-      providerNativeId: seen?.providerNativeId ?? null,
-      resultType: seen?.resultType,
-      advertisedService: seen?.advertisedService ?? null,
-      landingUrl: seen?.landingUrl ?? null,
-      query: seen?.query ?? null,
-      position: seen?.position ?? null,
-      adHeadline: seen?.adHeadline ?? null,
-      checkUrl: seen?.checkUrl ?? null,
-      observedAt: seen?.observedAt ?? null,
-    });
-  }
-  return businesses;
 }
 
 export function createDataForSeoAdapter(options: {
@@ -676,84 +587,4 @@ export function createDataForSeoAdapter(options: {
       return { ...resultFromResponse(got.body, keyword, cost), providerTaskId };
     },
   };
-}
-
-
-/**
- * One company per discover(), not one per SERP row.
- *
- * A business that buys the top ad and also ranks organically appears twice in the
- * same response. Handing both up produces two candidates for one company, and the
- * paid one is the interesting one -- so the rows are collapsed on identity and the
- * paid placement wins, keeping the ad copy and the landing page that came with it.
- *
- * Identity here is the domain, or the phone when there is no domain. Anything
- * subtler than that belongs to entity resolution, which runs later with more to go
- * on than a single search page.
- */
-export function dedupeCandidates(
-  observations: NormalizedObservation[],
-): DiscoveredBusiness[] {
-  const byIdentity = new Map<string, NormalizedObservation>();
-  /**
-   * The company's name, which is not always in the row we keep.
-   *
-   * A text ad's title is ad copy -- "Same-Day AC Repair St. Augustine -- 24/7
-   * Emergency Service" -- and naming the Account after it puts a slogan in the rep's
-   * list where a company should be. The same company's organic row usually carries
-   * something closer to a name, and the domain always does. A Local Services ad is
-   * the exception: Google shows the business name there, so its title is a name.
-   */
-  const nameByIdentity = new Map<string, { name: string; rank: number }>();
-
-  for (const observation of observations) {
-    const identity = observation.observedDomain ?? observation.observedPhone;
-    if (!identity) continue;
-    if (observation.resultType !== 'PAID_SEARCH_TEXT' && observation.observedName) {
-      // The highest-placed one, not the first one seen: a deep link buried at rank
-      // seven carries the title of a blog post, and the row at rank two carries
-      // something much closer to the company's name.
-      const rank = observation.position ?? Number.MAX_SAFE_INTEGER;
-      const held = nameByIdentity.get(identity);
-      if (!held || rank < held.rank) nameByIdentity.set(identity, { name: observation.observedName, rank });
-    }
-    const held = byIdentity.get(identity);
-    if (!held) { byIdentity.set(identity, observation); continue; }
-
-    const heldPaid = isPaidPlacement(held.resultType);
-    const paid = isPaidPlacement(observation.resultType);
-    if (paid && !heldPaid) { byIdentity.set(identity, observation); continue; }
-    if (paid === heldPaid) {
-      // Same class: keep whichever sat higher on the page.
-      const heldRank = held.position ?? Number.MAX_SAFE_INTEGER;
-      const rank = observation.position ?? Number.MAX_SAFE_INTEGER;
-      if (rank < heldRank) byIdentity.set(identity, observation);
-    }
-    // A paid row already held is never displaced by an organic one.
-  }
-
-  return [...byIdentity.entries()].map(([identity, observation]) => ({
-    name: nameByIdentity.get(identity)?.name
-      ?? observation.observedDomain
-      // Nothing but a text ad to go on. The slogan is all we have; it is better than
-      // an empty row, and the ad copy is kept separately either way.
-      ?? observation.observedName!,
-    website: observation.observedDomain ? `https://${observation.observedDomain}` : null,
-    phone: observation.observedPhone,
-    city: null, state: null, postalCode: null,
-    providerNativeId: observation.providerNativeId,
-    resultType: observation.resultType,
-    advertisedService: observation.advertisedService,
-    landingUrl: observation.landingUrl,
-    // Everything above this line described the company; everything below describes
-    // the sighting, and it used to stop here. The rank, the ad copy, the search
-    // that found them, the provider's own check link and the time the page was
-    // actually read were all normalized and then dropped on the floor -- so the
-    // record of how we found a company said "paid_search" and nothing else.
-    query: observation.query,
-    position: observation.position,
-    adHeadline: observation.adHeadline,
-    checkUrl: observation.checkUrl,
-    observedAt: observation.observedAt,
-  }));
 }

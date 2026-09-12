@@ -8,7 +8,9 @@ import {
   createDataForSeoAdapter, normalizeResponse, normalizeResultType, isPaidPlacement,
   type DataForSeoConfig, type ProviderResponse, type Transport,
 } from '../src/miner/dataForSeoAdapter.js';
-import { availableDiscoveryAdapters, registerDiscoveryAdapter } from '../src/workers/marketMiner.js';
+import { availableDiscoveryAdapters, registerDiscoveryAdapter,
+         type DiscoveryResult } from '../src/workers/marketMiner.js';
+import { resolveObservations } from '../src/discovery/observation.js';
 import { planDiscoverySearches } from '../src/miner/searchPlan.js';
 
 /**
@@ -54,6 +56,16 @@ const RESPONSE: ProviderResponse = {
   }],
 };
 
+/**
+ * What the orchestrator would make of this answer.
+ *
+ * The adapter no longer resolves anything -- it normalizes rows and stops -- so a
+ * test that wants to know which companies a response produces has to run the same
+ * resolution the miner runs. That is the point of the change: there is exactly one
+ * implementation of the promotion rules and no adapter can skip it.
+ */
+const resolved = (result: DiscoveryResult) => resolveObservations(result.observations);
+
 function transportReturning(response: ProviderResponse, ok = true, status = 200): Transport {
   return async () => ({ ok, status, json: async () => response });
 }
@@ -86,6 +98,7 @@ async function planned(overrides: Partial<{
     ...(first ? { search: {
       keyword: first.keyword, locationName: first.locationName, term: first.term,
       fingerprint: first.fingerprint, index: first.index,
+      purpose: first.purpose, coverageRole: first.coverageRole,
     } } : {}),
   };
 }
@@ -131,7 +144,7 @@ test('the adapter refuses to run before the source governance review', async () 
   assert.equal(adapter.isConfigured(), false);
 
   const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
-  assert.deepEqual(found.businesses, []);
+  assert.deepEqual(found.observations, []);
   assert.equal(found.status, 'GOVERNANCE_BLOCKED',
     'an unreviewed source is blocked, not a market with nothing in it');
   assert.match(found.reason ?? '', /governance review/);
@@ -150,7 +163,7 @@ test('a credential alone does not start traffic', async () => {
   });
   assert.equal(adapter.isConfigured(), false);
   const refused = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
-  assert.deepEqual(refused.businesses, []);
+  assert.deepEqual(refused.observations, []);
   assert.equal(refused.status, 'NOT_CONFIGURED');
 });
 
@@ -180,23 +193,28 @@ test('a discovered business carries its provider evidence, and no invented locat
   const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
 
   assert.equal(found.status, 'OK');
-  assert.equal(found.businesses.length, 2, 'only results identifying a business become candidates');
-  // The domain, not the ad's headline. This fixture's text ad happens to be titled
-  // with the company's name; a real one is as likely to be titled "Same-Day AC
-  // Repair -- 24/7 Emergency Service", and there is no way to tell the two apart
-  // from the row. The domain is the part we actually know, and the headline is kept
-  // as ad copy rather than lost.
-  assert.equal(found.businesses[0]!.name, 'northgateair.com');
-  assert.equal(found.businesses[0]!.adHeadline, 'Northgate Air & Heating');
-  assert.equal(found.businesses[0]!.website, 'https://northgateair.com');
-  assert.equal(found.businesses[0]!.resultType, 'PAID_SEARCH_TEXT');
-  assert.equal(found.businesses[0]!.city, null, 'a city the provider did not give is not guessed');
-  assert.equal(found.businesses[1]!.resultType, 'ORGANIC');
+  const run = resolved(found);
+
+  // One company, not two. The organic row names a company whose domain agrees with
+  // that name, which is corroboration; the paid row is a text ad on a domain nothing
+  // else in the response says anything about, and somebody buying a keyword is not
+  // evidence that the advertiser operates the trade we asked for.
+  assert.equal(run.businesses.length, 1);
+  assert.equal(run.businesses[0]!.name, 'Palmetto Plumbing');
+  assert.equal(run.businesses[0]!.website, 'https://palmettoplumbing.com');
+  assert.equal(run.businesses[0]!.resultType, 'ORGANIC');
+  assert.equal(run.businesses[0]!.city, null, 'a city the provider did not give is not guessed');
+
+  // The ad is kept, with its copy, as something a person can look at.
+  const advert = run.candidates.find((candidate) => candidate.identity === 'northgateair.com');
+  assert.equal(advert?.status, 'NEEDS_REVIEW');
+  assert.equal(advert?.resolvedName, null, 'ad copy is never a company name');
+
   // The funnel, not just the survivors: an operator has to be able to check the
   // arithmetic between what the provider sent and what reached inventory.
-  assert.ok(found.providerRows >= found.businesses.length);
-  assert.equal(found.providerRows - found.rejectedRows - found.duplicateRows,
-    found.businesses.length, 'rows in must equal rows out plus what was dropped');
+  assert.ok(run.providerRows >= run.businesses.length);
+  assert.equal(run.providerRows - run.rejectedRows - run.duplicateRows,
+    run.candidates.length, 'rows in must equal identities out plus what was dropped');
 });
 
 test('provider cost is recorded from the response, and a failure is still recorded', async () => {
@@ -212,7 +230,7 @@ test('provider cost is recorded from the response, and a failure is still record
   const failing = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE, false, 402) });
   const found = await failing.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
-  assert.deepEqual(found.businesses, []);
+  assert.deepEqual(found.observations, []);
   assert.notEqual(found.status, 'ZERO_RESULTS',
     'a provider that failed must never be reported as a market with nothing in it');
   assert.equal(found.status, 'OUTAGE');
@@ -227,7 +245,7 @@ test('an unclassified block is observed but never becomes a company', async () =
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
   const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
-  assert.equal(found.businesses.some((row) => row.name === 'Mystery Block'), false,
+  assert.equal(resolved(found).businesses.some((row) => row.name === 'Mystery Block'), false,
     'a block we could not classify has nothing entity resolution can work with');
 
   // It is still normalized, so the observation is not lost — only its promotion.
@@ -250,6 +268,7 @@ import {
   BENCHMARK_CEILINGS, type BenchmarkCell,
 } from '../src/miner/benchmark.js';
 import type { DiscoveryAdapter } from '../src/workers/marketMiner.js';
+import { observationsFor } from './support/observations.js';
 
 /** An adapter that always answers, and reports what each task cost. */
 function countingAdapter(options: { costPerTask?: number; results?: number } = {}): {
@@ -264,14 +283,12 @@ function countingAdapter(options: { costPerTask?: number; results?: number } = {
       isConfigured: () => true,
       async discover() {
         state.calls += 1;
-        const businesses = Array.from({ length: options.results ?? 2 }, (_, index) => ({
-          name: `Result ${index}`, website: 'https://example.com',
+        const businesses = Array.from({ length: options.results ?? 2 }, (_unused, index) => ({
+          name: `Result ${index}`, website: `https://result${index}.example`,
+          phone: `904-555-90${index.toString().padStart(2, '0')}`,
           resultType: index === 0 ? 'PAID_SEARCH_TEXT' : 'ORGANIC',
         }));
-        return {
-          status: businesses.length > 0 ? 'OK' as const : 'ZERO_RESULTS' as const,
-          businesses, providerRows: businesses.length, rejectedRows: 0, duplicateRows: 0,
-        };
+        return { status: 'OK' as const, observations: observationsFor(businesses) };
       },
     },
   };

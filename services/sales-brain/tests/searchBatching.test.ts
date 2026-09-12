@@ -14,6 +14,7 @@ import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import {
   planDiscoverySearches, renderSearchPlan, searchFingerprint,
 } from '../src/miner/searchPlan.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * A count of searches is a count of searches.
@@ -204,12 +205,12 @@ function countingAdapter(state: { seen: DiscoveryQuery['search'][] }) {
       const index = request.search?.index ?? 0;
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           name: `batch${index}.invalid`, website: `https://batch${index}.invalid`,
           phone: null, city: null, state: null, postalCode: null,
           resultType: 'PAID_SEARCH_TEXT', query: request.search?.term ?? null,
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006,
+        }]),
+        costUsd: 0.006,
       };
     },
   });
@@ -248,13 +249,12 @@ test('each search gets its own outcome, not a shared one', async () => {
       const index = request.search?.index ?? 0;
       if (index === 1) {
         return { status: 'OK',
-          businesses: [{ name: 'first.invalid', website: 'https://first.invalid', phone: null,
-            city: null, state: null, postalCode: null }],
-          providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006 };
+          observations: observationsFor([{ name: 'first.invalid', website: 'https://first.invalid', phone: null,
+            city: null, state: null, postalCode: null }]),
+          costUsd: 0.006 };
       }
       if (index === 2) return refusedDiscovery('OUTAGE', 'the provider did not answer');
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 4, rejectedRows: 4,
-        duplicateRows: 0, reason: 'nothing usable' };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), reason: 'nothing usable' };
     },
   });
 
@@ -288,15 +288,14 @@ test('a search already owed is collected while its siblings are still bought', a
         return { ...refusedDiscovery('PENDING', 'accepted, not ready'),
           providerTaskId: `owed-${request.search.index}` };
       }
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
     async collect(providerTaskId): Promise<DiscoveryResult> {
       collections += 1;
       return { status: 'OK',
-        businesses: [{ name: 'collected.invalid', website: 'https://collected.invalid',
-          phone: null, city: null, state: null, postalCode: null }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId };
+        observations: observationsFor([{ name: 'collected.invalid', website: 'https://collected.invalid',
+          phone: null, city: null, state: null, postalCode: null }]),
+        providerTaskId };
     },
   });
 

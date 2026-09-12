@@ -8,7 +8,7 @@ import { recordDisposition } from '../src/domain/activities.js';
 import {
   evaluateAndStore, preflightCall, explain, POLICY_VERSION,
 } from '../src/compliance/eligibility.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 
 /**
  * Phone channel eligibility.
@@ -28,7 +28,7 @@ async function seedEndpoint(options: {
 } = {}): Promise<{ accountId: string; endpointId: string }> {
   return withTransaction(async (client) => {
     const { accountId } = await upsertAccount(client, {
-      canonicalName: 'Northgate Air', website: 'https://northgate.example.com',
+      canonicalName: 'Northgate Air', website: 'https://northgate.example',
       city: 'Jacksonville', state: 'FL', timezone: options.timezone ?? 'America/New_York',
     }, { discoverySource: 'test' });
     const endpointId = await upsertEndpoint(client, {
@@ -257,8 +257,11 @@ test('a blocked account keeps its identity so rediscovery cannot resurrect it', 
 
   const rediscovered = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air', website: 'https://northgate.example.com', phone: '904-555-0100',
+      canonicalName: 'Northgate Air', website: 'https://northgate.example', phone: '904-555-0100',
     }, { discoverySource: 'market_miner' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(rediscovered.accountId);
   assert.equal(rediscovered.accountId, accountId);
 
   const preflight = await preflightCall(endpointId, 'HUMAN_MANUAL_CALL');

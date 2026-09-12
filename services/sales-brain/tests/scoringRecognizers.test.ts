@@ -7,7 +7,7 @@ import { upsertAccount } from '../src/domain/accounts.js';
 import { scoreAccount } from '../src/scoring/score.js';
 import { recognizeSignals } from '../src/scoring/recognize.js';
 import { SCORE_RULES, type ScoreRuleId } from '../src/scoring/model.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
 
 /**
  * The four rules that had no recognizer, and the seven that did.
@@ -40,6 +40,9 @@ async function account(vertical = 'hvac'): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical,
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

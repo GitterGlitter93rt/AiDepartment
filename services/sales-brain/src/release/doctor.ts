@@ -428,13 +428,22 @@ export async function diagnoseRun(jobId: string): Promise<Diagnosis[]> {
   const excluded = Number(progress['excludedByVertical'] ?? 0);
   const rejected = Number(progress['rejectedRows'] ?? 0);
 
+  // Identities the run resolved and deliberately did not promote. A page of
+  // directories is a fully accounted-for run: the rows are in the candidates table
+  // with a reason each. Without this the most common honest outcome of the new
+  // resolver -- "twelve rows, nothing that was a company" -- would be reported to an
+  // operator as an ingestion fault and sent to somebody to debug.
+  const notPromoted = Number(progress['entitiesRejected'] ?? 0)
+    + Number(progress['entitiesNeedingReview'] ?? 0);
+
   const found: Diagnosis[] = [];
-  if (providerRows > 0 && created === 0 && matched === 0 && excluded === 0 && rejected === 0) {
+  if (providerRows > 0 && created === 0 && matched === 0 && excluded === 0 && rejected === 0
+      && notPromoted === 0) {
     found.push({
       category: 'INGESTION_DROPPED',
       finding: `The provider returned ${providerRows} row(s) and none of them became `
-        + 'or matched an Account, and none was rejected or excluded. The rows went '
-        + 'somewhere unaccounted for.',
+        + 'or matched an Account, and none was rejected, excluded or refused '
+        + 'promotion. The rows went somewhere unaccounted for.',
       action: 'This is an ingestion fault rather than a thin market. Compare the '
         + 'funnel counters on the job with the provider row count.',
     });

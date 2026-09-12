@@ -355,6 +355,17 @@ export interface CanaryReport {
     /** Searches that reached a provider and came back wrong. */
     searchesFailed: number;
     providerRows: number;
+    /**
+     * Identities the resolver refused, and ones it could not name.
+     *
+     * The canary's own defect was that it reported "65 businesses identified" about a
+     * page of articles. Rows are not identities and identities are not businesses, so
+     * the three numbers are reported apart and the arithmetic is checkable.
+     */
+    entitiesRejected: number;
+    entitiesNeedingReview: number;
+    /** Companies a commercial-intelligence query found that we do not hold. */
+    notInMarket: number;
     usableBusinesses: number;
     excludedByVertical: number;
     matchedExisting: number;
@@ -465,6 +476,9 @@ export async function canaryReport(jobId: string): Promise<CanaryReport | null> 
     outcomeReason: job.outcome_reason,
     perSearch,
     totals: {
+      entitiesRejected: Number(progress['entitiesRejected'] ?? 0),
+      entitiesNeedingReview: Number(progress['entitiesNeedingReview'] ?? 0),
+      notInMarket: Number(progress['notInMarket'] ?? 0),
       // Attempted is not submitted. `perSearch` has a row per search the run
       // considered, and a run can now submit some and refuse others in the same pass,
       // because the daily ceiling is consulted per call rather than per run.
@@ -520,6 +534,12 @@ export function renderCanaryReport(report: CanaryReport): string {
     + `${totals.searchesFailed} failed`);
   lines.push(`     rows       ${totals.providerRows} provider, ${totals.usableBusinesses} usable, `
     + `${totals.excludedByVertical} excluded by vertical`);
+  // Rows are not identities and identities are not businesses. Printed apart so
+  // "65 businesses identified" can never again describe a page of articles.
+  lines.push(`     entities   ${totals.entitiesRejected} not a business, `
+    + `${totals.entitiesNeedingReview} could not be named`
+    + `${totals.notInMarket > 0
+        ? `, ${totals.notInMarket} found by a commercial query and not already held` : ''}`);
   lines.push(`     accounts   ${totals.newAccounts} new, ${totals.matchedExisting} already held`);
   lines.push(`     research   ${totals.researchQueued} queued, ${totals.researchCompleted} done, `
     + `${totals.researchFailed} failed`);

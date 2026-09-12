@@ -3,6 +3,14 @@ import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
 import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
 import type { EntityCandidate } from '../discovery/resolve.js';
+import { registrableDomain } from '../discovery/sourceClass.js';
+import type { QueryPurpose, CoverageRole } from '../miner/searchTaxonomy.js';
+import {
+  resolveObservations,
+  type DiscoveredBusiness, type ProviderObservation,
+} from '../discovery/observation.js';
+
+export type { DiscoveredBusiness, ProviderObservation };
 import { enqueueAccountResearch } from './enqueue.js';
 import {
   closeProviderTask, openProviderTask, recordCollectionAttempt, recordProviderTask,
@@ -59,36 +67,24 @@ export interface DiscoveryQuery {
     /** Identity of this search, for the provider task lifecycle. */
     fingerprint: string;
     index: number;
+    /**
+     * What this search is for, and what it is therefore allowed to do.
+     *
+     * The planner has distinguished finding companies from learning what they sell
+     * since the taxonomy was made phase-aware, and then threw the distinction away
+     * at this boundary -- every search, whatever its purpose, created Accounts from
+     * whatever it found. So "roof financing st augustine" defined the market: the
+     * companies that rank for a financing question are as likely to be lenders,
+     * comparison sites and national brokers as they are to be local roofers, and
+     * they arrived as prospects with nothing recording that they were found by a
+     * question about money rather than about roofs.
+     *
+     * COMMERCIAL_INTELLIGENCE is about a market we have already found. It may
+     * confirm and enrich the companies in it. It may not decide who is in it.
+     */
+    purpose: QueryPurpose;
+    coverageRole: CoverageRole;
   };
-}
-
-export interface DiscoveredBusiness {
-  name: string;
-  website?: string | null;
-  phone?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  providerNativeId?: string | null;
-  resultType?: string;
-  advertisedService?: string | null;
-  landingUrl?: string | null;
-  /**
-   * What the provider actually showed us, kept so a rep can quote it.
-   *
-   * The adapter normalized every one of these and then dropped them on the way
-   * here: the search that found the company, where it sat on the page, what the ad
-   * said, the provider's own verification link, and when the SERP was really read.
-   * `search_observations` has had a column waiting for each since migration 003.
-   * Without them an observation says only "paid_search", which is a claim with no
-   * proof behind it -- and on a collected task, one stamped at collection time
-   * rather than at the moment the page was read, which overstates its freshness.
-   */
-  query?: string | null;
-  position?: number | null;
-  adHeadline?: string | null;
-  checkUrl?: string | null;
-  observedAt?: Date | null;
 }
 
 /**
@@ -197,27 +193,26 @@ export async function mayBuyNewSearch(job: {
  */
 export interface DiscoveryResult {
   status: DiscoveryStatus;
-  businesses: DiscoveredBusiness[];
-  /** Rows the provider returned, before any filtering of ours. */
-  providerRows: number;
-  /** Rows dropped because nothing in them identified a business. */
-  rejectedRows: number;
-  /** Rows collapsed into another row for the same company. */
-  duplicateRows: number;
+  /**
+   * The rows the provider returned, normalized. The only entity input there is.
+   *
+   * This field used to be `businesses`, and that was the defect. Entity resolution
+   * ran inside the DataForSEO adapter, which made it that adapter's private policy:
+   * any other adapter -- a second provider, a fixture, the benchmark harness -- could
+   * hand up finished companies and every promotion rule was skipped, silently, with
+   * no way to tell from the outside that it had been. A rule that an implementer can
+   * decline is not a rule.
+   *
+   * So an adapter normalizes and stops. `resolveObservations` runs here, once, for
+   * every provider, and there is no longer a field on which a finished Account-shaped
+   * object could arrive.
+   */
+  observations: ProviderObservation[];
   /** The provider's own id for an asynchronous task, when there is one. */
   providerTaskId?: string | null;
   /** Operator-readable, and safe to render. Never a credential or a raw response. */
   reason?: string;
   costUsd?: number | null;
-  /**
-   * Every identity this search resolved, promoted or not.
-   *
-   * `businesses` is the promotable subset. This is the whole set, because a search
-   * that found eleven directories and two companies should be able to say so: the
-   * rejected rows are the evidence that the market was searched, and dropping them
-   * was why a run could report "65 businesses identified" about a page of articles.
-   */
-  candidates?: EntityCandidate[];
 }
 
 /**
@@ -245,7 +240,7 @@ export interface DiscoveryAdapter {
 export function refusedDiscovery(
   status: DiscoveryStatus, reason: string,
 ): DiscoveryResult {
-  return { status, businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0, reason };
+  return { status, observations: [], reason };
 }
 
 const discoveryAdapters: DiscoveryAdapter[] = [];
@@ -485,7 +480,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const funnel: IngestionCounts = {
     candidates: 0, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
     adEvidenceWritten: 0, excludedByVertical: 0, exclusionReasons: [],
-    entitiesRejected: 0, entitiesNeedingReview: 0,
+    entitiesRejected: 0, entitiesNeedingReview: 0, notInMarket: 0,
   };
   let providerRows = 0;
   let providerRejected = 0;
@@ -596,6 +591,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       search: {
         keyword: planned.keyword, locationName: planned.locationName,
         term: planned.term, fingerprint, index: planned.index,
+        purpose: planned.purpose, coverageRole: planned.coverageRole,
       },
     };
     let result: DiscoveryResult;
@@ -710,34 +706,54 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         `${adapter.name} raised instead of reporting: ${(error as Error).message.slice(0, 200)}`);
     }
 
-    statuses.push(result.status);
-    providerRows += result.providerRows;
-    providerRejected += result.rejectedRows;
-    providerDuplicates += result.duplicateRows;
+    // Resolution happens here, for every provider, or it does not happen.
+    const resolution = resolveObservations(result.observations);
+
+    // The provider answered; whether it found anything is ours to say. An adapter
+    // reporting OK on a page of directories would otherwise mark the market as having
+    // businesses in it, which is the claim this whole remediation exists to stop.
+    const status: DiscoveryStatus = result.status === 'OK' && resolution.businesses.length === 0
+      ? 'ZERO_RESULTS' : result.status;
+
+    statuses.push(status);
+    providerRows += resolution.providerRows;
+    providerRejected += resolution.rejectedRows;
+    providerDuplicates += resolution.duplicateRows;
     if (typeof result.costUsd === 'number') { costUsd += result.costUsd; costKnown = true; }
     if (result.providerTaskId) pendingTaskIds.push(result.providerTaskId);
-    if (result.reason) {
+    // The adapter explains its refusals; resolution explains its answers.
+    const reason = result.reason ?? (providerAnswered(status) ? resolution.reason : null);
+    if (reason) {
       discoveryNotes.push(searchPlan.searches.length > 1
-        ? `${adapter.name} "${planned.term}": ${result.reason}`
-        : `${adapter.name}: ${result.reason}`);
+        ? `${adapter.name} "${planned.term}": ${reason}`
+        : `${adapter.name}: ${reason}`);
     }
     perSearch.push({
       index: planned.index, term: planned.term, keyword: planned.keyword,
-      fingerprint, status: result.status, providerRows: result.providerRows,
-      usableRows: result.businesses.length, duplicateRows: result.duplicateRows,
-      rejectedRows: result.rejectedRows, costUsd: result.costUsd ?? null,
+      fingerprint, status, providerRows: resolution.providerRows,
+      usableRows: resolution.businesses.length, duplicateRows: resolution.duplicateRows,
+      rejectedRows: resolution.rejectedRows, costUsd: result.costUsd ?? null,
       providerTaskId: result.providerTaskId ?? null,
       // Each search's own explanation. It was dropped here and only survived in the
       // run-level notes, so the canary -- whose stated job is to account for every
       // search separately -- could say a search was BUDGET_EXHAUSTED without saying
       // that the daily ceiling is what refused it.
-      reason: result.reason ?? null,
+      reason: reason ?? null,
       created: 0, matchedExisting: 0,
     });
 
-    if (result.businesses.length > 0) {
-      const counts = await ingestDiscoveries(result.businesses, adapter.name, job,
-        result.candidates ?? []);
+    // Persisted whether or not anything promoted.
+    //
+    // This used to be `if (result.businesses.length > 0)`, so a search that resolved
+    // eleven directories and no companies wrote nothing at all: no observations, no
+    // candidates, no trace beyond a job row saying zero. The rejections are the most
+    // valuable thing a run of that shape produces -- they are how an operator sees
+    // that the search *was* made, what it cost, and what it actually found -- and
+    // they are what the next run needs in order not to research the same directory
+    // again. A paid search that leaves no evidence is a paid search nobody can audit.
+    if (result.observations.length > 0 || resolution.candidates.length > 0) {
+      const counts = await ingestDiscoveries(resolution.businesses, adapter.name, job,
+        resolution.candidates, result.observations, planned.purpose);
       funnel.candidates += counts.candidates;
       funnel.rejected += counts.rejected;
       funnel.matchedExisting += counts.matchedExisting;
@@ -747,6 +763,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       funnel.excludedByVertical += counts.excludedByVertical;
       funnel.entitiesRejected += counts.entitiesRejected;
       funnel.entitiesNeedingReview += counts.entitiesNeedingReview;
+      funnel.notInMarket += counts.notInMarket;
       funnel.exclusionReasons.push(...counts.exclusionReasons);
       const record = perSearch[perSearch.length - 1]!;
       record.created = counts.created;
@@ -912,6 +929,10 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     // businesses" can never again describe a page of articles.
     entitiesRejected: funnel.entitiesRejected,
     entitiesNeedingReview: funnel.entitiesNeedingReview,
+    // Companies a commercial-intelligence search turned up that we do not hold. A
+    // finding about the query, not a failure: it is the number that says whether
+    // those queries are describing the market or discovering a different one.
+    notInMarket: funnel.notInMarket,
     exclusionReasons: funnel.exclusionReasons.slice(0, 20),
     // What each search actually did. An aggregate cannot say that four of five
     // searches found nothing and the fifth found everything, and that difference is
@@ -998,6 +1019,15 @@ export interface IngestionCounts {
   excludedByVertical: number;
   /** Which company matched which exclusion, so the filter can be checked. */
   exclusionReasons: string[];
+  /**
+   * Companies a commercial-intelligence search found that we do not already hold.
+   *
+   * Not created, and not an error. "roof financing st augustine" is a question about
+   * a market we have already defined; the companies that rank for it are as likely to
+   * be lenders and national comparison sites as local roofers, and letting that query
+   * decide who is in the market is how a financing portal becomes a prospect.
+   */
+  notInMarket: number;
 }
 
 /**
@@ -1102,13 +1132,21 @@ async function recordUnbilledRun(
 /** Resolves discovered businesses into canonical Accounts. Dedupe is not optional. */
 async function ingestDiscoveries(
   businesses: DiscoveredBusiness[], providerName: string, job: JobRecord,
-  candidates: EntityCandidate[] = [],
+  candidates: EntityCandidate[] = [], observations: ProviderObservation[] = [],
+  /**
+   * What the search was for. Only an entity-discovery query decides who is in a
+   * market; anything else may confirm and enrich the companies already in it.
+   *
+   * Defaulted to discovery so a caller that predates the distinction -- a listings
+   * ingest, a test -- keeps behaving as it did. The miner always passes the real one.
+   */
+  purpose: QueryPurpose = 'ENTITY_DISCOVERY',
 ): Promise<IngestionCounts> {
   const { upsertAccount } = await import('../domain/accounts.js');
   const counts: IngestionCounts = {
     candidates: businesses.length, rejected: 0, matchedExisting: 0, created: 0,
     researchQueued: 0, adEvidenceWritten: 0, excludedByVertical: 0, exclusionReasons: [],
-    entitiesRejected: 0, entitiesNeedingReview: 0,
+    entitiesRejected: 0, entitiesNeedingReview: 0, notInMarket: 0,
   };
   const createdAccountIds: string[] = [];
 
@@ -1147,12 +1185,53 @@ async function ingestDiscoveries(
       [
         job.job_id, verticalProfileId, candidate.identity, candidate.sourceClass,
         candidate.status, candidate.resolvedName, candidate.nameBasis,
-        candidate.domain, candidate.phone, candidate.observedLocation,
+        candidate.domain, candidate.phone, candidate.observedBusinessAddress,
         candidate.observationCount, candidate.reasons.map((r) => r.slice(0, 300)),
         searchedGeographyType, searchedGeography,
       ]);
     if (candidate.status === 'REJECTED') counts.entitiesRejected += 1;
     if (candidate.status === 'NEEDS_REVIEW') counts.entitiesNeedingReview += 1;
+  }
+
+  // The rows themselves, all of them, before anything is promoted.
+  //
+  // An observation used to be written inside the promotion loop, one per created
+  // Account, which made the evidence a consequence of the decision rather than the
+  // basis for it: a run that promoted nothing recorded nothing, and there was no way
+  // afterwards to see what the search had returned or to check the decision against
+  // it. A row that was refused is exactly the row somebody needs to read.
+  //
+  // `account_id` stays null until an Account exists. The row is evidence of a
+  // sighting; it is not a claim that the sighting is a company.
+  const observationIdsByIdentity = new Map<string, string[]>();
+  for (const observation of observations) {
+    const identity = registrableDomain(observation.observedDomain)
+      ?? (observation.observedPhone?.trim() || null);
+    const { rows } = await query<{ observation_id: string }>(
+      `insert into search_observations (mining_job_id, provider, source_type, observed_name,
+                                        observed_domain, observed_phone, observed_location,
+                                        result_type, advertised_service, landing_url,
+                                        retention_class, account_id, job_id,
+                                        query, position, ad_headline, provider_native_id,
+                                        observed_at)
+       values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', null, $9,
+               $10, $11, $12, $13, coalesce($14::timestamptz, now()))
+       returning observation_id`,
+      [
+        providerName, observation.observedName, observation.observedDomain,
+        observation.observedPhone,
+        // The business's own address or nothing. Never `searchLocationName`: the
+        // geography we typed into the provider is not somewhere this company is.
+        observation.observedBusinessAddress,
+        storedResultType(observation.resultType), observation.advertisedService,
+        observation.landingUrl, job.job_id,
+        observation.query, observation.position, observation.adHeadline,
+        observation.providerNativeId, observation.observedAt ?? null,
+      ]);
+    if (!identity) continue;
+    const held = observationIdsByIdentity.get(identity) ?? [];
+    held.push(rows[0]!.observation_id);
+    observationIdsByIdentity.set(identity, held);
   }
 
   for (const business of businesses) {
@@ -1169,6 +1248,37 @@ async function ingestDiscoveries(
     }
 
     await withTransaction(async (client) => {
+      // A commercial-intelligence query may confirm a company, never introduce one.
+      if (purpose !== 'ENTITY_DISCOVERY') {
+        const { resolveAccountIdentity } = await import('../domain/accounts.js');
+        const existing = await resolveAccountIdentity(client, {
+          canonicalName: business.name,
+          website: business.website ?? null,
+          phone: business.phone ?? null,
+          sourceIdentity: business.providerNativeId
+            ? {
+                provider: providerName, entityType: 'business',
+                nativeId: business.providerNativeId, retentionClass: 'identifier_only',
+              }
+            : null,
+        });
+        if (!existing) {
+          counts.notInMarket += 1;
+          // The candidate row already holds the identity and the evidence, so the
+          // company is not lost -- it simply did not get here by being asked about.
+          await client.query(
+            `update discovery_candidates
+                set entity_status = 'NEEDS_REVIEW',
+                    reasons = reasons || $3::text[]
+              where job_id = $1 and identity = $2 and account_id is null`,
+            [job.job_id,
+             registrableDomain(business.website ?? null) ?? (business.phone?.trim() || ''),
+             ['found by a question about what this market sells rather than about who '
+              + 'is in it, and we do not already hold this company']]);
+          return;
+        }
+      }
+
       const result = await upsertAccount(
         client,
         {
@@ -1223,33 +1333,47 @@ async function ingestDiscoveries(
           [result.accountId, searchedGeographyType, searchedGeography]);
       }
 
-      // Every discovery is recorded as an observation, separate from durable evidence:
-      // six sightings of one advertiser stay six observations of one Account.
-      await client.query(
-        `insert into search_observations (mining_job_id, provider, source_type, observed_name,
-                                          observed_domain, observed_phone, observed_location,
-                                          result_type, advertised_service, landing_url,
-                                          retention_class, account_id, job_id,
-                                          query, position, ad_headline, provider_native_id,
-                                          observed_at)
-         values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', $9, $10,
-                 $11, $12, $13, $14, coalesce($15::timestamptz, now()))`,
-        [
-          providerName, business.name, business.website ?? null, business.phone ?? null,
-          [business.city, business.state].filter(Boolean).join(', ') || null,
-          storedResultType(business.resultType), business.advertisedService ?? null,
-          business.landingUrl ?? null, result.accountId,
-          // An observation nobody can trace back to the run that made it cannot be
-          // audited, and cannot be attributed a cost.
-          job.job_id,
-          business.query ?? null, business.position ?? null, business.adHeadline ?? null,
-          business.providerNativeId ?? null,
-          // The provider's own timestamp when it gave us one. A task submitted on
-          // Monday and collected on Thursday was read on Monday, and saying
-          // otherwise makes three-day-old ad evidence look like today's.
-          business.observedAt ?? null,
-        ],
-      );
+      // The sighting already exists; what is new is that it turned out to be this
+      // Account. Six sightings of one advertiser stay six observations of one
+      // Account -- they are not collapsed, because the count is the evidence that a
+      // company keeps appearing rather than appeared once.
+      const identity = registrableDomain(business.website ?? null) ?? (business.phone?.trim() || null);
+      const observationIds = identity ? observationIdsByIdentity.get(identity) ?? [] : [];
+      if (observationIds.length > 0) {
+        await client.query(
+          `update search_observations set account_id = $1
+            where observation_id = any($2::uuid[]) and account_id is null`,
+          [result.accountId, observationIds]);
+      } else {
+        // A business with no observation behind it: an adapter that resolved from
+        // something this run did not record. Written rather than dropped, so the
+        // Account still has provenance.
+        await client.query(
+          `insert into search_observations (mining_job_id, provider, source_type, observed_name,
+                                            observed_domain, observed_phone, observed_location,
+                                            result_type, advertised_service, landing_url,
+                                            retention_class, account_id, job_id,
+                                            query, position, ad_headline, provider_native_id,
+                                            observed_at)
+           values (null, $1, 'discovery', $2, $3, $4, null, $5, $6, $7, 'transient', $8, $9,
+                   $10, $11, $12, $13, coalesce($14::timestamptz, now()))`,
+          [
+            providerName, business.name, business.website ?? null, business.phone ?? null,
+            storedResultType(business.resultType), business.advertisedService ?? null,
+            business.landingUrl ?? null, result.accountId, job.job_id,
+            business.query ?? null, business.position ?? null, business.adHeadline ?? null,
+            business.providerNativeId ?? null, business.observedAt ?? null,
+          ]);
+      }
+
+      // The candidate that became this Account, so the decision and the record of it
+      // point at each other.
+      if (identity) {
+        await client.query(
+          `update discovery_candidates set account_id = $1
+            where job_id = $2 and identity = $3 and account_id is null`,
+          [result.accountId, job.job_id, identity]);
+      }
 
       // An observed paid placement is advertiser evidence, and nothing wrote it.
       //

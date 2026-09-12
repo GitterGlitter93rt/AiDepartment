@@ -2,7 +2,7 @@ import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query, withTransaction } from '../src/db/pool.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 import { syncVerticalProfiles, getVerticalProfile } from '../src/domain/verticals.js';
 import { upsertAccount, recordEvidence } from '../src/domain/accounts.js';
 import { deriveHypotheses, storeHypotheses } from '../src/domain/hypotheses.js';
@@ -65,6 +65,9 @@ async function walk(vertical: string, signalIds: string[]): Promise<Walked> {
     contactTitle: vertical === 'law-firms' ? 'Managing Partner' : 'Owner',
     contactName: 'Dana Fielder',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
 
   const profile = await getVerticalProfile(vertical);
   const claimFor = new Map<string, string>();

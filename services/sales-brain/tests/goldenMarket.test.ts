@@ -117,9 +117,63 @@ const AMBIGUOUS_PAIRS = [...Array(ALSO_ORGANIC).keys()]
   .filter((target) => PHONE_ONLY.includes(target));
 
 const COLLAPSING_PAIRS = ALSO_ORGANIC - AMBIGUOUS_PAIRS.length;
-/** One Account per company, plus one for each pair that could not be collapsed. */
-const EXPECTED_ACCOUNTS = COMPANIES + AMBIGUOUS_PAIRS.length;
-const PAID_COMPANIES = [...Array(COMPANIES).keys()].filter((index) => index % 4 === 0).length;
+
+/**
+ * Which of these eighty companies the promotion rules will actually accept.
+ *
+ * Derived from the index like everything else here, because the answer moved and a
+ * hand-counted number would hide why. An advertiser whose only row is a text ad is
+ * no longer promoted: its title is ad copy -- "Emergency AC Repair — Book Today
+ * #48" -- and nothing else in the response says whose domain that is. Naming an
+ * Account after a slogan is what put sixty-five page titles in a rep's list, and a
+ * paid placement on an otherwise unattested domain is equally consistent with an
+ * aggregator, a franchise portal or a lead-generation marketplace.
+ *
+ * They are not lost. Each is a `NEEDS_REVIEW` candidate with its ad copy, its domain
+ * and the reason recorded, waiting for a verification step that can read the site.
+ *
+ * A company promotes when one of these is true:
+ *   - it is not an advertiser, so its own organic title names it;
+ *   - it advertises *and* also ranks organically, so the organic row names it;
+ *   - it has no website and a non-paid row gives it a name and a phone.
+ */
+const isPaid = (index: number): boolean => index % 4 === 0;
+const isPhoneOnly = (index: number): boolean => index % 7 === 3;
+/** The advertisers that also rank organically, by company index. */
+const ALSO_ORGANIC_TARGETS = new Set([...Array(ALSO_ORGANIC).keys()].map((i) => i * 4));
+
+const PROMOTED = [...Array(COMPANIES).keys()].filter((index) => {
+  if (!isPaid(index)) return true;
+  return ALSO_ORGANIC_TARGETS.has(index);
+});
+/**
+ * Advertisers whose ad is all we have. Kept as candidates, not promoted.
+ * Includes the phone-only advertiser with no organic row: an advertised number with
+ * no name we can trust is not a company either.
+ */
+const UNCORROBORATED_ADVERTISERS = [...Array(COMPANIES).keys()]
+  .filter((index) => isPaid(index) && !ALSO_ORGANIC_TARGETS.has(index));
+
+/**
+ * One Account per promoted company.
+ *
+ * The ambiguous pair no longer adds one. Company 24 advertises with a phone and no
+ * website and also ranks organically on its own domain: the domain identity promotes
+ * from the organic row, and the advertised phone -- named only by ad copy -- does not.
+ */
+const EXPECTED_ACCOUNTS = PROMOTED.length;
+/**
+ * Paid rows that end up attached to an Account.
+ *
+ * Not simply "promoted advertisers". Company 24 advertises with a phone and no
+ * website, so its ad is held under the phone as an identity of its own -- and that
+ * identity is named by ad copy alone, so it stays a candidate. The company itself is
+ * an Account, promoted from its organic row on its own domain. One company, two
+ * identities, and only one of them is attached to it.
+ */
+const PAID_COMPANIES = PROMOTED.filter((index) => isPaid(index) && !isPhoneOnly(index)).length;
+/** Every row the provider sent, all of which are recorded whatever they became. */
+const EXPECTED_OBSERVATIONS = TOTAL_ROWS;
 
 /**
  * What the evidence written below is worth, per the ruleset rather than per my
@@ -213,12 +267,24 @@ test('the funnel from provider rows to inventory adds up exactly', async () => {
   assert.equal(progress['discoveredNew'], EXPECTED_ACCOUNTS);
   assert.equal(progress['matchedExisting'], 0);
 
-  // Rows in equals rows out plus what was dropped, at the run level and not only
-  // inside the adapter.
+  // The advertisers we could not attribute are reported, not silently absent. This
+  // is the number that makes the arithmetic below readable: without it a market of
+  // eighty companies yielding seventy-two Accounts looks like eight lost rows.
+  assert.equal(Number(progress['entitiesNeedingReview']),
+    UNCORROBORATED_ADVERTISERS.length + AMBIGUOUS_PAIRS.length,
+    'an advertiser nothing corroborated was dropped rather than kept for review');
+  assert.equal(Number(progress['entitiesRejected']), 0,
+    'this market contains no directories or publishers, so nothing should be refused');
+
+  // Rows in equals identities out plus what was dropped, at the run level and not
+  // only inside the adapter. Identities, not Accounts: an identity that was not
+  // promoted is still an identity the run resolved and recorded.
+  const identities = Number(progress['discoveredNew']) + Number(progress['matchedExisting'])
+    + Number(progress['entitiesNeedingReview']) + Number(progress['entitiesRejected']);
   assert.equal(
     Number(progress['providerRows']) - Number(progress['rejectedRows'])
       - Number(progress['providerDuplicates']),
-    Number(progress['discoveredNew']) + Number(progress['matchedExisting']),
+    identities,
     'the operator cannot reconcile what the provider sent with what reached inventory');
 });
 
@@ -226,13 +292,24 @@ test('every company in the market becomes exactly one Account', async () => {
   const accounts = await query<{ n: number }>('select count(*)::int as n from accounts');
   assert.equal(accounts.rows[0]!.n, EXPECTED_ACCOUNTS);
 
-  // One observation per Account. A company that appeared twice keeps the paid row.
+  // Every row the provider sent is on record, whatever it became. This used to be
+  // one observation per Account, written inside the promotion loop -- so a refused
+  // row left no trace and the evidence for a decision existed only when the decision
+  // was yes.
   const observations = await query<{ n: number }>(
     `select count(*)::int as n from search_observations where source_type = 'discovery'`);
-  assert.equal(observations.rows[0]!.n, EXPECTED_ACCOUNTS);
+  assert.equal(observations.rows[0]!.n, EXPECTED_OBSERVATIONS,
+    'the provider sent a hundred rows and fewer than a hundred were recorded');
+
+  // And the rows that became a company are attached to it; the rest are not.
+  const attached = await query<{ n: number }>(
+    `select count(distinct account_id)::int as n from search_observations
+      where account_id is not null`);
+  assert.equal(attached.rows[0]!.n, EXPECTED_ACCOUNTS);
 
   const paid = await query<{ n: number }>(
-    `select count(*)::int as n from search_observations where result_type = 'paid_search'`);
+    `select count(*)::int as n from search_observations
+      where result_type = 'paid_search' and account_id is not null`);
   assert.equal(paid.rows[0]!.n, PAID_COMPANIES,
     'an organic row displaced a paid one somewhere in the collapse, losing the ad evidence');
 });
@@ -243,13 +320,22 @@ test('two rows with no identifier in common stay two candidates', async () => {
   assert.equal(AMBIGUOUS_PAIRS.length, 1, 'the fixture no longer contains this case');
   const target = AMBIGUOUS_PAIRS[0]!;
 
-  const { rows } = await query<{ canonical_name: string; canonical_domain: string | null }>(
-    `select canonical_name, canonical_domain from accounts
-      where canonical_domain = $1 or canonical_name ilike $2 order by canonical_name`,
-    [`${slug(target)}.invalid`, `%${target}%`]);
+  // Two identities, still. What changed is that only one of them is a company: the
+  // organic row names the domain, and the advertised phone is named by ad copy alone.
+  const { rows } = await query<{ identity: string; entity_status: string }>(
+    `select identity, entity_status from discovery_candidates
+      where identity = $1 or identity like $2 order by identity`,
+    [`${slug(target)}.invalid`, `%${String(2000 + target).slice(-4)}%`]);
   assert.equal(rows.length, 2,
-    'the adapter merged an ad and an organic result that share no identifier, which '
+    'the resolver merged an ad and an organic result that share no identifier, which '
     + 'is a guess about which company is which');
+  assert.deepEqual(rows.map((row) => row.entity_status).sort(),
+    ['NEEDS_REVIEW', 'VERIFIED']);
+
+  const accounts = await query<{ n: number }>(
+    `select count(*)::int as n from accounts where canonical_domain = $1`,
+    [`${slug(target)}.invalid`]);
+  assert.equal(accounts.rows[0]!.n, 1);
 });
 
 test('no two companies in one market were merged into each other', async () => {

@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pool, query, withTransaction } from '../src/db/pool.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount } from '../src/domain/accounts.js';
 import { claimAccount } from '../src/domain/ownership.js';
@@ -54,6 +54,9 @@ async function observedAccount(options: {
     phone: null, city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:fixture' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
 
   await query(
     `insert into search_observations (provider, source_type, observed_name, account_id,

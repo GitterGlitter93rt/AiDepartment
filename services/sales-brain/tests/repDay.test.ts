@@ -29,6 +29,7 @@ import { operationalSnapshot } from '../src/api/operations.js';
 import { captureDiagnostics, diagnose } from '../src/release/doctor.js';
 import { releaseManifest } from '../src/release/manifest.js';
 import { scoreAccount } from '../src/scoring/score.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * One day, from an empty market to a logged call and a follow-up.
@@ -126,26 +127,36 @@ before(async () => {
   }, { discoverySource: 'import' }));
 
   // Overnight: the market is searched and everything found is researched and scored.
+  let discoverySearches = 0;
   registerDiscoveryAdapter({
     name: 'repday', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(request): Promise<DiscoveryResult> {
-      const index = (request.search?.index ?? 1) - 1;
-      const company = MARKET[index];
-      if (!company) {
-        return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-          rejectedRows: 0, duplicateRows: 0, costUsd: 0.006 };
+      const rows = (companies: typeof MARKET) => observationsFor(companies.map((company, at) => ({
+        name: company.name, website: `https://${company.name}`, phone: null,
+        resultType: company.paid ? 'PAID_SEARCH_TEXT' : 'ORGANIC',
+        query: request.search?.term ?? null, position: at + 1,
+        ...(company.paid ? { adHeadline: 'Emergency Roof Repair — Same Day' } : {}),
+      })));
+
+      // Which search this is decides what it is allowed to do, so the fixture has to
+      // answer as the provider would rather than handing one company per search.
+      //
+      // A commercial-intelligence query -- "roof financing 32095" -- is a question
+      // about a market we have already found, and it may confirm the companies in it
+      // but never introduce one. Answering it with a new company would be testing a
+      // path the product deliberately refuses.
+      if (request.search?.purpose !== 'ENTITY_DISCOVERY') {
+        return { status: 'OK', observations: rows(MARKET.slice(0, 1)), costUsd: 0.006 };
       }
+      // The first discovery search returns the market; the rest of the market is
+      // already held by the time the later ones run, which is what a real second
+      // search of the same ZIP looks like.
+      discoverySearches += 1;
       return {
         status: 'OK',
-        businesses: [{
-          name: company.name, website: `https://${company.name}`, phone: null,
-          city: null, state: null, postalCode: null,
-          resultType: company.paid ? 'PAID_SEARCH_TEXT' : 'ORGANIC',
-          query: request.search?.term ?? null, position: index + 1,
-          ...(company.paid ? { adHeadline: 'Emergency Roof Repair — Same Day' } : {}),
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006,
+        observations: rows(discoverySearches === 1 ? MARKET : MARKET.slice(0, 1)),
+        costUsd: 0.006,
       };
     },
   });

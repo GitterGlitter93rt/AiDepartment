@@ -15,6 +15,7 @@ import { resetBuildIdentity } from '../src/release/identity.js';
 import {
   captureDiagnostics, diagnose, diagnoseRun, renderDiagnostics,
 } from '../src/release/doctor.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Where it broke, rather than a wall of numbers.
@@ -186,15 +187,16 @@ test('scores from an older ruleset are a stale projection, not a failure', async
 test('a run whose rows went nowhere is an ingestion fault, not a thin market', async () => {
   // The distinction a database-wide count cannot make: a million Accounts and a
   // quiet day look identical in aggregate.
+  //
+  // The shape is asserted against a stored job rather than manufactured by an
+  // adapter, because an adapter can no longer produce it: rows in and identities out
+  // are both counted by the orchestrator now, so a row that reaches it is either
+  // resolved, rejected or refused promotion, and every one of those is a counter.
+  // That is the fix; this is the alarm for the day something breaks it.
   registerDiscoveryAdapter({
-    name: 'doctor-dropping', requiresCredential: false, governanceReviewed: true,
+    name: 'doctor-quiet', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
-    async discover() {
-      // Rows reported, nothing usable handed over, nothing rejected either: the
-      // shape of an adapter that lost its results.
-      return { status: 'OK' as const, businesses: [], providerRows: 12,
-        rejectedRows: 0, duplicateRows: 0 };
-    },
+    async discover() { return { status: 'ZERO_RESULTS' as const, observations: [] }; },
   });
   const ops = await makeUser(`Doctor Ingest ${Date.now()}`, 'RESEARCH_OPS');
   const job = await enqueueMarketResearch({
@@ -202,10 +204,43 @@ test('a run whose rows went nowhere is an ingestion fault, not a thin market', a
     marketId: null, requestedBy: ops.userId, queryBudget: 1 });
   await drainQueue();
 
+  await query(
+    `update jobs set progress = progress || $2::jsonb where job_id = $1`,
+    [job.jobId, JSON.stringify({
+      providerRows: 12, discoveredNew: 0, matchedExisting: 0, excludedByVertical: 0,
+      rejectedRows: 0, entitiesRejected: 0, entitiesNeedingReview: 0,
+    })]);
+
   const dropped = category(await diagnoseRun(job.jobId), 'INGESTION_DROPPED')!;
   assert.ok(dropped, 'twelve rows that became nothing were reported as a normal run');
   assert.match(dropped.finding, /went somewhere unaccounted for/);
   assert.match(dropped.action, /rather than a thin market/);
+});
+
+test('twelve rows that were all directories is an answer, not an ingestion fault', async () => {
+  // The most common honest outcome of entity resolution. Every row is accounted for
+  // -- in `discovery_candidates`, with a reason each -- so reporting it as a fault
+  // would send an operator to debug a pipeline that did exactly what it should.
+  registerDiscoveryAdapter({
+    name: 'doctor-directories', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() { return { status: 'ZERO_RESULTS' as const, observations: [] }; },
+  });
+  const ops = await makeUser(`Doctor Directories ${Date.now()}`, 'RESEARCH_OPS');
+  const job = await enqueueMarketResearch({
+    verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32095',
+    marketId: null, requestedBy: ops.userId, queryBudget: 1 });
+  await drainQueue();
+
+  await query(
+    `update jobs set progress = progress || $2::jsonb where job_id = $1`,
+    [job.jobId, JSON.stringify({
+      providerRows: 12, discoveredNew: 0, matchedExisting: 0, excludedByVertical: 0,
+      rejectedRows: 0, entitiesRejected: 11, entitiesNeedingReview: 1,
+    })]);
+
+  assert.equal(category(await diagnoseRun(job.jobId), 'INGESTION_DROPPED'), undefined,
+    'a run that refused every identity it resolved was called an ingestion fault');
 });
 
 test('a run that matched everything it found is coverage, and says so', async () => {
@@ -220,9 +255,9 @@ test('a run that matched everything it found is coverage, and says so', async ()
     isConfigured: () => true,
     async discover() {
       return { status: 'OK' as const,
-        businesses: [{ name: 'doctorknown.invalid', website: 'https://doctorknown.invalid',
-          phone: null, city: null, state: null, postalCode: null }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0 };
+        observations: observationsFor([{ name: 'doctorknown.invalid', website: 'https://doctorknown.invalid',
+          phone: null, city: null, state: null, postalCode: null }]),
+        };
     },
   });
   const ops = await makeUser(`Doctor Known ${Date.now()}`, 'RESEARCH_OPS');

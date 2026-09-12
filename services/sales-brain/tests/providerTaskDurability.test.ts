@@ -13,6 +13,7 @@ import {
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { pendingProviderTasks, MAX_TASK_COLLECTIONS } from '../src/miner/providerTasks.js';
 import { resetDatabase } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * A paid search that outlives the worker that bought it.
@@ -59,8 +60,7 @@ function queueingAdapter(options: {
     async discover(): Promise<DiscoveryResult> {
       state.submissions += 1;
       return {
-        status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-        providerTaskId: `provider-task-${state.submissions}`,
+        status: 'PENDING', observations: observationsFor([]), providerTaskId: `provider-task-${state.submissions}`,
         reason: 'The provider accepted the search and has not finished it yet.',
       };
     },
@@ -71,8 +71,7 @@ function queueingAdapter(options: {
       state.collections += 1;
       if (state.collections < (options.readyAfter ?? 1)) {
         return {
-          status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-          providerTaskId: taskId, reason: 'still working',
+          status: 'PENDING', observations: observationsFor([]), providerTaskId: taskId, reason: 'still working',
         };
       }
       const businesses = options.businesses ?? [
@@ -80,10 +79,9 @@ function queueingAdapter(options: {
       ];
       return {
         status: 'OK',
-        businesses: businesses.map((business) => ({
+        observations: observationsFor(businesses.map((business) => ({
           name: business.name, website: null, phone: business.phone,
-        })),
-        providerRows: businesses.length, rejectedRows: 0, duplicateRows: 0,
+        }))),
         providerTaskId: taskId, costUsd: 0.0031,
       };
     };
@@ -216,14 +214,12 @@ test('a collection failure closes the task instead of leaving it owed for ever',
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-        providerTaskId: 'doomed-task',
+        status: 'PENDING', observations: observationsFor([]), providerTaskId: 'doomed-task',
       };
     },
     async collect(): Promise<DiscoveryResult> {
       return {
-        status: 'CREDENTIALS_INVALID', businesses: [],
-        providerRows: 0, rejectedRows: 0, duplicateRows: 0,
+        status: 'CREDENTIALS_INVALID', observations: observationsFor([]),
         reason: 'the credential was revoked between submitting and collecting',
       };
     },
@@ -253,19 +249,18 @@ test('a crash between collecting and ingesting does not lose the search', async 
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-        providerTaskId: 'crash-task',
+        status: 'PENDING', observations: observationsFor([]), providerTaskId: 'crash-task',
       };
     },
     async collect(taskId: string): Promise<DiscoveryResult> {
       return {
         status: 'OK',
-        businesses: [{
+        observations: observationsFor([{
           // A name long enough to be usable, but the ingest below is what fails.
           name: ingestShouldFail ? 'Crash Test Roofing' : 'Crash Test Roofing',
           website: null, phone: '904-555-8101',
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId: taskId,
+        }]),
+        providerTaskId: taskId,
         costUsd: 0.0031,
       };
     },
@@ -304,15 +299,14 @@ test('collecting the same task twice does not create the company twice', async (
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0, duplicateRows: 0,
-        providerTaskId: 'repeat-task',
+        status: 'PENDING', observations: observationsFor([]), providerTaskId: 'repeat-task',
       };
     },
     async collect(taskId: string): Promise<DiscoveryResult> {
       return {
         status: 'OK',
-        businesses: [{ name: 'Repeat Roofing', website: null, phone: '904-555-8201' }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId: taskId,
+        observations: observationsFor([{ name: 'Repeat Roofing', website: null, phone: '904-555-8201' }]),
+        providerTaskId: taskId,
       };
     },
   };

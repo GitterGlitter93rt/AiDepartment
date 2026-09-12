@@ -88,7 +88,7 @@ export function mayResearchDomain(input: {
   // directory is a directory whether it arrived from a SERP row or from an import.
   const classified = classifyObservation({
     resultType: 'ORGANIC', observedName: null, observedDomain: domain,
-    observedPhone: null, observedLocation: null,
+    observedPhone: null, observedBusinessAddress: null,
     landingUrl: `https://${domain.replace(/^https?:\/\//, '')}/`,
   });
 

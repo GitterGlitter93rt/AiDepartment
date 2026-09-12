@@ -33,7 +33,7 @@ beforeEach(async () => {
 async function seedAccount(name = 'Northgate Air'): Promise<string> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example.com`,
+      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example`,
       phone: '904-555-0100', city: 'Jacksonville', state: 'FL',
     }, { discoverySource: 'test' }));
   return accountId;

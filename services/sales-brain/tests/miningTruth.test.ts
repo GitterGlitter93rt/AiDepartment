@@ -17,6 +17,7 @@ import {
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { miningKpis, miningJobs } from '../src/api/waveCQueries.js';
 import { coverageFor } from '../src/domain/search.js';
+import { observationsFor, junkObservations } from './support/observations.js';
 
 /**
  * Operator truthfulness on the mining path.
@@ -78,15 +79,18 @@ function fakeAdapter(input: {
     isConfigured: () => true,
     async discover() {
       if (input.throws) throw new Error(input.throws);
-      const businesses = (input.businesses ?? []).map((business) => ({
-        name: business.name, website: null, phone: business.phone,
-        city: 'St. Augustine', state: 'FL', postalCode: '32095',
-      }));
+      const specs = input.businesses ?? [];
+      const observations = [
+        ...observationsFor(specs),
+        // Rows the provider returned that identify nothing. A fixture used to declare
+        // a `providerRows` larger than its businesses and the orchestrator believed
+        // it; now the junk has to actually be in the response, which is the only way
+        // the funnel arithmetic can be tested rather than asserted.
+        ...junkObservations(Math.max(0, (input.providerRows ?? specs.length) - specs.length)),
+      ];
       return {
-        status: input.status ?? (businesses.length > 0 ? 'OK' as const : 'ZERO_RESULTS' as const),
-        businesses,
-        providerRows: input.providerRows ?? businesses.length,
-        rejectedRows: 0, duplicateRows: 0,
+        status: input.status ?? 'OK' as const,
+        observations,
         reason: input.reason,
       };
     },
@@ -211,14 +215,12 @@ test('a row with nothing to reach the business by never becomes an Account', asy
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: [
-          { name: 'Real Roofing', phone: '904-555-7301' },
+        observations: [
+          ...observationsFor([{ name: 'Real Roofing', phone: '904-555-7301' }]),
           // A name and nothing else: a rep who opens this finds a company with no
           // way to reach it and no way to tell whether it exists.
-          { name: 'Just A Headline', website: null, phone: null },
-          { name: '', website: 'https://blank.example.com' },
+          ...junkObservations(2),
         ],
-        providerRows: 3, rejectedRows: 0, duplicateRows: 0,
       };
     },
   });
@@ -239,8 +241,7 @@ test('a provider whose task is still queued is pending, not empty', async () => 
     isConfigured: () => true,
     async discover() {
       return {
-        status: 'PENDING' as const, businesses: [],
-        providerRows: 0, rejectedRows: 0, duplicateRows: 0,
+        status: 'PENDING' as const, observations: [],
         providerTaskId: 'task-abc',
         reason: 'The provider accepted the search and has not finished it yet.',
       };
@@ -525,14 +526,18 @@ test('the mining page shows the arithmetic, not just the answer', async () => {
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: [
-          { name: 'Already Held Air', phone: '904-555-7401' },
-          { name: 'Brand New Air', phone: '904-555-7402' },
-          { name: 'Unreachable Headline' },
+        observations: [
+          ...observationsFor([
+            { name: 'Already Held Air', phone: '904-555-7401' },
+            { name: 'Brand New Air', phone: '904-555-7402' },
+          ]),
+          // The same company twice. The duplicate is a row the provider really sent,
+          // not a number an adapter asserted about rows nobody can see.
+          ...observationsFor([{ name: 'Already Held Air', phone: '904-555-7401' }]),
+          ...observationsFor([{ name: 'Brand New Air', phone: '904-555-7402' }]),
+          // A headline with nothing to reach it by.
+          ...junkObservations(1),
         ],
-        // The provider sent more rows than these three: two were the same company
-        // twice, and the adapter collapsed them before handing them up.
-        providerRows: 5, rejectedRows: 0, duplicateRows: 2,
       };
     },
   });
@@ -583,17 +588,34 @@ test('a discovered business is findable by the search that discovered it', async
   }));
   await runMarketJob('32095');
 
-  // Without a location the business is invisible to the ZIP search that found it:
-  // the operator searches 32095 again and the company they just discovered is not
-  // in the results.
-  const { rows } = await query<{ postal_code: string; location_type: string }>(
-    `select l.postal_code, l.location_type from locations l
+  // Findable, without inventing an address for them.
+  //
+  // This used to be a `locations` row holding the searched ZIP, which is the defect
+  // the P0 work removed: 65 of 65 canary Accounts claimed a physical location nobody
+  // had observed, including a Jacksonville company and one whose own page said
+  // 32080. The provider gave no address, so there is no location -- and the company
+  // is still in the market it was found in, because that is recorded as what it is.
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from locations l
        join accounts a on a.account_id = l.account_id
       where a.canonical_name = 'Findable Roofing'`);
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0]!.postal_code, '32095');
-  assert.equal(rows[0]!.location_type, 'service_area',
-    'the ZIP is how we found them, not a street address we were given');
+  assert.equal(rows[0]!.n, 0, 'a physical location was manufactured from the search ZIP');
+
+  const { rows: provenance } = await query<{ g: string | null; t: string | null }>(
+    `select discovered_for_geography as g, discovered_for_geography_type as t
+       from accounts where canonical_name = 'Findable Roofing'`);
+  assert.equal(provenance[0]!.g, '32095',
+    'the company is invisible to the ZIP search that found it');
+  assert.equal(provenance[0]!.t, 'zip_zcta');
+
+  // And the rep's search of that ZIP finds them.
+  const ops = await makeUser(`Findable Viewer ${Math.random()}`, 'SALES_MANAGER');
+  const { searchProspects } = await import('../src/domain/search.js');
+  const found = await searchProspects(
+    { geography: { type: 'zip_zcta', value: '32095' }, pageSize: 50 },
+    { userId: ops.userId, role: 'SALES_MANAGER' });
+  assert.ok(found.results.some((row) => row.company_name === 'Findable Roofing'),
+    'the company the search discovered is not in the results of that search');
 });
 
 
@@ -610,16 +632,15 @@ test('a discovered advertiser is actually stored as an observation', async () =>
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: [
+        observations: observationsFor([
           { name: 'Paid Ad Roofing', website: null, phone: '904-555-7701',
             resultType: 'PAID_SEARCH_TEXT', advertisedService: 'roof repair',
-            landingUrl: 'https://paidad.example.com/roofing' },
+            landingUrl: 'https://paidad.example/roofing' },
           { name: 'Local Pack Roofing', website: null, phone: '904-555-7702',
             resultType: 'MAPS_LOCAL' },
           { name: 'Organic Roofing', website: null, phone: '904-555-7703',
             resultType: 'ORGANIC' },
-        ],
-        providerRows: 3, rejectedRows: 0, duplicateRows: 0,
+        ]),
       };
     },
   });
@@ -627,11 +648,22 @@ test('a discovered advertiser is actually stored as an observation', async () =>
   const job = await runMarketJob('32095');
   assert.equal(job['outcome'], 'COMPLETED', String(job['last_error'] ?? job['outcome_reason']));
 
-  const { rows } = await query<{ observed_name: string; result_type: string }>(
-    `select observed_name, result_type from search_observations order by observed_name`);
-  assert.equal(rows.length, 3, 'the observations never reached the table');
-  assert.deepEqual(rows.map((row) => row.result_type),
-    ['local_result', 'organic', 'paid_search']);
+  // Every row is recorded, so the advertiser contributes two: the ad, and the listing
+  // that says whose ad it is. Grouped by company, because the question is whether a
+  // provider's own word survived into the column's vocabulary -- not how many rows a
+  // fixture happens to send.
+  const { rows } = await query<{ observed_name: string; result_type: string | null }>(
+    `select observed_name, result_type from search_observations
+      order by observed_name, result_type`);
+  const byCompany = new Map<string, string[]>();
+  for (const row of rows) {
+    byCompany.set(row.observed_name,
+      [...(byCompany.get(row.observed_name) ?? []), row.result_type ?? 'null'].sort());
+  }
+  assert.deepEqual(byCompany.get('Paid Ad Roofing'), ['local_result', 'paid_search'],
+    'the provider’s own word for a paid placement did not reach the column');
+  assert.deepEqual(byCompany.get('Local Pack Roofing'), ['local_result']);
+  assert.deepEqual(byCompany.get('Organic Roofing'), ['organic']);
 });
 
 test('a result type nobody recognises is stored as unclassified, not guessed', async () => {
@@ -641,11 +673,10 @@ test('a result type nobody recognises is stored as unclassified, not guessed', a
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: [{
+        observations: observationsFor([{
           name: 'Odd Type Roofing', website: null, phone: '904-555-7801',
           resultType: 'SOMETHING_NEW_THE_PROVIDER_INVENTED',
-        }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
+        }]),
       };
     },
   });
@@ -721,14 +752,12 @@ function advertiserAdapter(businesses: {
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: businesses.map((business) => ({
+        observations: observationsFor(businesses.map((business) => ({
           name: business.name, website: null, phone: business.phone,
-          city: 'St. Augustine', state: 'FL', postalCode: '32095',
           resultType: business.resultType, query: business.query ?? null,
           position: business.position ?? null, adHeadline: business.adHeadline ?? null,
           observedAt: business.observedAt ?? null,
-        })) as any,
-        providerRows: businesses.length, rejectedRows: 0, duplicateRows: 0,
+        }))),
       };
     },
   };
@@ -843,9 +872,21 @@ test('six sightings are six dated observations of one advertiser', async () => {
   ]));
   await runMarketJob();
 
-  const rows = await adEvidence('Repeat Air');
-  assert.equal(rows.length, 2, 'two searches on one advertiser collapsed into one claim');
-  const queries = rows.map((row) => row.claim_text).sort();
-  assert.match(queries[0]!, /"ac repair 32095"/);
-  assert.match(queries[1]!, /"emergency ac 32095"/);
+  // Both sightings are on record against the one company. This used to be asserted
+  // on the evidence rows, which worked only because the fixture handed up two
+  // finished businesses for what is one advertiser seen twice -- an adapter can no
+  // longer do that, and the place the two sightings actually live is the
+  // observations, which is what the name of this test says.
+  const { rows: seen } = await query<{ query: string | null }>(
+    `select distinct o.query from search_observations o
+       join accounts a on a.account_id = o.account_id
+      where a.canonical_name = 'Repeat Air' and o.result_type = 'paid_search'
+      order by o.query`);
+  assert.deepEqual(seen.map((row) => row.query),
+    ['ac repair 32095', 'emergency ac 32095'],
+    'two searches on one advertiser collapsed into one sighting');
+
+  // And the advertising claim itself exists, dated, rather than being lost.
+  const evidence = await adEvidence('Repeat Air');
+  assert.ok(evidence.length >= 1, 'the advertiser evidence was not written at all');
 });

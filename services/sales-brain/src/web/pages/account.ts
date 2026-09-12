@@ -269,6 +269,31 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </p>
   </div>` : ''}
 
+  ${detail.entity.workable ? '' : html`
+  <div class="section">
+    <div class="callout callout-warn">
+      <strong>Nobody has established that this is a company</strong>
+      <div class="muted small" style="margin-top:4px">${detail.entity.reason}</div>
+      ${detail.entity.resolverReasons.length === 0 ? '' : html`
+        <ul style="margin:8px 0 0;padding-left:18px">
+          ${detail.entity.resolverReasons.map((reason) => html`<li>${reason}</li>`)}
+        </ul>`}
+      ${detail.entity.sourceClass ? html`
+        <div class="micro muted" style="margin-top:6px">
+          The run that found this classified the source as
+          <strong>${detail.entity.sourceClass}</strong>.
+        </div>` : ''}
+    </div>
+  </div>`}
+
+  ${detail.entity.discoveredForGeography ? html`
+  <div class="section">
+    <p class="micro muted">
+      Found while searching ${detail.entity.discoveredForGeography}. That is where we
+      looked, not where this company is &mdash; a search result carries no address.
+    </p>
+  </div>` : ''}
+
   ${detail.readiness.state === 'REP_READY' ? '' : html`
   <div class="section">
     <div class="callout ${detail.readiness.state === 'NOT_WORKABLE' ? 'callout-warn' : ''}">

@@ -15,6 +15,7 @@ import {
 import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { resetBuildIdentity } from '../src/release/identity.js';
 import { recordHeartbeat } from '../src/workers/runner.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * The morning after.
@@ -75,7 +76,7 @@ function foundCompanies(): void {
     async discover() {
       return {
         status: 'OK' as const,
-        businesses: [
+        observations: observationsFor([
           { name: 'coastalair.invalid', website: 'https://coastalair.invalid',
             phone: '904-555-0701', city: null, state: null, postalCode: null,
             resultType: 'PAID_SEARCH_TEXT', advertisedService: 'ac repair',
@@ -85,8 +86,8 @@ function foundCompanies(): void {
           { name: 'matanzas.invalid', website: 'https://matanzas.invalid',
             phone: '904-555-0702', city: null, state: null, postalCode: null,
             resultType: 'ORGANIC', query: 'ac repair 32095', position: 4 },
-        ],
-        providerRows: 2, rejectedRows: 0, duplicateRows: 0, costUsd: 0.006,
+        ]),
+        costUsd: 0.006,
       };
     },
   });
@@ -280,9 +281,9 @@ test('a market Brent refreshes himself does not re-buy a search already paid for
     async collect() {
       collections += 1;
       return { status: 'OK' as const,
-        businesses: [{ name: 'morning.invalid', website: 'https://morning.invalid',
-          phone: '904-555-0710', city: null, state: null, postalCode: null }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0, providerTaskId: 'night-task-1' };
+        observations: observationsFor([{ name: 'morning.invalid', website: 'https://morning.invalid',
+          phone: '904-555-0710', city: null, state: null, postalCode: null }]),
+        providerTaskId: 'night-task-1' };
     },
   });
 

@@ -119,6 +119,13 @@ export async function marketCoverage(input: {
 
   // What has actually been asked. Read from the observations, because that is the
   // record of a search that reached a provider and came back.
+  //
+  // Scoped by the job that made the search, not by the Accounts it produced. The
+  // vertical used to be established through `o.account_id`, which meant a search
+  // whose rows all turned out to be directories -- no Account, so no account row to
+  // join to -- counted as never asked, and the coverage page would propose buying it
+  // again. A term that cost money and returned a page of directories has been asked;
+  // what it found is a separate question, and the columns beside it answer that.
   const { rows: askedRows } = await query<{
     query: string; new_accounts: number; matched: number; last_run: Date;
   }>(
@@ -129,11 +136,16 @@ export async function marketCoverage(input: {
             count(distinct o.account_id)::int as matched,
             max(o.observed_at) as last_run
        from search_observations o
+       left join jobs j on j.job_id = o.job_id
        left join activities act on act.account_id = o.account_id
       where o.query is not null
-        and ($1::text is null or exists (
-              select 1 from accounts a where a.account_id = o.account_id
-                and a.primary_vertical_profile_id = $1))
+        and ($1::text is null
+             or j.payload->>'vertical_profile_id' = $1
+             -- Observations written before jobs carried a payload vertical, and
+             -- listings rows that belong to no job at all.
+             or exists (
+               select 1 from accounts a where a.account_id = o.account_id
+                 and a.primary_vertical_profile_id = $1))
       group by o.query
       order by max(o.observed_at) desc`,
     [input.vertical]);

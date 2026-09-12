@@ -55,7 +55,7 @@ async function fixture() {
   await createUser({
     email: 'm@sec.local', displayName: 'Manager', role: 'SALES_MANAGER', password: PASSWORD });
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Security Fixture Co', website: 'https://secfixture.example.com',
+    canonicalName: 'Security Fixture Co', website: 'https://secfixture.example',
     phone: '904-555-0301', city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
   return {
@@ -85,7 +85,7 @@ test('injected website text is fenced, labelled and never becomes an instruction
         accountId: f.accountId, category: 'business_profile',
         claimKey: `injection_${index}`, claimText: injection,
         confidence: 'confirmed', canStateAsFact: true, sourceType: 'COMPANY_WEBSITE',
-        sourceReference: 'https://secfixture.example.com/about',
+        sourceReference: 'https://secfixture.example/about',
       });
     }
   });

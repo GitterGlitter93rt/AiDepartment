@@ -17,7 +17,8 @@ import { operationalSnapshot } from '../src/api/operations.js';
 import { scoreAccount } from '../src/scoring/score.js';
 import { reconcileMissingResearch } from '../src/workers/researchReconcile.js';
 import { pendingProviderTasks } from '../src/miner/providerTasks.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Trying to break the worker on purpose.
@@ -130,6 +131,9 @@ test('a crash after the Account lands but before research is queued is recovered
       phone: `904-555-${String(9500 + sequence).slice(-4)}`,
       city: 'St. Augustine', state: 'FL', postalCode: '32095',
     }, { discoverySource: 'market_miner:dataforseo' }));
+    // Stands for a candidate the resolver promoted: the only way a machine
+    // makes an Account now.
+    await markEntityVerified(accountId);
     await query(
       `update accounts set created_at = now() - interval '30 minutes' where account_id = $1`,
       [accountId]);
@@ -152,6 +156,9 @@ test('a crash before the score is written leaves the Account scoreable, not scor
       city: 'St. Augustine', state: 'FL', postalCode: '32095',
       verticalProfileId: 'hvac',
     }, { discoverySource: 'market_miner:dataforseo' }));
+    // Stands for a candidate the resolver promoted: the only way a machine
+    // makes an Account now.
+    await markEntityVerified(accountId);
 
     await query(
       `insert into research_runs (account_id, trigger, status, completed_at)
@@ -206,8 +213,7 @@ test('two market searches for the same market cannot both be in flight', async (
     name: 'torture-provider', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
 
@@ -256,8 +262,7 @@ test('an outstanding provider task survives everything the worker does', async (
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
       return {
-        status: 'PENDING', businesses: [], providerRows: 0, rejectedRows: 0,
-        duplicateRows: 0, providerTaskId: 'survives-restart',
+        status: 'PENDING', observations: observationsFor([]), providerTaskId: 'survives-restart',
       };
     },
   });

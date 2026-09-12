@@ -2,7 +2,7 @@ import './setup.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query, withTransaction } from '../src/db/pool.js';
-import { resetDatabase } from './helpers.js';
+import { resetDatabase, markEntityVerified } from './helpers.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import { upsertAccount, recordEvidence } from '../src/domain/accounts.js';
 import { scoreAccount } from '../src/scoring/score.js';
@@ -47,6 +47,8 @@ async function account(name: string, vertical = 'hvac'): Promise<string> {
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical, contactTitle: 'Owner', contactName: 'Dana Fielder',
   }, { discoverySource: 'market_miner:dataforseo' }));
+  // Stands for a candidate the resolver promoted: the only way the miner makes one.
+  await markEntityVerified(accountId);
   return accountId;
 }
 

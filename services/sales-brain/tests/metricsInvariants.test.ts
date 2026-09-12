@@ -13,6 +13,7 @@ import { enqueueMarketResearch } from '../src/workers/enqueue.js';
 import { miningKpis } from '../src/api/waveCQueries.js';
 import { Rng } from '../src/synthetic/random.js';
 import { resetDatabase, makeUser } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Numbers that have to add up, for any input rather than a chosen one.
@@ -101,12 +102,14 @@ test('the ingestion funnel reconciles for fifty random provider answers', async 
       isConfigured: () => true,
       async discover(): Promise<DiscoveryResult> {
         return {
-          status: businesses.length > 0 ? 'OK' : 'ZERO_RESULTS',
-          businesses,
-          // What the provider sent before the adapter collapsed duplicates.
-          providerRows: businesses.length + duplicatesCollapsed,
-          rejectedRows: 0,
-          duplicateRows: duplicatesCollapsed,
+          status: 'OK',
+          observations: [
+            ...observationsFor(businesses),
+            // Rows the provider really sent for companies already in the list. The
+            // duplicate count is now something resolution works out, not a number an
+            // adapter can assert about rows nobody can see.
+            ...observationsFor(businesses.slice(0, duplicatesCollapsed)),
+          ],
         };
       },
     });
@@ -156,8 +159,7 @@ test('an empty provider answer is the only thing that reports zero', async () =>
     name: 'empty-provider', requiresCredential: false, governanceReviewed: true,
     isConfigured: () => true,
     async discover(): Promise<DiscoveryResult> {
-      return { status: 'ZERO_RESULTS', businesses: [], providerRows: 0,
-        rejectedRows: 0, duplicateRows: 0 };
+      return { status: 'ZERO_RESULTS', observations: observationsFor([]), };
     },
   });
   const job = await runMining();
@@ -320,9 +322,8 @@ test('what the miner actually discovers is counted as mining, end to end', async
     async discover(): Promise<DiscoveryResult> {
       return {
         status: 'OK',
-        businesses: [{ name: 'End To End Roofing', website: null, phone: '904-555-7101' }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
-      };
+        observations: observationsFor([{ name: 'End To End Roofing', website: null, phone: '904-555-7101' }]),
+        };
     },
   });
 

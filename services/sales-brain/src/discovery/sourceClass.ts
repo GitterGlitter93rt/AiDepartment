@@ -1,3 +1,4 @@
+import { isPlatformDomain } from '../domain/normalize.js';
 /**
  * What kind of thing a search result actually is.
  *
@@ -49,7 +50,8 @@ export interface ClassifiableObservation {
   observedName: string | null;
   observedDomain: string | null;
   observedPhone: string | null;
-  observedLocation: string | null;
+  /** An address the provider observed for this business. Never the search target. */
+  observedBusinessAddress: string | null;
   landingUrl: string | null;
 }
 
@@ -69,12 +71,37 @@ export interface Classification {
  */
 export function registrableDomain(domain: string | null): string | null {
   if (!domain) return null;
-  const host = domain.trim().toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
+  // A URL is accepted as well as a host.
+  //
+  // Inventory stores a website as `https://example.com` and the resolver stores an
+  // identity as `example.com`, and both are handed to this function by callers that
+  // reasonably assume it knows what a domain looks like. It did not: a URL kept its
+  // scheme, so `https://acme.invalid` and `acme.invalid` were different identities,
+  // and every lookup that crossed the two -- linking an observation to the Account it
+  // became, finding the candidate a business came from -- silently matched nothing
+  // and left the evidence unattached.
+  const host = domain.trim().toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .replace(/^[^/@]*@/, '')
+    .split(/[/?#]/)[0]!
+    .split(':')[0]!
+    .replace(/^www\./, '')
+    .replace(/\.$/, '');
   if (!host || !host.includes('.')) return null;
   const parts = host.split('.');
   const twoPartSuffix = /^(co|com|net|org|gov|ac|edu)\.[a-z]{2}$/;
   const tail = parts.slice(-2).join('.');
-  const take = twoPartSuffix.test(tail) ? 3 : 2;
+  let take = twoPartSuffix.test(tail) ? 3 : 2;
+  // A site builder's apex names nobody, so the label in front of it is the identity.
+  //
+  // `salazarroofing.wixsite.com` and `coastalair.wixsite.com` are two companies, and
+  // collapsing both to `wixsite.com` would do two wrong things at once: merge them
+  // into one identity, and then hand that identity two different business names --
+  // which is exactly the shape the multiplicity rule reads as a directory. Two real
+  // small businesses on the same builder would reject each other. `normalize.ts` made
+  // this decision already for account identity; this is the same rule, and the two
+  // must not disagree about what counts as one company.
+  if (isPlatformDomain(parts.slice(-take).join('.')) && parts.length > take) take += 1;
   return parts.slice(-take).join('.');
 }
 
@@ -135,7 +162,11 @@ export function classifyObservation(observation: ClassifiableObservation): Class
   // A provider business listing is the one source that is *about* a business by
   // construction: the provider resolved the entity, we did not infer it.
   if (observation.resultType === 'MAPS_LOCAL' || observation.resultType === 'LOCAL_SERVICES_AD') {
-    if (title && (observation.observedPhone || observation.observedLocation)) {
+    // A name plus something that identifies *this business*: its own phone, or an
+    // address the provider recorded for it. The geography we searched is neither, and
+    // it used to arrive in this field on every row -- so every Maps result looked
+    // identified whether or not the provider knew anything about the company.
+    if (title && (observation.observedPhone || observation.observedBusinessAddress)) {
       return { sourceClass: 'BUSINESS_LISTING',
         reasons: ['a provider business listing carrying a name and contact detail'] };
     }

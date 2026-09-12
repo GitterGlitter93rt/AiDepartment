@@ -83,7 +83,7 @@ beforeEach(async () => { await resetDatabase(); calRequests = []; bookingCounter
 async function seedAccount(): Promise<string> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example.com',
+      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example',
       phone: '904-555-0100', city: 'Jacksonville', state: 'FL',
     }, { discoverySource: 'test' }));
   return accountId;

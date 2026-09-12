@@ -180,8 +180,48 @@
       event.preventDefault();
       researchButton.disabled = true;
       researchButton.textContent = 'Queued…';
-      api('/api/mining/jobs', { body: JSON.stringify(window.__searchRequest || {}) })
+      // Two steps, because this one spends money.
+      //
+      // The button used to post the search request straight to /api/mining/jobs,
+      // which submitted chargeable provider tasks. Nobody saw the queries and nobody
+      // saw the cost. The plan comes back first, with each search labelled new or
+      // already-paid-for; confirming sends the plan's id and hash and nothing else,
+      // so what is bought is what was shown.
+      researchButton.textContent = 'Checking…';
+      api('/api/mining/plan', { body: JSON.stringify(window.__searchRequest || {}) })
+        .then(function (preview) {
+          var plan = preview.plan || {};
+          var searches = plan.searches || [];
+          if (plan.refusal) {
+            researchButton.disabled = false;
+            researchButton.textContent = 'Research more';
+            toast(plan.refusal, 'warn');
+            return null;
+          }
+          var lines = searches.map(function (search) {
+            return '  ' + search.index + '. ' + search.keyword
+              + (search.chargeable ? '  [new paid search]' : '  [already paid for, will collect]');
+          });
+          var summary = 'This will run ' + searches.length + ' search'
+            + (searches.length === 1 ? '' : 'es') + ':\n\n' + lines.join('\n')
+            + '\n\n' + plan.chargeableTaskCount + ' of them will be charged for, at about $'
+            + Number(plan.estimatedCostUsd || 0).toFixed(4) + ' in total.'
+            + (plan.partialDiscoveryCoverage
+              ? '\n\nThis does not cover every discovery term for this vertical, so the '
+                + 'market will be partly searched.' : '')
+            + '\n\nSubmit these paid searches?';
+          if (!window.confirm(summary)) {
+            researchButton.disabled = false;
+            researchButton.textContent = 'Research more';
+            return null;
+          }
+          researchButton.textContent = 'Queued…';
+          return api('/api/mining/jobs', {
+            body: JSON.stringify({ planId: preview.planId, planHash: preview.planHash }),
+          });
+        })
         .then(function (response) {
+          if (!response) return;
           toast(response.created
             ? 'Research queued. Existing results stay available while it runs.'
             : 'Research for this market is already running.');

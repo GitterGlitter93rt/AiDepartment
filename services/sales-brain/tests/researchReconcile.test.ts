@@ -19,7 +19,8 @@ import {
 } from '../src/workers/researchReconcile.js';
 import { researchTrigger } from '../src/workers/contactResearch.js';
 import { operationalSnapshot } from '../src/api/operations.js';
-import { resetDatabase, makeUser } from './helpers.js';
+import { resetDatabase, makeUser, markEntityVerified } from './helpers.js';
+import { observationsFor } from './support/observations.js';
 
 /**
  * Companies discovered and then forgotten.
@@ -254,9 +255,8 @@ test('a discovered company is researched under the trigger that discovered it', 
     async discover(): Promise<DiscoveryResult> {
       return {
         status: 'OK',
-        businesses: [{ name: 'Triggered Roofing', website: null, phone: '904-555-4901' }],
-        providerRows: 1, rejectedRows: 0, duplicateRows: 0,
-      };
+        observations: observationsFor([{ name: 'Triggered Roofing', website: null, phone: '904-555-4901' }]),
+        };
     },
   });
 
@@ -287,6 +287,9 @@ test('a company found by business listings is rescued, not stranded for ever', a
     phone: '904-555-9401', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'listings:fixture' }));
+  // Stands for a candidate the resolver promoted: the only way a machine
+  // makes an Account now.
+  await markEntityVerified(accountId);
   await query(
     `update accounts set created_at = now() - interval '2 hours' where account_id = $1`,
     [accountId]);

@@ -47,7 +47,7 @@ export interface EntityCandidate {
   /** Only carried when the source is entitled to state it. */
   phone: string | null;
   /** Only from a listing that actually observed an address. */
-  observedLocation: string | null;
+  observedBusinessAddress: string | null;
   observationCount: number;
   reasons: string[];
 }
@@ -71,6 +71,49 @@ export function looksLikeCompanyName(title: string | null): { ok: boolean; why: 
   if (name.length > 90) return { ok: false, why: 'too long to be a company name' };
   for (const rule of NOT_A_NAME) if (rule.test.test(name)) return { ok: false, why: rule.why };
   return { ok: true, why: null };
+}
+
+/** Words that are in every company name and identify none of them. */
+const LEGAL_SUFFIX = new Set([
+  'llc', 'inc', 'incorporated', 'co', 'corp', 'corporation', 'ltd', 'limited', 'lp',
+  'llp', 'pa', 'pc', 'the', 'and', 'of', 'a',
+]);
+
+/** The identifying words of a company name, longest first. */
+function nameTokens(name: string | null): string[] {
+  return (name ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !LEGAL_SUFFIX.has(word))
+    .sort((left, right) => right.length - left.length);
+}
+
+/**
+ * Does this domain look like it belongs to this company?
+ *
+ * The corroboration the design promised and the first implementation did not do. A
+ * company-shaped title on an unknown domain was enough to promote, which means an
+ * unknown lead-generation site presenting "ABC Plumbing LLC" once -- too few rows for
+ * the multiplicity rule to see it -- became ABC Plumbing. The multiplicity rule only
+ * works when a third party carries several businesses in the *same* result set, so it
+ * cannot be the only check.
+ *
+ * Brand agreement is cheap, deterministic and needs no network: a roofing company's
+ * own domain almost always contains a distinctive word from its name.
+ * "Burchfield Roof Services LLC" and `burchfieldroofing.com` share "burchfield";
+ * "ABC Plumbing LLC" and `someunknownleadsite.com` share nothing.
+ */
+export function brandMatchesDomain(name: string | null, domain: string | null): boolean {
+  const host = (domain ?? '').split('.')[0]?.replace(/[^a-z0-9]/gi, '').toLowerCase() ?? '';
+  if (!host) return false;
+  const tokens = nameTokens(name);
+  if (tokens.length === 0) return false;
+  // A distinctive word of the name appears in the host, or the host appears in the
+  // name run together -- "augustine.pro" for "Augustine Contractors LLC".
+  const joined = tokens.join('');
+  return tokens.some((token) => token.length >= 4 && host.includes(token))
+    || (host.length >= 5 && joined.includes(host));
 }
 
 /**
@@ -173,13 +216,30 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
     // domains, and a listicle title fails the name test. A name that reads like a
     // company plus a number to ring is an identity.
     if (sourceClass === 'UNKNOWN' && !registrableDomain(best.observedDomain)
-        && best.observedPhone && looksLikeCompanyName(best.observedName).ok) {
+        && best.observedPhone) {
+      // The name may not come from a text ad, here either. "Emergency AC Repair --
+      // Call Now" beside a tracking number is a campaign, and promoting it would put
+      // a slogan and a call-centre line in a rep's list as a company.
+      const named = ranked.find((observation) =>
+        observation.resultType !== 'PAID_SEARCH_TEXT'
+        && looksLikeCompanyName(observation.observedName).ok);
+      if (named) {
+        candidates.push({
+          identity, status: 'VERIFIED', sourceClass: 'BUSINESS_LISTING',
+          resolvedName: named.observedName!.trim(), nameBasis: 'provider_listing',
+          domain: null, phone: best.observedPhone,
+          observedBusinessAddress: best.observedBusinessAddress ?? null,
+          observationCount: rows.length,
+          reasons: ['a company name and a phone number, with no website on record'],
+        });
+        continue;
+      }
       candidates.push({
-        identity, status: 'VERIFIED', sourceClass: 'BUSINESS_LISTING',
-        resolvedName: best.observedName!.trim(), nameBasis: 'provider_listing',
-        domain: null, phone: best.observedPhone, observedLocation: best.observedLocation ?? null,
-        observationCount: rows.length,
-        reasons: ['a company name and a phone number, with no website on record'],
+        identity, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
+        nameBasis: 'unresolved', domain: null, phone: null,
+        observedBusinessAddress: null, observationCount: rows.length,
+        reasons: ['a phone number somebody is advertising, with no name we can trust '
+          + 'and no website to check it against'],
       });
       continue;
     }
@@ -188,7 +248,7 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
       candidates.push({
         identity, status: 'REJECTED', sourceClass, resolvedName: null,
         nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
-        phone: null, observedLocation: null, observationCount: rows.length, reasons,
+        phone: null, observedBusinessAddress: null, observationCount: rows.length, reasons,
       });
       continue;
     }
@@ -200,7 +260,7 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
         identity, status: 'VERIFIED', sourceClass,
         resolvedName: best.observedName!.trim(), nameBasis: 'provider_listing',
         domain: registrableDomain(best.observedDomain), phone: best.observedPhone ?? null,
-        observedLocation: best.observedLocation ?? null,
+        observedBusinessAddress: best.observedBusinessAddress ?? null,
         observationCount: rows.length, reasons,
       });
       continue;
@@ -217,14 +277,54 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
       observation.resultType !== 'PAID_SEARCH_TEXT'
       && looksLikeCompanyName(observation.observedName).ok);
 
-    if (nameable) {
+    // Corroboration, not just a plausible-looking title.
+    //
+    // Three things can establish that this domain belongs to this company, in
+    // descending strength. None needs a network call or a model.
+    const domain = registrableDomain(best.observedDomain);
+    const listingForSameDomain = ranked.some((observation) =>
+      (observation.resultType === 'MAPS_LOCAL' || observation.resultType === 'LOCAL_SERVICES_AD')
+      && registrableDomain(observation.observedDomain) === domain
+      && Boolean(observation.observedName));
+    const brandAgrees = nameable
+      ? brandMatchesDomain(nameable.observedName, domain) : false;
+    // Two independent non-paid rows agreeing on the same name for the same domain.
+    const independentAgreement = new Set(ranked
+      .filter((observation) => observation.resultType !== 'PAID_SEARCH_TEXT')
+      .map((observation) => nameCore(observation.observedName))
+      .filter(Boolean)).size === 1
+      && ranked.filter((o) => o.resultType !== 'PAID_SEARCH_TEXT').length >= 2;
+
+    const corroboration = listingForSameDomain ? 'a provider listing for the same domain'
+      : brandAgrees ? 'the company name and the domain agree'
+      : independentAgreement ? 'two independent results agree on the same company here'
+      : null;
+
+    if (nameable && corroboration) {
       candidates.push({
         identity, status: 'VERIFIED', sourceClass,
         resolvedName: nameable.observedName!.trim(), nameBasis: 'own_site_title',
-        domain: registrableDomain(best.observedDomain),
-        phone: best.observedPhone ?? null, observedLocation: best.observedLocation ?? null,
+        domain,
+        phone: best.observedPhone ?? null,
+        observedBusinessAddress: best.observedBusinessAddress ?? null,
         observationCount: rows.length,
-        reasons: [...reasons, 'the page names a company rather than a topic'],
+        reasons: [...reasons, corroboration],
+      });
+      continue;
+    }
+
+    if (nameable) {
+      // A company-shaped title on a domain with nothing tying the two together. Most
+      // of these are real companies; some are an unknown lead-generation site showing
+      // somebody else's name, and one row is too few for the multiplicity rule to tell
+      // them apart. Kept for verification rather than guessed either way.
+      candidates.push({
+        identity, status: 'NEEDS_REVIEW', sourceClass,
+        resolvedName: null, nameBasis: 'unresolved', domain,
+        phone: null, observedBusinessAddress: null, observationCount: rows.length,
+        reasons: [...reasons,
+          `"${nameable.observedName!.trim().slice(0, 60)}" is named on ${domain}, and `
+          + 'nothing yet connects that name to that domain'],
       });
       continue;
     }
@@ -242,14 +342,19 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
     // company -- most of them are -- but "probably" is what put 65 webpages in a rep's
     // list, so it waits for a verification step that can read the site and resolve the
     // name properly.
+    // A paid placement is evidence somebody bought an ad. It is not evidence that the
+    // advertiser is an operating business of the trade we asked about: an aggregator,
+    // a lead-generation marketplace and a franchise portal all buy the same keywords.
+    // So paid still needs the domain tied to a name, exactly like organic does -- it
+    // just gets to use the ad's own domain as the identity while it waits.
     const paidPlacement = ranked.some((observation) =>
       PAID_PLACEMENT.has(observation.resultType));
-    if (paidPlacement && registrableDomain(best.observedDomain)) {
+    if (paidPlacement && registrableDomain(best.observedDomain) && listingForSameDomain) {
       candidates.push({
         identity, status: 'VERIFIED', sourceClass,
         resolvedName: registrableDomain(best.observedDomain), nameBasis: 'domain',
         domain: registrableDomain(best.observedDomain),
-        phone: best.observedPhone ?? null, observedLocation: best.observedLocation ?? null,
+        phone: best.observedPhone ?? null, observedBusinessAddress: best.observedBusinessAddress ?? null,
         observationCount: rows.length,
         reasons: [...reasons,
           'a paid placement for this domain, so a business is running it; no row '
@@ -258,19 +363,25 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
       continue;
     }
 
+    // Everything that reaches here is kept, and the reason says which of the two ways
+    // it failed to resolve. There must be no path off the end of this loop: an
+    // observation that produces no candidate at all is an observation the operator
+    // cannot see, cannot review and cannot correct, and the search that found it was
+    // still paid for.
     const named = looksLikeCompanyName(best.observedName);
-    if (!named.ok) {
-      candidates.push({
-        identity, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
-        nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
-        // A phone read off a page we have not established ownership of is not this
-        // company's phone.
-        phone: null, observedLocation: null, observationCount: rows.length,
-        reasons: [...reasons, `the page title is ${named.why}`],
-      });
-      continue;
-    }
-
+    candidates.push({
+      identity, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
+      nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
+      // A phone read off a page we have not established ownership of is not this
+      // company's phone.
+      phone: null, observedBusinessAddress: null, observationCount: rows.length,
+      reasons: [...reasons, named.ok
+        // The title passed the shape test but only ever appeared as ad copy, which the
+        // naming rule above refuses to read a company name out of.
+        ? 'the only usable title here came from paid ad copy, which names a campaign '
+          + 'rather than a company'
+        : `the page title is ${named.why}`],
+    });
   }
 
   return candidates;
