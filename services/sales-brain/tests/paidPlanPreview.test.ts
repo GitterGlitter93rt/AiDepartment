@@ -40,7 +40,7 @@ beforeEach(async () => {
 
 const REQUEST: PlanRequest = {
   verticalProfileId: 'roofing', geographyType: 'zip_zcta', geographyValue: '32095',
-  marketId: null, miningMode: 'advertisers_first', queryBudget: 3, causes: null,
+  marketId: null, miningMode: 'advertiser_first', queryBudget: 3, causes: null,
 };
 
 test('the plan names every search before anything is bought', async () => {

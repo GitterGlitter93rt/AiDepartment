@@ -415,20 +415,26 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     if (!confirmation.ok) {
       // A plan that moved is a normal outcome, not a server error: 409 with the
       // current plan, so the page can show what changed.
-      return reply.code(confirmation.code === 'CHANGED' ? 409 : 400).send({
+      const conflict = confirmation.code === 'CHANGED'
+        || confirmation.code === 'ACTIVE_RUN_DIFFERS';
+      return reply.code(conflict ? 409 : 400).send({
         ok: false, code: confirmation.code, message: confirmation.message,
         ...(confirmation.plan ? { plan: confirmation.plan } : {}),
       });
     }
 
+    // The job carries the plan, not the inputs that produced it. The worker executes
+    // those exact searches; it does not re-derive them from a vertical and a ZIP.
     const result = await enqueueMarketResearch({
-      verticalProfileId: confirmation.request.verticalProfileId,
-      geographyType: confirmation.request.geographyType,
-      geographyValue: confirmation.request.geographyValue,
-      marketId: confirmation.request.marketId,
+      verticalProfileId: confirmation.plan.verticalProfileId,
+      geographyType: confirmation.plan.geographyType,
+      geographyValue: confirmation.plan.geographyValue,
+      marketId: confirmation.plan.marketId,
       requestedBy: user.userId,
-      ...(confirmation.request.miningMode ? { miningMode: confirmation.request.miningMode } : {}),
-      ...(confirmation.request.queryBudget ? { queryBudget: confirmation.request.queryBudget } : {}),
+      miningMode: confirmation.plan.miningMode,
+      queryBudget: confirmation.plan.searches.length,
+      causes: confirmation.plan.causes,
+      confirmedPlan: { planId: confirmation.planId, planHash: submittedHash },
     });
     await consumePaidPlan(confirmation.planId, result.jobId ?? null);
     return { ...result, planId: confirmation.planId };

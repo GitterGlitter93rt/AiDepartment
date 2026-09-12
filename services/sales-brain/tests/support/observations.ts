@@ -82,6 +82,7 @@ function base(spec: BusinessSpec): ProviderObservation {
       // A listing with no phone still has to be identified by something the provider
       // observed about the business itself.
       ?? (spec.phone ? null : `${spec.name} premises`),
+    observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: null,
     resultType: 'MAPS_LOCAL',
     position: spec.position ?? null,
@@ -141,6 +142,7 @@ export function junkObservations(count: number, query = 'fixture search'): Provi
     observedDomain: null,
     observedPhone: null,
     observedBusinessAddress: null,
+    observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: null,
     resultType: 'ORGANIC' as const,
     position: index + 1,

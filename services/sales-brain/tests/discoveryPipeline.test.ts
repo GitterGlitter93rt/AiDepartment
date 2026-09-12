@@ -66,7 +66,9 @@ function adapterReturning(observations: ProviderObservation[], name = 'pipeline-
 function allJunk(): ProviderObservation[] {
   const row = (over: Partial<ProviderObservation>): ProviderObservation => ({
     providerNativeId: null, observedName: null, observedDomain: null, observedPhone: null,
-    observedBusinessAddress: null, searchLocationName: 'St. Augustine,Florida,United States',
+    observedBusinessAddress: null,
+    observedCity: null, observedRegion: null, observedPostalCode: null,
+    searchLocationName: 'St. Augustine,Florida,United States',
     resultType: 'ORGANIC', position: null, adHeadline: null, landingUrl: null,
     advertisedService: null, checkUrl: null, observedAt: new Date(), query: 'roofer 32095',
     ...over,
@@ -147,7 +149,9 @@ test('a second adapter cannot bypass entity resolution', async () => {
         observations: [{
           providerNativeId: 'x1', observedName: 'Top 10 Roofers in St. Augustine',
           observedDomain: 'yelp.com', observedPhone: '904-555-0001',
-          observedBusinessAddress: null, searchLocationName: null,
+          observedBusinessAddress: null,
+    observedCity: null, observedRegion: null, observedPostalCode: null,
+    searchLocationName: null,
           resultType: 'ORGANIC', position: 1, adHeadline: null,
           landingUrl: 'https://yelp.com/search?find_desc=roofing',
           advertisedService: null, checkUrl: null, observedAt: new Date(),
@@ -273,6 +277,7 @@ test('MAPS_LOCAL with no phone and no address is not an identified business', ()
     providerNativeId: null, observedName: 'Vague Listing Roofing', observedDomain: null,
     observedPhone: null, observedBusinessAddress: null,
     // The field that used to satisfy the classifier, on every row of every response.
+    observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: 'St. Augustine,Florida,United States',
     resultType: 'MAPS_LOCAL', position: 1, adHeadline: null, landingUrl: null,
     advertisedService: null, checkUrl: null, observedAt: new Date(), query: 'roofer',
@@ -286,6 +291,7 @@ test('MAPS_LOCAL with an observed address is an identified business', () => {
     providerNativeId: null, observedName: 'Addressed Roofing LLC',
     observedDomain: 'addressedroofing.invalid', observedPhone: null,
     observedBusinessAddress: '120 King St, St. Augustine, FL',
+    observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: 'St. Augustine,Florida,United States',
     resultType: 'MAPS_LOCAL', position: 1, adHeadline: null, landingUrl: null,
     advertisedService: null, checkUrl: null, observedAt: new Date(), query: 'roofer',
@@ -318,6 +324,7 @@ test('the physical locations table never receives the provider search target',
     providerNativeId: null, observedName: 'No Address Roofing',
     observedDomain: 'noaddressroofing.invalid', observedPhone: '904-555-0601',
     observedBusinessAddress: null,
+    observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: 'St. Augustine,Florida,United States',
     resultType: 'MAPS_LOCAL', position: 1, adHeadline: null, landingUrl: null,
     advertisedService: null, checkUrl: null, observedAt: new Date(), query: 'roofer 32095',
@@ -499,4 +506,51 @@ test('reprocess queues no research and calls no provider', async () => {
     `select count(*)::int as n from jobs where job_type = 'account_research'`);
   assert.equal(researchAfter.rows[0]!.n, researchBefore.rows[0]!.n,
     'the dry run queued research');
+});
+
+test('a discovery query does not enrich a record nothing has verified', async () => {
+  // P0-6 generalised. The commercial-intelligence rule was the reported case, but a
+  // plain discovery query that re-finds one of the canary's 65 webpages would have
+  // attached advertiser evidence to it just the same -- and a junk record that looks
+  // researched is worse than one that looks empty, because the next person to read it
+  // has no reason to doubt it.
+  const junk = await minedAccount('Rediscovered Junk Roofing', 'legacy_unverified');
+  adapterReturning(observationsFor([
+    { name: 'Rediscovered Junk Roofing',
+      website: 'https://rediscoveredjunkroofing.invalid',
+      phone: '904-555-0701', resultType: 'PAID_SEARCH_TEXT' },
+  ]));
+  const job = await mine();
+  const progress = job['progress'] as Record<string, unknown>;
+
+  assert.equal(Number(progress['discoveredNew']), 0);
+  assert.equal(Number(progress['matchedExisting']), 0,
+    'an unverified record was counted as a company this search confirmed');
+  assert.ok(Number(progress['notInMarket']) > 0);
+
+  const evidence = await query<{ n: number }>(
+    `select count(*)::int as n from evidence_records where account_id = $1`, [junk]);
+  assert.equal(evidence.rows[0]!.n, 0,
+    'advertiser evidence was attached to a record nothing has established to be a company');
+
+  // The sighting itself is still on record, which is what a reprocess run reads.
+  const observed = await query<{ n: number }>(
+    'select count(*)::int as n from search_observations');
+  assert.ok(observed.rows[0]!.n > 0);
+});
+
+test('a verified company is still enriched by the search that finds it again', async () => {
+  const verified = await minedAccount('Verified Again Roofing', 'verified');
+  adapterReturning(observationsFor([
+    { name: 'Verified Again Roofing', website: 'https://verifiedagainroofing.invalid',
+      phone: '904-555-0701', resultType: 'PAID_SEARCH_TEXT' },
+  ]));
+  const job = await mine();
+  const progress = job['progress'] as Record<string, unknown>;
+  assert.equal(Number(progress['matchedExisting']), 1,
+    'a verified company was refused the evidence of its own re-discovery');
+
+  const evidence = await query<{ n: number }>(
+    `select count(*)::int as n from evidence_records where account_id = $1`, [verified]);
+  assert.ok(evidence.rows[0]!.n > 0, 'the advertiser evidence was not written');
 });

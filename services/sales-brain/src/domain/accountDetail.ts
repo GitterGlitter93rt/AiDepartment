@@ -118,6 +118,15 @@ export interface EntityPicture {
   /** "Found while searching 32095", which is not where the company is. */
   discoveredForGeography: string | null;
   discoveredForGeographyType: string | null;
+  /**
+   * An address a provider actually observed for this business, as it printed it.
+   *
+   * Held apart from the city/state/ZIP because those are only set when a provider
+   * resolved them itself. A printed line we decline to parse is still evidence -- it
+   * is the difference between "we have never seen an address for this company" and
+   * "we have seen one and will not pretend to know which ZIP it is in".
+   */
+  observedBusinessAddress: string | null;
 }
 
 export interface TimelineEvent {
@@ -439,6 +448,13 @@ async function entityPictureFor(accountId: string): Promise<EntityPicture> {
   const account = accountRows[0];
   const foundByMachine = account?.found_by_machine ?? false;
 
+  // An observed address with no resolved city or ZIP: the provider printed a line and
+  // nothing has parsed it, which is a fact worth showing rather than discarding.
+  const { rows: addressRows } = await query<{ address_line_1: string | null }>(
+    `select address_line_1 from locations
+      where account_id = $1 and address_line_1 is not null
+      order by created_at limit 1`, [accountId]);
+
   const { rows: candidateRows } = await query<{
     source_class: string; reasons: string[] | null;
   }>(
@@ -459,5 +475,6 @@ async function entityPictureFor(accountId: string): Promise<EntityPicture> {
     sourceClass: candidateRows[0]?.source_class ?? null,
     discoveredForGeography: account?.discovered_for_geography ?? null,
     discoveredForGeographyType: account?.discovered_for_geography_type ?? null,
+    observedBusinessAddress: addressRows[0]?.address_line_1 ?? null,
   };
 }

@@ -103,7 +103,20 @@ export interface ProviderItem {
   breadcrumb?: string;
   description?: string;
   phone?: string;
+  /** Free-form, as the provider printed it. */
   address?: string;
+  /**
+   * The same address in parts, when the provider resolved it.
+   *
+   * Only used when the provider supplies the discrete fields. A free-form line is
+   * never split into a city and a ZIP here: "Suite 4, 120 King St, St. Augustine FL"
+   * parsed badly is a company filed under the wrong market, and a wrong address is
+   * worse than a missing one because nothing later looks at it again.
+   */
+  address_info?: {
+    address?: string; city?: string; region?: string; zip?: string;
+    country_code?: string; borough?: string;
+  };
   advertiser_id?: string;
 }
 
@@ -180,7 +193,12 @@ export function normalizeResponse(
           // could never win the coalesce. The classifier then read that field as
           // evidence a Maps row identified a business, which meant the geography we
           // typed helped verify the entity.
-          observedBusinessAddress: item.address?.trim() || null,
+          observedBusinessAddress: item.address?.trim()
+            || item.address_info?.address?.trim() || null,
+          // Parts only when the provider resolved them itself.
+          observedCity: item.address_info?.city?.trim() || null,
+          observedRegion: item.address_info?.region?.trim() || null,
+          observedPostalCode: item.address_info?.zip?.trim() || null,
           searchLocationName: result.location_name ?? null,
           resultType: type,
           position: item.rank_absolute ?? item.rank_group ?? null,
@@ -355,6 +373,7 @@ export function createDataForSeoAdapter(options: {
     name: 'dataforseo',
     requiresCredential: true,
     governanceReviewed: config.governanceReviewed,
+    mode: config.mode,
 
     isConfigured(): boolean {
       // Enabled, credentialed and reviewed. Any one missing means no traffic.

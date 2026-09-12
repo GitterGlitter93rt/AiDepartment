@@ -51,6 +51,16 @@ export interface ProviderObservation {
    * which meant the geography we typed helped verify the entity.
    */
   observedBusinessAddress: string | null;
+  /**
+   * The same address in parts, and only when the provider resolved them itself.
+   *
+   * A free-form line is never parsed into these. The separation exists so that a
+   * provider that does know the city and the ZIP can say so, and one that does not
+   * leaves them null rather than having them guessed out of a string.
+   */
+  observedCity: string | null;
+  observedRegion: string | null;
+  observedPostalCode: string | null;
   /** Where the provider was asked to look. Discovery provenance, never an address. */
   searchLocationName: string | null;
   resultType: NormalizedResultType;
@@ -67,6 +77,8 @@ export interface DiscoveredBusiness {
   name: string;
   website?: string | null;
   phone?: string | null;
+  /** As the provider printed it, when it observed one for this business. */
+  observedBusinessAddress?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
@@ -119,7 +131,11 @@ export interface ResolvedObservations {
  * What was missing is the question in between -- is this a company at all, and if so
  * which one -- and that question needs the whole result set rather than one row.
  */
-export function resolveObservations(observations: ProviderObservation[]): ResolvedObservations {
+export function resolveObservations(
+  observations: ProviderObservation[],
+  /** Words that are generic in this market, from the vertical's own taxonomy. */
+  genericTerms: ReadonlySet<string> = new Set(),
+): ResolvedObservations {
   const eligible = observations.filter((observation) => CANDIDATE_TYPES.has(observation.resultType));
   const candidates = resolveCandidates(eligible.map((observation) => ({
     resultType: observation.resultType,
@@ -129,7 +145,7 @@ export function resolveObservations(observations: ProviderObservation[]): Resolv
     observedBusinessAddress: observation.observedBusinessAddress,
     landingUrl: observation.landingUrl,
     position: observation.position,
-  })));
+  })), genericTerms);
 
   const verified = candidates.filter((candidate) => candidate.status === 'VERIFIED');
   const businesses = businessesFromCandidates(verified, eligible);
@@ -179,9 +195,19 @@ function businessesFromCandidates(
       // registrable domain because that is the identity; this is the address.
       website: candidate.domain ? `https://${candidate.domain}` : null,
       phone: candidate.phone,
-      // Deliberately null. A SERP row does not observe an address, and the searched
-      // geography is not one -- see the miner, where that fallback used to live.
-      city: null, state: null, postalCode: null,
+      /**
+       * An address only when the provider observed one, in parts it resolved itself.
+       *
+       * Never the searched geography -- that fallback is what made 65 of 65 canary
+       * Accounts claim a location nobody had seen -- and never a free-form line split
+       * up here. When the provider gave only a printed address it stays as
+       * `observedBusinessAddress`, which the Account keeps as observed evidence
+       * without pretending to know which ZIP it is in.
+       */
+      observedBusinessAddress: candidate.observedBusinessAddress,
+      city: seen?.observedCity ?? null,
+      state: seen?.observedRegion ?? null,
+      postalCode: seen?.observedPostalCode ?? null,
       providerNativeId: seen?.providerNativeId ?? null,
       resultType: seen?.resultType,
       advertisedService: seen?.advertisedService ?? null,

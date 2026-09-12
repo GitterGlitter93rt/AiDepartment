@@ -85,7 +85,7 @@ async function planned(overrides: Partial<{
 }> = {}) {
   const base = {
     verticalProfileId: 'hvac' as string | null, geographyType: 'city',
-    geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5,
+    geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5,
     ...overrides,
   };
   const plan = await planDiscoverySearches({
@@ -143,7 +143,7 @@ test('the adapter refuses to run before the source governance review', async () 
   });
   assert.equal(adapter.isConfigured(), false);
 
-  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
+  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
   assert.deepEqual(found.observations, []);
   assert.equal(found.status, 'GOVERNANCE_BLOCKED',
     'an unreviewed source is blocked, not a market with nothing in it');
@@ -162,7 +162,7 @@ test('a credential alone does not start traffic', async () => {
     transport: () => { throw new Error('the provider must not be called'); },
   });
   assert.equal(adapter.isConfigured(), false);
-  const refused = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
+  const refused = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
   assert.deepEqual(refused.observations, []);
   assert.equal(refused.status, 'NOT_CONFIGURED');
 });
@@ -175,7 +175,7 @@ test('the run budget is capped by configuration, not by the caller', async () =>
   });
   const capped = await adapter.discover({
     verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL',
-    miningMode: 'advertisers_first', queryBudget: 10_000,
+    miningMode: 'advertiser_first', queryBudget: 10_000,
   });
   assert.equal(called, 0, 'a caller asking for ten thousand queries gets none');
   assert.equal(capped.status, 'BUDGET_EXHAUSTED',
@@ -190,7 +190,7 @@ test('a discovered business carries its provider evidence, and no invented locat
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE),
   });
-  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
+  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
 
   assert.equal(found.status, 'OK');
   const run = resolved(found);
@@ -219,7 +219,7 @@ test('a discovered business carries its provider evidence, and no invented locat
 
 test('provider cost is recorded from the response, and a failure is still recorded', async () => {
   const ok = createDataForSeoAdapter({ config: READY, transport: transportReturning(RESPONSE) });
-  await ok.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
+  await ok.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
   const success = await pool.query(
     `select status, actual_cost_usd from provider_usage where provider = 'dataforseo'`);
   assert.equal(success.rows[0]!.status, 'OK');
@@ -229,7 +229,7 @@ test('provider cost is recorded from the response, and a failure is still record
   await syncVerticalProfiles();
   const failing = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE, false, 402) });
-  const found = await failing.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
+  const found = await failing.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
   assert.deepEqual(found.observations, []);
   assert.notEqual(found.status, 'ZERO_RESULTS',
     'a provider that failed must never be reported as a market with nothing in it');
@@ -244,7 +244,7 @@ test('provider cost is recorded from the response, and a failure is still record
 test('an unclassified block is observed but never becomes a company', async () => {
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
-  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 5 }));
+  const found = await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
   assert.equal(resolved(found).businesses.some((row) => row.name === 'Mystery Block'), false,
     'a block we could not classify has nothing entity resolution can work with');
 
@@ -415,7 +415,7 @@ test('recorded spend is read back from usage, not held in memory', async () => {
 
   const adapter = createDataForSeoAdapter({
     config: READY, transport: transportReturning(RESPONSE) });
-  await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertisers_first', queryBudget: 1 }));
+  await adapter.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 1 }));
   assert.equal(await providerSpendUsd('dataforseo'), 0.0031,
     'the ceiling is checked against what was actually charged');
 });

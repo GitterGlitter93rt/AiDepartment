@@ -37,7 +37,7 @@ beforeEach(async () => {
   await syncVerticalProfiles();
   REQUEST = await plannedRequest({
     verticalProfileId: 'hvac', geographyType: 'zip_zcta', geographyValue: '32256',
-    miningMode: 'advertisers_first', queryBudget: 5,
+    miningMode: 'advertiser_first', queryBudget: 5,
   });
 });
 

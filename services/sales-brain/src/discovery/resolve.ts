@@ -79,6 +79,31 @@ const LEGAL_SUFFIX = new Set([
   'llp', 'pa', 'pc', 'the', 'and', 'of', 'a',
 ]);
 
+/**
+ * Words that describe what a business does, or that any business could put in its
+ * name, and therefore identify nobody.
+ *
+ * This list is about *company* vocabulary, not about any trade: "services", "group",
+ * "experts", "quotes". The trade words themselves -- plumbing, roofing, hvac -- are
+ * not here and must not be, because there are thirteen verticals and there will be
+ * more. They arrive through `genericTerms`, derived from the vertical's own taxonomy,
+ * so a new trade is generic on the day its profile is written rather than on the day
+ * somebody remembers to add it here.
+ */
+const GENERIC_BUSINESS_WORD = new Set([
+  'company', 'companies', 'services', 'service', 'group', 'solutions', 'systems',
+  'specialists', 'specialist', 'experts', 'expert', 'professionals', 'professional',
+  'pros', 'pro', 'contractors', 'contractor', 'contracting', 'quotes', 'quote',
+  'estimates', 'estimate', 'free', 'best', 'top', 'cheap', 'affordable', 'local',
+  'near', 'me', 'usa', 'america', 'american', 'national', 'nationwide', 'online',
+  'find', 'search', 'directory', 'reviews', 'rated', 'trusted', 'certified',
+  'licensed', 'insured', 'emergency', 'repair', 'repairs', 'installation', 'install',
+  'replacement', 'maintenance', 'commercial', 'residential', 'home', 'homes',
+  'business', 'now', 'today', 'quality', 'premier', 'elite', 'advanced', 'superior',
+  'reliable', 'guaranteed', 'price', 'pricing', 'cost', 'deal', 'deals', 'sale',
+  'inc', 'corp', 'ltd', 'and', 'the', 'for', 'your', 'you', 'our', 'we',
+]);
+
 /** The identifying words of a company name, longest first. */
 function nameTokens(name: string | null): string[] {
   return (name ?? '')
@@ -104,15 +129,37 @@ function nameTokens(name: string | null): string[] {
  * "Burchfield Roof Services LLC" and `burchfieldroofing.com` share "burchfield";
  * "ABC Plumbing LLC" and `someunknownleadsite.com` share nothing.
  */
-export function brandMatchesDomain(name: string | null, domain: string | null): boolean {
+export function brandMatchesDomain(
+  name: string | null, domain: string | null,
+  /**
+   * Words that are generic *in this market*: the vertical's own search terms and the
+   * geography being searched. Supplied by the caller because the resolver must not
+   * learn one trade's vocabulary, and omitted only where no vertical is known.
+   */
+  genericTerms: ReadonlySet<string> = new Set(),
+): boolean {
   const host = (domain ?? '').split('.')[0]?.replace(/[^a-z0-9]/gi, '').toLowerCase() ?? '';
   if (!host) return false;
-  const tokens = nameTokens(name);
-  if (tokens.length === 0) return false;
-  // A distinctive word of the name appears in the host, or the host appears in the
-  // name run together -- "augustine.pro" for "Augustine Contractors LLC".
-  const joined = tokens.join('');
-  return tokens.some((token) => token.length >= 4 && host.includes(token))
+
+  /**
+   * Only a *distinctive* word can establish ownership.
+   *
+   * This used to accept any token of four characters or more, which meant the trade
+   * name did the work: "ABC Plumbing LLC" matched `bestplumbingquotes.com` because
+   * both contain "plumbing", and a lead-generation domain passed as the company's own
+   * site. The same shape promoted "Jacksonville Roofing Company" onto
+   * `roofingcompanyflorida.example`. A word every business in the market shares tells
+   * you which market you are in, not whose site this is.
+   */
+  const distinctive = nameTokens(name).filter((token) =>
+    !GENERIC_BUSINESS_WORD.has(token) && !genericTerms.has(token));
+  if (distinctive.length === 0) return false;
+
+  // A distinctive word of the name appears in the host, or the host is spelled out by
+  // the name's distinctive words run together -- "augustine.pro" for "Augustine
+  // Contractors LLC".
+  const joined = distinctive.join('');
+  return distinctive.some((token) => token.length >= 4 && host.includes(token))
     || (host.length >= 5 && joined.includes(host));
 }
 
@@ -169,7 +216,11 @@ function directoryDomains(observations: CandidateObservation[]): Map<string, num
   return counts;
 }
 
-export function resolveCandidates(observations: CandidateObservation[]): EntityCandidate[] {
+export function resolveCandidates(
+  observations: CandidateObservation[],
+  /** Words that are generic in this market. See `brandMatchesDomain`. */
+  genericTerms: ReadonlySet<string> = new Set(),
+): EntityCandidate[] {
   const distinctNames = directoryDomains(observations);
   const byIdentity = new Map<string, CandidateObservation[]>();
 
@@ -287,17 +338,24 @@ export function resolveCandidates(observations: CandidateObservation[]): EntityC
       && registrableDomain(observation.observedDomain) === domain
       && Boolean(observation.observedName));
     const brandAgrees = nameable
-      ? brandMatchesDomain(nameable.observedName, domain) : false;
-    // Two independent non-paid rows agreeing on the same name for the same domain.
-    const independentAgreement = new Set(ranked
-      .filter((observation) => observation.resultType !== 'PAID_SEARCH_TEXT')
-      .map((observation) => nameCore(observation.observedName))
-      .filter(Boolean)).size === 1
-      && ranked.filter((o) => o.resultType !== 'PAID_SEARCH_TEXT').length >= 2;
+      ? brandMatchesDomain(nameable.observedName, domain, genericTerms) : false;
 
+    /**
+     * Two rows from one domain were never two sources.
+     *
+     * There used to be a third basis here: two non-paid rows agreeing on the same name
+     * for the same domain. Every row it looked at was a page *on that domain*, so an
+     * unknown directory listing one contractor twice -- a profile page and a category
+     * page, which is what directories are made of -- corroborated itself. Agreement
+     * among pages of one site is that site repeating itself, and calling it
+     * independent is the sort of thing that reads as rigour and is the opposite.
+     *
+     * What remains are two bases that genuinely come from somewhere else: the
+     * provider's own entity listing for this domain, and the company's name agreeing
+     * with the domain on a word that is distinctive in this market.
+     */
     const corroboration = listingForSameDomain ? 'a provider listing for the same domain'
       : brandAgrees ? 'the company name and the domain agree'
-      : independentAgreement ? 'two independent results agree on the same company here'
       : null;
 
     if (nameable && corroboration) {

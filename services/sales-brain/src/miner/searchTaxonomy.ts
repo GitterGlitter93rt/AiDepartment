@@ -289,3 +289,36 @@ export async function planSearchQueries(input: {
     commercialIntelligenceIncluded: extra.length > 0,
   };
 }
+
+/**
+ * The words that are generic in this market.
+ *
+ * A trade's own vocabulary cannot identify one company within that trade: every
+ * roofer's name may contain "roofing", so "roofing" appearing in both a name and a
+ * domain says only that both are about roofs. The vertical already writes this
+ * vocabulary down -- its search taxonomy is precisely the words the market is
+ * described by -- so it is read from there rather than listed per trade in the
+ * resolver, which would be thirteen lists to forget to update.
+ *
+ * The searched geography goes in for the same reason: within one ZIP, the town's name
+ * is shared by everyone in it.
+ */
+export async function genericTermsFor(
+  verticalProfileId: string | null, geography?: string | null,
+): Promise<Set<string>> {
+  const terms = new Set<string>();
+  const add = (text: string | null | undefined): void => {
+    for (const word of (text ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/)) {
+      if (word.length >= 3) terms.add(word);
+    }
+  };
+
+  if (verticalProfileId) {
+    for (const entry of await searchQueriesFor(verticalProfileId)) add(entry.query);
+    // What the trade is called, and what it is not, are both market vocabulary.
+    for (const term of await negativeTermsFor(verticalProfileId)) add(term);
+    add(verticalProfileId.replace(/[_-]+/g, ' '));
+  }
+  add(geography ?? null);
+  return terms;
+}

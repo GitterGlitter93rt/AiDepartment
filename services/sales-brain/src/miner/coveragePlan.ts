@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import { planDiscoverySearches } from './searchPlan.js';
 import { assumedRunCostUsd } from './spend.js';
 import { classifyGeographyForInventory } from './geography.js';
+import { miningModeOrDefault } from './miningMode.js';
 
 /**
  * How much of a market we have, and what we have not asked.
@@ -154,7 +155,7 @@ export async function marketCoverage(input: {
     verticalProfileId: input.vertical,
     geographyType: geography?.type ?? null,
     geographyValue: geography?.value ?? null,
-    miningMode: input.miningMode ?? 'advertiser_first',
+    miningMode: miningModeOrDefault(input.miningMode),
     count: 100,
     ...(input.marketId ? { marketId: input.marketId } : {}),
   });

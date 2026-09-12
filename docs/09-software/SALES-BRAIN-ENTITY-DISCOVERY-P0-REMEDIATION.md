@@ -125,6 +125,24 @@ cannot review and cannot correct — and the search was still paid for.
 | `MANUFACTURER_LOCATOR` | no | "find a contractor", manufacturer root domain |
 | `UNKNOWN` | quarantine only | nothing matched |
 
+**Corroboration must be distinctive, and must come from somewhere else (review).**
+Two false-positive paths survived the first pass:
+
+- `brandMatchesDomain` accepted any token of four characters or more, so the *trade*
+  name did the work: "ABC Plumbing LLC" matched `bestplumbingquotes.com` because both
+  contain "plumbing", and a lead-generation domain passed as a company's own site.
+  Only a *distinctive* word counts now. Generic business vocabulary is a static list
+  ("services", "group", "experts", "quotes"); the trade words are not, because there
+  are thirteen verticals and there will be more -- they are derived from the vertical's
+  own search taxonomy, together with the geography being searched, so a new trade is
+  generic on the day its profile is written.
+- "two independent results agree" looked only at rows for the same domain, so an
+  unknown directory listing one contractor on a profile page and a category page
+  corroborated itself. Agreement among pages of one site is that site repeating
+  itself. That basis is removed; what remains genuinely comes from elsewhere -- the
+  provider's own entity listing for the domain, or name↔domain agreement on a word
+  that is distinctive in this market.
+
 **A denylist is a secondary layer, not the architecture.** The load-bearing rules are
 structural and catch a directory nobody has heard of:
 
@@ -209,6 +227,16 @@ that the provider had identified a business. The two are now separate fields:
 `result.location_name`). Only the first is ever stored as an address or read as
 identification.
 
+**An observed address is kept (review).** Separating `observedBusinessAddress` from
+`searchLocationName` stopped the search target being written as an address, and then
+threw the real one away: `city`, `state` and `postalCode` were hard-coded null, so a
+provider could give us an address, the resolver could use it to verify the entity, and
+the Account still showed no location. Now the discrete fields are carried when the
+provider resolved them itself (`address_info`), and a free-form line is stored as an
+observed address with no city or postcode invented from it. The account page tells the
+three facts apart: an observed business address, the market a company was discovered
+for, and a service area.
+
 | Fact | Where | Meaning |
 | --- | --- | --- |
 | Discovery context | `accounts.discovered_for_geography`, `account_market_membership` | "found while researching 32095" |
@@ -284,6 +312,91 @@ hashes to its own hash, and when the planner refused the vertical.
 Each query is labelled **new paid task** or **already submitted — will collect**, so
 the cost shown is the cost charged.
 
+## 9a. The confirmed plan is the execution authority **(review)**
+
+Hashing the plan proved it had not changed *at confirmation time*, and then guarded
+nothing. The route verified the hash, threw the plan away, and handed the worker a
+vertical, a geography and a budget; the worker called the planner again, minutes or
+hours later, against a taxonomy anybody could have edited in between. For a manual
+purchase the invariant has to reach further:
+
+```
+previewed exact plan == confirmed exact plan == queued exact plan == executed exact plan
+```
+
+So a confirmed job carries `confirmed_plan_id` and `confirmed_plan_hash`, and the
+worker:
+
+1. loads the stored plan;
+2. recomputes its hash and compares it against both the stored hash and the job's;
+3. executes those exact searches -- keyword, place, purpose, coverage role and
+   fingerprint as approved -- without consulting the planner;
+4. restricts execution to the single provider the plan names;
+5. refuses, before any provider call, when the linkage is missing, half-present,
+   unreadable, tampered with, or authorises no searches.
+
+The refusal is enforced structurally rather than by a check somebody could move: an
+invalid plan empties the adapter list, and every provider call in the handler is
+inside a loop over adapters.
+
+**What the plan does not override.** It says *which* searches run. It does not say
+whether they may be bought: the daily ceiling, the collect-before-submit rule and the
+paused-market check all still run per submission, and a confirmed run that would cross
+the ceiling is refused like any other.
+
+**Unattended runs are unchanged.** A scheduled saved-market refresh has no preview and
+plans server-side exactly as before. Forcing every automatic pass through a human
+confirmation was never the requirement.
+
+### 9b. One vocabulary for the mining mode **(review)**
+
+The mode is part of every search fingerprint, so two spellings are two identities.
+`planPreview` defaulted to `advertisers_first`; `enqueue`, `marketMiner` and
+`searchPlan` defaulted to `advertiser_first`; and Find Prospects sends no mode at all
+-- so the ordinary path previewed under one identity and executed under another. Both
+happened to order queries identically, which is exactly why it went unnoticed.
+
+`miningMode.ts` is the single vocabulary. Absence means the default; an unrecognised
+value is refused (`UNKNOWN_MINING_MODE`) rather than guessed into the nearest spelling.
+
+### 9c. Causes survive to execution **(review)**
+
+The preview accepted `causes`, `buildPaidPlan` used them and the hash covered them --
+and the route did not pass them to the job, the job did not persist them, and the
+worker did not give them back to the planner. An operator could approve a
+hail-qualified plan and get a neutral one. Carrying the plan itself makes this true by
+construction; `causes` are also persisted on the job so an unattended run that was
+given them does not lose them either.
+
+### 9d. A confirmed plan is its own identity **(review)**
+
+`discoveryFingerprint` excludes the budget on purpose: a market is a market however
+many searches it runs. That was right for a scheduler and wrong for a purchase. A
+person approving one search would join a queued five-search job and be charged for
+five; approving five could silently join a one-search run; and joining an unattended
+job also stamps it with a requester, which changes whether a paused market may buy.
+
+A confirmed job is keyed by its plan hash, so two confirmations of the same plan are
+one job and a different plan can never be absorbed by it. A confirmation while a
+materially different run is already in flight is refused with `ACTIVE_RUN_DIFFERS` and
+a 409 rather than queued beside it. The plan is claimed atomically at confirmation, so
+a double-click cannot confirm the same plan twice.
+
+### 9e. One provider per confirmed plan **(review)**
+
+The preview quoted `availableDiscoveryAdapters()[0]` and reported DataForSEO's mode
+whichever adapter it had picked; the worker looped over every registered adapter. Two
+configured providers meant twice the tasks and twice the cost, disclosed nowhere. The
+plan names one provider and its own mode, and the worker executes only that provider.
+A plan whose provider is no longer configured buys nothing from anybody else.
+
+### 9f. A preview nothing can execute is refused **(review)**
+
+With no adapter configured the plan was still built, with provider `none` and a page
+of chargeable-looking searches; the worker would later find no adapter and spend
+nothing. Safe, and a lie: it asks somebody to approve a purchase that cannot happen.
+`NO_PROVIDER` refuses before a confirmation is offered.
+
 ## 10. Provider idempotency
 
 Unchanged and preserved: fingerprints stay deterministic, an outstanding task is
@@ -309,6 +422,16 @@ table predates the promotion gate, so the status alone cannot separate the 65 ca
 SERP rows from companies somebody imported. How it was found can, and
 `automatedDiscoveryPredicate` already names the sources that mean "a machine found
 this".
+
+**An unverified entity receives no sales intelligence, whatever found it (review).**
+The commercial-intelligence rule refused to *create* an Account but then matched on
+`resolveAccountIdentity` alone, so Phase 2 could attach advertiser and service
+evidence to one of the legacy records nothing has established to be a company. The
+same hole existed for a plain discovery query that re-found one of them. The gate now
+runs for every purpose: a matched record that is not workable is left alone, the
+observation and the candidate are still written, and the run reports it. A junk record
+that looks researched is worse than one that looks empty, because the next person to
+read it has no reason to doubt it.
 
 **Consequences (review):**
 

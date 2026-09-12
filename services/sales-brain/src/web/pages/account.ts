@@ -286,12 +286,24 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </div>
   </div>`}
 
-  ${detail.entity.discoveredForGeography ? html`
+  ${detail.entity.observedBusinessAddress || detail.entity.discoveredForGeography ? html`
   <div class="section">
-    <p class="micro muted">
-      Found while searching ${detail.entity.discoveredForGeography}. That is where we
-      looked, not where this company is &mdash; a search result carries no address.
-    </p>
+    <h3>Where they are</h3>
+    ${detail.entity.observedBusinessAddress ? html`
+      <div class="row" style="gap:8px;align-items:baseline;margin-bottom:4px">
+        <span class="badge">Observed address</span>
+        <span>${detail.entity.observedBusinessAddress}</span>
+      </div>
+      <p class="micro muted">As a provider printed it for this business. It has not
+      been parsed into a city or a postcode, so it is not used to place them in a
+      market.</p>` : ''}
+    ${detail.entity.discoveredForGeography ? html`
+      <div class="row" style="gap:8px;align-items:baseline;margin-bottom:4px">
+        <span class="badge">Discovered for</span>
+        <span>${detail.entity.discoveredForGeography}</span>
+      </div>
+      <p class="micro muted">Where we looked, not where this company is &mdash; a
+      search result carries no address.</p>` : ''}
   </div>` : ''}
 
   ${detail.readiness.state === 'REP_READY' ? '' : html`

@@ -1,0 +1,592 @@
+import './setup.js';
+import { test, before, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import type { FastifyInstance } from 'fastify';
+import { pool, query } from '../src/db/pool.js';
+import { buildServer } from '../src/api/server.js';
+import { createUser } from '../src/domain/auth.js';
+import { syncVerticalProfiles } from '../src/domain/verticals.js';
+import { drainQueue } from '../src/workers/runner.js';
+import '../src/workers/marketMiner.js';
+import {
+  registerDiscoveryAdapter, clearDiscoveryAdapters,
+  type DiscoveryResult, type DiscoveryQuery,
+} from '../src/workers/marketMiner.js';
+import { resetDatabase } from './helpers.js';
+import { observationsFor } from './support/observations.js';
+
+/**
+ * What the operator confirms is what the worker buys.
+ *
+ * The previous pass proved the plan could not change between the preview and the
+ * confirmation. It could still change between the confirmation and the purchase: the
+ * route verified a hash, dropped the plan, and handed the worker a vertical, a
+ * geography and a budget -- and the worker planned again, minutes or hours later,
+ * from a taxonomy that anybody could have edited in between. The hash proved a plan
+ * and then guarded nothing.
+ *
+ * These tests drive the real HTTP route, the real queue and the real worker. The only
+ * fake is the provider, and it records exactly what it was asked for.
+ */
+
+const PASSWORD = 'confirmed-plan-password';
+const ZIP = '32095';
+
+let app: FastifyInstance;
+let cookie: string;
+
+/** Every search any provider was actually asked to buy, in order. */
+interface ProviderCall {
+  provider: string;
+  keyword: string;
+  locationName: string;
+  term: string;
+  fingerprint: string;
+  purpose: string;
+  coverageRole: string;
+}
+let calls: ProviderCall[] = [];
+
+function recordingAdapter(name = 'dataforseo') {
+  registerDiscoveryAdapter({
+    name, requiresCredential: false, governanceReviewed: true, mode: 'standard',
+    isConfigured: () => true,
+    async discover(request: DiscoveryQuery): Promise<DiscoveryResult> {
+      calls.push({
+        provider: name,
+        keyword: request.search?.keyword ?? '',
+        locationName: request.search?.locationName ?? '',
+        term: request.search?.term ?? '',
+        fingerprint: request.search?.fingerprint ?? '',
+        purpose: request.search?.purpose ?? '',
+        coverageRole: request.search?.coverageRole ?? '',
+      });
+      return { status: 'OK', observations: [], costUsd: 0.006 };
+    },
+  });
+}
+
+before(async () => {
+  await resetDatabase();
+  await syncVerticalProfiles();
+  app = await buildServer();
+  await app.ready();
+});
+after(async () => { clearDiscoveryAdapters(); await app.close(); await pool.end(); });
+
+beforeEach(async () => {
+  await resetDatabase();
+  await syncVerticalProfiles();
+  clearDiscoveryAdapters();
+  calls = [];
+  await createUser({
+    email: 'ops@confirmed.invalid', displayName: 'Confirming Ops',
+    role: 'SALES_MANAGER', password: PASSWORD });
+  const login = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: 'ops@confirmed.invalid', password: PASSWORD } });
+  cookie = `yad_sales_session=${login.cookies.find(
+    (item) => item.name === 'yad_sales_session')!.value}`;
+});
+
+/** A second operator, for the paths that enqueue without going through the route. */
+async function makeOperator(): Promise<{ userId: string }> {
+  const { makeUser } = await import('./helpers.js');
+  return makeUser(`Plan Operator ${Math.random().toString(36).slice(2, 8)}`, 'SALES_MANAGER');
+}
+
+async function preview(body: Record<string, unknown>) {
+  const response = await app.inject({
+    method: 'POST', url: '/api/mining/plan', headers: { cookie }, payload: body });
+  return { status: response.statusCode, body: response.json() as Record<string, any> };
+}
+
+async function confirm(planId: string, planHash: string) {
+  const response = await app.inject({
+    method: 'POST', url: '/api/mining/jobs', headers: { cookie },
+    payload: { planId, planHash } });
+  return { status: response.statusCode, body: response.json() as Record<string, any> };
+}
+
+/**
+ * Rewrites a vertical's discovery terms, the way an edit to the profile would.
+ *
+ * The taxonomy lives under `definition.profile.search_taxonomy`, and writing to
+ * `definition.search_taxonomy` instead changes nothing the loader reads -- which is
+ * how the first version of the test below passed without testing anything.
+ */
+async function replaceCoreQueries(vertical: string, queries: string[]): Promise<void> {
+  await query(
+    `update vertical_profiles
+        set definition = jsonb_set(definition, '{profile,search_taxonomy,core_queries}', $2::jsonb)
+      where vertical_profile_id = $1`,
+    [vertical, JSON.stringify(queries.map((query_, index) => ({
+      query: query_, family: 'core', priority: index + 1, intent_weight: 4,
+      recommended_for_paid_serp: true, recommended_for_places_gap_fill: true,
+    })))]);
+}
+
+/** What the preview said would be bought, in the shape the provider records. */
+function previewedCalls(plan: Record<string, any>): ProviderCall[] {
+  return (plan['searches'] as Record<string, any>[]).map((search) => ({
+    provider: plan['provider'] as string,
+    keyword: search['keyword'] as string,
+    locationName: search['locationName'] as string,
+    term: search['term'] as string,
+    fingerprint: search['fingerprint'] as string,
+    purpose: search['purpose'] as string,
+    coverageRole: search['coverageRole'] as string,
+  }));
+}
+
+// ------------------------------------------------------- the whole contract ----
+
+test('the previewed plan is exactly what the provider is asked for', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 3,
+  });
+  assert.equal(planned.status, 200);
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['searches'].length, 3);
+
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  await drainQueue();
+
+  assert.deepEqual(calls, previewedCalls(plan),
+    'the worker bought something other than what was approved');
+});
+
+test('a taxonomy change after confirmation does not change what is bought', async () => {
+  // The defect this whole round is about. The plan is confirmed, and then the thing
+  // the worker used to re-read is edited underneath it.
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2,
+  });
+  const plan = planned.body['plan'] as Record<string, any>;
+  const approved = previewedCalls(plan);
+
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+
+  // Between the confirmation and the worker: somebody edits the vertical's queries.
+  await replaceCoreQueries('roofing', ['unapproved term one', 'unapproved term two']);
+  // The edit has to be real, or this test proves nothing at all.
+  const { searchQueriesFor } = await import('../src/miner/searchTaxonomy.js');
+  const nowDefined = (await searchQueriesFor('roofing')).map((entry) => entry.query);
+  assert.ok(nowDefined.includes('unapproved term one'),
+    'the taxonomy edit did not take effect, so this test would pass either way');
+
+  await drainQueue();
+
+  assert.deepEqual(calls, approved,
+    'the worker re-planned and bought terms the operator never saw');
+  assert.equal(calls.some((call) => /unapproved/.test(call.keyword)), false);
+});
+
+test('the default Find Prospects path previews and executes one identity', async () => {
+  // The page sends the inventory search request and names no mining mode. The preview
+  // defaulted to `advertisers_first` and the job to `advertiser_first`, so the two
+  // described different searches -- the mode is part of every fingerprint.
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+  });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['miningMode'], 'advertiser_first');
+
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200);
+  await drainQueue();
+
+  assert.deepEqual(calls.map((call) => call.fingerprint),
+    (plan['searches'] as Record<string, any>[]).map((search) => search['fingerprint']),
+    'the preview and the execution used different search identities');
+});
+
+test('a mining mode this product does not have is refused, not guessed', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    miningMode: 'advertisers_first',
+  });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['refusalCode'], 'UNKNOWN_MINING_MODE');
+  assert.equal(plan['searches'].length, 0);
+  assert.equal(plan['chargeableTaskCount'], 0);
+
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 400);
+  await drainQueue();
+  assert.equal(calls.length, 0, 'a misspelled mode bought searches anyway');
+});
+
+// ------------------------------------------------------------------ causes ----
+
+test('confirmed causes are executed, and absent causes stay absent', async () => {
+  recordingAdapter();
+  const withCause = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 12, causes: ['hail'],
+  });
+  const plan = withCause.body['plan'] as Record<string, any>;
+  const stormTerms = (plan['searches'] as Record<string, any>[])
+    .filter((search) => /hail|storm/i.test(search['keyword'] as string));
+  assert.ok(stormTerms.length > 0,
+    'the fixture profile no longer has an event-qualified term to authorise');
+
+  const submitted = await confirm(withCause.body['planId'], withCause.body['planHash']);
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  await drainQueue();
+
+  // The causes used to be hashed into the plan and then dropped on the way to the
+  // job, so the worker executed a neutral plan instead of the one approved.
+  assert.deepEqual(calls, previewedCalls(plan));
+  assert.ok(calls.some((call) => /hail|storm/i.test(call.keyword)),
+    'the event-qualified terms the operator authorised were not bought');
+});
+
+test('with no cause asked for, no storm term appears', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 12,
+  });
+  const plan = planned.body['plan'] as Record<string, any>;
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200);
+  await drainQueue();
+
+  assert.deepEqual(calls, previewedCalls(plan));
+  assert.equal(calls.some((call) => /hail|storm/i.test(call.keyword)), false,
+    'a storm campaign ran that nobody asked for');
+});
+
+// --------------------------------------------------------------- providers ----
+
+test('a second provider does not double what was approved', async () => {
+  // Preview quotes one provider; the worker looped over every registered adapter. Two
+  // configured providers meant twice the tasks and twice the spend, disclosed nowhere.
+  recordingAdapter('dataforseo');
+  recordingAdapter('second-provider');
+
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2,
+  });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['chargeableTaskCount'], 2);
+
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200);
+  await drainQueue();
+
+  assert.equal(calls.length, 2,
+    `${calls.length} provider calls were made for a plan that quoted 2`);
+  assert.deepEqual([...new Set(calls.map((call) => call.provider))], [plan['provider']]);
+});
+
+test('a plan whose provider is gone buys nothing from anybody else', async () => {
+  recordingAdapter('dataforseo');
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2,
+  });
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200);
+
+  // The approved provider is replaced by a different one before the worker runs.
+  clearDiscoveryAdapters();
+  recordingAdapter('a-completely-different-provider');
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'a provider nobody approved executed the plan');
+  const { rows } = await query<{ outcome: string; outcome_reason: string }>(
+    `select outcome, outcome_reason from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+  assert.match(rows[0]!.outcome_reason, /not\s+configured now/);
+});
+
+test('a paid preview with no provider at all refuses rather than quoting', async () => {
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 3,
+  });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['refusalCode'], 'NO_PROVIDER');
+  assert.equal(plan['searches'].length, 0);
+  assert.equal(plan['estimatedCostUsd'], 0);
+
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 400, 'a plan nothing could execute was confirmable');
+});
+
+// ----------------------------------------------------- plan linkage is proof ----
+
+test('a job whose confirmed plan was tampered with buys nothing', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2,
+  });
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200);
+
+  // The stored plan is edited after the job was queued against it.
+  await query(
+    `update search_plan_previews
+        set plan = jsonb_set(plan, '{plan,searches,0,keyword}', '"a term nobody approved"')
+      where plan_id = $1`, [planned.body['planId']]);
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'an edited plan executed');
+  const { rows } = await query<{ outcome: string; outcome_reason: string }>(
+    `select outcome, outcome_reason from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+  assert.match(rows[0]!.outcome_reason, /no longer matches what was approved/);
+});
+
+test('a job whose confirmed plan has vanished buys nothing', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2,
+  });
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+  await query('delete from search_plan_previews where plan_id = $1', [planned.body['planId']]);
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'a job executed a plan that no longer exists');
+});
+
+// ------------------------------------------------------------- idempotency ----
+
+test('an active run of a different plan is refused rather than joined', async () => {
+  // The old key was market + mode, so a one-search confirmation could join a queued
+  // five-search job and be charged for five -- or approve five and silently join a
+  // one-search run. Joining an unattended job also stamped it with a requester, which
+  // changes whether a paused market may buy.
+  recordingAdapter();
+  const five = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 5 });
+  assert.equal((await confirm(five.body['planId'], five.body['planHash'])).status, 200);
+
+  const one = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 1 });
+  const second = await confirm(one.body['planId'], one.body['planHash']);
+  assert.equal(second.status, 409,
+    'a one-search confirmation was accepted while a five-search run was in flight');
+  assert.equal(second.body['code'], 'ACTIVE_RUN_DIFFERS');
+
+  await drainQueue();
+  assert.equal(calls.length, 5, 'the run that executed was not the one confirmed');
+});
+
+test('confirming the same plan twice does not buy it twice', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // A second click on the same reviewed plan. The plan is consumed, so it is refused
+  // outright -- and even if it were not, the job key is the plan, so it could only
+  // ever join the job it already created.
+  const again = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(again.status, 400);
+  assert.equal(again.body['code'], 'ALREADY_USED');
+
+  await drainQueue();
+  assert.equal(calls.length, 2, 'one confirmation bought four searches');
+});
+
+test('an unattended saved-market run is not absorbed by a human confirmation', async () => {
+  recordingAdapter();
+  const { enqueueMarketResearch } = await import('../src/workers/enqueue.js');
+  const scheduled = await enqueueMarketResearch({
+    verticalProfileId: 'roofing', geographyType: 'zip_zcta', geographyValue: ZIP,
+    marketId: null, requestedBy: null as unknown as string, queryBudget: 3 });
+
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 1 });
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 409, 'a confirmation joined an unattended run');
+
+  const { rows } = await query<{ requested_by: string | null }>(
+    'select requested_by from jobs where job_id = $1', [scheduled.jobId]);
+  assert.equal(rows[0]!.requested_by, null,
+    'confirming a plan stamped a requester onto an unattended job');
+});
+
+// -------------------------------------------------------------- task reuse ----
+
+test('a search already paid for is collected, not bought again', async () => {
+  recordingAdapter();
+  const first = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const plan = first.body['plan'] as Record<string, any>;
+
+  const { recordProviderTask } = await import('../src/miner/providerTasks.js');
+  await recordProviderTask({
+    provider: plan['provider'], providerNativeId: 'outstanding-1',
+    fingerprint: plan['searches'][0]['fingerprint'], jobId: null, request: {} });
+
+  const second = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const reused = second.body['plan'] as Record<string, any>;
+  assert.equal(reused['searches'][0]['disposition'], 'ALREADY_SUBMITTED_WILL_COLLECT');
+  assert.equal(reused['chargeableTaskCount'], 1,
+    'a search we have already paid for was quoted for again');
+  assert.ok(reused['estimatedCostUsd'] < plan['estimatedCostUsd']);
+});
+
+// ------------------------------------------------------- the unattended path ----
+
+test('an unattended run still plans server-side', async () => {
+  // The immutable-plan rule is about human purchases. A scheduled refresh has no
+  // preview and must keep working exactly as it did.
+  recordingAdapter();
+  const { enqueueMarketResearch } = await import('../src/workers/enqueue.js');
+  await enqueueMarketResearch({
+    verticalProfileId: 'roofing', geographyType: 'zip_zcta', geographyValue: ZIP,
+    marketId: null, requestedBy: null as unknown as string, queryBudget: 2 });
+  await drainQueue();
+
+  assert.equal(calls.length, 2, 'a scheduled market refresh stopped searching');
+  assert.ok(calls.every((call) => call.keyword.includes(ZIP)));
+});
+
+test('the observations of a confirmed run are still resolved and recorded', async () => {
+  // The plan decides what is bought. Everything after the provider answers is
+  // unchanged, and this proves the confirmed path did not bypass it.
+  registerDiscoveryAdapter({
+    name: 'dataforseo', requiresCredential: false, governanceReviewed: true,
+    mode: 'standard', isConfigured: () => true,
+    async discover(): Promise<DiscoveryResult> {
+      return {
+        status: 'OK', costUsd: 0.006,
+        observations: observationsFor([
+          { name: 'Confirmed Path Roofing', website: 'https://confirmedpath.invalid',
+            phone: '904-555-3301' },
+        ]),
+      };
+    },
+  });
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 1 });
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+  await drainQueue();
+
+  const { rows } = await query<{ canonical_name: string; entity_status: string }>(
+    `select canonical_name, entity_status from accounts`);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.canonical_name, 'Confirmed Path Roofing');
+  assert.equal(rows[0]!.entity_status, 'verified');
+
+  const observed = await query<{ n: number }>(
+    'select count(*)::int as n from search_observations');
+  assert.ok(observed.rows[0]!.n > 0, 'a confirmed run recorded no observations');
+});
+
+test('two confirmations of one plan racing produce one job, not two', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+
+  // Both requests in flight at once, which is what a double-click actually is.
+  const [first, second] = await Promise.all([
+    confirm(planned.body['planId'], planned.body['planHash']),
+    confirm(planned.body['planId'], planned.body['planHash']),
+  ]);
+  assert.equal([first.status, second.status].filter((status) => status === 200).length, 1,
+    'a double-click confirmed the same plan twice');
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.n, 1, 'one reviewed plan queued two runs');
+
+  await drainQueue();
+  assert.equal(calls.length, 2, 'one confirmation bought four searches');
+});
+
+test('the confirmed plan says what to buy; the daily ceiling still says whether',
+  async () => {
+  // The plan is the execution authority over *which* searches run. It is not an
+  // override of the spend controls: a confirmed run that would cross today's ceiling
+  // is refused at the point of submission, exactly like any other.
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 3 });
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // A ceiling small enough that one task at the assumed cost does not fit. Zero is
+  // not a ceiling of nothing -- it is how this product spells "no ceiling at all".
+  const previous = process.env['DISCOVERY_DAILY_BUDGET_USD'];
+  process.env['DISCOVERY_DAILY_BUDGET_USD'] = '0.0001';
+  try {
+    await drainQueue();
+  } finally {
+    if (previous === undefined) delete process.env['DISCOVERY_DAILY_BUDGET_USD'];
+    else process.env['DISCOVERY_DAILY_BUDGET_USD'] = previous;
+  }
+
+  assert.equal(calls.length, 0,
+    'a confirmed plan bought searches the daily ceiling had refused');
+  const { rows } = await query<{ outcome: string }>(
+    `select outcome from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+});
+
+test('two different confirmed plans are two jobs, never one', async () => {
+  // The identity of a confirmed run, tested where it lives.
+  //
+  // `confirmPaidPlan` refuses a second confirmation while a materially different run
+  // is in flight, so the route never reaches this -- which is the point of having it,
+  // and also why a mutation test that goes through the route cannot see it. The
+  // conflict check and the enqueue are not one transaction, so the key is what decides
+  // what happens if two confirmations ever do arrive together: under the old key,
+  // identified by market and mode alone, the second would join the first and execute a
+  // plan nobody approved while being reported as accepted.
+  const { enqueueMarketResearch } = await import('../src/workers/enqueue.js');
+  const shared = {
+    verticalProfileId: 'roofing', geographyType: 'zip_zcta', geographyValue: ZIP,
+    marketId: null, requestedBy: (await makeOperator()).userId,
+  };
+
+  const five = await enqueueMarketResearch({
+    ...shared, queryBudget: 5,
+    confirmedPlan: { planId: '11111111-1111-1111-1111-111111111111', planHash: 'hash-five' },
+  });
+  const one = await enqueueMarketResearch({
+    ...shared, queryBudget: 1,
+    confirmedPlan: { planId: '22222222-2222-2222-2222-222222222222', planHash: 'hash-one' },
+  });
+
+  assert.notEqual(one.jobId, five.jobId,
+    'a one-search confirmation was absorbed by a five-search run');
+  assert.equal(one.created, true);
+
+  // And the same plan twice is still one job.
+  const again = await enqueueMarketResearch({
+    ...shared, queryBudget: 5,
+    confirmedPlan: { planId: '11111111-1111-1111-1111-111111111111', planHash: 'hash-five' },
+  });
+  assert.equal(again.jobId, five.jobId, 'one approved plan queued two runs');
+  assert.equal(again.created, false);
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.n, 2);
+});

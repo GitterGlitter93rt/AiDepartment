@@ -78,7 +78,7 @@ export async function plannedRequest(overrides: {
     verticalProfileId: 'hvac' as string | null,
     geographyType: 'zip_zcta',
     geographyValue: '32256',
-    miningMode: 'advertisers_first',
+    miningMode: 'advertiser_first',
     queryBudget: 5,
     ...overrides,
   };

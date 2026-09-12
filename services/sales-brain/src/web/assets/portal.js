@@ -198,14 +198,32 @@
             toast(plan.refusal, 'warn');
             return null;
           }
+          // Everything that decides what this costs and why, in the order the
+          // questions get asked: what am I buying, why that query, who is providing
+          // it, and how much of today's budget is left afterwards.
+          var purposeWord = function (search) {
+            return search.purpose === 'ENTITY_DISCOVERY'
+              ? 'finds companies' : 'learns what they sell';
+          };
           var lines = searches.map(function (search) {
             return '  ' + search.index + '. ' + search.keyword
-              + (search.chargeable ? '  [new paid search]' : '  [already paid for, will collect]');
+              + '\n      ' + purposeWord(search)
+              + ' \u00b7 ' + (search.coverageRole === 'PRIMARY' ? 'primary' : 'secondary')
+              + ' \u00b7 ' + (search.chargeable
+                ? 'new paid search' : 'already paid for, will collect');
           });
+          var remaining = Number(plan.remainingBudgetUsd || 0);
           var summary = 'This will run ' + searches.length + ' search'
-            + (searches.length === 1 ? '' : 'es') + ':\n\n' + lines.join('\n')
+            + (searches.length === 1 ? '' : 'es') + ' via ' + plan.provider
+            + (plan.providerMode && plan.providerMode !== 'default'
+              ? ' (' + plan.providerMode + ')' : '') + ':\n\n'
+            + lines.join('\n')
             + '\n\n' + plan.chargeableTaskCount + ' of them will be charged for, at about $'
             + Number(plan.estimatedCostUsd || 0).toFixed(4) + ' in total.'
+            + '\n\nSpent today: $' + Number(plan.spentTodayUsd || 0).toFixed(4)
+            + ' of $' + Number(plan.dailyBudgetUsd || 0).toFixed(2)
+            + '. Remaining after this: $'
+            + Math.max(0, remaining - Number(plan.estimatedCostUsd || 0)).toFixed(4) + '.'
             + (plan.partialDiscoveryCoverage
               ? '\n\nThis does not cover every discovery term for this vertical, so the '
                 + 'market will be partly searched.' : '')

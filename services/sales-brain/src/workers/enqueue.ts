@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { normalizeGeography } from '../miner/geography.js';
+import { miningModeOrDefault } from '../miner/miningMode.js';
 
 /**
  * Job enqueue helpers.
@@ -139,7 +140,7 @@ export function discoveryFingerprint(input: {
     input.marketId ?? '',
     (input.verticalProfileId ?? '').trim().toLowerCase(),
     place,
-    (input.miningMode ?? 'advertiser_first').trim().toLowerCase(),
+    miningModeOrDefault(input.miningMode),
   ].join(':');
 }
 
@@ -153,29 +154,63 @@ export async function enqueueMarketResearch(input: {
   /**
    * How many independent searches this run should buy. One unless asked.
    *
-   * It is not part of the idempotency key: asking for more searches of a market
-   * already queued should not create a second job for it. The queued job keeps the
-   * count it was created with, which is the conservative reading -- a second click
-   * must never silently multiply what the first one is already spending.
+   * It is not part of the idempotency key for an unattended run: asking for more
+   * searches of a market already queued should not create a second job for it. The
+   * queued job keeps the count it was created with, which is the conservative reading
+   * -- a second click must never silently multiply what the first one is already
+   * spending. A human-confirmed run is keyed by its plan instead; see below.
    */
   queryBudget?: number;
+  /** Event-qualified terms, when a person asked for them. */
+  causes?: string[] | null;
+  /**
+   * The exact plan a person reviewed and confirmed.
+   *
+   * When present this job is not a request to go and work out what to search; it is
+   * an instruction to execute searches somebody has already approved, and the worker
+   * reads them from the stored plan rather than planning again.
+   */
+  confirmedPlan?: { planId: string; planHash: string } | null;
 }): Promise<EnqueueResult> {
   // The payload carries the normalized geography, so the worker filters and searches
   // on the same value the fingerprint was built from.
   const geography = normalizeGeography(input.geographyType, input.geographyValue);
 
+  /**
+   * A confirmed run is identified by what it will buy, not by which market it is for.
+   *
+   * `discoveryFingerprint` deliberately excludes the budget, so "Plumbing 32095" is
+   * one identity however many searches it runs. That was right while the only caller
+   * was a scheduler. It is wrong for a purchase: a person who approves one search
+   * would join a queued five-search run and be charged for five, or approve five and
+   * silently join a one-search run -- and joining an unattended saved-market job also
+   * stamps that job with a requester, which changes whether a paused market may buy.
+   *
+   * The plan hash already covers every field that changes what is bought, so it is
+   * the identity. Two confirmations of the same plan are one job; a different plan is
+   * a different job and can never absorb or be absorbed by it.
+   */
+  const idempotencyKey = input.confirmedPlan
+    ? `market_mine:plan:${input.confirmedPlan.planHash}`
+    : discoveryFingerprint(input);
+
   return enqueue({
     jobType: 'market_mine',
-    idempotencyKey: discoveryFingerprint(input),
+    idempotencyKey,
     payload: {
       vertical_profile_id: input.verticalProfileId,
       geography_type: geography.ok ? geography.type : input.geographyType,
       geography_value: geography.ok ? geography.value : input.geographyValue,
       geography_state: geography.ok ? geography.state : null,
       geography_display: geography.ok ? geography.display : input.geographyValue,
-      mining_mode: input.miningMode ?? 'advertiser_first',
+      mining_mode: miningModeOrDefault(input.miningMode),
       market_id: input.marketId,
       query_budget: Math.max(1, Math.floor(input.queryBudget ?? 1)),
+      // Carried so the run records what was asked for, and so an unattended run that
+      // was given causes does not lose them between the request and the plan.
+      causes: input.causes && input.causes.length > 0 ? input.causes : null,
+      confirmed_plan_id: input.confirmedPlan?.planId ?? null,
+      confirmed_plan_hash: input.confirmedPlan?.planHash ?? null,
     },
     requestedBy: input.requestedBy,
     marketId: input.marketId,

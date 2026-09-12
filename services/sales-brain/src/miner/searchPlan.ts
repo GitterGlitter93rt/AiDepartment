@@ -3,6 +3,7 @@ import { providerTargetFor } from './providerLocation.js';
 import {
   planSearchQueries, type DiscoveryStrategy, type QueryPurpose, type CoverageRole,
 } from './searchTaxonomy.js';
+import { miningModeOrDefault } from './miningMode.js';
 
 /**
  * The N searches a discovery run will actually buy, decided before any of them runs.
@@ -127,7 +128,7 @@ export function searchFingerprint(input: {
     input.marketId ?? '',
     (input.verticalProfileId ?? '').trim().toLowerCase(),
     place,
-    (input.miningMode ?? 'advertiser_first').trim().toLowerCase(),
+    miningModeOrDefault(input.miningMode),
     // The term is what makes two searches of one market different searches, so it
     // is normalized the same way twice-typed geography is: an operator asking for
     // "AC Repair" and "ac  repair" must not buy the same words twice.
@@ -173,7 +174,8 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
   // ceiling so the plan can say how many exist as well as how many will run.
   const plan = await planSearchQueries({
     verticalProfileId: request.verticalProfileId,
-    strategy: request.miningMode === 'broad_local' ? 'BROAD_LOCAL' : 'ADVERTISER_FIRST',
+    strategy: miningModeOrDefault(request.miningMode) === 'broad_local'
+      ? 'BROAD_LOCAL' : 'ADVERTISER_FIRST',
     budget: Number.MAX_SAFE_INTEGER,
   });
   // A vertical that cannot be discovered fails closed rather than falling back to its

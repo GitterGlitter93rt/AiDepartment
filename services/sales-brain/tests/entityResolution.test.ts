@@ -22,8 +22,8 @@ function row(input: Partial<CandidateObservation>): CandidateObservation {
   };
 }
 
-const only = (rows: CandidateObservation[]) => {
-  const resolved = resolveCandidates(rows);
+const only = (rows: CandidateObservation[], genericTerms?: ReadonlySet<string>) => {
+  const resolved = resolveCandidates(rows, genericTerms);
   assert.equal(resolved.length, 1, `expected one candidate, got ${resolved.length}`);
   return resolved[0]!;
 };
@@ -343,4 +343,67 @@ test('a URL and a bare host are the same identity', () => {
   assert.equal(registrableDomain('https://acme.invalid/roofing?utm=1'), 'acme.invalid');
   assert.equal(registrableDomain('acme.invalid'), 'acme.invalid');
   assert.equal(registrableDomain('HTTPS://WWW.Acme.Invalid:8443/x'), 'acme.invalid');
+});
+
+// ----------------------------------------- corroboration must be distinctive --
+
+/** What the taxonomy says is generic in a plumbing market. */
+const PLUMBING_GENERIC = new Set(['plumbing', 'plumber', 'plumbers', 'drain', 'sewer',
+  'water', 'heater', 'jacksonville', 'augustine']);
+
+test('a trade word shared with the domain does not establish ownership', () => {
+  // "ABC Plumbing LLC" on `bestplumbingquotes.com`: both contain "plumbing", which
+  // says which market we are in and nothing about whose site this is. A
+  // lead-generation domain used to pass as the company's own on exactly this.
+  assert.equal(
+    brandMatchesDomain('ABC Plumbing LLC', 'bestplumbingquotes.com', PLUMBING_GENERIC),
+    false, 'a category word was accepted as a brand match');
+
+  // And through the resolver, which is where it mattered.
+  const candidate = only([row({
+    observedName: 'ABC Plumbing LLC', observedDomain: 'bestplumbingquotes.com',
+    landingUrl: 'https://bestplumbingquotes.com/fl/abc',
+  })], PLUMBING_GENERIC);
+  assert.notEqual(candidate.status, 'VERIFIED');
+  assert.equal(candidate.status, 'NEEDS_REVIEW');
+});
+
+test('a company word and a place name are not distinctive either', () => {
+  assert.equal(brandMatchesDomain(
+    'Jacksonville Roofing Company', 'roofingcompanyflorida.example',
+    new Set(['roofing', 'roofer', 'jacksonville'])), false,
+    'generic category and place words were accepted as a brand match');
+});
+
+test('a distinctive word still establishes ownership', () => {
+  assert.equal(
+    brandMatchesDomain('Burchfield Roof Services LLC', 'burchfieldroofing.com',
+      new Set(['roof', 'roofing', 'services'])),
+    true, 'a real brand match was refused');
+});
+
+test('two rows from one unknown directory are not two sources', () => {
+  // A directory is made of a profile page and a category page. Both are pages on that
+  // domain, and their agreeing with each other is the site repeating itself.
+  const resolved = resolveCandidates([
+    row({ observedName: 'Salazar Plumbing', observedDomain: 'unknownplumbingdir.example',
+          landingUrl: 'https://unknownplumbingdir.example/fl/salazar-plumbing' }),
+    row({ observedName: 'Salazar Plumbing', observedDomain: 'unknownplumbingdir.example',
+          landingUrl: 'https://unknownplumbingdir.example/category/plumbers' }),
+  ], PLUMBING_GENERIC);
+  assert.equal(resolved.length, 1);
+  assert.notEqual(resolved[0]!.status, 'VERIFIED',
+    'a directory corroborated itself and became the contractor it lists');
+  assert.equal(resolved[0]!.resolvedName, null);
+});
+
+test('a provider listing tied to the domain is still corroboration', () => {
+  const resolved = resolveCandidates([
+    row({ resultType: 'MAPS_LOCAL', observedName: 'Salazar Plumbing',
+          observedDomain: 'salazarplumbingco.example', observedPhone: '904-555-0190',
+          observedBusinessAddress: '12 Bay St, St. Augustine, FL' }),
+    row({ observedName: 'Salazar Plumbing', observedDomain: 'salazarplumbingco.example' }),
+  ], PLUMBING_GENERIC);
+  assert.equal(resolved.length, 1);
+  assert.equal(resolved[0]!.status, 'VERIFIED');
 });

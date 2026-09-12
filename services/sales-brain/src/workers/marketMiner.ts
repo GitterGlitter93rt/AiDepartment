@@ -5,6 +5,10 @@ import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
 import type { EntityCandidate } from '../discovery/resolve.js';
 import { registrableDomain } from '../discovery/sourceClass.js';
 import type { QueryPurpose, CoverageRole } from '../miner/searchTaxonomy.js';
+import { miningModeOrDefault } from '../miner/miningMode.js';
+import type pg from 'pg';
+import type { SearchPlan } from '../miner/searchPlan.js';
+import type { PaidPlan } from '../miner/planPreview.js';
 import {
   resolveObservations,
   type DiscoveredBusiness, type ProviderObservation,
@@ -224,6 +228,15 @@ export interface DiscoveryAdapter {
   readonly name: string;
   readonly requiresCredential: boolean;
   readonly governanceReviewed: boolean;
+  /**
+   * How this provider is being asked, when that changes what a search costs or means.
+   *
+   * DataForSEO queues a Standard task or answers a Live one, at different prices. The
+   * paid preview reports it, and it is hashed into the confirmed plan -- so it has to
+   * come from the adapter that will actually run, rather than from the DataForSEO
+   * configuration regardless of which adapter was chosen, which is what it did.
+   */
+  readonly mode?: string;
   isConfigured(): boolean;
   discover(request: DiscoveryQuery): Promise<DiscoveryResult>;
   /**
@@ -460,11 +473,133 @@ export async function refreshAccountFreshness(): Promise<number> {
   return rowCount ?? 0;
 }
 
+/**
+ * May this Account be given sales intelligence?
+ *
+ * The same gate that decides whether a rep may claim it, asked before evidence is
+ * attached rather than only before a person sees it. An unverified record that
+ * quietly accumulates advertiser evidence is a record that will look thoroughly
+ * researched on the day somebody finally verifies it, and the evidence will be about
+ * whatever the domain actually was.
+ */
+async function entityIsWorkable(client: pg.PoolClient, accountId: string): Promise<boolean> {
+  const { entityGate } = await import('../domain/entityStatus.js');
+  const { automatedDiscoveryPredicate } = await import('../domain/discoverySources.js');
+  const { rows } = await client.query<{
+    entity_status: string | null; found_by_machine: boolean;
+  }>(
+    `select entity_status,
+            exists (select 1 from activities act
+                     where act.account_id = accounts.account_id
+                       and act.activity_type = 'DISCOVERED'
+                       and ${automatedDiscoveryPredicate('act.source_system')}) as found_by_machine
+       from accounts where account_id = $1`, [accountId]);
+  const row = rows[0];
+  if (!row) return false;
+  return entityGate({
+    entityStatus: row.entity_status, foundByMachine: row.found_by_machine }).workable;
+}
+
+/**
+ * The plan a person approved, or a refusal, and never a substitute.
+ *
+ * Three answers, and the middle one is the whole point:
+ *
+ *   UNCONFIRMED  no plan linkage, so this is an unattended run and plans server-side
+ *   CONFIRMED    the stored plan verified, and these exact searches execute
+ *   INVALID      linkage exists and does not hold up, so nothing executes
+ *
+ * INVALID is not "fall back to planning". A job that claims to carry an approved plan
+ * and cannot produce one is a job whose authority is unknown, and the safe reading of
+ * unknown authority is to buy nothing. Falling back would be the original defect
+ * wearing a different hat: the worker deciding for itself what to purchase.
+ */
+type ConfirmedPlanState =
+  | { state: 'UNCONFIRMED' }
+  | { state: 'CONFIRMED'; provider: string; searchPlan: SearchPlan }
+  | { state: 'INVALID'; reason: string };
+
+async function loadConfirmedPlan(
+  payload: Record<string, unknown>,
+): Promise<ConfirmedPlanState> {
+  const planId = (payload['confirmed_plan_id'] as string | null) ?? null;
+  const planHash = (payload['confirmed_plan_hash'] as string | null) ?? null;
+  if (!planId && !planHash) return { state: 'UNCONFIRMED' };
+
+  // Half a linkage is not a linkage. A job carrying one without the other cannot be
+  // checked, and a job that cannot be checked does not spend.
+  if (!planId || !planHash) {
+    return { state: 'INVALID',
+      reason: 'This run was queued as a confirmed purchase and its plan reference is '
+        + 'incomplete, so nothing was bought.' };
+  }
+
+  const { rows } = await query<{
+    plan_hash: string; plan: { plan: PaidPlan } | null;
+  }>(`select plan_hash, plan from search_plan_previews where plan_id = $1`, [planId]);
+  const stored = rows[0];
+  if (!stored?.plan?.plan) {
+    return { state: 'INVALID',
+      reason: 'The confirmed plan for this run is no longer on record, so the searches '
+        + 'it authorised could not be identified and nothing was bought.' };
+  }
+
+  const { planHash: hashOf } = await import('../miner/planPreview.js');
+  const recomputed = hashOf(stored.plan.plan);
+
+  // Three-way, deliberately. The stored hash catches a row edited after it was
+  // written; the job's hash catches a job pointed at a plan it was not queued for.
+  if (recomputed !== stored.plan_hash || recomputed !== planHash) {
+    return { state: 'INVALID',
+      reason: 'The confirmed plan for this run no longer matches what was approved, so '
+        + 'nothing was bought. Review a new plan before searching this market.' };
+  }
+
+  const plan = stored.plan.plan;
+  if (plan.refusal || plan.searches.length === 0) {
+    return { state: 'INVALID',
+      reason: `The confirmed plan authorised no searches${plan.refusal ? `: ${plan.refusal}` : ''}.` };
+  }
+
+  return {
+    state: 'CONFIRMED',
+    provider: plan.provider,
+    // Shaped as a plan the loop already understands, built from the approved rows
+    // rather than from the taxonomy. Nothing here is recomputed: the keyword, the
+    // place, the fingerprint and the purpose are the ones that were shown.
+    searchPlan: {
+      searches: plan.searches.map((search) => ({
+        index: search.index,
+        term: search.term,
+        family: 'confirmed',
+        intentWeight: 0,
+        advertiserTerm: false,
+        cause: null,
+        keyword: search.keyword,
+        locationName: search.locationName,
+        fingerprint: search.fingerprint,
+        purpose: search.purpose as QueryPurpose,
+        coverageRole: search.coverageRole as CoverageRole,
+      })),
+      requested: plan.searches.length,
+      available: plan.searches.length,
+      limitedBy: null,
+      causesAvailable: [],
+      causesRequested: [...plan.causes],
+      refusal: null,
+      geography: null,
+      partialDiscoveryCoverage: plan.partialDiscoveryCoverage,
+      commercialIntelligenceIncluded: plan.searches.some(
+        (search) => search.purpose === 'COMMERCIAL_INTELLIGENCE'),
+    },
+  };
+}
+
 // --------------------------------------------------------------- job handler --
 
 registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, unknown>> => {
   const payload = job.payload ?? {};
-  const adapters = availableDiscoveryAdapters();
+  const allAdapters = availableDiscoveryAdapters();
 
   const plan = await planMarketRefresh({
     marketId: job.market_id ?? (payload['market_id'] as string | null) ?? null,
@@ -509,19 +644,12 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const { spendPosition, budgetRefusalReason } = await import('../miner/spend.js');
   const openingSpend = await spendPosition();
 
-  if (adapters.length === 0) {
-    discoveryNotes.push(
-      'No discovery adapter is available: new-business discovery needs an approved search '
-      + 'provider and a signed source-governance review (blocker B-3). Existing inventory '
-      + 'was refreshed instead.',
-    );
-  }
 
   const request: DiscoveryQuery = {
     verticalProfileId: (payload['vertical_profile_id'] as string | null) ?? null,
     geographyType: (payload['geography_type'] as string | null) ?? null,
     geographyValue: (payload['geography_value'] as string | null) ?? null,
-    miningMode: (payload['mining_mode'] as string) ?? 'advertiser_first',
+    miningMode: miningModeOrDefault(payload['mining_mode'] as string | null),
     // One unless an operator asks for more.
     //
     // This was 25, and it meant "plan 25, buy 1". Making the count real without
@@ -540,21 +668,81 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   // The default is one. Making N real without moving the default would have turned
   // every scheduled market refresh into twenty-five paid searches overnight, which
   // is a spend decision rather than a bug fix.
+  //
+  // A run somebody confirmed does not plan at all.
+  //
+  // It used to: the route verified the plan, threw it away, and passed the vertical,
+  // the geography and a budget to the worker, which called the planner again minutes
+  // or hours later. Anything that moved in between -- a profile edited, a term added,
+  // a cause enabled -- changed what was bought, and the operator had approved
+  // something else. The hash proved the plan at confirmation time and then guarded
+  // nothing. The confirmed plan is the instruction now, and the planner is not
+  // consulted for it.
+  const confirmed = await loadConfirmedPlan(payload);
+  if (confirmed.state === 'INVALID') discoveryNotes.push(confirmed.reason);
+
+  /**
+   * Who may execute this run.
+   *
+   * A confirmed plan names one provider and that is the only one allowed: the preview
+   * quoted one and the worker looped over every registered adapter, so a second
+   * configured provider would have executed the same approved searches again, at the
+   * same price, appearing nowhere in what the operator agreed to.
+   *
+   * A plan whose linkage is missing or no longer verifies leaves this empty, which is
+   * how the refusal is enforced rather than merely reported: every provider call in
+   * this handler is inside a loop over `adapters`, so an empty list cannot spend, and
+   * `outcome` already reads an empty list as DISCOVERY_BLOCKED.
+   */
+  const adapters = confirmed.state === 'INVALID' ? []
+    : confirmed.state === 'CONFIRMED'
+      ? allAdapters.filter((adapter) => adapter.name === confirmed.provider)
+      : allAdapters;
+  if (confirmed.state === 'CONFIRMED' && adapters.length === 0) {
+    discoveryNotes.push(
+      `The confirmed plan was to be executed by ${confirmed.provider}, which is not `
+      + 'configured now. Nothing was bought, and nothing was substituted for it.');
+  }
+
+  /**
+   * Whether the refusal is about the plan or about the provider registry.
+   *
+   * Both end in DISCOVERY_BLOCKED and they are not the same finding: one says a
+   * purchase somebody approved could not be honoured, the other says this deployment
+   * cannot discover at all. Reporting the second sentence for the first would send an
+   * operator to check a credential when the answer is to review a new plan.
+   */
+  const blockedByPlan = confirmed.state === 'INVALID'
+    || (confirmed.state === 'CONFIRMED' && adapters.length === 0);
+
+  if (confirmed.state === 'UNCONFIRMED' && adapters.length === 0) {
+    discoveryNotes.push(
+      'No discovery adapter is available: new-business discovery needs an approved search '
+      + 'provider and a signed source-governance review (blocker B-3). Existing inventory '
+      + 'was refreshed instead.',
+    );
+  }
   const { planDiscoverySearches } = await import('../miner/searchPlan.js');
-  const searchPlan = await planDiscoverySearches({
-    verticalProfileId: request.verticalProfileId,
-    geographyType: request.geographyType,
-    geographyValue: request.geographyValue,
-    miningMode: request.miningMode,
-    count: request.queryBudget,
-    marketId: job.market_id,
-  });
+  const searchPlan = confirmed.state === 'CONFIRMED'
+    ? confirmed.searchPlan
+    : await planDiscoverySearches({
+      verticalProfileId: request.verticalProfileId,
+      geographyType: request.geographyType,
+      geographyValue: request.geographyValue,
+      miningMode: request.miningMode,
+      count: request.queryBudget,
+      marketId: job.market_id,
+      ...(Array.isArray(payload['causes']) && (payload['causes'] as string[]).length > 0
+        ? { causes: payload['causes'] as string[] } : {}),
+    });
   if (searchPlan.limitedBy === 'TAXONOMY') {
     discoveryNotes.push(
       `${request.queryBudget} search(es) were asked for and the `
       + `${request.verticalProfileId} profile defines ${searchPlan.available}, so `
       + `${searchPlan.available} ran. Nothing was invented to fill the gap.`);
   }
+
+
 
   // The ceiling stops *buying*, not collecting.
   //
@@ -573,6 +761,17 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   // list of statuses makes every `every()` below vacuously true: a run that never
   // asked anybody anything reported itself as waiting on the provider. The refusal
   // is recorded as the outcome of the attempt it prevented.
+  /**
+   * The words that cannot tell one company in this market from another.
+   *
+   * Read once per run, from the vertical's own taxonomy plus the geography being
+   * searched, and handed to the resolver so that "plumbing" matching between a name
+   * and a domain proves nothing in a plumbing market.
+   */
+  const { genericTermsFor } = await import('../miner/searchTaxonomy.js');
+  const genericTerms = await genericTermsFor(
+    request.verticalProfileId, request.geographyValue);
+
   const attempts: (typeof searchPlan.searches[number] | null)[] =
     searchPlan.searches.length > 0 ? searchPlan.searches : [null];
 
@@ -707,7 +906,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     }
 
     // Resolution happens here, for every provider, or it does not happen.
-    const resolution = resolveObservations(result.observations);
+    const resolution = resolveObservations(result.observations, genericTerms);
 
     // The provider answered; whether it found anything is ours to say. An adapter
     // reporting OK on a page of directories would otherwise mark the market as having
@@ -859,6 +1058,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const outcomeReason =
     outcome === 'DISCOVERY_BLOCKED' && budgetRefusals > 0
       ? budgetRefusalReason(closingSpend)
+    : outcome === 'DISCOVERY_BLOCKED' && blockedByPlan
+      // A confirmed plan that could not be honoured says so in its own words. The
+      // sentence below is about a missing provider, and would be a different and
+      // wrong explanation for a plan that failed verification.
+      ? `Nothing was searched and nothing was charged.${failureSummary}`
     : outcome === 'DISCOVERY_BLOCKED'
       ? 'No search provider is configured, so no new business could be found. '
         + `${plan.queued} existing account(s) were queued for refresh.`
@@ -1248,35 +1452,56 @@ async function ingestDiscoveries(
     }
 
     await withTransaction(async (client) => {
+      /**
+       * Two questions before anything is written, and they are not the same question.
+       *
+       *   is there already a record with this identity?
+       *   is that record something we may attach sales intelligence to?
+       *
+       * `resolveAccountIdentity` answers the first. It matches on a domain or a phone,
+       * and the rows it can match include the legacy records nothing has established
+       * to be companies -- the canary's 65 among them. Attaching advertiser and
+       * service evidence to one of those makes a webpage look like a researched
+       * advertiser, which is the same failure as creating it, reached from the other
+       * side. So the entity gate decides the second question, for every purpose: a
+       * discovery query that re-finds a piece of that junk must not enrich it either.
+       *
+       * Nothing is lost. The observations are already written and the candidate row
+       * keeps the identity and the reason, which is what a reprocess run reads.
+       */
+      const { resolveAccountIdentity } = await import('../domain/accounts.js');
+      const existing = await resolveAccountIdentity(client, {
+        canonicalName: business.name,
+        website: business.website ?? null,
+        phone: business.phone ?? null,
+        sourceIdentity: business.providerNativeId
+          ? {
+              provider: providerName, entityType: 'business',
+              nativeId: business.providerNativeId, retentionClass: 'identifier_only',
+            }
+          : null,
+      });
+      const matchedUnverified = existing
+        ? !(await entityIsWorkable(client, existing.accountId)) : false;
+
       // A commercial-intelligence query may confirm a company, never introduce one.
-      if (purpose !== 'ENTITY_DISCOVERY') {
-        const { resolveAccountIdentity } = await import('../domain/accounts.js');
-        const existing = await resolveAccountIdentity(client, {
-          canonicalName: business.name,
-          website: business.website ?? null,
-          phone: business.phone ?? null,
-          sourceIdentity: business.providerNativeId
-            ? {
-                provider: providerName, entityType: 'business',
-                nativeId: business.providerNativeId, retentionClass: 'identifier_only',
-              }
-            : null,
-        });
-        if (!existing) {
-          counts.notInMarket += 1;
-          // The candidate row already holds the identity and the evidence, so the
-          // company is not lost -- it simply did not get here by being asked about.
-          await client.query(
-            `update discovery_candidates
-                set entity_status = 'NEEDS_REVIEW',
-                    reasons = reasons || $3::text[]
-              where job_id = $1 and identity = $2 and account_id is null`,
-            [job.job_id,
-             registrableDomain(business.website ?? null) ?? (business.phone?.trim() || ''),
-             ['found by a question about what this market sells rather than about who '
-              + 'is in it, and we do not already hold this company']]);
-          return;
-        }
+      const mayNotIntroduce = !existing && purpose !== 'ENTITY_DISCOVERY';
+
+      if (matchedUnverified || mayNotIntroduce) {
+        counts.notInMarket += 1;
+        await client.query(
+          `update discovery_candidates
+              set entity_status = 'NEEDS_REVIEW',
+                  reasons = reasons || $3::text[]
+            where job_id = $1 and identity = $2 and account_id is null`,
+          [job.job_id,
+           registrableDomain(business.website ?? null) ?? (business.phone?.trim() || ''),
+           [matchedUnverified
+             ? 'the record this matches has never been established to be a company, so '
+               + 'nothing was attached to it'
+             : 'found by a question about what this market sells rather than about who '
+               + 'is in it, and we do not already hold this company']]);
+        return;
       }
 
       const result = await upsertAccount(
@@ -1296,9 +1521,12 @@ async function ingestDiscoveries(
           // "Found while researching 32095" is a fact about the search. "Located in
           // 32095" is a fact about the business. The first is recorded as discovery
           // provenance below; it is never promoted into the second.
+          // Only what the provider resolved itself. A free-form address line is kept
+          // below as observed evidence rather than parsed into these.
           city: business.city ?? null,
           state: business.state ?? null,
           postalCode: business.postalCode ?? null,
+          addressLine1: business.observedBusinessAddress ?? null,
           verticalProfileId: (job.payload['vertical_profile_id'] as string | null) ?? null,
           sourceIdentity: business.providerNativeId
             ? {
