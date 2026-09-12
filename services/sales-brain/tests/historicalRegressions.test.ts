@@ -202,7 +202,7 @@ test('8. the provider is not asked for "advertiser_first hvac 32095"', async () 
   assert.equal(captured.length, 1);
   assert.ok(!/advertiser_first/.test(captured[0].keyword),
     'the strategy name was sent as a search term');
-  assert.equal(captured[0].keyword, 'AC repair');
+  assert.equal(captured[0].keyword, 'HVAC contractor');
   assert.equal(captured[0].location_name, 'Jacksonville,Florida,United States');
 });
 

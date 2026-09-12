@@ -64,12 +64,13 @@ export async function ingestListings(input: {
           website: listing.domain ? `https://${listing.domain}` : null,
           phone: listing.phone,
           // A listing carries a real address, which a SERP row almost never does.
-          city: listing.city ?? (input.searchedGeographyType === 'city'
-            ? input.searchedGeographyValue ?? null : null),
-          state: listing.state ?? (input.searchedGeographyType === 'state'
-            ? input.searchedGeographyValue ?? null : null),
-          postalCode: listing.postalCode ?? (input.searchedGeographyType === 'zip_zcta'
-            ? input.searchedGeographyValue ?? null : null),
+          // A listing carries a real address when it has one, and nothing when it
+          // does not. The searched geography is not a substitute: see marketMiner,
+          // where the same fallback manufactured a location for every Account the
+          // first canary created.
+          city: listing.city ?? null,
+          state: listing.state ?? null,
+          postalCode: listing.postalCode ?? null,
           verticalProfileId: input.verticalProfileId,
           // The listing id names the business and keeps naming it. This is the
           // identity a SERP task id was never entitled to be.

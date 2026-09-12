@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
 import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
+import type { EntityCandidate } from '../discovery/resolve.js';
 import { enqueueAccountResearch } from './enqueue.js';
 import {
   closeProviderTask, openProviderTask, recordCollectionAttempt, recordProviderTask,
@@ -208,6 +209,15 @@ export interface DiscoveryResult {
   /** Operator-readable, and safe to render. Never a credential or a raw response. */
   reason?: string;
   costUsd?: number | null;
+  /**
+   * Every identity this search resolved, promoted or not.
+   *
+   * `businesses` is the promotable subset. This is the whole set, because a search
+   * that found eleven directories and two companies should be able to say so: the
+   * rejected rows are the evidence that the market was searched, and dropping them
+   * was why a run could report "65 businesses identified" about a page of articles.
+   */
+  candidates?: EntityCandidate[];
 }
 
 /**
@@ -475,6 +485,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   const funnel: IngestionCounts = {
     candidates: 0, rejected: 0, matchedExisting: 0, created: 0, researchQueued: 0,
     adEvidenceWritten: 0, excludedByVertical: 0, exclusionReasons: [],
+    entitiesRejected: 0, entitiesNeedingReview: 0,
   };
   let providerRows = 0;
   let providerRejected = 0;
@@ -725,7 +736,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     });
 
     if (result.businesses.length > 0) {
-      const counts = await ingestDiscoveries(result.businesses, adapter.name, job);
+      const counts = await ingestDiscoveries(result.businesses, adapter.name, job,
+        result.candidates ?? []);
       funnel.candidates += counts.candidates;
       funnel.rejected += counts.rejected;
       funnel.matchedExisting += counts.matchedExisting;
@@ -733,6 +745,8 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       funnel.researchQueued += counts.researchQueued;
       funnel.adEvidenceWritten += counts.adEvidenceWritten;
       funnel.excludedByVertical += counts.excludedByVertical;
+      funnel.entitiesRejected += counts.entitiesRejected;
+      funnel.entitiesNeedingReview += counts.entitiesNeedingReview;
       funnel.exclusionReasons.push(...counts.exclusionReasons);
       const record = perSearch[perSearch.length - 1]!;
       record.created = counts.created;
@@ -893,6 +907,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     providersFailed: failed,
     providerTaskIds: pendingTaskIds,
     excludedByVertical: funnel.excludedByVertical,
+    // The funnel an operator actually needs: rows are not identities, identities are
+    // not businesses, and businesses are not Accounts. Reported apart so "65
+    // businesses" can never again describe a page of articles.
+    entitiesRejected: funnel.entitiesRejected,
+    entitiesNeedingReview: funnel.entitiesNeedingReview,
     exclusionReasons: funnel.exclusionReasons.slice(0, 20),
     // What each search actually did. An aggregate cannot say that four of five
     // searches found nothing and the fifth found everything, and that difference is
@@ -960,6 +979,10 @@ export interface IngestionCounts {
   created: number;
   /** Newly created Accounts queued for research. */
   researchQueued: number;
+  /** Identities the resolver refused: directories, publishers, forums, locators. */
+  entitiesRejected: number;
+  /** Identities that may be businesses but could not be named. Not promoted. */
+  entitiesNeedingReview: number;
   /**
    * Observed paid placements promoted to advertiser evidence. Counted separately
    * from the observations: six sightings of one advertiser are six observations,
@@ -1079,11 +1102,13 @@ async function recordUnbilledRun(
 /** Resolves discovered businesses into canonical Accounts. Dedupe is not optional. */
 async function ingestDiscoveries(
   businesses: DiscoveredBusiness[], providerName: string, job: JobRecord,
+  candidates: EntityCandidate[] = [],
 ): Promise<IngestionCounts> {
   const { upsertAccount } = await import('../domain/accounts.js');
   const counts: IngestionCounts = {
     candidates: businesses.length, rejected: 0, matchedExisting: 0, created: 0,
     researchQueued: 0, adEvidenceWritten: 0, excludedByVertical: 0, exclusionReasons: [],
+    entitiesRejected: 0, entitiesNeedingReview: 0,
   };
   const createdAccountIds: string[] = [];
 
@@ -1105,6 +1130,31 @@ async function ingestDiscoveries(
   const verticalProfileId = (job.payload['vertical_profile_id'] as string | null) ?? null;
   const negativeTerms = verticalProfileId ? await negativeTermsFor(verticalProfileId) : [];
 
+  // Every identity this search resolved, kept whether or not it became anything.
+  //
+  // The run that found eleven directories and two companies has to be able to say so
+  // afterwards. Previously a refused row left no trace at all -- observations were
+  // written inside the promotion loop, after upsertAccount -- so the only evidence a
+  // search had been made was the Accounts it created, which is why "65 businesses
+  // identified" could describe a page of articles.
+  for (const candidate of candidates) {
+    await query(
+      `insert into discovery_candidates
+         (job_id, vertical_profile_id, identity, source_class, entity_status,
+          resolved_name, name_basis, observed_domain, observed_phone, observed_location,
+          observation_count, reasons, discovered_for_geography_type, discovered_for_geography)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        job.job_id, verticalProfileId, candidate.identity, candidate.sourceClass,
+        candidate.status, candidate.resolvedName, candidate.nameBasis,
+        candidate.domain, candidate.phone, candidate.observedLocation,
+        candidate.observationCount, candidate.reasons.map((r) => r.slice(0, 300)),
+        searchedGeographyType, searchedGeography,
+      ]);
+    if (candidate.status === 'REJECTED') counts.entitiesRejected += 1;
+    if (candidate.status === 'NEEDS_REVIEW') counts.entitiesNeedingReview += 1;
+  }
+
   for (const business of businesses) {
     if (!isUsableBusiness(business)) { counts.rejected += 1; continue; }
 
@@ -1125,10 +1175,20 @@ async function ingestDiscoveries(
           canonicalName: business.name,
           website: business.website ?? null,
           phone: business.phone ?? null,
-          city: business.city ?? (searchedGeographyType === 'city' ? searchedGeography : null),
-          state: business.state ?? (searchedGeographyType === 'state' ? searchedGeography : null),
-          postalCode: business.postalCode
-            ?? (searchedGeographyType === 'zip_zcta' ? searchedGeography : null),
+          // Only what was actually observed.
+          //
+          // These used to fall back to the geography the run was searching, so a
+          // provider that returned no address produced an Account claiming to sit in
+          // the ZIP we happened to type. Sixty-five of sixty-five canary Accounts
+          // claimed a physical location nobody had observed, including a Jacksonville
+          // company and one whose own page title said 32080.
+          //
+          // "Found while researching 32095" is a fact about the search. "Located in
+          // 32095" is a fact about the business. The first is recorded as discovery
+          // provenance below; it is never promoted into the second.
+          city: business.city ?? null,
+          state: business.state ?? null,
+          postalCode: business.postalCode ?? null,
           verticalProfileId: (job.payload['vertical_profile_id'] as string | null) ?? null,
           sourceIdentity: business.providerNativeId
             ? {
@@ -1141,6 +1201,27 @@ async function ingestDiscoveries(
       );
       if (result.created) { counts.created += 1; createdAccountIds.push(result.accountId); }
       else counts.matchedExisting += 1;
+
+      // Promoted through the resolver, so it is a verified entity rather than a row
+      // that merely had a domain. Existing Accounts keep whatever status they had:
+      // a legacy record is not laundered by being seen again.
+      if (result.created) {
+        await client.query(
+          `update accounts set entity_status = 'verified',
+                  entity_status_basis = $2, entity_status_at = now()
+            where account_id = $1 and entity_status = 'legacy_unverified'`,
+          [result.accountId, `resolved from ${providerName} discovery`]);
+      }
+
+      // The geography this run was searching, kept as provenance so a rep can be told
+      // where a company was found without being told where it is.
+      if (result.created && searchedGeography) {
+        await client.query(
+          `update accounts
+              set discovered_for_geography_type = $2, discovered_for_geography = $3
+            where account_id = $1 and discovered_for_geography is null`,
+          [result.accountId, searchedGeographyType, searchedGeography]);
+      }
 
       // Every discovery is recorded as an observation, separate from durable evidence:
       // six sightings of one advertiser stay six observations of one Account.

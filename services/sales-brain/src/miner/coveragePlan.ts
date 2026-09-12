@@ -92,8 +92,14 @@ export async function marketCoverage(input: {
     const comparison = geography.type === 'zip_zcta'
       ? `${column} = $${values.length}`
       : `lower(${column}) = lower($${values.length})`;
-    scope.push(`exists (select 1 from locations l
-                         where l.account_id = a.account_id and ${comparison})`);
+    // Verified address, or the market it was discovered in -- the same reading the
+    // rep's search uses. The miner no longer invents a location from the searched
+    // geography, so a company found in a ZIP without a published address has no
+    // location row; counting only addresses would tell a rep the market holds one
+    // company while the list beside it shows six.
+    scope.push(`(exists (select 1 from locations l
+                          where l.account_id = a.account_id and ${comparison})
+                 or a.discovered_for_geography = $${values.length})`);
   }
 
   const { rows: inventoryRows } = await query<{ n: number }>(

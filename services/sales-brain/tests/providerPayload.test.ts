@@ -95,7 +95,7 @@ test('a city search asks a real question about a real place', async () => {
   assert.equal(task.depth, 100);
 
   // The words a customer would type, from the vertical's own taxonomy.
-  assert.equal(task.keyword, 'AC repair');
+  assert.equal(task.keyword, 'HVAC contractor');
   assert.ok(!/advertiser_first/.test(task.keyword),
     'the strategy name is how we choose a query, not a thing to search for');
   assert.ok(!/\bhvac\b/.test(task.keyword) || task.keyword.includes('HVAC'),
@@ -106,7 +106,7 @@ test('a state search targets the state, not a city called Florida', async () => 
   const calls = await discoverWith('state', 'FL');
   const task = calls[0]!.body[0];
   assert.equal(task.location_name, 'Florida,United States');
-  assert.equal(task.keyword, 'AC repair');
+  assert.equal(task.keyword, 'HVAC contractor');
 });
 
 test('a ZIP is resolved to the town it is in, and stays in the query', async () => {
@@ -118,7 +118,7 @@ test('a ZIP is resolved to the town it is in, and stays in the query', async () 
 
   assert.equal(task.location_name, 'St. Augustine,Florida,United States',
     'a bare ZIP is not a place DataForSEO resolves');
-  assert.equal(task.keyword, 'AC repair 32095',
+  assert.equal(task.keyword, 'HVAC contractor 32095',
     'the town is wider than the ZIP, so the query is what narrows it back');
 });
 
@@ -128,7 +128,7 @@ test('a ZIP we have never seen is not guessed into a town', async () => {
 
   assert.equal(task.location_name, 'United States',
     'inventing a city for an unknown ZIP would target the wrong market and never say so');
-  assert.equal(task.keyword, 'AC repair 99362');
+  assert.equal(task.keyword, 'HVAC contractor 99362');
 });
 
 test('a ZIP that straddles two towns resolves the same way every time', async () => {
@@ -173,7 +173,7 @@ test('the queued-task request carries the same body plus the queue priority', as
   const posted = calls.find((call) => call.url.includes('task_post'))!;
   assert.ok(posted, 'standard mode must post a task');
   assert.equal(posted.body[0].location_name, 'Jacksonville,Florida,United States');
-  assert.equal(posted.body[0].keyword, 'AC repair');
+  assert.equal(posted.body[0].keyword, 'HVAC contractor');
   assert.equal(posted.body[0].priority, 1);
 });
 

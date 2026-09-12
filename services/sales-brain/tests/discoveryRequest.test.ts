@@ -140,42 +140,53 @@ test('a vertical profile supplies the queries a customer would actually type', a
     'hvac is our internal id, not the words a customer uses');
 });
 
-test('advertiser-first orders by where advertisers bid, and by intent', async () => {
-  const planned = await planSearchQueries({
-    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: 5 });
+test('advertiser-first orders within a phase, and discovery comes first', async () => {
+  const planned = (await planSearchQueries({
+    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: 5 })).queries;
   assert.ok(planned.length > 0);
   assert.equal(planned[0]!.recommendedForPaidSerp, true);
-  // Highest intent first: somebody typing "AC repair" has a broken air conditioner.
-  assert.ok(planned[0]!.intentWeight >= planned[planned.length - 1]!.intentWeight);
+
+  // This used to assert that intent fell monotonically across the plan, which is the
+  // rule that bought "drain cleaning 32095" for Plumbing: every service term outranks
+  // every core term on intent, so intent-ordering puts the narrowest query first and
+  // the trade itself last. Intent still orders queries; it no longer decides what the
+  // market is. Entity discovery is spent first and commercial intelligence follows.
+  const firstCommercial = planned.findIndex((q) => q.purpose === 'COMMERCIAL_INTELLIGENCE');
+  const lastDiscovery = planned.map((q) => q.purpose).lastIndexOf('ENTITY_DISCOVERY');
+  if (firstCommercial !== -1 && lastDiscovery !== -1) {
+    assert.ok(lastDiscovery < firstCommercial,
+      'a commercial-intelligence query was planned before the market was discovered');
+  }
 });
 
 test('advertiser-first orders, it does not exclude', async () => {
   const all = await searchQueriesFor('hvac');
-  const planned = await planSearchQueries({
-    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: all.length });
+  const planned = (await planSearchQueries({
+    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: all.length })).queries;
   assert.equal(planned.length, all.length,
     'a non-advertiser is still a business in the market; dropping it makes the market '
     + 'look smaller than it is');
 });
 
 test('the budget is a ceiling on how many queries are bought', async () => {
-  const planned = await planSearchQueries({
-    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: 2 });
+  const planned = (await planSearchQueries({
+    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: 2 })).queries;
   assert.equal(planned.length, 2);
 
-  const none = await planSearchQueries({
-    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: 0 });
+  const none = (await planSearchQueries({
+    verticalProfileId: 'hvac', strategy: 'ADVERTISER_FIRST', budget: 0 })).queries;
   assert.equal(none.length, 0);
 });
 
 test('a vertical with no taxonomy asks nothing rather than asking nonsense', async () => {
   const planned = await planSearchQueries({
     verticalProfileId: 'not-a-real-vertical', strategy: 'ADVERTISER_FIRST', budget: 5 });
-  assert.deepEqual(planned, []);
+  assert.deepEqual(planned.queries, []);
+  assert.equal(planned.refusal, null, 'an unknown vertical has no taxonomy to refuse over');
 
   const noVertical = await planSearchQueries({
     verticalProfileId: null, strategy: 'ADVERTISER_FIRST', budget: 5 });
-  assert.deepEqual(noVertical, []);
+  assert.deepEqual(noVertical.queries, []);
 });
 
 

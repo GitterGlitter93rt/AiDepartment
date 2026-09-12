@@ -403,10 +403,29 @@ function buildWhere(
       `exists (select 1 from locations gl
                 where gl.account_id = a.account_id and gl.is_active and ${predicate})`;
     switch (geography.type) {
-      case 'zip_zcta':
-        if (onAccounts) clauses.push(geoExists(`gl.postal_code = ${push(geography.value.trim())}`));
-        else { needsView(); clauses.push(`postal_code = ${push(geography.value.trim())}`); }
+      case 'zip_zcta': {
+        // Verified address, or the market it was discovered in.
+        //
+        // The miner no longer copies the searched ZIP into a location, because that
+        // manufactured an address for every company a provider returned without one.
+        // Those companies are still in this market -- that is how they were found --
+        // so the filter reads both facts. Which one matched is a separate question the
+        // read model answers; this decides only whether to show the row at all.
+        const zip = push(geography.value.trim());
+        const discovered = `a.discovered_for_geography = ${zip}`;
+        if (onAccounts) {
+          clauses.push(`(${geoExists(`gl.postal_code = ${zip}`)} or ${discovered})`);
+        } else {
+          needsView();
+          // The view exposes no discovery provenance and is defined once as a full
+          // `create view`, so this correlates back to accounts by primary key rather
+          // than replacing it -- the same shape the score-version filter uses.
+          clauses.push(`(postal_code = ${zip} or exists (select 1 from accounts da `
+            + `where da.account_id = prospect_inventory.account_id `
+            + `and da.discovered_for_geography = ${zip}))`);
+        }
         break;
+      }
       case 'city': {
         const city = push(geography.value.trim());
         if (onAccounts) {
@@ -646,7 +665,7 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   }
   if (geography?.type === 'zip_zcta' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(locationExists(`l.postal_code = $${values.length}`));
+    conditions.push(inMarket(`l.postal_code = $${values.length}`, `$${values.length}`));
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
     const cityClause = `lower(l.city) = lower($${values.length})`;
@@ -833,6 +852,23 @@ function locationExists(predicate: string): string {
 }
 
 /**
+ * In this market, by verified address *or* by where it was found.
+ *
+ * The miner used to copy the searched ZIP into `locations.postal_code` whenever the
+ * provider gave no address, which made every mined company claim a physical location
+ * nobody had observed. Removing that invention is right, and on its own it would have
+ * made those companies vanish from the market they were discovered in -- a search of
+ * 32095 returning nothing because none of them can prove they are in 32095.
+ *
+ * So the market predicate reads both facts and the read model keeps them apart: being
+ * found while researching a ZIP is a reason to show a company in that market, and it
+ * is never shown as its address.
+ */
+function inMarket(predicate: string, placeholder: string): string {
+  return `(${locationExists(predicate)} or a.discovered_for_geography = ${placeholder})`;
+}
+
+/**
  * How many Accounts in this market the tier filter is hiding for want of a tier.
  *
  * Counted with the same geography and vertical the search used, so the number is
@@ -858,7 +894,7 @@ async function countStaleScoreInScope(request: SearchRequest): Promise<number> {
   }
   if (geography?.type === 'zip_zcta' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(locationExists(`l.postal_code = $${values.length}`));
+    conditions.push(inMarket(`l.postal_code = $${values.length}`, `$${values.length}`));
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
     conditions.push(locationExists(`lower(l.city) = lower($${values.length})`));
@@ -887,7 +923,7 @@ async function countUnscoredInScope(request: SearchRequest): Promise<number> {
   }
   if (geography?.type === 'zip_zcta' && geography.value) {
     values.push(geography.value.trim());
-    conditions.push(locationExists(`l.postal_code = $${values.length}`));
+    conditions.push(inMarket(`l.postal_code = $${values.length}`, `$${values.length}`));
   } else if (geography?.type === 'city' && geography.value) {
     values.push(geography.value.trim());
     conditions.push(locationExists(`lower(l.city) = lower($${values.length})`));

@@ -102,15 +102,24 @@ test('a count of zero buys nothing and says so', async () => {
   assert.match(plan.refusal!.reason, /zero searches/);
 });
 
-test('the plan is ordered so the money goes on intent first', async () => {
+test('the plan spends on finding the market before pricing it', async () => {
   const plan = await planDiscoverySearches(planRequest(8));
-  const weights = plan.searches.map((search) => search.intentWeight);
-  // Advertiser-first orders by whether advertisers bid, then by intent. Within the
-  // advertiser group the intent must not increase as we spend further down the list.
-  const advertiser = plan.searches.filter((search) => search.advertiserTerm)
-    .map((search) => search.intentWeight);
-  assert.deepEqual([...advertiser].sort((a, b) => b - a), advertiser,
-    `intent climbs as the plan goes on: ${weights.join(', ')}`);
+
+  // This asserted that intent never increases as the plan goes on, which is the rule
+  // that bought "drain cleaning 32095" for Plumbing: service terms outscore the trade
+  // on intent in every profile, so ordering by intent puts the narrowest query first
+  // and the trade itself last. Intent now orders queries inside a phase; it no longer
+  // decides what the market is. Expect intent to climb across the plan, because
+  // discovery is spent first and commercial intelligence follows it.
+  const purposes = plan.searches.map((search) => search.purpose);
+  const firstCommercial = purposes.indexOf('COMMERCIAL_INTELLIGENCE');
+  if (firstCommercial !== -1) {
+    assert.ok(!purposes.slice(firstCommercial).includes('ENTITY_DISCOVERY'),
+      `phases interleave, so coverage is not satisfied first: ${purposes.join(', ')}`);
+  }
+  assert.equal(purposes[0], 'ENTITY_DISCOVERY',
+    'the first paid query is not an attempt to find the market');
+
   assert.deepEqual(plan.searches.map((search) => search.index),
     plan.searches.map((_, offset) => offset + 1));
 });

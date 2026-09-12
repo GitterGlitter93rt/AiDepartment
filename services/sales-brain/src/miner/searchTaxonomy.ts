@@ -36,7 +36,41 @@ export interface SearchQuery {
   /** 1 is highest. */
   priority: number;
   recommendedForPaidSerp: boolean;
+  /**
+   * What this query is *for*, which is not the same as how valuable it is.
+   *
+   * `intent_weight` answers "how close to buying is somebody typing this", and the
+   * planner used it to answer "how should we find this market" as well. Those are
+   * different questions with different right answers: "drain cleaning" is a better
+   * sales signal than "plumber" and a much worse way to enumerate the plumbers in a
+   * ZIP. Overloading one number to mean both is why Plumbing + 32095 bought
+   * "drain cleaning 32095".
+   */
+  purpose: QueryPurpose;
+  /** Whether this query is load-bearing for market coverage. */
+  coverageRole: CoverageRole;
 }
+
+/** Finding the businesses, versus learning what they sell. */
+export type QueryPurpose = 'ENTITY_DISCOVERY' | 'COMMERCIAL_INTELLIGENCE';
+export type CoverageRole = 'PRIMARY' | 'SECONDARY';
+
+/**
+ * Which taxonomy group means what.
+ *
+ * The profiles already carried this distinction -- every one of the thirteen defines
+ * `core_queries` separately from `high_intent_queries` -- and the loader flattened
+ * them into one list before sorting, so the structure that encoded the answer was
+ * discarded on the way in. Four of these groups were never read at all.
+ */
+const GROUP_PURPOSE: Record<string, { purpose: QueryPurpose; coverageRole: CoverageRole }> = {
+  core_queries: { purpose: 'ENTITY_DISCOVERY', coverageRole: 'PRIMARY' },
+  high_intent_queries: { purpose: 'COMMERCIAL_INTELLIGENCE', coverageRole: 'SECONDARY' },
+  urgent_queries: { purpose: 'COMMERCIAL_INTELLIGENCE', coverageRole: 'SECONDARY' },
+  high_ticket_queries: { purpose: 'COMMERCIAL_INTELLIGENCE', coverageRole: 'SECONDARY' },
+  financing_queries: { purpose: 'COMMERCIAL_INTELLIGENCE', coverageRole: 'SECONDARY' },
+  commercial_queries: { purpose: 'COMMERCIAL_INTELLIGENCE', coverageRole: 'SECONDARY' },
+};
 
 export type DiscoveryStrategy =
   /** Prefer the queries where advertisers bid: companies already spending money. */
@@ -68,6 +102,8 @@ function readGroup(definition: Record<string, unknown>, group: string): SearchQu
       intentWeight: Number(entry.intent_weight ?? 1) || 1,
       priority: Number(entry.priority ?? 9) || 9,
       recommendedForPaidSerp: entry.recommended_for_paid_serp === true,
+      purpose: GROUP_PURPOSE[group]?.purpose ?? 'COMMERCIAL_INTELLIGENCE',
+      coverageRole: GROUP_PURPOSE[group]?.coverageRole ?? 'SECONDARY',
     });
   }
   return queries;
@@ -141,9 +177,17 @@ export async function searchQueriesFor(verticalProfileId: string): Promise<Searc
   const definition = await getVerticalProfile(verticalProfileId) as Record<string, unknown> | null;
   if (!definition) return [];
 
+  // Entity discovery first, so that when two groups define the same words the query
+  // keeps its discovery purpose. The order here is not the plan order -- the planner
+  // decides that -- but a term that is both core and high-intent is a way of finding
+  // the market that also happens to sell.
   const all = [
-    ...readGroup(definition, 'high_intent_queries'),
     ...readGroup(definition, 'core_queries'),
+    ...readGroup(definition, 'high_intent_queries'),
+    ...readGroup(definition, 'urgent_queries'),
+    ...readGroup(definition, 'high_ticket_queries'),
+    ...readGroup(definition, 'financing_queries'),
+    ...readGroup(definition, 'commercial_queries'),
   ];
   const seen = new Set<string>();
   return all.filter((entry) => {
@@ -163,24 +207,85 @@ export async function searchQueriesFor(verticalProfileId: string): Promise<Searc
  * business in the market, and dropping it here would make the market look smaller
  * than it is.
  */
+export interface QueryPlanRefusal { code: 'NO_ENTITY_DISCOVERY_QUERY'; message: string; }
+
+export interface QueryPlan {
+  queries: SearchQuery[];
+  /** Set when the vertical cannot be discovered at all. Nothing is bought. */
+  refusal: QueryPlanRefusal | null;
+  /** True when the budget did not cover the vertical's primary discovery terms. */
+  partialDiscoveryCoverage: boolean;
+  /** True when no commercial-intelligence query fitted in the budget. */
+  commercialIntelligenceIncluded: boolean;
+}
+
+/** Within one phase. Alphabetical survives only as the last deterministic tie-break. */
+function withinPhase(strategy: DiscoveryStrategy) {
+  return (left: SearchQuery, right: SearchQuery): number => {
+    if (strategy === 'ADVERTISER_FIRST'
+        && left.recommendedForPaidSerp !== right.recommendedForPaidSerp) {
+      return left.recommendedForPaidSerp ? -1 : 1;
+    }
+    if (left.priority !== right.priority) return left.priority - right.priority;
+    if (left.intentWeight !== right.intentWeight) return right.intentWeight - left.intentWeight;
+    return left.query.localeCompare(right.query);
+  };
+}
+
+/**
+ * The queries to run for one discovery request, in the order they should be spent on.
+ *
+ * Phase-aware, because finding a market and pricing it are different jobs. The old
+ * version was one sort over one flattened list, so the most commercially valuable
+ * query was also treated as the best way to enumerate a trade -- and for Plumbing,
+ * where every core term is intent 4 and every service term is intent 5, that put all
+ * five service terms ahead of "plumber" and let the alphabet pick "drain cleaning" as
+ * the definition of the market.
+ *
+ * Entity discovery is satisfied first and completely. Commercial intelligence spends
+ * only what is left. Alphabetical order still breaks ties, but only inside a phase,
+ * where it decides between comparable queries rather than deciding what the market is.
+ */
 export async function planSearchQueries(input: {
   verticalProfileId: string | null;
   strategy: DiscoveryStrategy;
   budget: number;
-}): Promise<SearchQuery[]> {
+}): Promise<QueryPlan> {
+  const empty: QueryPlan = {
+    queries: [], refusal: null, partialDiscoveryCoverage: false,
+    commercialIntelligenceIncluded: false,
+  };
   const queries = input.verticalProfileId
     ? await searchQueriesFor(input.verticalProfileId) : [];
-  if (queries.length === 0) return [];
+  if (queries.length === 0) return empty;
 
-  const ordered = [...queries].sort((left, right) => {
-    if (input.strategy === 'ADVERTISER_FIRST'
-        && left.recommendedForPaidSerp !== right.recommendedForPaidSerp) {
-      return left.recommendedForPaidSerp ? -1 : 1;
-    }
-    if (left.intentWeight !== right.intentWeight) return right.intentWeight - left.intentWeight;
-    if (left.priority !== right.priority) return left.priority - right.priority;
-    return left.query.localeCompare(right.query);
-  });
+  const order = withinPhase(input.strategy);
+  const discovery = queries.filter((q) => q.purpose === 'ENTITY_DISCOVERY').sort(order);
+  const commercial = queries.filter((q) => q.purpose === 'COMMERCIAL_INTELLIGENCE').sort(order);
 
-  return ordered.slice(0, Math.max(0, input.budget));
+  // Fail closed. A vertical with no way to enumerate its businesses must not quietly
+  // fall back to its sales keywords: that is the defect, not the recovery from it.
+  if (discovery.length === 0) {
+    return {
+      ...empty,
+      refusal: {
+        code: 'NO_ENTITY_DISCOVERY_QUERY',
+        message: 'This vertical has no configured market-discovery query, so a broad '
+          + 'search of it cannot be planned. Add a core query to the profile: buying a '
+          + 'high-intent service query instead would describe one service, not the market.',
+      },
+    };
+  }
+
+  const budget = Math.max(0, input.budget);
+  const chosen = discovery.slice(0, budget);
+  const remaining = budget - chosen.length;
+  const extra = remaining > 0 ? commercial.slice(0, remaining) : [];
+
+  return {
+    queries: [...chosen, ...extra],
+    refusal: null,
+    partialDiscoveryCoverage: chosen.length < discovery.length,
+    commercialIntelligenceIncluded: extra.length > 0,
+  };
 }

@@ -1,6 +1,8 @@
 import { normalizeGeography, type NormalizedGeography } from './geography.js';
 import { providerTargetFor } from './providerLocation.js';
-import { planSearchQueries, type DiscoveryStrategy } from './searchTaxonomy.js';
+import {
+  planSearchQueries, type DiscoveryStrategy, type QueryPurpose, type CoverageRole,
+} from './searchTaxonomy.js';
 
 /**
  * The N searches a discovery run will actually buy, decided before any of them runs.
@@ -38,6 +40,9 @@ export interface PlannedSearch {
   locationName: string;
   /** Identity of this one paid search, for the provider task lifecycle. */
   fingerprint: string;
+  /** Finding the market, or learning what it sells. Shown in the paid preview. */
+  purpose: QueryPurpose;
+  coverageRole: CoverageRole;
 }
 
 export interface SearchPlan {
@@ -154,11 +159,15 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
 
   // Every term the vertical defines, ordered by the strategy. Asked for without a
   // ceiling so the plan can say how many exist as well as how many will run.
-  const all = await planSearchQueries({
+  const plan = await planSearchQueries({
     verticalProfileId: request.verticalProfileId,
     strategy: request.miningMode === 'broad_local' ? 'BROAD_LOCAL' : 'ADVERTISER_FIRST',
     budget: Number.MAX_SAFE_INTEGER,
   });
+  // A vertical that cannot be discovered fails closed rather than falling back to its
+  // sales keywords, which would buy one service and call it the market.
+  if (plan.refusal) return empty(plan.refusal.message);
+  const all = plan.queries;
   if (all.length === 0) {
     return empty(`The ${request.verticalProfileId} profile defines no search queries, so `
       + 'there is nothing to ask a provider.');
@@ -200,6 +209,8 @@ export async function planDiscoverySearches(request: SearchPlanRequest): Promise
     intentWeight: entry.intentWeight,
     advertiserTerm: entry.recommendedForPaidSerp,
     cause: entry.cause,
+    purpose: entry.purpose,
+    coverageRole: entry.coverageRole,
     keyword: [entry.query, target.keywordSuffix].filter(Boolean).join(' '),
     locationName: target.locationName,
     fingerprint: searchFingerprint({

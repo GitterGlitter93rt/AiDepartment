@@ -1,5 +1,7 @@
 import { query } from '../db/pool.js';
 import { flag, numeric } from '../config.js';
+import { resolveCandidates, type EntityCandidate } from '../discovery/resolve.js';
+import { registrableDomain } from '../discovery/sourceClass.js';
 import {
   refusedDiscovery,
   type DiscoveredBusiness, type DiscoveryAdapter, type DiscoveryQuery,
@@ -340,23 +342,93 @@ function resultFromResponse(
   response: ProviderResponse, keyword: string, cost: number | null,
 ): DiscoveryResult {
   const observations = normalizeResponse(response, { query: keyword });
-  const candidates = observations
-    .filter((observation) => CANDIDATE_TYPES.has(observation.resultType))
-    .filter((observation) =>
-      observation.observedDomain || (observation.observedName && observation.observedPhone));
-  const businesses = dedupeCandidates(candidates);
 
+  // Entity resolution, not a shape test.
+  //
+  // This used to keep any row with a domain, or a name and a phone. A Yelp search
+  // page has all three, so it became a company; so did a News4Jax article, a Reddit
+  // thread and an HTTP 500 error page. `resolveCandidates` asks the question that was
+  // missing -- is this an operating business, and which one -- and it needs the whole
+  // result set, because a domain carrying three different business names is a
+  // directory whatever it is called.
+  const eligible = observations.filter((observation) => CANDIDATE_TYPES.has(observation.resultType));
+  const candidates = resolveCandidates(eligible.map((observation) => ({
+    resultType: observation.resultType,
+    observedName: observation.observedName,
+    observedDomain: observation.observedDomain,
+    observedPhone: observation.observedPhone,
+    observedLocation: observation.observedLocation,
+    landingUrl: observation.landingUrl,
+    position: observation.position,
+  })));
+
+  const verified = candidates.filter((candidate) => candidate.status === 'VERIFIED');
+  const businesses = businessesFromCandidates(verified, eligible);
+
+  // The funnel an operator can check, kept as the arithmetic it always was: rows the
+  // provider sent, minus rows with nothing to identify them, minus rows that collapsed
+  // into another row for the same company, equals the identities that came out.
+  const identified = eligible.filter((observation) =>
+    registrableDomain(observation.observedDomain) || observation.observedPhone?.trim());
+
+  const refused = candidates.length - verified.length;
   return {
     // Rows came back and none of them identified a business: that is a real answer
     // about this market, not a failure, and it is reported as one.
     status: businesses.length > 0 ? 'OK' : 'ZERO_RESULTS',
     businesses,
+    candidates,
     providerRows: observations.length,
-    rejectedRows: observations.length - candidates.length,
-    duplicateRows: candidates.length - businesses.length,
+    rejectedRows: observations.length - identified.length,
+    duplicateRows: identified.length - candidates.length,
     costUsd: cost,
-    reason: `${observations.length} row(s) read, ${businesses.length} business(es) identified.`,
+    reason: `${observations.length} row(s) read, ${candidates.length} identit(ies) resolved, `
+      + `${businesses.length} business(es) verified, ${refused} not promoted.`,
   };
+}
+
+/**
+ * The promotable candidates, in the shape ingestion already understands.
+ *
+ * Only verified candidates reach this, and each carries the name the resolver was
+ * willing to defend rather than whichever page title ranked highest.
+ */
+function businessesFromCandidates(
+  verified: EntityCandidate[], observations: NormalizedObservation[],
+): DiscoveredBusiness[] {
+  const byIdentity = new Map<string, NormalizedObservation>();
+  for (const observation of observations) {
+    const identity = registrableDomain(observation.observedDomain)
+      ?? (observation.observedPhone?.trim() || null);
+    if (!identity || byIdentity.has(identity)) continue;
+    byIdentity.set(identity, observation);
+  }
+
+  const businesses: DiscoveredBusiness[] = [];
+  for (const candidate of verified) {
+    if (!candidate.resolvedName) continue;
+    const seen = byIdentity.get(candidate.identity);
+    businesses.push({
+      name: candidate.resolvedName,
+      // The URL form, as inventory has always stored it. The candidate carries the
+      // registrable domain because that is the identity; this is the address.
+      website: candidate.domain ? `https://${candidate.domain}` : null,
+      phone: candidate.phone,
+      // Deliberately null. A SERP row does not observe an address, and the searched
+      // geography is not one -- see the miner, where that fallback used to live.
+      city: null, state: null, postalCode: null,
+      providerNativeId: seen?.providerNativeId ?? null,
+      resultType: seen?.resultType,
+      advertisedService: seen?.advertisedService ?? null,
+      landingUrl: seen?.landingUrl ?? null,
+      query: seen?.query ?? null,
+      position: seen?.position ?? null,
+      adHeadline: seen?.adHeadline ?? null,
+      checkUrl: seen?.checkUrl ?? null,
+      observedAt: seen?.observedAt ?? null,
+    });
+  }
+  return businesses;
 }
 
 export function createDataForSeoAdapter(options: {

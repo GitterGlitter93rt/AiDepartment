@@ -49,8 +49,10 @@ test('every vertical can plan a provider search', async () => {
     const queries = await searchQueriesFor(vertical);
     if (queries.length === 0) { broken.push(`${vertical}: no search taxonomy`); continue; }
 
-    const planned = await planSearchQueries({
+    const plan = await planSearchQueries({
       verticalProfileId: vertical, strategy: 'ADVERTISER_FIRST', budget: 3 });
+    if (plan.refusal) { broken.push(`${vertical}: ${plan.refusal.code}`); continue; }
+    const planned = plan.queries;
     if (planned.length === 0) { broken.push(`${vertical}: nothing planned`); continue; }
 
     // The words a customer would use, not our identifiers.
@@ -72,8 +74,8 @@ test('every vertical produces a usable provider payload', async () => {
 
   const broken: string[] = [];
   for (const vertical of verticals) {
-    const planned = await planSearchQueries({
-      verticalProfileId: vertical, strategy: 'ADVERTISER_FIRST', budget: 1 });
+    const planned = (await planSearchQueries({
+      verticalProfileId: vertical, strategy: 'ADVERTISER_FIRST', budget: 1 })).queries;
     const keyword = [planned[0]?.query, target.keywordSuffix].filter(Boolean).join(' ');
     if (!keyword.trim()) broken.push(`${vertical}: empty keyword`);
     if (keyword.length > 120) broken.push(`${vertical}: keyword is ${keyword.length} chars`);

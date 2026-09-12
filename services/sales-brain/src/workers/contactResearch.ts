@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { mayResearchDomainWithHistory } from '../discovery/attribution.js';
 import { query, withTransaction } from '../db/pool.js';
 import { researchFirstParty } from '../resolver/adapters/firstParty.js';
 import { reconcile } from '../resolver/reconcile.js';
@@ -48,6 +49,7 @@ interface AccountRow {
   account_id: string;
   canonical_name: string;
   canonical_domain: string | null;
+  entity_status: string | null;
   primary_vertical_profile_id: string | null;
   manual_tier: string | null;
 }
@@ -91,7 +93,8 @@ export async function runContactResearch(
   accountId: string, trigger: string | null = null,
 ): Promise<ContactResearchOutcome> {
   const { rows } = await query<AccountRow>(
-    `select account_id, canonical_name, canonical_domain, primary_vertical_profile_id, manual_tier
+    `select account_id, canonical_name, canonical_domain, entity_status,
+            primary_vertical_profile_id, manual_tier
        from accounts where account_id = $1`,
     [accountId],
   );
@@ -155,7 +158,18 @@ export async function runContactResearch(
   const websiteUrl = domainRows[0]?.canonical_url
     ?? (account.canonical_domain ? `https://${account.canonical_domain}` : null);
 
-  if (websiteUrl) {
+  // Whose site is this?
+  //
+  // Research used to read whatever domain was attached and record what it found as
+  // facts about the Account. When the domain belonged to a lead-generation directory
+  // that produced a contractor with the directory's phone number, its financing copy
+  // and, in one case, a news publisher's executive as the decision maker.
+  const attribution = await mayResearchDomainWithHistory({
+    domain: domainRows[0]?.hostname ?? account.canonical_domain,
+    entityStatus: account.entity_status ?? null,
+  });
+
+  if (websiteUrl && attribution.allowed) {
     stagesRun.push('A_company_first_party');
     const firstParty = await researchFirstParty(websiteUrl, account.canonical_name);
     people.push(...firstParty.people);
@@ -165,7 +179,7 @@ export async function runContactResearch(
     notes.push(...firstParty.notes);
     pageText = firstParty.pageText;
   } else {
-    stagesSkipped.push({ stage: 'A_company_first_party', reason: 'no website on record' });
+    stagesSkipped.push({ stage: 'A_company_first_party', reason: attribution.reason });
   }
 
   // --- Stages B–D: public registries, licences, directories, search. -----------
