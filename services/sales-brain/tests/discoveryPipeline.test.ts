@@ -691,3 +691,34 @@ test('a city-and-trade domain is not verified by a real run of that market', asy
     'select entity_status from discovery_candidates');
   assert.equal(candidates.rows[0]?.entity_status, 'NEEDS_REVIEW');
 });
+
+test('two equally strong rows at the same rank resolve the same either way', async () => {
+  // Strength and position tie, so the earlier code fell back to arrival order: the
+  // same response in a different order produced a different canonical projection.
+  const shared = {
+    providerNativeId: null as string | null,
+    observedName: 'Tie Break Roofing',
+    observedDomain: 'tiebreakroofing.invalid',
+    observedPhone: '904-555-5501',
+    observedBusinessAddress: null as string | null,
+    observedCity: null as string | null,
+    observedRegion: null as string | null,
+    observedPostalCode: null as string | null,
+    searchLocationName: null,
+    adHeadline: null as string | null,
+    advertisedService: null as string | null,
+    checkUrl: null,
+    observedAt: new Date('2026-09-05T06:00:00.000Z'),
+    query: 'roofer 32095',
+    resultType: 'ORGANIC' as const,
+    position: 3,
+  };
+  const a: ProviderObservation = { ...shared, landingUrl: 'https://tiebreakroofing.invalid/a' };
+  const b: ProviderObservation = { ...shared, landingUrl: 'https://tiebreakroofing.invalid/b' };
+
+  const forward = resolveObservations([a, b]).businesses;
+  const reversed = resolveObservations([b, a]).businesses;
+  assert.equal(forward.length, 1);
+  assert.deepEqual(reversed, forward,
+    'two equal rows produced different projections depending on arrival order');
+});

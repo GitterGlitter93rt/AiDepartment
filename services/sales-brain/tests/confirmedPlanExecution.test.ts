@@ -634,11 +634,16 @@ test('an unchanged provider mode executes normally', async () => {
 // ------------------------------------------- a collect may never become a buy ----
 
 /** Puts an outstanding task in front of the next preview of this market. */
-async function outstandingTaskFor(fingerprint: string, nativeId = 'owed-1') {
+async function outstandingTaskFor(
+  fingerprint: string, nativeId = 'owed-1', provider = 'dataforseo',
+): Promise<{ providerTaskId: string }> {
   const { recordProviderTask } = await import('../src/miner/providerTasks.js');
-  return recordProviderTask({
-    provider: 'dataforseo', providerNativeId: nativeId,
-    fingerprint, jobId: null, request: {} });
+  await recordProviderTask({
+    provider, providerNativeId: nativeId, fingerprint, jobId: null, request: {} });
+  const { rows } = await query<{ provider_task_id: string }>(
+    `select provider_task_id from provider_tasks
+      where provider = $1 and provider_native_id = $2 limit 1`, [provider, nativeId]);
+  return { providerTaskId: rows[0]!.provider_task_id };
 }
 
 /** A plan whose first search is authorised as a collection, not a purchase. */
@@ -777,4 +782,255 @@ test('a preview nobody confirmed cannot be executed by referencing its id', asyn
   const { rows } = await query<{ outcome_reason: string }>(
     `select outcome_reason from jobs where job_type = 'market_mine'`);
   assert.match(rows[0]!.outcome_reason, /nobody confirmed/);
+});
+
+// -------------------------------------------- the hash binds the execution intent --
+
+test('1. editing the approved task id without the hash is detected', async () => {
+  recordingAdapter();
+  const { planned, plan } = await planWithACollect();
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // The stored plan is repointed at a different task, leaving the hash column alone.
+  // Before the intent was hashed, the worker's verification passed on this.
+  await query(
+    `update search_plan_previews
+        set plan = jsonb_set(plan, '{plan,searches,0,approvedProviderTaskId}',
+              to_jsonb('00000000-0000-0000-0000-0000000000ff'::text))
+      where plan_id = $1`, [planned.body['planId']]);
+  void plan;
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'a repointed plan executed');
+  const { rows } = await query<{ outcome_reason: string }>(
+    `select outcome_reason from jobs where job_type = 'market_mine'`);
+  assert.match(rows[0]!.outcome_reason, /no longer matches what was approved/);
+});
+
+test('2. editing the execution disposition without the hash is detected', async () => {
+  recordingAdapter();
+  const { planned } = await planWithACollect();
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // "collect this" quietly becomes "buy this".
+  await query(
+    `update search_plan_previews
+        set plan = jsonb_set(plan, '{plan,searches,0,executionDisposition}',
+              to_jsonb('BUY_NEW'::text))
+      where plan_id = $1`, [planned.body['planId']]);
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'a collection rewritten as a purchase executed');
+  const { rows } = await query<{ outcome_reason: string }>(
+    `select outcome_reason from jobs where job_type = 'market_mine'`);
+  assert.match(rows[0]!.outcome_reason, /no longer matches what was approved/);
+});
+
+test('3. an approved task belonging to another search is refused', async () => {
+  recordingAdapter();
+  const { planned, plan } = await planWithACollect();
+
+  // A task that really exists, for a different search of the same market.
+  const other = await outstandingTaskFor('search:some-other-question', 'other-search');
+  await query(
+    `update search_plan_previews
+        set plan = jsonb_set(plan, '{plan,searches,0,approvedProviderTaskId}', to_jsonb($2::text)),
+            plan_hash = $3
+      where plan_id = $1`,
+    [planned.body['planId'], other.providerTaskId, 'unused']);
+
+  // Re-hash the edited plan so the worker's hash check passes and the *task* check is
+  // what has to catch this. Otherwise this test would prove the previous one again.
+  const { planHash } = await import('../src/miner/planPreview.js');
+  const { rows: stored } = await query<{ plan: { plan: any } }>(
+    'select plan from search_plan_previews where plan_id = $1', [planned.body['planId']]);
+  const rehashed = planHash(stored[0]!.plan.plan);
+  await query('update search_plan_previews set plan_hash = $2 where plan_id = $1',
+    [planned.body['planId'], rehashed]);
+
+  const { enqueueConfirmedMarketResearch } = await import('../src/workers/enqueue.js');
+  const queued = await enqueueConfirmedMarketResearch({
+    verticalProfileId: plan['verticalProfileId'], geographyType: plan['geographyType'],
+    geographyValue: plan['geographyValue'], marketId: plan['marketId'],
+    requestedBy: (await makeOperator()).userId, queryBudget: plan['searches'].length,
+    confirmedPlan: { planId: planned.body['planId'], planHash: rehashed },
+  });
+  assert.equal(queued.ok, true);
+  await drainQueue();
+
+  // One call: the second search, which was approved as a purchase. The collection
+  // named a task belonging to a different question and was refused rather than
+  // collecting it or buying a replacement.
+  assert.equal(calls.length, 1, 'a task for another search was collected or replaced');
+  const { rows } = await query<{ progress: Record<string, any> }>(
+    `select progress from jobs where job_type = 'market_mine'`);
+  const perSearch = rows[0]!.progress['perSearch'] as Record<string, any>[];
+  assert.ok(perSearch.some((row) => row['status'] === 'PLAN_UNFULFILLABLE'));
+  // And the unrelated task was left alone.
+  const untouched = await query<{ status: string }>(
+    'select status from provider_tasks where provider_task_id = $1', [other.providerTaskId]);
+  assert.equal(untouched.rows[0]!.status, 'PENDING');
+});
+
+test('4. an approved task belonging to another provider is refused', async () => {
+  recordingAdapter();
+  const { planned, plan } = await planWithACollect();
+
+  // Same fingerprint, different provider.
+  const foreign = await outstandingTaskFor(
+    plan['searches'][0]['fingerprint'], 'foreign-1', 'some-other-provider');
+
+  await query(
+    `update search_plan_previews
+        set plan = jsonb_set(plan, '{plan,searches,0,approvedProviderTaskId}', to_jsonb($2::text))
+      where plan_id = $1`, [planned.body['planId'], foreign.providerTaskId]);
+  const { planHash } = await import('../src/miner/planPreview.js');
+  const { rows: stored } = await query<{ plan: { plan: any } }>(
+    'select plan from search_plan_previews where plan_id = $1', [planned.body['planId']]);
+  const rehashed = planHash(stored[0]!.plan.plan);
+  await query('update search_plan_previews set plan_hash = $2 where plan_id = $1',
+    [planned.body['planId'], rehashed]);
+
+  const { enqueueConfirmedMarketResearch } = await import('../src/workers/enqueue.js');
+  assert.equal((await enqueueConfirmedMarketResearch({
+    verticalProfileId: plan['verticalProfileId'], geographyType: plan['geographyType'],
+    geographyValue: plan['geographyValue'], marketId: plan['marketId'],
+    requestedBy: (await makeOperator()).userId, queryBudget: plan['searches'].length,
+    confirmedPlan: { planId: planned.body['planId'], planHash: rehashed },
+  })).ok, true);
+  await drainQueue();
+
+  assert.equal(calls.length, 1, "another provider's task was collected");
+  const untouched = await query<{ status: string }>(
+    'select status from provider_tasks where provider_task_id = $1', [foreign.providerTaskId]);
+  assert.equal(untouched.rows[0]!.status, 'PENDING');
+});
+
+// ------------------------------------------------- a consumed plan is not replayable --
+
+test('A. a completed run cannot be replayed with the same plan', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+  await drainQueue();
+  assert.equal(calls.length, 2);
+  calls = [];
+
+  // The original job is finished, so job idempotency no longer collapses anything --
+  // which is deliberate, and is exactly what made a second job carrying the same
+  // plan reference executable.
+  const { enqueueConfirmedMarketResearch } = await import('../src/workers/enqueue.js');
+  const replay = await enqueueConfirmedMarketResearch({
+    verticalProfileId: plan['verticalProfileId'], geographyType: plan['geographyType'],
+    geographyValue: plan['geographyValue'], marketId: plan['marketId'],
+    requestedBy: (await makeOperator()).userId, queryBudget: plan['searches'].length,
+    confirmedPlan: { planId: planned.body['planId'], planHash: planned.body['planHash'] },
+  });
+  assert.equal(replay.ok, false, 'a consumed plan was claimed a second time');
+  assert.equal(replay.ok ? '' : replay.code, 'ALREADY_USED');
+  await drainQueue();
+  assert.equal(calls.length, 0, 'a confirmed purchase was executed twice');
+});
+
+test('B. a job pointed at a plan bound to another job buys nothing', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+  await drainQueue();
+  calls = [];
+
+  // A second job is inserted directly, carrying the same plan reference. The claim
+  // above is bypassed entirely, which is the shape of an internal mistake.
+  await query(
+    `insert into jobs (job_type, idempotency_key, payload, requested_by, priority)
+     values ('market_mine', $1, $2::jsonb, null, 80)`,
+    [`market_mine:replay:${Date.now()}`, JSON.stringify({
+      vertical_profile_id: plan['verticalProfileId'],
+      geography_type: plan['geographyType'], geography_value: plan['geographyValue'],
+      mining_mode: plan['miningMode'], market_id: null,
+      query_budget: plan['searches'].length,
+      confirmed_plan_id: planned.body['planId'],
+      confirmed_plan_hash: planned.body['planHash'],
+    })]);
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'a job executed a plan bound to a different job');
+  const { rows } = await query<{ outcome: string; outcome_reason: string }>(
+    `select outcome, outcome_reason from jobs
+      where job_type = 'market_mine' order by created_at desc limit 1`);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+  assert.match(rows[0]!.outcome_reason, /authorised a different job/);
+});
+
+test('C. the ordinary browser path still works end to end', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 3 });
+  const submitted = await confirm(planned.body['planId'], planned.body['planHash']);
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  assert.equal(submitted.body['created'], true);
+  await drainQueue();
+
+  assert.deepEqual(calls, previewedCalls(planned.body['plan'] as Record<string, any>));
+
+  // And the plan records which run it became.
+  const { rows } = await query<{ consumed_job_id: string | null }>(
+    'select consumed_job_id from search_plan_previews where plan_id = $1',
+    [planned.body['planId']]);
+  assert.equal(rows[0]!.consumed_job_id, submitted.body['jobId']);
+});
+
+test('D. a job is never visible before its plan is bound to it', async () => {
+  // The binding is written in the transaction that creates the job, so there is no
+  // moment where a worker could see an executable confirmed job whose plan still
+  // points at nothing. Asserted as the invariant rather than by racing a worker:
+  // every queued confirmed job has a plan bound to exactly it.
+  recordingAdapter();
+  for (let index = 0; index < 3; index += 1) {
+    const planned = await preview({
+      verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+      queryBudget: 1 + index });
+    assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+    // Drained between confirmations: a second confirmation while the first run is
+    // still queued is refused as a conflicting active run, which is a different rule
+    // and is tested on its own above.
+    await drainQueue();
+  }
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from jobs j
+      where j.job_type = 'market_mine'
+        and j.payload->>'confirmed_plan_id' is not null
+        and not exists (
+          select 1 from search_plan_previews p
+           where p.plan_id = (j.payload->>'confirmed_plan_id')::uuid
+             and p.consumed_at is not null
+             and p.consumed_job_id = j.job_id)`);
+  assert.equal(rows[0]!.n, 0, 'a confirmed job exists whose plan is not bound to it');
+});
+
+test('E. a double-click still authorises exactly one job', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const [first, second] = await Promise.all([
+    confirm(planned.body['planId'], planned.body['planHash']),
+    confirm(planned.body['planId'], planned.body['planHash']),
+  ]);
+  assert.equal([first.status, second.status].filter((status) => status === 200).length, 1,
+    'a double-click authorised two runs');
+
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.n, 1);
+  await drainQueue();
+  assert.equal(calls.length, 2);
 });

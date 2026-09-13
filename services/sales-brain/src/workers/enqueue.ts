@@ -1,4 +1,4 @@
-import { query } from '../db/pool.js';
+import { query, withTransaction } from '../db/pool.js';
 import { normalizeGeography } from '../miner/geography.js';
 import { miningModeOrDefault } from '../miner/miningMode.js';
 
@@ -142,6 +142,102 @@ export function discoveryFingerprint(input: {
     place,
     miningModeOrDefault(input.miningMode),
   ].join(':');
+}
+
+export type ConfirmedEnqueueResult =
+  | { ok: true; jobId: string; created: boolean }
+  | { ok: false; code: 'ALREADY_USED'; message: string };
+
+/**
+ * Queues the one job a confirmed plan authorises, and binds the two together.
+ *
+ * `consumed_at` proved somebody had confirmed the plan. It did not prove *this* job
+ * was the job they confirmed it for. Job idempotency is deliberately active-only --
+ * a completed job may legitimately be re-created later -- so once the original run
+ * finished, a caller holding the same plan id and hash could queue a second job
+ * carrying that reference, and the worker, seeing only that the plan had been
+ * confirmed at some point, would execute the purchase again.
+ *
+ * One confirmed plan authorises one job, and the binding says which. Claiming the
+ * plan, creating the job and recording the binding happen in a single transaction,
+ * so a worker can never see an executable job whose plan is not yet bound to it:
+ * the job row and the binding become visible together or neither does.
+ *
+ * The claim lives here rather than in `confirmPaidPlan` for the same reason. Checking
+ * `consumed_at` and then writing it in a separate statement is a read-then-write, and
+ * the gap is exactly where a double-click fits.
+ */
+export async function enqueueConfirmedMarketResearch(input: {
+  verticalProfileId: string | null;
+  geographyType: string | null;
+  geographyValue: string | null;
+  marketId: string | null;
+  requestedBy: string;
+  miningMode?: string | null;
+  queryBudget?: number;
+  causes?: string[] | null;
+  confirmedPlan: { planId: string; planHash: string };
+}): Promise<ConfirmedEnqueueResult> {
+  const geography = normalizeGeography(input.geographyType, input.geographyValue);
+  const idempotencyKey = `market_mine:plan:${input.confirmedPlan.planHash}`;
+
+  return withTransaction(async (client) => {
+    // The claim. Exactly one caller can move `consumed_at` off null, so a second
+    // confirmation of the same plan finds nothing to claim and is told so.
+    const claimed = await client.query<{ plan_id: string }>(
+      `update search_plan_previews set consumed_at = now()
+        where plan_id = $1 and consumed_at is null
+        returning plan_id`, [input.confirmedPlan.planId]);
+    if (claimed.rows.length === 0) {
+      return { ok: false as const, code: 'ALREADY_USED' as const,
+        message: 'That research plan has already been submitted. Review a new plan to '
+          + 'search again.' };
+    }
+
+    const payload = {
+      vertical_profile_id: input.verticalProfileId,
+      geography_type: geography.ok ? geography.type : input.geographyType,
+      geography_value: geography.ok ? geography.value : input.geographyValue,
+      geography_state: geography.ok ? geography.state : null,
+      geography_display: geography.ok ? geography.display : input.geographyValue,
+      mining_mode: miningModeOrDefault(input.miningMode),
+      market_id: input.marketId,
+      query_budget: Math.max(1, Math.floor(input.queryBudget ?? 1)),
+      causes: input.causes && input.causes.length > 0 ? input.causes : null,
+      confirmed_plan_id: input.confirmedPlan.planId,
+      confirmed_plan_hash: input.confirmedPlan.planHash,
+    };
+
+    const inserted = await client.query<{ job_id: string }>(
+      `insert into jobs (job_type, idempotency_key, payload, requested_by, account_id,
+                         market_id, priority)
+       values ('market_mine', $1, $2, $3, null, $4, 80)
+       on conflict (idempotency_key) where idempotency_key is not null and status in ('QUEUED','RUNNING')
+       do nothing
+       returning job_id`,
+      [idempotencyKey, JSON.stringify(payload), input.requestedBy, input.marketId]);
+
+    // No row means an active job already carries this exact plan -- two identical
+    // previews of an unchanged market hash the same, so this is the ordinary dedupe
+    // and not an error. The plan binds to the run it joined.
+    const existing = inserted.rows[0] ? null : await client.query<{ job_id: string }>(
+      `select job_id from jobs
+        where idempotency_key = $1 and status in ('QUEUED','RUNNING') limit 1`,
+      [idempotencyKey]);
+    const jobId = inserted.rows[0]?.job_id ?? existing?.rows[0]?.job_id ?? null;
+
+    if (!jobId) {
+      // Nothing to bind to. Roll the claim back by failing the transaction rather
+      // than leaving a plan marked used against no run at all.
+      throw new Error('confirmed plan could not be bound to a job');
+    }
+
+    await client.query(
+      `update search_plan_previews set consumed_job_id = $2 where plan_id = $1`,
+      [input.confirmedPlan.planId, jobId]);
+
+    return { ok: true as const, jobId, created: Boolean(inserted.rows[0]) };
+  });
 }
 
 export async function enqueueMarketResearch(input: {

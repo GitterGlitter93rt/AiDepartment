@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { pool, query } from '../src/db/pool.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
 import {
-  buildPaidPlan, persistPaidPlan, confirmPaidPlan, consumePaidPlan,
+  buildPaidPlan, persistPaidPlan, confirmPaidPlan,
   canonicalPlanString, planHash, type PaidPlan, type PlanRequest,
 } from '../src/miner/planPreview.js';
 import {
@@ -230,7 +230,17 @@ test('one review buys one run', async () => {
   const stored = await persistPaidPlan(plan, user.userId, REQUEST);
   assert.equal((await confirmPaidPlan({
     planId: stored.planId, planHash: stored.planHash, userId: user.userId })).ok, true);
-  await consumePaidPlan(stored.planId, null);
+
+  // The claim is taken by the transaction that creates the job, so that is what
+  // spends the plan -- not the verification above.
+  const { enqueueConfirmedMarketResearch } = await import('../src/workers/enqueue.js');
+  const first = await enqueueConfirmedMarketResearch({
+    verticalProfileId: plan.verticalProfileId, geographyType: plan.geographyType,
+    geographyValue: plan.geographyValue, marketId: plan.marketId,
+    requestedBy: user.userId, queryBudget: plan.searches.length,
+    confirmedPlan: { planId: stored.planId, planHash: stored.planHash },
+  });
+  assert.equal(first.ok, true);
 
   const second = await confirmPaidPlan({
     planId: stored.planId, planHash: stored.planHash, userId: user.userId });

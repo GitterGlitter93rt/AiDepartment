@@ -225,6 +225,24 @@ function businessesFromCandidates(
     return score;
   };
 
+  /**
+   * A total order, so two rows are never separated by which arrived first.
+   *
+   * Strength, then page position, then a lexical tuple of stable non-secret fields.
+   * Without the last step two equal-strength rows at the same rank still fell back to
+   * arrival order, which is the same defect as before wearing a smaller hat: the same
+   * response in a different order produced a different Account.
+   */
+  const rank = (observation: ProviderObservation): string => [
+    String(1000 - strength(observation)).padStart(4, '0'),
+    String(observation.position ?? Number.MAX_SAFE_INTEGER).padStart(8, '0'),
+    observation.resultType,
+    observation.providerNativeId ?? '',
+    observation.observedDomain ?? '',
+    observation.landingUrl ?? '',
+    observation.observedName ?? '',
+  ].join('\u0000');
+
   const byIdentity = new Map<string, ProviderObservation>();
   for (const observation of observations) {
     const identity = registrableDomain(observation.observedDomain)
@@ -232,14 +250,7 @@ function businessesFromCandidates(
     if (!identity) continue;
     const held = byIdentity.get(identity);
     if (!held) { byIdentity.set(identity, observation); continue; }
-    const better = strength(observation) - strength(held);
-    if (better > 0) { byIdentity.set(identity, observation); continue; }
-    // A deterministic tie-break, so equal rows do not depend on arrival order.
-    if (better === 0
-      && (observation.position ?? Number.MAX_SAFE_INTEGER)
-         < (held.position ?? Number.MAX_SAFE_INTEGER)) {
-      byIdentity.set(identity, observation);
-    }
+    if (rank(observation) < rank(held)) byIdentity.set(identity, observation);
   }
 
   const businesses: DiscoveredBusiness[] = [];

@@ -409,7 +409,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const { confirmPaidPlan, consumePaidPlan } = await import('../miner/planPreview.js');
+    const { confirmPaidPlan } = await import('../miner/planPreview.js');
     const confirmation = await confirmPaidPlan({
       planId, planHash: submittedHash, userId: user.userId });
     if (!confirmation.ok) {
@@ -425,7 +425,12 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
 
     // The job carries the plan, not the inputs that produced it. The worker executes
     // those exact searches; it does not re-derive them from a vertical and a ZIP.
-    const result = await enqueueMarketResearch({
+    //
+    // Claiming the plan, creating the job and binding the two happen together, so the
+    // plan can never be marked used against a run that does not exist, and a run can
+    // never become visible carrying a plan that is not bound to it.
+    const { enqueueConfirmedMarketResearch } = await import('../workers/enqueue.js');
+    const result = await enqueueConfirmedMarketResearch({
       verticalProfileId: confirmation.plan.verticalProfileId,
       geographyType: confirmation.plan.geographyType,
       geographyValue: confirmation.plan.geographyValue,
@@ -436,7 +441,11 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       causes: confirmation.plan.causes,
       confirmedPlan: { planId: confirmation.planId, planHash: submittedHash },
     });
-    await consumePaidPlan(confirmation.planId, result.jobId ?? null);
-    return { ...result, planId: confirmation.planId };
+    if (!result.ok) {
+      return reply.code(400).send({
+        ok: false, code: result.code, message: result.message });
+    }
+    return {
+      jobId: result.jobId, created: result.created, planId: confirmation.planId };
   });
 }

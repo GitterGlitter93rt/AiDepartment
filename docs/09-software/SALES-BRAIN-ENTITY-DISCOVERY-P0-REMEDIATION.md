@@ -241,7 +241,10 @@ Maps listing had its address, provider id and result type decided by print order
 when the organic row won, the advertising was missed even though the paid row was
 sitting in the table. The representative observation is now *chosen*: a provider
 business listing first, then whichever row carries a structured address, then page
-position, with a deterministic tie-break. Advertising is read separately from **every**
+position, then a lexical tuple of stable non-secret fields (result type, provider
+id, domain, landing URL, name) — strength and position alone still left equal rows
+to arrival order, which is the same defect at smaller scale. Advertising is read
+separately from **every**
 paid sighting, because a company that both ranks and advertises has two facts about it
 and one is not a consequence of the other. All six permutations of organic / paid /
 Maps produce the same Account, the same location and the same evidence.
@@ -393,6 +396,38 @@ specific task the operator was shown:
 Every provider call is inside the loop over the plan's own searches, one call each, so
 the chargeable count can only ever be the number of `BUY_NEW` searches that were
 approved. A search whose fingerprint is not in the approved intent buys nothing.
+
+**The hash binds the execution intent (review).** `executionDisposition` and
+`approvedProviderTaskId` decide whether a search is bought or collected and which task
+is collected, and they were added to the plan without being added to the canonical
+string -- so the stored plan's execution authority could be edited without the hash
+moving, and the worker's verification would pass on it. The canonical string is now
+labelled (`disposition=...`, `approvedTask=...`) rather than positional, so a field
+cannot be inserted mid-list and silently shift its neighbours' meaning, and two hashes
+that differ can be diffed by a person. The rule: **any field that changes what provider
+operation the worker performs changes the hash.**
+
+**An approved task id is a pointer, and pointers are checked (review).** Before
+collecting, the task's `provider` and `fingerprint` must match the executing adapter
+and the approved search. A plan naming a task belonging to another provider, or to a
+different question, is `PLAN_UNFULFILLABLE`: nothing is collected, nothing is bought,
+and the unrelated task is left untouched.
+
+**One confirmed plan authorises one bound job (review).** `consumed_at` proved somebody
+had confirmed the plan; it did not prove *this* job was the one they confirmed it for.
+Job idempotency is deliberately active-only -- a completed job may legitimately be
+re-created -- so once the original run finished, a caller holding the same plan id and
+hash could queue a second job carrying that reference and have the purchase executed
+again.
+
+`enqueueConfirmedMarketResearch` does three things in one transaction: claims the plan
+(`consumed_at` from null, so exactly one caller wins), inserts the job, and writes
+`consumed_job_id`. The job row and the binding become visible together or not at all,
+so a worker can never observe an executable confirmed job whose plan is not yet bound
+to it. The worker requires `consumed_job_id = job.job_id`. The claim moved out of
+`confirmPaidPlan` for the same reason: checking `consumed_at` and writing it in a
+separate statement is a read-then-write, and the gap is where a double-click fits.
+Unattended runs keep the ordinary `enqueueMarketResearch` path unchanged.
 
 **A stored preview is not an authorisation (review).** The row exists from the moment
 somebody asks what a search would cost. The worker requires the plan to have been

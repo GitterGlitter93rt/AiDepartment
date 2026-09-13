@@ -556,7 +556,7 @@ type ConfirmedPlanState =
   | { state: 'INVALID'; reason: string };
 
 async function loadConfirmedPlan(
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>, jobId: string,
 ): Promise<ConfirmedPlanState> {
   const planId = (payload['confirmed_plan_id'] as string | null) ?? null;
   const planHash = (payload['confirmed_plan_hash'] as string | null) ?? null;
@@ -606,6 +606,21 @@ async function loadConfirmedPlan(
     return { state: 'INVALID',
       reason: 'This run points at a research plan nobody confirmed, so nothing was '
         + 'bought. Review and confirm a plan before searching this market.' };
+  }
+
+  /**
+   * One confirmed plan authorises one job, and this has to be that job.
+   *
+   * `consumed_at` alone proves somebody confirmed the plan at some point. Job
+   * idempotency is deliberately active-only, so once the original run finished, a
+   * caller holding the same plan id and hash could queue a second job carrying that
+   * reference and have the purchase executed again. The binding is written in the
+   * same transaction as the job, so a legitimate run always finds itself here.
+   */
+  if (stored.consumed_job_id !== jobId) {
+    return { state: 'INVALID',
+      reason: 'The confirmed plan for this run authorised a different job, so nothing '
+        + 'was bought. A confirmation buys one run; review a new plan to search again.' };
   }
 
   const plan = stored.plan.plan;
@@ -736,7 +751,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
   // something else. The hash proved the plan at confirmation time and then guarded
   // nothing. The confirmed plan is the instruction now, and the planner is not
   // consulted for it.
-  const confirmed = await loadConfirmedPlan(payload);
+  const confirmed = await loadConfirmedPlan(payload, job.job_id);
   if (confirmed.state === 'INVALID') discoveryNotes.push(confirmed.reason);
 
   /**
@@ -931,7 +946,21 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
           [approved.approvedProviderTaskId]);
         const task = approvedTask[0];
 
-        if (task && task.status === 'PENDING') {
+        /**
+         * The task has to be the task that was approved, not merely a row with that id.
+         *
+         * An internal id in a plan is a pointer, and a pointer is only as good as what
+         * it is checked against. A plan naming a task belonging to another provider,
+         * or to a different search, would otherwise have that task collected and its
+         * results ingested as the answer to a question nobody asked it.
+         */
+        const mismatched = task
+          && (task.provider !== adapter.name || task.fingerprint !== fingerprint);
+
+        if (mismatched) {
+          outstanding = null;
+          unfulfillable = 'PLAN_UNFULFILLABLE';
+        } else if (task && task.status === 'PENDING') {
           outstanding = task as unknown as typeof outstanding;
         } else if (task && task.status === 'COLLECTED') {
           // Already done, by an earlier run or another worker. The search the operator
