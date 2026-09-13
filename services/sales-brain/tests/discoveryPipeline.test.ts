@@ -554,3 +554,140 @@ test('a verified company is still enriched by the search that finds it again', a
     `select count(*)::int as n from evidence_records where account_id = $1`, [verified]);
   assert.ok(evidence.rows[0]!.n > 0, 'the advertiser evidence was not written');
 });
+
+// ------------------------------------------- row order must not change the answer --
+
+/** One company, seen three ways, in whatever order the provider printed them. */
+function threeSightings(order: ('organic' | 'paid' | 'maps')[]): ProviderObservation[] {
+  const base = {
+    providerNativeId: null as string | null,
+    observedName: 'Permutation Roofing',
+    observedDomain: 'permutationroofing.invalid',
+    observedPhone: '904-555-4401',
+    observedBusinessAddress: null as string | null,
+    observedCity: null as string | null,
+    observedRegion: null as string | null,
+    observedPostalCode: null as string | null,
+    searchLocationName: 'St. Augustine,Florida,United States',
+    adHeadline: null as string | null,
+    landingUrl: null as string | null,
+    advertisedService: null as string | null,
+    checkUrl: null,
+    observedAt: new Date('2026-09-05T06:00:00.000Z'),
+    query: 'roofer 32095',
+  };
+  const rows: Record<string, ProviderObservation> = {
+    organic: { ...base, resultType: 'ORGANIC', position: 4 },
+    paid: {
+      ...base, resultType: 'PAID_SEARCH_TEXT', position: 1,
+      adHeadline: 'Emergency Roof Repair — Same Day',
+      advertisedService: 'roof repair',
+      landingUrl: 'https://permutationroofing.invalid/roof-repair',
+    },
+    maps: {
+      ...base, resultType: 'MAPS_LOCAL', position: 2,
+      observedBusinessAddress: '120 King St, St. Augustine, FL',
+      observedCity: 'St. Augustine', observedRegion: 'FL', observedPostalCode: '32084',
+      providerNativeId: 'maps-permutation-1',
+    },
+  };
+  return order.map((key) => rows[key]!);
+}
+
+const PERMUTATIONS: ('organic' | 'paid' | 'maps')[][] = [
+  ['organic', 'paid', 'maps'], ['organic', 'maps', 'paid'],
+  ['paid', 'organic', 'maps'], ['paid', 'maps', 'organic'],
+  ['maps', 'organic', 'paid'], ['maps', 'paid', 'organic'],
+];
+
+for (const order of PERMUTATIONS) {
+  test(`row order ${order.join(' > ')} produces the same Account, location and evidence`,
+    async () => {
+    // The projection used to keep whichever row arrived first, so the address, the
+    // provider id and the result type were decided by SERP ordering -- and when the
+    // organic row won, the advertising was simply missed even though the paid row was
+    // sitting in the table.
+    adapterReturning(threeSightings(order));
+    await mine();
+
+    const accounts = await query<{
+      canonical_name: string; account_id: string;
+    }>('select canonical_name, account_id from accounts');
+    assert.equal(accounts.rows.length, 1, 'one company became more than one Account');
+    assert.equal(accounts.rows[0]!.canonical_name, 'Permutation Roofing');
+
+    // The address the provider resolved, whichever row it arrived on.
+    const location = await query<{ city: string | null; postal_code: string | null }>(
+      'select city, postal_code from locations where account_id = $1',
+      [accounts.rows[0]!.account_id]);
+    assert.equal(location.rows[0]?.city, 'St. Augustine',
+      'the structured address depended on which row came first');
+    assert.equal(location.rows[0]?.postal_code, '32084');
+
+    // And the advertising, which is a fact about a sighting rather than a company.
+    const evidence = await query<{ claim_key: string }>(
+      `select claim_key from evidence_records where account_id = $1
+        and category = 'paid_acquisition'`, [accounts.rows[0]!.account_id]);
+    assert.deepEqual(evidence.rows.map((row) => row.claim_key), ['active_google_search_ad'],
+      'the paid sighting produced no advertising evidence');
+
+    // All three rows are still on record whatever the order.
+    const observed = await query<{ n: number }>(
+      'select count(*)::int as n from search_observations');
+    assert.equal(observed.rows[0]!.n, 3);
+  });
+}
+
+test('a company seen in both a text ad and a Local Services ad earns both claims',
+  async () => {
+  adapterReturning([
+    ...threeSightings(['paid']),
+    { ...threeSightings(['maps'])[0]!, resultType: 'LOCAL_SERVICES_AD', position: 3,
+      adHeadline: 'Google Guaranteed Roofer' },
+  ]);
+  await mine();
+
+  const { rows } = await query<{ claim_key: string }>(
+    `select distinct claim_key from evidence_records
+      where category = 'paid_acquisition' order by claim_key`);
+  assert.deepEqual(rows.map((row) => row.claim_key),
+    ['active_google_search_ad', 'active_local_service_ad'],
+    'two different paid placements collapsed into one claim');
+});
+
+test('the market vocabulary includes the place the provider was asked about', async () => {
+  // The ZIP alone was not enough. "St Augustine Plumbing" on
+  // `staugustineplumbing.example` still corroborated itself, because "plumbing" was
+  // generic and "augustine" was not -- and the city's name is written down in the
+  // provider's normalised location, not in the operator's ZIP.
+  const { genericTermsFor } = await import('../src/miner/searchTaxonomy.js');
+  const fromZipOnly = await genericTermsFor('plumbing', '32095');
+  assert.equal(fromZipOnly.has('augustine'), false,
+    'the fixture no longer demonstrates the gap this closes');
+
+  const withProviderPlace = await genericTermsFor(
+    'plumbing', '32095', 'St. Augustine,Florida,United States');
+  assert.ok(withProviderPlace.has('augustine'));
+  assert.ok(withProviderPlace.has('florida'));
+  // The trade's own words are there too, from the vertical's taxonomy.
+  assert.ok([...withProviderPlace].some((term) => term.startsWith('plumb')),
+    'the vertical taxonomy did not reach the market vocabulary');
+});
+
+test('a city-and-trade domain is not verified by a real run of that market', async () => {
+  adapterReturning(observationsFor([
+    { name: 'St Augustine Roofing', website: 'https://staugustineroofing.invalid',
+      resultType: 'ORGANIC',
+      // What a real response carries on every row: the place the provider searched.
+      searchLocationName: 'St. Augustine,Florida,United States' },
+  ]));
+  await mine();
+
+  const { rows } = await query<{ n: number }>('select count(*)::int as n from accounts');
+  assert.equal(rows[0]!.n, 0,
+    'a city-plus-trade lead-generation domain verified itself through the real miner');
+
+  const candidates = await query<{ entity_status: string }>(
+    'select entity_status from discovery_candidates');
+  assert.equal(candidates.rows[0]?.entity_status, 'NEEDS_REVIEW');
+});

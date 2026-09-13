@@ -407,3 +407,60 @@ test('a provider listing tied to the domain is still corroboration', () => {
   assert.equal(resolved.length, 1);
   assert.equal(resolved[0]!.status, 'VERIFIED');
 });
+
+// --------------------------------- a city and a trade are not a brand between them --
+
+/**
+ * The vocabulary a Plumbing / 32095 run builds, written out.
+ *
+ * The miner derives this from the vertical's taxonomy, the operator's ZIP and the
+ * place the provider was asked about; that derivation is tested against the real
+ * profiles in `discoveryPipeline`. Here the set is explicit so these stay pure unit
+ * tests of what the rule does with it.
+ */
+const PLUMBING_IN_ST_AUGUSTINE = new Set([
+  'plumbing', 'plumber', 'plumbers', 'drain', 'sewer', 'water', 'heater',
+  '32095', 'augustine', 'florida', 'united', 'states',
+]);
+
+test('a city and a trade together do not prove a domain belongs to a company', () => {
+  assert.equal(
+    brandMatchesDomain('St Augustine Plumbing', 'staugustineplumbing.example',
+      PLUMBING_IN_ST_AUGUSTINE),
+    false, 'a city-plus-trade domain corroborated itself');
+
+  const candidate = only([row({
+    observedName: 'St Augustine Plumbing', observedDomain: 'staugustineplumbing.example',
+    landingUrl: 'https://staugustineplumbing.example/',
+  })], PLUMBING_IN_ST_AUGUSTINE);
+  assert.notEqual(candidate.status, 'VERIFIED');
+  assert.equal(candidate.status, 'NEEDS_REVIEW');
+});
+
+test('a distinctive surname still corroborates in the same market', () => {
+  assert.equal(
+    brandMatchesDomain('Burchfield Plumbing', 'burchfieldplumbing.example',
+      PLUMBING_IN_ST_AUGUSTINE),
+    true, 'a real brand match was refused');
+});
+
+test('the same shape in another market behaves the same way', () => {
+  const jacksonvilleRoofing = new Set([
+    'roofing', 'roofer', 'roof', 'jacksonville', 'florida', 'united', 'states']);
+  assert.equal(
+    brandMatchesDomain('Jacksonville Roofing', 'jacksonvilleroofing.example',
+      jacksonvilleRoofing),
+    false, 'a city-plus-trade domain corroborated itself in a second vertical');
+});
+
+test('a provider business listing verifies however generic the name is', () => {
+  // The listing rules are untouched: the provider resolved this entity, which is a
+  // stronger fact than anything a name and a domain can agree about.
+  const candidate = only([row({
+    resultType: 'MAPS_LOCAL', observedName: 'St Augustine Plumbing',
+    observedDomain: 'staugustineplumbing.example', observedPhone: '904-555-0170',
+    observedBusinessAddress: '9 Center St, St. Augustine, FL',
+  })], PLUMBING_IN_ST_AUGUSTINE);
+  assert.equal(candidate.status, 'VERIFIED');
+  assert.equal(candidate.sourceClass, 'BUSINESS_LISTING');
+});

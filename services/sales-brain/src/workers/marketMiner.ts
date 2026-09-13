@@ -129,7 +129,25 @@ export type DiscoveryStatus =
    * new was bought. Deliberately not `ZERO_RESULTS`: nobody looked. Deliberately not
    * a failure either -- it is our own decision, like `BUDGET_EXHAUSTED`.
    */
-  | 'MARKET_DISABLED';
+  | 'MARKET_DISABLED'
+  /**
+   * A confirmed search authorised as "collect the task you already paid for", whose
+   * task had already been collected by the time this run reached it.
+   *
+   * Nothing is owed and nothing is bought: the search the operator approved has
+   * already happened and its results are already in inventory. Not a failure, and
+   * emphatically not a licence to buy a replacement.
+   */
+  | 'ALREADY_FULFILLED'
+  /**
+   * A confirmed search whose approved task can no longer be collected, because it
+   * failed, was abandoned, or is gone.
+   *
+   * The authorisation was to collect one specific task, not to buy a search of this
+   * market, so this run cannot honour it and does not substitute a purchase. A new
+   * preview is the way to buy it again.
+   */
+  | 'PLAN_UNFULFILLABLE';
 
 /** The statuses that mean the provider actually answered the question we asked. */
 export function providerAnswered(status: DiscoveryStatus): boolean {
@@ -516,7 +534,25 @@ async function entityIsWorkable(client: pg.PoolClient, accountId: string): Promi
  */
 type ConfirmedPlanState =
   | { state: 'UNCONFIRMED' }
-  | { state: 'CONFIRMED'; provider: string; searchPlan: SearchPlan }
+  | {
+      state: 'CONFIRMED';
+      provider: string;
+      /**
+       * The provider mode that was approved, enforced as part of its identity.
+       *
+       * Standard and Live are different endpoints, different lifecycles and different
+       * prices. Matching on the adapter's name alone meant a plan previewed and
+       * confirmed against Standard could execute against Live after a restart --
+       * same provider, different purchase.
+       */
+      providerMode: string;
+      searchPlan: SearchPlan;
+      /** What each approved search may do, by fingerprint. */
+      intent: Map<string, {
+        executionDisposition: 'BUY_NEW' | 'COLLECT_EXISTING';
+        approvedProviderTaskId: string | null;
+      }>;
+    }
   | { state: 'INVALID'; reason: string };
 
 async function loadConfirmedPlan(
@@ -536,7 +572,10 @@ async function loadConfirmedPlan(
 
   const { rows } = await query<{
     plan_hash: string; plan: { plan: PaidPlan } | null;
-  }>(`select plan_hash, plan from search_plan_previews where plan_id = $1`, [planId]);
+    consumed_at: Date | null; consumed_job_id: string | null;
+  }>(
+    `select plan_hash, plan, consumed_at, consumed_job_id
+       from search_plan_previews where plan_id = $1`, [planId]);
   const stored = rows[0];
   if (!stored?.plan?.plan) {
     return { state: 'INVALID',
@@ -555,6 +594,20 @@ async function loadConfirmedPlan(
         + 'nothing was bought. Review a new plan before searching this market.' };
   }
 
+  /**
+   * A stored preview is not an authorisation.
+   *
+   * The row exists from the moment somebody asks what a search would cost. Verifying
+   * the hash proves the plan has not changed; it does not prove anybody agreed to it.
+   * Without this, any caller that could enqueue a job with a plan id would be able to
+   * execute a preview nobody confirmed -- the approval step reduced to knowing an id.
+   */
+  if (!stored.consumed_at) {
+    return { state: 'INVALID',
+      reason: 'This run points at a research plan nobody confirmed, so nothing was '
+        + 'bought. Review and confirm a plan before searching this market.' };
+  }
+
   const plan = stored.plan.plan;
   if (plan.refusal || plan.searches.length === 0) {
     return { state: 'INVALID',
@@ -564,6 +617,11 @@ async function loadConfirmedPlan(
   return {
     state: 'CONFIRMED',
     provider: plan.provider,
+    providerMode: plan.providerMode,
+    intent: new Map(plan.searches.map((search) => [search.fingerprint, {
+      executionDisposition: search.executionDisposition,
+      approvedProviderTaskId: search.approvedProviderTaskId,
+    }])),
     // Shaped as a plan the loop already understands, built from the approved rows
     // rather than from the taxonomy. Nothing here is recomputed: the keyword, the
     // place, the fingerprint and the purpose are the ones that were shown.
@@ -696,12 +754,22 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    */
   const adapters = confirmed.state === 'INVALID' ? []
     : confirmed.state === 'CONFIRMED'
-      ? allAdapters.filter((adapter) => adapter.name === confirmed.provider)
+      // Name *and* mode. A provider's mode decides which endpoint is called, what the
+      // task lifecycle is and what it costs, so DataForSEO Standard and DataForSEO
+      // Live are two different purchases wearing one name.
+      ? allAdapters.filter((adapter) =>
+        adapter.name === confirmed.provider
+        && (adapter.mode ?? 'default') === confirmed.providerMode)
       : allAdapters;
   if (confirmed.state === 'CONFIRMED' && adapters.length === 0) {
-    discoveryNotes.push(
-      `The confirmed plan was to be executed by ${confirmed.provider}, which is not `
-      + 'configured now. Nothing was bought, and nothing was substituted for it.');
+    const sameName = allAdapters.find((adapter) => adapter.name === confirmed.provider);
+    discoveryNotes.push(sameName
+      ? `The confirmed plan was to be executed by ${confirmed.provider} in `
+        + `${confirmed.providerMode} mode, and it is configured in `
+        + `${sameName.mode ?? 'default'} mode now. Those are different purchases, so `
+        + 'nothing was bought. Review a new plan.'
+      : `The confirmed plan was to be executed by ${confirmed.provider}, which is not `
+        + 'configured now. Nothing was bought, and nothing was substituted for it.');
   }
 
   /**
@@ -770,7 +838,11 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    */
   const { genericTermsFor } = await import('../miner/searchTaxonomy.js');
   const genericTerms = await genericTermsFor(
-    request.verticalProfileId, request.geographyValue);
+    request.verticalProfileId,
+    request.geographyValue,
+    // The place as the provider was asked about it, which is where the city's own
+    // name is written down. Every search in a plan shares one location.
+    searchPlan.searches[0]?.locationName ?? null);
 
   const attempts: (typeof searchPlan.searches[number] | null)[] =
     searchPlan.searches.length > 0 ? searchPlan.searches : [null];
@@ -803,7 +875,75 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       // previous run submitted one for this same request -- and then the worker was
       // restarted, or the task was simply slower than the poll -- going back for it
       // is both cheaper and more honest than buying the same market twice.
-      const outstanding = await openProviderTask(adapter.name, fingerprint);
+      /**
+       * What this search is allowed to do, decided at approval rather than now.
+       *
+       * For an unattended run this is the same question it always was: is a task for
+       * these words already outstanding, and if so collect it instead of buying
+       * another. For a confirmed run the answer was fixed when a person approved it,
+       * and re-deriving it here is precisely the defect -- the preview said "already
+       * paid for, will collect", the task was collected by something else in the
+       * meantime, and the worker found nothing pending and bought a replacement. The
+       * approval said one thing and the spend did another, in the one direction that
+       * is not allowed to move.
+       */
+      const approved = confirmed.state === 'CONFIRMED'
+        ? confirmed.intent.get(fingerprint) ?? null : null;
+
+      /**
+       * A confirmed search with no approved intent is not a search this run may make.
+       *
+       * The plan's searches and the intent map are built from the same rows, so this
+       * cannot happen today. It is here because the consequence of it happening is a
+       * purchase nobody authorised: `approved` being null is indistinguishable from an
+       * unattended run, and an unattended run buys. Failing closed makes the absence
+       * of an authorisation mean "no", which is the only reading that is safe when the
+       * two structures ever drift apart.
+       */
+      if (confirmed.state === 'CONFIRMED' && !approved) {
+        statuses.push('PLAN_UNFULFILLABLE');
+        perSearch.push({
+          index: planned.index, term: planned.term, keyword: planned.keyword,
+          fingerprint, status: 'PLAN_UNFULFILLABLE', providerRows: 0, usableRows: 0,
+          duplicateRows: 0, rejectedRows: 0, costUsd: null, providerTaskId: null,
+          reason: 'This search is not in the confirmed plan, so it was not bought.',
+          created: 0, matchedExisting: 0,
+        });
+        continue;
+      }
+
+      let outstanding = await openProviderTask(adapter.name, fingerprint);
+      /** Set when an approved collection cannot happen, so nothing is bought instead. */
+      let unfulfillable: string | null = null;
+
+      if (approved?.executionDisposition === 'COLLECT_EXISTING') {
+        // The one task the operator was told already existed, by id. Not "whatever is
+        // pending for these words now", which is how a different task -- or none --
+        // could end up standing in for the approved one.
+        const { rows: approvedTask } = await query<{
+          provider_task_id: string; provider: string; provider_native_id: string;
+          fingerprint: string; status: string; poll_attempts: number;
+          submitted_at: Date; request: Record<string, unknown> | null;
+        }>(
+          `select provider_task_id, provider, provider_native_id, fingerprint, status,
+                  poll_attempts, submitted_at, request
+             from provider_tasks where provider_task_id = $1`,
+          [approved.approvedProviderTaskId]);
+        const task = approvedTask[0];
+
+        if (task && task.status === 'PENDING') {
+          outstanding = task as unknown as typeof outstanding;
+        } else if (task && task.status === 'COLLECTED') {
+          // Already done, by an earlier run or another worker. The search the operator
+          // approved has happened and its results are in inventory; buying a second
+          // copy would spend money to learn what we already know.
+          outstanding = null;
+          unfulfillable = 'ALREADY_FULFILLED';
+        } else {
+          outstanding = null;
+          unfulfillable = 'PLAN_UNFULFILLABLE';
+        }
+      }
 
       // Asked once per search, and only when a purchase is actually on the table --
       // not once at the top of the handler, because the question is whether *this*
@@ -829,7 +969,17 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
       const affordable = (!outstanding && (!buy || buy.allowed))
         ? await spendPosition() : null;
 
-      if (outstanding && adapter.collect) {
+      if (unfulfillable === 'ALREADY_FULFILLED') {
+        result = refusedDiscovery('ALREADY_FULFILLED',
+          'This search was approved as a collection of a task already paid for, and '
+          + 'that task had already been collected. Nothing was owed and nothing was '
+          + 'bought.');
+      } else if (unfulfillable) {
+        result = refusedDiscovery('PLAN_UNFULFILLABLE',
+          'This search was approved as a collection of one specific task already paid '
+          + 'for, and that task can no longer be collected. Buying a replacement was '
+          + 'not what was approved, so nothing was bought. Review a new plan.');
+      } else if (outstanding && adapter.collect) {
         const attempts = await recordCollectionAttempt(outstanding.provider_task_id);
         result = await adapter.collect(outstanding.provider_native_id, searchRequest);
 
@@ -993,8 +1143,19 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
    * failure backoff on the way out.
    */
   const declined = statuses.filter((status) => status === 'MARKET_DISABLED').length;
+  /**
+   * Confirmed searches this run correctly did not buy.
+   *
+   * Held apart from both `answered` and `failed`. A search whose approved task had
+   * already been collected is finished work, and one whose approved task died cannot
+   * be honoured without a new approval -- neither is a provider that failed, and
+   * counting them as failures would put a healthy market into the failure backoff for
+   * doing exactly the right thing.
+   */
+  const alreadyFulfilled = statuses.filter((status) => status === 'ALREADY_FULFILLED').length;
+  const unfulfillable = statuses.filter((status) => status === 'PLAN_UNFULFILLABLE').length;
   const stillOwed = statuses.filter((status) => status === 'PENDING').length;
-  const failed = statuses.length - answered - declined;
+  const failed = statuses.length - answered - declined - alreadyFulfilled - unfulfillable;
 
   /**
    * What actually happened, in the operator's terms.
@@ -1029,6 +1190,13 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     : statuses.every((status) => status === 'PENDING') ? 'PROVIDER_PENDING'
     // Our own switch stopped the buying and nothing was collected: not an empty
     // market, not a provider outage, and not a market that failed.
+    // Everything the plan authorised had already been done. Reporting that as an
+    // empty market would say something false about the market.
+    : alreadyFulfilled > 0 && answered === 0 && failed === 0 && declined === 0
+      && unfulfillable === 0 ? 'COMPLETED'
+    // The approved tasks can no longer be collected and buying instead was not
+    // authorised, so this is blocked on a new approval rather than on a provider.
+    : unfulfillable > 0 && answered === 0 && failed === 0 ? 'DISCOVERY_BLOCKED'
     : declined > 0 && answered === 0 && failed === 0 ? 'MARKET_DISABLED'
     : answered === 0 ? 'PROVIDER_UNAVAILABLE'
     : failed > 0 ? 'PARTIAL'
@@ -1408,6 +1576,8 @@ async function ingestDiscoveries(
   // `account_id` stays null until an Account exists. The row is evidence of a
   // sighting; it is not a claim that the sighting is a company.
   const observationIdsByIdentity = new Map<string, string[]>();
+  /** The rows themselves, so advertising evidence reads every sighting, not one. */
+  const observationsByIdentity = new Map<string, ProviderObservation[]>();
   for (const observation of observations) {
     const identity = registrableDomain(observation.observedDomain)
       ?? (observation.observedPhone?.trim() || null);
@@ -1436,6 +1606,9 @@ async function ingestDiscoveries(
     const held = observationIdsByIdentity.get(identity) ?? [];
     held.push(rows[0]!.observation_id);
     observationIdsByIdentity.set(identity, held);
+    const rowsHeld = observationsByIdentity.get(identity) ?? [];
+    rowsHeld.push(observation);
+    observationsByIdentity.set(identity, rowsHeld);
   }
 
   for (const business of businesses) {
@@ -1616,9 +1789,21 @@ async function ingestDiscoveries(
       //
       // Written in the same transaction as the observation: evidence that outlived
       // a rolled-back observation would be a claim with no provenance behind it.
-      const adClaim = AD_CLAIM_BY_RESULT_TYPE[String(business.resultType ?? '')];
-      if (adClaim) {
-        const observedAt = business.observedAt ?? new Date();
+      /**
+       * Every paid sighting is its own dated claim, not one claim per company.
+       *
+       * The evidence used to be written from the single representative row, so a
+       * company that appeared as an organic result *and* a paid ad *and* a Local
+       * Services ad produced whichever the projection had picked -- and if that was
+       * the organic row, the advertising was simply missed, even though all three
+       * observations were sitting in the table. Advertising is a fact about a
+       * sighting, so it is read from the sightings.
+       */
+      const paidSightings = (identity ? observationsByIdentity.get(identity) ?? [] : [])
+        .filter((observation) => AD_CLAIM_BY_RESULT_TYPE[String(observation.resultType)]);
+      for (const sighting of paidSightings) {
+        const adClaim = AD_CLAIM_BY_RESULT_TYPE[String(sighting.resultType)]!;
+        const observedAt = sighting.observedAt ?? new Date();
         const when = observedAt.toISOString().slice(0, 10);
         await recordEvidence(client, {
           accountId: result.accountId,
@@ -1627,8 +1812,8 @@ async function ingestDiscoveries(
           // Says what was seen, for which search, on which day. A rep can repeat
           // this sentence; they cannot turn it into "you always advertise", and it
           // says nothing about what the advertising costs.
-          claimText: business.query
-            ? `${adClaim.what} was observed for "${business.query}" on ${when}.`
+          claimText: sighting.query
+            ? `${adClaim.what} was observed for "${sighting.query}" on ${when}.`
             : `${adClaim.what} was observed on ${when}.`,
           normalizedValue: 'yes',
           confidence: 'confirmed',
@@ -1637,36 +1822,36 @@ async function ingestDiscoveries(
           canStateAsFact: true,
           sourceType: 'provider_serp',
           sourceProvider: providerName,
-          sourceReference: business.query
-            ? `serp://${providerName}/${business.query}${
-              business.position === undefined || business.position === null
-                ? '' : `#${business.position}`}`
+          sourceReference: sighting.query
+            ? `serp://${providerName}/${sighting.query}${
+              sighting.position === undefined || sighting.position === null
+                ? '' : `#${sighting.position}`}`
             : `serp://${providerName}`,
           expiresAt: new Date(
             observedAt.getTime() + evidenceTtlHours(adClaim.claimKey) * 3_600_000),
-          notes: business.adHeadline ?? null,
+          notes: sighting.adHeadline ?? null,
         });
         counts.adEvidenceWritten += 1;
 
         // The same placement, said more precisely, when their own headline says so.
         // Written as its own claim rather than replacing the general one: a hail ad
         // is still a Google search ad, and both facts are true of the same sighting.
-        if (business.adHeadline && HAIL_AD_HEADLINE.test(business.adHeadline)) {
+        if (sighting.adHeadline && HAIL_AD_HEADLINE.test(sighting.adHeadline)) {
           await recordEvidence(client, {
             accountId: result.accountId,
             category: 'surge',
             claimKey: HAIL_AD_CLAIM,
-            claimText: `A paid result for "${business.query ?? 'this company'}" carried `
-              + `the headline "${business.adHeadline.slice(0, 120)}" on ${when}.`,
+            claimText: `A paid result for "${sighting.query ?? 'this company'}" carried `
+              + `the headline "${sighting.adHeadline.slice(0, 120)}" on ${when}.`,
             normalizedValue: 'yes',
             confidence: 'confirmed',
             canStateAsFact: true,
             sourceType: 'provider_serp',
             sourceProvider: providerName,
-            sourceReference: `serp://${providerName}/${business.query ?? ''}`,
+            sourceReference: `serp://${providerName}/${sighting.query ?? ''}`,
             expiresAt: new Date(
               observedAt.getTime() + evidenceTtlHours(HAIL_AD_CLAIM) * 3_600_000),
-            notes: business.adHeadline,
+            notes: sighting.adHeadline.slice(0, 200),
           });
           counts.adEvidenceWritten += 1;
         }

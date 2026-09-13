@@ -209,8 +209,8 @@
             return '  ' + search.index + '. ' + search.keyword
               + '\n      ' + purposeWord(search)
               + ' \u00b7 ' + (search.coverageRole === 'PRIMARY' ? 'primary' : 'secondary')
-              + ' \u00b7 ' + (search.chargeable
-                ? 'new paid search' : 'already paid for, will collect');
+              + ' \u00b7 ' + (search.executionDisposition === 'COLLECT_EXISTING'
+                ? 'already paid for, will collect' : 'new paid search');
           });
           var remaining = Number(plan.remainingBudgetUsd || 0);
           var summary = 'This will run ' + searches.length + ' search'

@@ -304,7 +304,22 @@ export async function planSearchQueries(input: {
  * is shared by everyone in it.
  */
 export async function genericTermsFor(
-  verticalProfileId: string | null, geography?: string | null,
+  verticalProfileId: string | null,
+  /**
+   * Every way this market's place is spelled: the operator's ZIP, and the location
+   * the provider was actually asked about.
+   *
+   * The ZIP alone was not enough. "St Augustine Plumbing" on
+   * `staugustineplumbing.example` still corroborated itself, because "plumbing" was
+   * generic and "augustine" was not -- and a city-plus-trade lead-generation domain
+   * is exactly the shape that repeats its own title. The provider's normalised place
+   * ("St. Augustine,Florida,United States") carries the words that make the city
+   * generic, so it is market vocabulary too.
+   *
+   * This says nothing about where any business is. It decides only which words are
+   * too widely shared to prove that a domain belongs to a particular company.
+   */
+  ...geographies: (string | null | undefined)[]
 ): Promise<Set<string>> {
   const terms = new Set<string>();
   const add = (text: string | null | undefined): void => {
@@ -319,6 +334,6 @@ export async function genericTermsFor(
     for (const term of await negativeTermsFor(verticalProfileId)) add(term);
     add(verticalProfileId.replace(/[_-]+/g, ' '));
   }
-  add(geography ?? null);
+  for (const geography of geographies) add(geography ?? null);
   return terms;
 }

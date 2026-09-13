@@ -136,6 +136,13 @@ Two false-positive paths survived the first pass:
   are thirteen verticals and there will be more -- they are derived from the vertical's
   own search taxonomy, together with the geography being searched, so a new trade is
   generic on the day its profile is written.
+- the market's *place* was not generic vocabulary. Only the operator's raw ZIP reached
+  `genericTermsFor`, so "St Augustine Plumbing" on `staugustineplumbing.example` still
+  corroborated itself: "plumbing" was generic and "augustine" was not. The vocabulary
+  now includes the place the provider was asked about — from the planner, and from
+  `searchLocationName` on the response itself, which matters because a ZIP our own
+  records cannot resolve to a town is exactly the first search of an unfamiliar
+  market. None of this is ever read as a business address;
 - "two independent results agree" looked only at rows for the same domain, so an
   unknown directory listing one contractor on a profile page and a category page
   corroborated itself. Agreement among pages of one site is that site repeating
@@ -226,6 +233,18 @@ that the provider had identified a business. The two are now separate fields:
 `observedBusinessAddress` (from `item.address`) and `searchLocationName` (from
 `result.location_name`). Only the first is ever stored as an address or read as
 identification.
+
+**The canonical projection does not depend on SERP row order (review).** Entity
+resolution grouped the observations correctly and then built the business object from
+whichever row arrived first, so a company seen as an organic result, a paid ad and a
+Maps listing had its address, provider id and result type decided by print order — and
+when the organic row won, the advertising was missed even though the paid row was
+sitting in the table. The representative observation is now *chosen*: a provider
+business listing first, then whichever row carries a structured address, then page
+position, with a deterministic tie-break. Advertising is read separately from **every**
+paid sighting, because a company that both ranks and advertises has two facts about it
+and one is not a consequence of the other. All six permutations of organic / paid /
+Maps produce the same Account, the same location and the same evidence.
 
 **An observed address is kept (review).** Separating `observedBusinessAddress` from
 `searchLocationName` stopped the search target being written as an address, and then
@@ -347,6 +366,38 @@ the ceiling is refused like any other.
 **Unattended runs are unchanged.** A scheduled saved-market refresh has no preview and
 plans server-side exactly as before. Forcing every automatic pass through a human
 confirmation was never the requirement.
+
+The provider's **mode** is part of its identity, not a label on it. Standard and Live
+are different endpoints, different task lifecycles and different prices, so matching
+the adapter by name alone let a plan confirmed against Standard execute against Live
+after a restart — the same provider, a different purchase. The worker requires
+`adapter.name` **and** `adapter.mode` to equal what was confirmed, and fails closed
+otherwise.
+
+**A collect may never become a buy (review).** The preview recorded, per search,
+whether a task was already outstanding — and the worker then asked that question again
+at execution. If the task had been collected or closed in between, it found nothing
+pending and bought a replacement: the approval said "already paid for, will collect"
+and the spend said otherwise, in the one direction that must never move. Each search
+now carries an immutable `executionDisposition` and, for a collection, the id of the
+specific task the operator was shown:
+
+| Approved | State at execution | What happens |
+| --- | --- | --- |
+| `COLLECT_EXISTING` | still `PENDING` | collected, nothing bought |
+| `COLLECT_EXISTING` | `COLLECTED` | already satisfied — `ALREADY_FULFILLED`, nothing bought, not a failure |
+| `COLLECT_EXISTING` | `FAILED` / `ABANDONED` / gone | `PLAN_UNFULFILLABLE`, nothing bought, needs a new plan |
+| `BUY_NEW` | nothing outstanding | bought, subject to the ceiling |
+| `BUY_NEW` | an equivalent task appeared | collected instead — spend only decreases |
+
+Every provider call is inside the loop over the plan's own searches, one call each, so
+the chargeable count can only ever be the number of `BUY_NEW` searches that were
+approved. A search whose fingerprint is not in the approved intent buys nothing.
+
+**A stored preview is not an authorisation (review).** The row exists from the moment
+somebody asks what a search would cost. The worker requires the plan to have been
+confirmed (`consumed_at`), so knowing a plan id is not the same as somebody having
+agreed to the purchase.
 
 ### 9b. One vocabulary for the mining mode **(review)**
 

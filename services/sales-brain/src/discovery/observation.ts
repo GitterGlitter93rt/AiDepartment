@@ -136,6 +136,28 @@ export function resolveObservations(
   /** Words that are generic in this market, from the vertical's own taxonomy. */
   genericTerms: ReadonlySet<string> = new Set(),
 ): ResolvedObservations {
+  /**
+   * The market's own vocabulary, plus the place the provider says it searched.
+   *
+   * The caller derives the first from the vertical's taxonomy and the geography it
+   * asked for. The second comes from the response: `location_name` is on every row,
+   * it is how the provider spells this market's place, and a ZIP that our own records
+   * cannot resolve to a town still arrives here with the town written on it. Without
+   * it, the first search of an unfamiliar ZIP is exactly the case where a
+   * city-plus-trade domain has nothing to stop it corroborating itself.
+   *
+   * This says nothing about where any business is; `searchLocationName` is never
+   * business-address evidence. It decides only which words are too widely shared to
+   * prove a domain belongs to a particular company.
+   */
+  const marketVocabulary = new Set<string>(genericTerms);
+  for (const observation of observations) {
+    for (const word of (observation.searchLocationName ?? '')
+      .toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/)) {
+      if (word.length >= 3) marketVocabulary.add(word);
+    }
+  }
+
   const eligible = observations.filter((observation) => CANDIDATE_TYPES.has(observation.resultType));
   const candidates = resolveCandidates(eligible.map((observation) => ({
     resultType: observation.resultType,
@@ -145,7 +167,7 @@ export function resolveObservations(
     observedBusinessAddress: observation.observedBusinessAddress,
     landingUrl: observation.landingUrl,
     position: observation.position,
-  })), genericTerms);
+  })), marketVocabulary);
 
   const verified = candidates.filter((candidate) => candidate.status === 'VERIFIED');
   const businesses = businessesFromCandidates(verified, eligible);
@@ -177,12 +199,47 @@ export function resolveObservations(
 function businessesFromCandidates(
   verified: EntityCandidate[], observations: ProviderObservation[],
 ): DiscoveredBusiness[] {
+  /**
+   * Which row speaks for the company, chosen rather than encountered.
+   *
+   * This used to keep the first observation seen for an identity, so a company that
+   * appeared as an organic result, a paid ad and a Maps listing had its address,
+   * provider id and result type decided by whichever the provider happened to print
+   * first. The same three rows in a different order produced a different Account.
+   *
+   * A provider business listing is the strongest thing here by construction -- the
+   * provider resolved the entity rather than us inferring it -- so it speaks for the
+   * company, then whichever row carries a structured address, then page order. The
+   * *sighting* fields that come with it are only a representative sighting: the
+   * advertising evidence is built from every paid observation separately, because a
+   * company that both ranks and advertises has two facts about it and one of them is
+   * not a consequence of the other.
+   */
+  const strength = (observation: ProviderObservation): number => {
+    let score = 0;
+    if (observation.resultType === 'MAPS_LOCAL'
+      || observation.resultType === 'LOCAL_SERVICES_AD') score += 8;
+    if (observation.observedCity || observation.observedPostalCode) score += 4;
+    if (observation.observedBusinessAddress) score += 2;
+    if (observation.providerNativeId) score += 1;
+    return score;
+  };
+
   const byIdentity = new Map<string, ProviderObservation>();
   for (const observation of observations) {
     const identity = registrableDomain(observation.observedDomain)
       ?? (observation.observedPhone?.trim() || null);
-    if (!identity || byIdentity.has(identity)) continue;
-    byIdentity.set(identity, observation);
+    if (!identity) continue;
+    const held = byIdentity.get(identity);
+    if (!held) { byIdentity.set(identity, observation); continue; }
+    const better = strength(observation) - strength(held);
+    if (better > 0) { byIdentity.set(identity, observation); continue; }
+    // A deterministic tie-break, so equal rows do not depend on arrival order.
+    if (better === 0
+      && (observation.position ?? Number.MAX_SAFE_INTEGER)
+         < (held.position ?? Number.MAX_SAFE_INTEGER)) {
+      byIdentity.set(identity, observation);
+    }
   }
 
   const businesses: DiscoveredBusiness[] = [];

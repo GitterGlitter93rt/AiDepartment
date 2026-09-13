@@ -47,9 +47,9 @@ interface ProviderCall {
 }
 let calls: ProviderCall[] = [];
 
-function recordingAdapter(name = 'dataforseo') {
+function recordingAdapter(name = 'dataforseo', mode = 'standard') {
   registerDiscoveryAdapter({
-    name, requiresCredential: false, governanceReviewed: true, mode: 'standard',
+    name, requiresCredential: false, governanceReviewed: true, mode,
     isConfigured: () => true,
     async discover(request: DiscoveryQuery): Promise<DiscoveryResult> {
       calls.push({
@@ -443,7 +443,7 @@ test('a search already paid for is collected, not bought again', async () => {
     verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
     queryBudget: 2 });
   const reused = second.body['plan'] as Record<string, any>;
-  assert.equal(reused['searches'][0]['disposition'], 'ALREADY_SUBMITTED_WILL_COLLECT');
+  assert.equal(reused['searches'][0]['executionDisposition'], 'COLLECT_EXISTING');
   assert.equal(reused['chargeableTaskCount'], 1,
     'a search we have already paid for was quoted for again');
   assert.ok(reused['estimatedCostUsd'] < plan['estimatedCostUsd']);
@@ -589,4 +589,192 @@ test('two different confirmed plans are two jobs, never one', async () => {
   const { rows } = await query<{ n: number }>(
     `select count(*)::int as n from jobs where job_type = 'market_mine'`);
   assert.equal(rows[0]!.n, 2);
+});
+
+// ------------------------------------------------------------ provider mode ----
+
+test('a provider that changed mode since confirmation buys nothing', async () => {
+  // Standard and Live are different endpoints, different lifecycles and different
+  // prices. Matching the adapter by name alone meant a plan confirmed against
+  // Standard could execute against Live after a restart -- the same provider, and a
+  // different purchase.
+  recordingAdapter('dataforseo', 'standard');
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  assert.equal((planned.body['plan'] as Record<string, any>)['providerMode'], 'standard');
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  clearDiscoveryAdapters();
+  recordingAdapter('dataforseo', 'live');
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'a plan confirmed for standard mode executed against live');
+  const { rows } = await query<{ outcome: string; outcome_reason: string }>(
+    `select outcome, outcome_reason from jobs where job_type = 'market_mine'`);
+  assert.equal(rows[0]!.outcome, 'DISCOVERY_BLOCKED');
+  assert.match(rows[0]!.outcome_reason, /different purchases/);
+});
+
+test('an unchanged provider mode executes normally', async () => {
+  recordingAdapter('dataforseo', 'standard');
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // Re-registered identically, as a restart would.
+  clearDiscoveryAdapters();
+  recordingAdapter('dataforseo', 'standard');
+  await drainQueue();
+
+  assert.equal(calls.length, 2, 'an unchanged provider mode refused to execute');
+});
+
+// ------------------------------------------- a collect may never become a buy ----
+
+/** Puts an outstanding task in front of the next preview of this market. */
+async function outstandingTaskFor(fingerprint: string, nativeId = 'owed-1') {
+  const { recordProviderTask } = await import('../src/miner/providerTasks.js');
+  return recordProviderTask({
+    provider: 'dataforseo', providerNativeId: nativeId,
+    fingerprint, jobId: null, request: {} });
+}
+
+/** A plan whose first search is authorised as a collection, not a purchase. */
+async function planWithACollect() {
+  const first = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const fingerprint = (first.body['plan'] as Record<string, any>)['searches'][0]['fingerprint'];
+  await outstandingTaskFor(fingerprint);
+
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['searches'][0]['executionDisposition'], 'COLLECT_EXISTING');
+  assert.equal(plan['chargeableTaskCount'], 1, 'the fixture no longer quotes a collection');
+  return { planned, plan };
+}
+
+test('A. a collect whose task was collected first buys no replacement', async () => {
+  recordingAdapter();
+  const { planned, plan } = await planWithACollect();
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // Something else collects the task between the confirmation and this run.
+  await query(
+    `update provider_tasks set status = 'COLLECTED' where provider_task_id = $1`,
+    [plan['searches'][0]['approvedProviderTaskId']]);
+  await drainQueue();
+
+  // Exactly one call: the second search, which was approved as a purchase. The
+  // collection that had already happened bought nothing.
+  assert.equal(calls.length, 1,
+    'a search approved as a collection turned into a new paid search');
+  assert.equal(calls[0]!.fingerprint, plan['searches'][1]['fingerprint']);
+
+  // And it is reported as finished work rather than as a problem. The distinction
+  // matters to whoever reads the run: an approval that was already satisfied needs
+  // nobody's attention, and one that died needs a new plan.
+  const { rows } = await query<{ outcome: string; progress: Record<string, any> }>(
+    `select outcome, progress from jobs where job_type = 'market_mine'`);
+  const perSearch = rows[0]!.progress['perSearch'] as Record<string, any>[];
+  const fulfilled = perSearch.find(
+    (search) => search['fingerprint'] === plan['searches'][0]['fingerprint']);
+  assert.equal(fulfilled?.['status'], 'ALREADY_FULFILLED',
+    'an approval that had already been satisfied was reported as a failure');
+  assert.match(String(fulfilled!['reason']), /already been collected/);
+  assert.notEqual(rows[0]!.outcome, 'DISCOVERY_BLOCKED',
+    'a run that did exactly what it was approved to do was reported as blocked');
+});
+
+test('B. a collect whose task failed buys no replacement, and says so', async () => {
+  recordingAdapter();
+  const { planned, plan } = await planWithACollect();
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  await query(
+    `update provider_tasks set status = 'FAILED' where provider_task_id = $1`,
+    [plan['searches'][0]['approvedProviderTaskId']]);
+  await drainQueue();
+
+  assert.equal(calls.length, 1, 'a dead task was replaced with a new paid search');
+  const { rows } = await query<{ progress: Record<string, any> }>(
+    `select progress from jobs where job_type = 'market_mine'`);
+  const perSearch = rows[0]!.progress['perSearch'] as Record<string, any>[];
+  const unfulfilled = perSearch.find((row) => row['status'] === 'PLAN_UNFULFILLABLE');
+  assert.ok(unfulfilled, 'the run does not report the search it could not fulfil');
+  assert.match(String(unfulfilled!['reason']), /can no longer be collected/);
+});
+
+test('C. a buy may become a collect when an equivalent task appears', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+  const plan = planned.body['plan'] as Record<string, any>;
+  assert.equal(plan['chargeableTaskCount'], 2);
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // A task for one of the approved searches turns up after the confirmation. The run
+  // may collect it instead of buying, because that only spends less.
+  await outstandingTaskFor(plan['searches'][0]['fingerprint'], 'appeared-later');
+  await drainQueue();
+
+  const chargeable = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks where submitted_at > now() - interval '1 hour'`);
+  assert.ok(chargeable.rows[0]!.n <= plan['chargeableTaskCount'] + 1,
+    'more tasks exist than the plan authorised');
+  assert.ok(calls.length <= 2);
+});
+
+test('D. no state transition makes the run buy more than was approved', async () => {
+  recordingAdapter();
+  const { planned, plan } = await planWithACollect();
+  const approvedMaximum = plan['chargeableTaskCount'] as number;
+  assert.equal((await confirm(planned.body['planId'], planned.body['planHash'])).status, 200);
+
+  // The collection is closed, which is the transition that used to release a purchase.
+  await query(
+    `update provider_tasks set status = 'ABANDONED' where provider_task_id = $1`,
+    [plan['searches'][0]['approvedProviderTaskId']]);
+  await drainQueue();
+
+  const { rows } = await query<{ progress: Record<string, any> }>(
+    `select progress from jobs where job_type = 'market_mine'`);
+  const perSearch = rows[0]!.progress['perSearch'] as Record<string, any>[];
+  // What a purchase looks like from the outside: a provider was actually asked.
+  const bought = perSearch.filter((row) =>
+    row['status'] !== 'PLAN_UNFULFILLABLE' && row['status'] !== 'ALREADY_FULFILLED').length;
+  assert.ok(bought <= approvedMaximum,
+    `${bought} searches were bought against an approved maximum of ${approvedMaximum}`);
+  assert.equal(calls.length, approvedMaximum);
+});
+
+// ----------------------------------------------------- authority of the plan ----
+
+test('a preview nobody confirmed cannot be executed by referencing its id', async () => {
+  recordingAdapter();
+  const planned = await preview({
+    verticalProfileId: 'roofing', geography: { type: 'zip_zcta', value: ZIP },
+    queryBudget: 2 });
+
+  // Never confirmed. A caller that can enqueue reaches for the plan directly, which
+  // is the shape of an internal mistake rather than an attack: knowing an id is not
+  // the same as somebody having agreed to the purchase.
+  const { enqueueMarketResearch } = await import('../src/workers/enqueue.js');
+  await enqueueMarketResearch({
+    verticalProfileId: 'roofing', geographyType: 'zip_zcta', geographyValue: ZIP,
+    marketId: null, requestedBy: (await makeOperator()).userId, queryBudget: 2,
+    confirmedPlan: {
+      planId: planned.body['planId'], planHash: planned.body['planHash'] },
+  });
+  await drainQueue();
+
+  assert.equal(calls.length, 0, 'an unconfirmed preview executed');
+  const { rows } = await query<{ outcome_reason: string }>(
+    `select outcome_reason from jobs where job_type = 'market_mine'`);
+  assert.match(rows[0]!.outcome_reason, /nobody confirmed/);
 });

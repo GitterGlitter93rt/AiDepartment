@@ -58,7 +58,7 @@ test('the plan names every search before anything is bought', async () => {
 test('the plan says which searches will be charged for', async () => {
   const first = await buildPaidPlan(REQUEST);
   assert.equal(first.chargeableTaskCount, 3);
-  assert.ok(first.searches.every((search) => search.disposition === 'NEW_PAID_TASK'));
+  assert.ok(first.searches.every((search) => search.executionDisposition === 'BUY_NEW'));
   assert.ok(first.estimatedCostUsd > 0);
 
   // A task the provider already owes us is collected, not bought again, and the
@@ -69,7 +69,9 @@ test('the plan says which searches will be charged for', async () => {
   });
 
   const second = await buildPaidPlan(REQUEST);
-  assert.equal(second.searches[0]!.disposition, 'ALREADY_SUBMITTED_WILL_COLLECT');
+  assert.equal(second.searches[0]!.executionDisposition, 'COLLECT_EXISTING');
+  assert.ok(second.searches[0]!.approvedProviderTaskId,
+    'the plan does not name the task it promised to collect');
   assert.equal(second.searches[0]!.chargeable, false);
   assert.equal(second.chargeableTaskCount, 2);
   assert.ok(second.estimatedCostUsd < first.estimatedCostUsd,

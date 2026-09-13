@@ -30,6 +30,8 @@ export interface BusinessSpec {
   observedAt?: Date | null;
   /** An address the provider observed for the business. Never a search geography. */
   observedBusinessAddress?: string | null;
+  /** How the provider spells this market's place. Present on every real row. */
+  searchLocationName?: string | null;
   /** Accepted and ignored: a SERP row does not observe one. */
   city?: string | null;
   state?: string | null;
@@ -83,7 +85,7 @@ function base(spec: BusinessSpec): ProviderObservation {
       // observed about the business itself.
       ?? (spec.phone ? null : `${spec.name} premises`),
     observedCity: null, observedRegion: null, observedPostalCode: null,
-    searchLocationName: null,
+    searchLocationName: spec.searchLocationName ?? null,
     resultType: 'MAPS_LOCAL',
     position: spec.position ?? null,
     adHeadline: null,
