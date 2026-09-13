@@ -1,0 +1,132 @@
+schema_version: "1.0.0"
+contract: yad_sales_ai_frame_experiment_candidates_v1
+purpose: >-
+  Define a small controlled set of truthful cold-call framing variants for YAD live testing while keeping
+  the business-process hook constant.
+
+research_context:
+  note: >-
+    Public third-party research is directional only. Gong has published large-dataset findings suggesting
+    tailored permission-based cold openers can outperform weak generic permission openers, while HubSpot's
+    2025 survey supports research/personalization and direct purpose/research-led openings. YAD must validate
+    all variants with its own reviewed live data.
+  never_quote_external_conversion_rate_to_prospect: true
+
+frames:
+  F1_EXPLICIT_COLD:
+    label: quick_cold_call
+    shape: >-
+      Hey [Name], [identity] with Your AI Department. Quick cold call — I'll keep it short.
+      [claim_safe_reason] [one_process_question]
+    strengths:
+      - transparent
+      - very_fast_to_relevance
+      - few_words_before_question
+    risks:
+      - phrase_cold_call_may_trigger_reflexive_brush_off
+    status: primary_baseline
+
+  F2_OUT_OF_NOWHERE:
+    label: calling_out_of_nowhere
+    shape: >-
+      Hey [Name], [identity] with Your AI Department. I know I'm calling you out of nowhere — one quick question.
+      [claim_safe_reason] [one_process_question]
+    strengths:
+      - transparent_without_exact_cold_call_phrase
+      - conversational
+      - still_fast
+    risks:
+      - slightly_longer
+    status: primary_comparator
+
+  F4_TAILORED_PERMISSION:
+    label: researched_permission
+    shape: >-
+      Hey [Name], [identity] with Your AI Department. I'll be straight with you — this is a cold call,
+      but I did my homework. Can I take twenty seconds to tell you why I called your company specifically,
+      and then you can tell me if it's worth continuing?
+    after_permission_yes:
+      shape: >-
+        [claim_safe_reason] [one_process_question]
+    after_permission_no:
+      behavior: thank_and_end_or_capture_requested_next_step
+    strengths:
+      - owns_unsolicited_context
+      - explicitly_promises_relevance
+      - prospect_controls_continuation
+      - public_research_supports_testing_tailored_permission_style
+    risks:
+      - longer_before_business_question
+      - adds_one_extra_turn
+      - may_sound_scripted_if_delivery_is_too_polished
+      - can_increase_latency_sensitivity
+    status: controlled_test_after_baseline_voice_passes
+
+negative_controls_offline_only:
+  BAD_TIME:
+    shape: "Did I catch you at a bad time?"
+    expected: reject_as_default
+    reasons:
+      - generic
+      - prospect_can_exit_before_relevance
+      - historically_poor_in_public_cold_call_research
+
+  GENERIC_PERMISSION:
+    shape: "Can I have thirty seconds to tell you about our company?"
+    expected: reject_as_default
+    reasons:
+      - permission_without_research_relevance
+      - product_company_first
+
+experiment_design:
+  stage_1:
+    compare:
+      - F1_EXPLICIT_COLD
+      - F2_OUT_OF_NOWHERE
+    hold_constant:
+      - hook_family
+      - vertical_market_quality
+      - callpack_quality
+      - model
+      - voice
+      - stt
+      - tts
+      - qualification_gate
+      - booking_close
+  stage_2:
+    prerequisite: stable_voice_and_no_critical_first_minute_failures
+    compare:
+      - current_acceptable_baseline_frame
+      - F4_TAILORED_PERMISSION
+    hold_constant:
+      - hook_family
+      - cohort_quality
+      - model_voice_stack
+      - qualification_and_booking
+
+live_metrics:
+  - human_answered
+  - prospect_allows_continuation
+  - hangup_or_rejection_before_reason
+  - first_question_answered
+  - useful_process_fact_by_agent_turn_3
+  - right_stakeholder_reached
+  - meaningful_problem_supported
+  - strategy_call_offered
+  - strategy_call_booked
+  - strategy_call_attended
+  - michael_qualification_quality
+  - dnc_or_negative_reaction
+  - opening_duration_seconds
+  - agent_words_before_first_process_question
+
+promotion_rules:
+  - do_not_promote_from_booking_rate_alone
+  - require_no_truth_or_experience_regression
+  - prefer_qualified_attended_meeting_quality_downstream
+  - early_micro_pilot_results_are_directional_not_statistical_proof
+  - one_severe_qualitative_failure_can_pause_variant_immediately
+
+core_rule: >-
+  Test framing separately from the business-process hook. The winning frame earns attention without hiding that the call is unsolicited,
+  and it still produces real qualified meetings rather than curiosity-only conversations.

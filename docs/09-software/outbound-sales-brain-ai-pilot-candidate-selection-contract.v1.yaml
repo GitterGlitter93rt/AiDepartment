@@ -1,0 +1,354 @@
+schema_version: "1.0.0"
+contract: yad_ai_pilot_candidate_selection_v1
+status: architecture_authority
+purpose: >-
+  Select a tiny manager-reviewable set of the cleanest eligible Accounts for the first outbound
+  Sales AI pilot without changing the primary rep experience into a forced queue and without
+  allowing fit/ranking to override phone eligibility or relationship state.
+
+scope:
+  initial_vertical: hvac
+  initial_geography:
+    - Jacksonville_FL
+    - St_Augustine_FL
+  initial_concurrency: 1
+  primary_agent: yad-sales-core-v1
+  manager_approval_required: true
+
+principles:
+  - pilot_candidate_selection_is_not_rep_queue
+  - account_must_remain_canonical
+  - eligibility_is_hard_gate_not_rank_feature
+  - relationship_history_is_hard_gate
+  - current_research_required_for_current_tense_hook
+  - strongest_contact_route_preferred_but_not_fabricated
+  - module_04c_score_remains_separate_from_pilot_priority
+  - manager_selects_exact_accounts_before_dial
+  - adding_to_pilot_never_immediately_dials
+
+inputs:
+  account:
+    required:
+      - account_id
+      - canonical_identity_state
+      - relationship_state
+      - ownership_state
+      - vertical_profile_id
+      - primary_location
+  research:
+    required:
+      - research_run_id
+      - research_freshness
+      - research_completeness
+      - canonical_score
+      - yad_tier
+      - evidence_snapshot
+      - primary_hypothesis
+  contact:
+    required:
+      - target_role
+      - contact_route_type
+      - phone_id
+      - phone_quality
+      - phone_source
+      - phone_freshness
+    optional:
+      - contact_id
+      - person_name
+      - title
+      - employer_match
+      - role_match
+  sales_ai:
+    required:
+      - runtime_callpack_id
+      - selected_hook_family
+      - opener_context_preview
+      - do_not_claim_warnings
+      - agent_profile_version
+  policy:
+    required:
+      - autonomous_ai_voice_decision
+      - autonomous_ai_voice_decision_id
+      - compliance_policy_version
+      - decision_evaluated_at
+      - decision_refresh_by
+      - suppression_state
+      - eligible_now
+  operations:
+    required:
+      - voice_health
+      - booking_health
+      - persistence_health
+      - global_outbound_switch
+      - campaign_state
+
+hard_gates:
+  account_identity:
+    allow:
+      - IDENTITY_RESOLVED
+    block:
+      - IDENTITY_CONFLICTED
+      - EXCLUDED_NOISE
+      - CLOSED_NONOPERATING
+  relationship:
+    block:
+      - DNC
+      - MEETING_BOOKED
+      - MEETING_HELD
+      - ACTIVE_OPPORTUNITY_OWNED_ELSEWHERE
+      - CLIENT
+      - REQUESTED_CALLBACK_OWNED_ELSEWHERE
+      - POSITIVE_REPLY_OWNED_ELSEWHERE
+    review:
+      - prior_unresolved_contact_conflict
+      - recent_human_outreach_without_coordinated_plan
+  ownership:
+    rule: >-
+      If a human rep owns the Account, AI use requires an explicit manager/campaign assignment or
+      owner-coordinated action. Ownership must never be silently stolen by the AI channel.
+  phone:
+    autonomous_ai_voice_required: ALLOW
+    current_decision_required: true
+    current_suppression_must_be_clear: true
+    phone_quality_block:
+      - WRONG_NUMBER
+      - DISCONNECTED
+      - SUPPRESSED
+      - REASSIGNED_NUMBER_RISK_BLOCKING
+  research:
+    minimum_tier: B
+    allowed_completeness:
+      - complete
+      - good
+    current_hook_evidence_required: true
+    hypothesis_must_not_be_fact_claim: true
+  runtime:
+    require:
+      - runtime_callpack_present
+      - voice_health_green
+      - persistence_health_green
+      - global_outbound_switch_allows_controlled_pilot
+      - campaign_state_controlled_test_or_approved_pilot
+  booking:
+    note: >-
+      Booking adapter health is required if the selected pilot behavior is expected to offer the
+      15-minute strategy call. If booking is degraded, either block that candidate/batch or run an
+      explicitly configured no-booking internal test; never pretend booking is available.
+
+contact_route_classes:
+  DIRECT_DM_CONFIRMED:
+    description: named current stakeholder with confirmed direct business endpoint
+    preference_rank: 1
+  DIRECT_DM_PROVIDER_ASSERTED:
+    description: named stakeholder with provider-asserted direct business endpoint and acceptable currentness
+    preference_rank: 2
+  NAMED_DM_MAIN_LINE:
+    description: named current stakeholder reached through verified company main line
+    preference_rank: 3
+  ROLE_ROUTE_MAIN_LINE:
+    description: correct target role reached through verified company main line
+    preference_rank: 4
+  GENERIC_MAIN_LINE:
+    description: verified company line without reliable person/role route
+    preference_rank: 5
+  REVIEW_REQUIRED:
+    preference_rank: 99
+    pilot_ready: false
+
+pilot_priority_dimensions:
+  note: >-
+    These dimensions rank only Accounts that already passed every hard gate. They do not alter the
+    canonical Module 4C score or compliance result.
+  ordered:
+    - contact_route_strength
+    - fresh_claim_safe_hook_evidence
+    - yad_tier
+    - canonical_score_within_tier
+    - research_completeness
+    - advertiser_evidence_strength
+    - hypothesis_question_clarity
+    - no_prior_contact_complexity
+    - research_age
+
+hook_preference:
+  HVAC_AH_A1:
+    require:
+      - fresh_claim_safe_paid_demand_context
+      - after_hours_signal_or_supported_context
+    preferred: true
+  HVAC_OVERFLOW_A2:
+    require:
+      - fresh_claim_safe_business_or_ad_context
+      - phone_dependence_or_overflow_relevance
+    preferred: true
+  CATEGORY_AH_B1:
+    require:
+      - hvac_category_context
+      - no_current_ad_claim_needed
+    preferred_as_safe_fallback: true
+  rules:
+    - stale_paid_evidence_degrades_to_safe_hook_or_refresh
+    - current_ad_language_requires_fresh_claim_safe_evidence
+    - no_hook_can_assert_the_hypothesis_as_proven_pain
+
+batch_design:
+  earliest_real_batch:
+    target_count: "3-5 initially; manager may choose fewer"
+    max_concurrency: 1
+    review_after_each_call: true
+    auto_continue_without_review: false
+    suggested_mix:
+      - strong_named_dm_direct_or_main_line
+      - one_main_line_gatekeeper_route_if_eligible
+      - strong_after_hours_hook
+      - one_overflow_hook_when_comparable
+      - optional_strong_system_no_sale_branch_only_if_manager_intentionally_selects_it
+  do_not_mix_initially:
+    - law
+    - roofing
+    - collision
+    - real_estate
+    - multiple_time_zones_without_reason
+
+candidate_output:
+  fields:
+    - pilot_candidate_id
+    - account_id
+    - company_name
+    - market
+    - yad_tier
+    - yad_score
+    - advertiser_evidence_summary
+    - research_freshness
+    - research_completeness
+    - target_contact_or_role
+    - contact_route_class
+    - phone_id
+    - phone_route_label
+    - autonomous_ai_voice_decision_id
+    - autonomous_ai_voice_status
+    - decision_refresh_by
+    - selected_hook_family
+    - opener_context_preview
+    - first_question
+    - primary_hypothesis
+    - do_not_claim_warnings
+    - runtime_callpack_id
+    - relationship_summary
+    - owner_summary
+    - pilot_priority_explanation
+    - blocked_or_review_reason_optional
+
+manager_ui:
+  candidate_table_columns:
+    - company
+    - market
+    - fit
+    - advertiser_context
+    - contact_route
+    - hook_preview
+    - research_freshness
+    - relationship_history
+    - AI_voice_status
+    - action
+  actions:
+    - Preview_Call_Pack
+    - Preview_Opening
+    - Refresh_Research
+    - Review_Contact
+    - Add_to_Pilot
+    - Remove_from_Pilot
+  rule: Add_to_Pilot_does_not_dial
+
+preflight_on_start_next_call:
+  always_recheck:
+    - YAD_internal_suppression
+    - relationship_state
+    - ownership_or_assignment
+    - autonomous_ai_voice_decision_currentness
+    - local_time_eligibility
+    - campaign_state
+    - global_outbound_switch
+    - voice_health
+    - persistence_health
+    - callpack_currentness
+  refresh_if_required:
+    - external_registry_screen
+    - line_type_or_number_intelligence
+    - current_ad_evidence_used_in_opener
+  on_any_new_block:
+    - do_not_call_twilio
+    - mark_candidate_BLOCKED_or_REVIEW_REQUIRED
+    - display_reason_to_operator
+    - continue_only_when_manager_selects_another_ready_candidate
+
+first_call_review_required_fields:
+  - correct_account
+  - correct_contact_route
+  - opener_truthful
+  - first_question_answered
+  - useful_process_fact_by_turn_3
+  - interruption_behavior
+  - semantic_repetition
+  - unsupported_claims
+  - readiness_decision
+  - next_step_tool_result
+  - dnc_or_wrong_number_handling
+  - booking_truth
+  - latency
+  - root_cause_category
+  - keep_pause_or_rewrite
+
+stop_batch_if:
+  - dnc_failure
+  - phone_eligibility_bypass
+  - wrong_account_or_callpack
+  - wrong_number_reused
+  - unsupported_current_ad_claim
+  - false_booking_confirmation
+  - severe_repeated_latency
+  - repeated_barge_in_failure
+  - demo_context_leak
+  - screening_error_treated_as_allow
+
+fixtures:
+  source: outbound-sales-brain-tomorrow-hvac-pilot-gold-fixtures.v1.yaml
+  expected_examples:
+    GOLD_HVAC_001_DIRECT_DM_AD_AFTER_HOURS:
+      candidate_state: REVIEW_REQUIRED_UNTIL_AI_POLICY_ALLOWS
+      note: human ALLOW does not satisfy AI gate
+    GOLD_HVAC_005_HUMAN_ALLOW_AI_REVIEW:
+      candidate_state: NOT_AI_PILOT_READY
+    GOLD_HVAC_006_DNC_UNIVERSAL_PHONE_BLOCK:
+      candidate_state: BLOCKED
+    GOLD_HVAC_008_CALLBACK_PROTECTED:
+      candidate_state: NOT_GENERIC_AI_COLD_CANDIDATE
+    GOLD_HVAC_010_MEETING_BOOKED_REMOVED_FROM_COLD:
+      candidate_state: BLOCKED_FROM_GENERIC_COLD
+
+analytics:
+  track:
+    - candidate_count_before_hard_gates
+    - blocked_by_relationship
+    - blocked_by_phone_policy
+    - blocked_by_research_freshness
+    - blocked_by_contact_quality
+    - ready_candidate_count
+    - contact_route_mix
+    - hook_mix
+    - reviewed_call_count
+    - hard_fail_count
+    - right_person_conversation_rate
+    - first_question_answer_rate
+    - useful_fact_rate
+    - strategy_call_offered
+    - strategy_call_booked
+    - no_need
+    - dnc
+    - wrong_number
+  warning: do_not_optimize_booking_rate_without_qualified_meeting_quality
+
+core_rule: >-
+  The AI pilot cohort is a tiny explicitly reviewed execution set over the canonical Account
+  database. Fit can rank eligible candidates, but no score, manager preference, or ownership state
+  may bypass current phone eligibility, suppression, relationship history, or truth/freshness gates.

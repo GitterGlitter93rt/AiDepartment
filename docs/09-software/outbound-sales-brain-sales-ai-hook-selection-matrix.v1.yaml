@@ -1,0 +1,305 @@
+schema_version: "1.0.0"
+contract: yad_sales_ai_hook_selection_matrix_v1
+purpose: >-
+  Convert Account/CallPack evidence into one primary cold-call hook family without creating
+  one script per vertical or letting the model randomly choose a clever opener.
+
+selection_principles:
+  - prior_relationship_context_overrides_cold_hook_selection
+  - use_only_claim_safe_current_context
+  - choose_one_primary_hook
+  - allow_at_most_one_supported_backup_hook
+  - prefer_easy_operational_questions_over_abstract_strategy_questions
+  - role_fit_and_evidence_strength_both_required
+  - degrade_to_safer_context_when_claim_freshness_or_identity_is_weak
+  - do_not_select_product_first_hook
+  - do_not_select_hook_from_tier_score_alone
+
+frame_candidates:
+  F1:
+    label: explicit_quick_cold_call
+    template: "Hey [name], [identity] with Your AI Department. Quick cold call — I'll keep it short. [reason] [question]"
+  F2:
+    label: out_of_nowhere
+    template: "Hey [name], [identity] with Your AI Department. I know I'm calling you out of nowhere — one quick question. [reason] [question]"
+  F3:
+    label: direct_identity_relevance
+    template: "Hey [name], [identity] with Your AI Department. [reason] [question]"
+
+reason_context_priority:
+  - prior_requested_callback_or_reply
+  - fresh_paid_service_market_observation
+  - first_party_workflow_signal
+  - category_plus_market
+  - role_based_process_context
+
+hook_families:
+  after_hours_lead_handling:
+    question: "When somebody reaches out after hours looking for a new service, what happens today?"
+    preferred_when_any:
+      - first_party_24_7_or_emergency_service
+      - fresh_paid_demand_for_urgent_service
+      - intake_after_hours_signal
+    preferred_roles:
+      - owner_founder
+      - general_manager
+      - operations
+      - office_manager
+      - intake
+      - dispatch
+    avoid_when:
+      - no_after_hours_context_and_no_business_model_support
+      - prospect_role_is_marketing_only_and_process_ownership_unknown
+
+  simultaneous_call_overflow:
+    question: "When a new call comes in while everybody's already tied up, what happens next?"
+    preferred_when_all:
+      - strong_phone_dependence
+      - lead_or_intake_volume_operationally_important
+    preferred_roles:
+      - owner_founder
+      - general_manager
+      - operations
+      - office_manager
+      - dispatch
+      - customer_service
+    avoid_when:
+      - primarily_non_phone_funnel
+
+  missed_call_recovery:
+    question: "If a legitimate new-business call reaches voicemail, what actually keeps working it until somebody connects?"
+    preferred_when_any:
+      - voicemail_or_answering_service_confirmed
+      - phone_funnel_plus_manual_followup_signal
+    preferred_roles:
+      - owner_founder
+      - general_manager
+      - operations
+      - office_manager
+      - sales_leadership
+    requires:
+      - no_claim_that_calls_are_being_missed_unless_prospect_or_system_confirmed
+
+  unsold_estimate_or_proposal:
+    question: "What normally happens to an estimate or proposal that doesn't close the first time?"
+    preferred_when_any:
+      - estimate_heavy_business_model
+      - proposal_heavy_business_model
+      - consultation_to_quote_workflow
+      - financing_or_high_ticket_sales_signal
+    preferred_roles:
+      - owner_founder
+      - general_manager
+      - sales_leadership
+      - operations
+    common_vertical_examples:
+      - roofing
+      - collision_repair
+      - pdr_hail
+      - remodeling
+      - electrical
+      - garage_door
+      - solar_energy
+      - other_high_ticket_quote_business
+
+  speed_to_lead:
+    question: "How quickly does a brand-new inquiry normally hear from somebody?"
+    preferred_when_any:
+      - paid_lead_volume_signal
+      - website_form_or_booking_prominent
+      - intake_heavy_funnel
+    preferred_roles:
+      - owner_founder
+      - general_manager
+      - operations
+      - sales_leadership
+      - marketing
+      - intake
+    caution:
+      - can_sound_audit_like
+      - prefer_after_hours_or_overflow_when_those_are_more_concrete
+
+  crm_followup:
+    question: "Once a new lead gets into your system, what actually keeps the follow-up moving?"
+    preferred_when_any:
+      - crm_confirmed_by_prospect
+      - workflow_system_confirmed
+      - lead_management_system_signal_plus_role_fit
+    preferred_roles:
+      - operations
+      - sales_leadership
+      - marketing
+      - owner_founder
+      - general_manager
+    avoid_when:
+      - crm_only_inferred_from_weak_technical_signal
+
+  attribution:
+    question: "Can you currently trace a lead from the original source all the way to actual revenue?"
+    preferred_when_all:
+      - paid_or_multi_channel_marketing_evidence
+      - target_role_in_marketing_owner_or_executive
+    preferred_roles:
+      - marketing
+      - owner_founder
+      - president_ceo
+      - general_manager
+      - sales_leadership
+    caution:
+      - cognitively_heavier_than_operational_hooks
+      - do_not_use_with_front_desk_gatekeeper_as_primary_question
+
+  long_term_nurture:
+    question: "When somebody isn't ready right now but might be in a few months, what keeps that relationship alive?"
+    preferred_when_any:
+      - long_sales_cycle
+      - seller_or_buyer_lead_nurture
+      - consultation_based_sales
+      - high_consideration_purchase
+    preferred_roles:
+      - owner_founder
+      - sales_leadership
+      - business_development
+      - broker_owner
+      - team_leader
+      - marketing
+
+  reactivation:
+    question: "What happens to older leads or customers that go quiet — does anything consistently bring them back into the pipeline?"
+    preferred_when_any:
+      - recurring_customer_base
+      - old_lead_inventory_likely_material
+      - reactivation_campaign_context
+    preferred_roles:
+      - owner_founder
+      - sales_leadership
+      - marketing
+      - operations
+
+  appointment_no_show:
+    question: "When somebody books and doesn't show, what happens after that?"
+    preferred_when_all:
+      - appointment_or_consultation_heavy
+      - target_role_owns_schedule_or_intake
+    preferred_roles:
+      - office_manager
+      - intake
+      - practice_administrator
+      - owner_founder
+      - general_manager
+
+  intake_qualification:
+    question: "When a new inquiry comes in, what information does your team need before it can actually move forward?"
+    preferred_when_any:
+      - intake_heavy_business
+      - consultation_or_case_screening
+      - multi_step_qualification
+    preferred_roles:
+      - intake
+      - office_manager
+      - operations
+      - practice_administrator
+      - owner_founder
+    professional_boundary_required: true
+
+  admin_capacity:
+    question: "What repetitive office task eats more employee time than you think it should?"
+    preferred_when:
+      - conversation_already_established
+    preferred_roles:
+      - owner_founder
+      - general_manager
+      - operations
+      - office_manager
+    avoid_as_default_first_hook: true
+
+selection_examples:
+  hvac_emergency_google_advertiser:
+    signals:
+      - fresh_paid_demand
+      - emergency_service
+      - strong_phone_dependence
+    primary: after_hours_lead_handling
+    backup: simultaneous_call_overflow
+
+  roofing_replacement_advertiser:
+    signals:
+      - fresh_paid_demand
+      - high_ticket_quote
+      - financing
+    primary: unsold_estimate_or_proposal
+    backup: speed_to_lead
+
+  collision_shop_online_estimate:
+    signals:
+      - estimate_heavy
+      - high_phone_dependence
+    primary: unsold_estimate_or_proposal
+    backup: missed_call_recovery
+
+  real_estate_seller_lead_team:
+    signals:
+      - long_sales_cycle
+      - seller_lead_funnel
+    primary: long_term_nurture
+    backup: speed_to_lead
+
+  law_firm_after_hours_form:
+    signals:
+      - intake_heavy
+      - after_hours_form
+    primary: after_hours_lead_handling
+    backup: intake_qualification
+    professional_boundary_required: true
+
+  multi_location_medical_or_dental:
+    signals:
+      - appointment_heavy
+      - intake_heavy
+    primary: appointment_no_show
+    backup: intake_qualification
+    professional_boundary_required: true
+
+fallback_rules:
+  stale_advertiser_evidence:
+    action: remove_paid_context_and_reselect_from_first_party_or_category
+  weak_person_identity:
+    action: role_route_or_gatekeeper_opener
+  hypothesis_low_confidence:
+    action: choose_broader_operational_question
+  no_supported_primary_hook:
+    action: role_based_process_question_or_human_research_review
+  primary_hook_confirmed_solved:
+    action: test_at_most_one_supported_backup_then_end_if_solved
+
+hard_fails:
+  - invent_ad_spend
+  - assert_loss_without_evidence
+  - claim_main_line_is_person_direct
+  - mention_stale_ad_as_current
+  - fake_referral_or_familiarity
+  - stack_multiple_hook_questions_in_opening
+  - choose_hook_only_because_vertical_name_matches
+  - expose_research_creepiness_by_listing_multiple_public_facts
+  - use_professional_judgment_or_advice_as_hook
+
+analytics_fields:
+  - hook_family
+  - hook_version
+  - frame_version
+  - reason_context_class
+  - target_role
+  - evidence_strength
+  - first_question_answered
+  - useful_process_fact_obtained
+  - meaningful_problem_supported
+  - strategy_call_offered
+  - strategy_call_booked
+  - strategy_call_attended
+  - michael_qualification_quality
+  - opportunity_created
+  - dnc
+  - opening_hangup
+
+core_rule: >-
+  Choose the shortest truthful operational question that best matches the evidence and the person who owns the process.

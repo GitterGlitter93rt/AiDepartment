@@ -1,0 +1,331 @@
+fixture_set: yad_market_miner_autopilot_v1
+version: 1.0.0
+
+fixtures:
+  - id: query_planner_probe_then_expand
+    component: query_planner
+    input:
+      vertical: hvac-us-v1
+      market: Jacksonville FL
+      campaign_mode: advertiser_first
+      inventory_target: 100
+      ready_inventory: 0
+      budget_remaining_usd: 50
+      approved_query_families:
+        - emergency_ac_repair
+        - ac_repair
+        - ac_replacement
+        - hvac_contractor
+      historical_yield: none
+    expected:
+      first_action: market_probe
+      use_only_approved_queries: true
+      run_all_zip_combinations_immediately: false
+      expand_after_probe_based_on_yield: true
+      may_lower_minimum_tier_to_fill_inventory: false
+
+  - id: query_planner_inventory_full
+    component: query_planner
+    input:
+      vertical: hvac-us-v1
+      target_ready_inventory: 250
+      low_water: 200
+      high_water: 250
+      ready_fresh_inventory: 258
+      stale_inventory: 20
+    expected:
+      new_discovery: pause
+      refresh_behavior: only_policy_due_or_high_value
+      reason: high_water_reached
+
+  - id: query_planner_diminishing_return
+    component: query_planner
+    input:
+      search_cell: Jacksonville_core
+      query_family: hvac_contractor
+      recent_tasks: 20
+      new_accounts: 1
+      duplicate_rate: 0.94
+      cost_per_new_tier_b_plus: above_campaign_limit
+    expected:
+      state_any:
+        - DECLINING
+        - SATURATED
+        - COOLDOWN
+      continue_bruteforce_same_tasks: false
+      preserve_history: true
+
+  - id: noise_hvac_supply_house
+    component: false_positive_learning
+    input:
+      campaign_profile: hvac-us-v1
+      provider_category: hvac_supply
+      website_text:
+        - wholesale HVAC equipment
+        - contractor parts counter
+      customer_service_repair: false
+    expected:
+      campaign_inclusion: false
+      exclusion_reason: SUPPLY_HOUSE
+      create_call_pack: false
+      may_create_noise_pattern_observation: true
+
+  - id: noise_hvac_company_with_parts_page
+    component: false_positive_learning
+    input:
+      campaign_profile: hvac-us-v1
+      website_services:
+        - AC repair
+        - AC replacement
+        - maintenance
+      secondary_page:
+        - filters and parts
+    expected:
+      campaign_inclusion: true
+      exclusion_reason: null
+      rationale: repair_service_evidence_overrides_incidental_parts_content
+
+  - id: stale_ad_blocks_ad_opener
+    component: refresh_orchestrator
+    input:
+      tier: A
+      score: 12
+      primary_hook: paid_after_hours
+      google_ad_observation_age_hours: 120
+      ad_ttl_hours: 72
+      website_age_days: 5
+      contact_age_days: 10
+    expected:
+      refresh_google_ad: true
+      recrawl_entire_site: false
+      rebuy_contact_record: false
+      allow_current_tense_ad_opener_before_refresh: false
+      fallback_hook_allowed: true
+
+  - id: ad_refresh_no_current_observation
+    component: refresh_orchestrator
+    input:
+      previous_ad_status: confirmed_current
+      refresh_result: no_paid_result_observed
+      provider_status: healthy
+    expected:
+      new_current_status: UNKNOWN_CURRENT
+      set_not_advertising: false
+      preserve_previous_observation_as_history: true
+      current_ad_claim_allowed: false
+
+  - id: contact_route_roofing_unsold_proposals
+    component: decision_maker_router
+    input:
+      vertical: roofing-us-v1
+      primary_hypothesis: unsold_proposal_follow_up
+      contacts:
+        - title: Owner
+          source: first_party
+        - title: Sales Manager
+          source: first_party
+        - title: Office Assistant
+          source: enrichment
+    expected:
+      primary_role: sales_leadership
+      preferred_contact_title: Sales Manager
+      owner_valid_fallback: true
+
+  - id: contact_route_law_intake
+    component: decision_maker_router
+    input:
+      vertical: law-firms-us-v1
+      primary_hypothesis: after_hours_intake
+      contacts:
+        - title: Managing Partner
+        - title: Director of Intake
+        - title: Senior Associate
+    expected:
+      preferred_contact_title: Director of Intake
+      normalized_role: intake
+      random_attorney_priority: false
+
+  - id: role_only_no_name
+    component: decision_maker_router
+    input:
+      vertical: collision-repair-us-v1
+      primary_hypothesis: estimate_call_overflow
+      named_contacts: []
+      company_main_phone: present
+    expected:
+      create_fake_name: false
+      role_only_target: true
+      gatekeeper_question_contains_role_intent: true
+
+  - id: callback_beats_cold_tier_a
+    component: ready_queue
+    input:
+      now: Friday 14:00 local
+      prospects:
+        - id: P1
+          relationship: requested_callback
+          requested_time: Friday 14:00
+          tier: B
+          score: 8
+        - id: P2
+          relationship: cold_researched
+          tier: A
+          score: 15
+    expected:
+      first: P1
+      reason: relationship_commitment
+
+  - id: booked_meeting_removed_from_cold_queue
+    component: ready_queue
+    input:
+      prospect:
+        tier: A
+        score: 16
+        meeting_status: booked
+        meeting_time: tomorrow
+    expected:
+      cold_queue_eligible: false
+      preserve_relationship_state: true
+
+  - id: tier_a_advertiser_tiebreak
+    component: ready_queue
+    input:
+      prospects:
+        - id: P1
+          tier: A
+          score: 12
+          advertiser_strength: repeated_high_intent_plus_lsa
+          research: complete
+          contact_quality: confirmed_named_problem_owner
+        - id: P2
+          tier: A
+          score: 12
+          advertiser_strength: single_generic_paid_observation
+          research: complete
+          contact_quality: main_line
+    expected:
+      first: P1
+      module4c_scores_unchanged: true
+
+  - id: memory_crm_correction
+    component: prospect_memory
+    input:
+      public_signal:
+        crm: ServiceTitan_related_frontend_signal
+      prospect_statement:
+        text: We moved to Housecall Pro two months ago.
+        source: prospect_verified
+        observed_at: current
+    expected:
+      current_internal_system: Housecall Pro
+      preserve_service_titan_as_historical_public_signal: true
+      future_call_pack_may_say_service_titan_current: false
+
+  - id: memory_cross_vertical
+    component: prospect_memory
+    input:
+      account: ABC Heating Plumbing and Air
+      prior_campaign: hvac-us-v1
+      prior_outcome: spoke_possible_opportunity
+      new_campaign: plumbing-us-v1
+    expected:
+      account_count: 1
+      prior_contact_history_visible: true
+      new_plumbing_call_pack_allowed: true
+      act_like_never_contacted: false
+
+  - id: memory_dnc_survives_rediscovery
+    component: prospect_memory
+    input:
+      suppression: account_dnc
+      rediscovered_months_later: true
+      new_current_ads: true
+    expected:
+      queue_eligible: false
+      suppression_preserved: true
+      ads_do_not_override_dnc: true
+
+  - id: market_probe_scale_tampa
+    component: territory_expansion
+    input:
+      vertical: hvac-us-v1
+      market: Tampa FL
+      probe:
+        cost_usd: 12
+        unique_accounts: 45
+        tier_b_plus: 25
+        false_positive_rate: 0.04
+      approved_market: true
+      downstream_capacity_available: true
+    expected:
+      recommendation_any:
+        - scale
+        - productive
+      do_not_change_individual_score_rules: true
+
+  - id: market_high_supply_no_sales_capacity
+    component: territory_expansion
+    input:
+      market_state: PRODUCTIVE
+      ready_inventory: 600
+      active_rep_capacity_daily: 40
+      followup_backlog: high
+    expected:
+      aggressive_new_mining: reduce_or_pause
+      prioritize:
+        - existing_inventory
+        - refresh
+        - followup
+
+  - id: hail_old_event_not_current
+    component: refresh_orchestrator
+    input:
+      vertical: pdr-hail-us-v1
+      prior_market: Madison WI
+      prior_event_age_days: 365
+      current_event_evidence: none
+    expected:
+      current_hail_event_claim_allowed: false
+      historical_relationship_preserved: true
+      market_specific_hook_requires_new_evidence: true
+
+  - id: experiment_tiny_sample_no_winner
+    component: experiment_governance
+    input:
+      experiment: hook_family
+      variants:
+        A:
+          decision_makers: 3
+          meetings: 2
+        B:
+          decision_makers: 2
+          meetings: 0
+    expected:
+      result: INSUFFICIENT_EVIDENCE
+      auto_promote_variant: false
+
+  - id: learning_separate_discovery_from_sales
+    component: closed_loop_learning
+    input:
+      query_A:
+        unique_accounts: 100
+        tier_b_plus: 20
+        qualified_conversations: 2
+      query_B:
+        unique_accounts: 40
+        tier_b_plus: 25
+        qualified_conversations: 10
+    expected:
+      report:
+        query_A_strength: raw_discovery_volume
+        query_B_strength: fit_and_downstream_quality
+      collapse_into_one_unexplained_score: false
+
+  - id: learning_never_mutates_compliance
+    component: closed_loop_learning
+    input:
+      observed_outcome: higher_meeting_rate_outside_current_approved_contact_window
+    expected:
+      proposal_may_change_compliance: false
+      policy_engine_unchanged: true
+      finding_may_be_reported_for_policy_review: true

@@ -1,0 +1,202 @@
+template_id: yad_outbound_compliance_policy_review_v1
+version: 1.0.0
+status: template_not_legal_advice
+purpose: Populate with reviewed company/legal/carrier policy before enabling real autonomous prospect calling.
+
+policy_header:
+  policy_version: null
+  effective_date: null
+  reviewed_by: []
+  legal_counsel_reviewed: false
+  telecom_provider_terms_reviewed: false
+  states_reviewed: []
+  notes: null
+
+federal_review:
+  tcpa_ai_artificial_prerecorded_voice:
+    reviewed: false
+    source_refs:
+      - https://docs.fcc.gov/public/attachments/FCC-24-17A1.pdf
+    approved_policy_summary: null
+    autonomous_b2b_voice_default: review_required
+  ftc_tsr_b2b:
+    reviewed: false
+    source_refs:
+      - https://www.ftc.gov/business-guidance/resources/complying-telemarketing-sales-rule
+    approved_policy_summary: null
+    note: TSR treatment does not replace FCC/TCPA/state analysis.
+  federal_dnc_internal_company_policy:
+    reviewed: false
+    approved_policy_summary: null
+
+state_policy_rows:
+  # Duplicate for each state used in real prospect campaigns.
+  - state_code: EXAMPLE
+    status: not_reviewed
+    artificial_or_prerecorded_voice:
+      reviewed: false
+      business_to_business_rule: unknown
+      mobile_rule: unknown
+      landline_rule: unknown
+      consent_requirement: unknown
+      disclosure_requirements: []
+      registration_or_bond_requirements: []
+      source_refs: []
+      notes: null
+    telemarketing_calling_hours:
+      reviewed: false
+      start_local_time: null
+      end_local_time: null
+      day_restrictions: []
+      holiday_restrictions: []
+      source_refs: []
+    recording_transcription:
+      reviewed: false
+      consent_model: unknown
+      disclosure_text_or_rule: null
+      transcription_treated_same_as_recording: unknown
+      source_refs: []
+    state_dnc:
+      reviewed: false
+      registry_or_rule: unknown
+      check_required: unknown
+      source_refs: []
+    business_contact_exemptions_or_exceptions:
+      reviewed: false
+      rule: unknown
+      source_refs: []
+    autonomous_outbound_decision: review_required
+
+contact_basis_policy:
+  categories:
+    - basis: explicit_ai_voice_consent
+      definition: null
+      evidence_required: []
+      autonomous_voice_default: review_required
+    - basis: existing_business_relationship
+      definition: null
+      evidence_required: []
+      autonomous_voice_default: review_required
+    - basis: inbound_request_for_callback
+      definition: null
+      evidence_required: []
+      autonomous_voice_default: review_required
+    - basis: public_business_number_cold_prospect
+      definition: null
+      evidence_required: []
+      autonomous_voice_default: review_required
+    - basis: licensed_list_business_contact
+      definition: null
+      evidence_required: []
+      autonomous_voice_default: review_required
+    - basis: unknown
+      autonomous_voice_default: human_only_or_review
+
+line_type_policy:
+  business_landline:
+    lookup_definition: null
+    autonomous_voice_default: review_required
+  mobile:
+    lookup_definition: null
+    autonomous_voice_default: human_only_or_review
+  voip:
+    lookup_definition: null
+    autonomous_voice_default: review_required
+  toll_free:
+    lookup_definition: null
+    autonomous_voice_default: review_required
+  unknown:
+    autonomous_voice_default: review_required
+
+ai_identity_policy:
+  direct_ai_question_response: truthful
+  may_impersonate_named_human: false
+  initial_disclosure_requirement: not_reviewed
+  approved_initial_disclosure_language: null
+  approved_if_asked_language: null
+
+recording_policy:
+  default_record_call: false
+  default_persist_audio: false
+  default_persist_transcript: false
+  allowed_retention_classes: []
+  campaign_must_resolve_state_rule: true
+  provider_side_retention_reviewed: false
+
+calling_window_policy:
+  timezone_source_priority:
+    - verified_contact_or_business_timezone
+    - verified_location_timezone
+    - area_code_only_if_explicitly_approved_as_fallback
+  server_timezone_never_authoritative: true
+  conservative_default_if_unknown_timezone: review_required
+  global_company_window_if_stricter_than_law:
+    start_local_time: null
+    end_local_time: null
+
+attempt_frequency_policy:
+  max_attempts_without_contact: null
+  minimum_hours_between_attempts: null
+  voicemail_counts_as_attempt: null
+  gatekeeper_counts_as_contact: null
+  requested_callback_overrides_generic_cadence: true
+  explicit_dnc_terminates_all_sales_cadence: true
+
+suppression_policy:
+  scopes:
+    - phone
+    - contact
+    - account
+    - email
+    - campaign
+  explicit_stop_calling_minimum_scope: null
+  DNC_write_must_be_synchronous: true
+  DNC_write_failure_action: fail_closed
+  removal_requires_privileged_review: true
+  suppression_expiration_rule: null
+
+channel_policy:
+  human_voice_call:
+    separate_policy_review: true
+  autonomous_ai_voice_call:
+    separate_policy_review: true
+  sms:
+    separate_consent_policy_required: true
+  email:
+    separate_policy_required: true
+  voicemail:
+    separate_policy_review: true
+  inbound_receptionist:
+    separate_policy_from_cold_outbound: true
+
+campaign_approval:
+  required_before_real_autonomous_campaign:
+    - federal_review_complete
+    - each_destination_state_reviewed
+    - contact_basis_policy_complete
+    - line_type_policy_complete
+    - calling_window_policy_complete
+    - recording_policy_complete
+    - DNC_and_suppression_process_tested
+    - provider_terms_reviewed
+    - AI_identity_policy_complete
+    - company_owner_approval
+  approval_record_fields:
+    - campaign_id
+    - policy_version
+    - approved_states
+    - approved_contact_bases
+    - approved_line_types
+    - approved_voice_technology
+    - approved_calling_window
+    - recording_mode
+    - reviewer
+    - approved_at
+    - expiration_or_review_date
+
+software_default_until_template_populated:
+  research_only: allow
+  human_assist: allow_subject_to_human_sales_policy
+  controlled_test_allowlist: allow_subject_to_test_policy
+  autonomous_cold_ai_voice: review_required_or_disabled
+  unknown_state_or_line_or_basis: never_auto_allow

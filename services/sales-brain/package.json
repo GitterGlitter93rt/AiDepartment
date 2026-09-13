@@ -1,0 +1,57 @@
+{
+  "name": "@yad/sales-brain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "migrate": "tsx src/bin/migrate.ts",
+    "api": "tsx src/bin/api.ts",
+    "api:watch": "tsx watch src/bin/api.ts",
+    "worker": "tsx src/bin/worker.ts",
+    "seed": "tsx src/bin/seed.ts",
+    "import": "tsx src/bin/import.ts",
+    "test": "LOG_LEVEL=silent tsx --test --test-concurrency=1 tests/*.test.ts",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "node scripts/build.mjs",
+    "sync-verticals": "tsx src/bin/sync-verticals.ts",
+    "demo:research": "tsx src/bin/demo-research.ts",
+    "start:api": "node dist/bin/api.js",
+    "start:worker": "node dist/bin/worker.js",
+    "migrate:prod": "node dist/bin/migrate.js",
+    "roleplay": "tsx src/bin/roleplay.ts",
+    "test:isolation": "LOG_LEVEL=silent tsx --test --test-concurrency=1 $(ls tests/*.test.ts | tac | tr '\\n' ' ')",
+    "preflight": "tsx src/bin/exposure-preflight.ts",
+    "growth": "tsx src/bin/growth-report.ts",
+    "miner:canary": "tsx src/bin/miner-canary.ts",
+    "doctor": "tsx src/bin/doctor.ts",
+    "discovery:reprocess": "tsx src/bin/discovery-reprocess.ts",
+    "retention:plan": "tsx src/bin/retention-plan.ts",
+    "coverage": "tsx src/bin/coverage.ts",
+    "scale:bench:recent": "tsx src/bin/scale-benchmark-recent.ts",
+    "manifest": "tsx src/bin/manifest.ts",
+    "support": "tsx src/bin/support-bundle.ts",
+    "profiles:validate": "tsx src/bin/profile-contract.ts",
+    "canary:packet": "tsx src/bin/canary-packet.ts",
+    "probe:packet": "tsx src/bin/probe-packet.ts",
+    "blocka": "tsx src/bin/block-a.ts",
+    "blockb": "tsx tests/support/blockBPacket.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/multipart": "^9.0.1",
+    "@fastify/static": "^10.1.3",
+    "fastify": "^5.2.1",
+    "pg": "^8.13.1",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.3"
+  }
+}

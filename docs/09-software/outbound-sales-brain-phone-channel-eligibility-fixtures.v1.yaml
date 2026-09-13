@@ -1,0 +1,197 @@
+schema_version: "1.0.0"
+fixture_set: yad_phone_channel_eligibility_v1
+purpose: >-
+  Regression cases proving that Account research, human manual calling, autonomous AI voice,
+  registry screening and YAD suppression remain distinct and coordinated across the Prospect Factory.
+
+cases:
+  - id: researched_business_human_allowed_ai_review
+    given:
+      account_type: true_business
+      endpoint_type: MAIN_BUSINESS_LINE
+      endpoint_quality: CURRENT_BUSINESS_CONFIRMED
+      yad_dnc: false
+      registry_policy_result: no_block_for_human_under_current_reviewed_policy
+      human_policy: ALLOW
+      ai_voice_policy: REVIEW_REQUIRED
+    expect:
+      account_retained: true
+      human_manual_call: ALLOW
+      autonomous_ai_voice: REVIEW_REQUIRED
+      rep_cell_call_action_available: true
+      ai_dial_queue: false
+
+  - id: yad_phone_dnc_blocks_all_yad_calling
+    given:
+      account_type: true_business
+      endpoint_quality: CURRENT_BUSINESS_CONFIRMED
+      yad_phone_dnc: true
+    expect:
+      account_retained: true
+      human_manual_call: BLOCK
+      autonomous_ai_voice: BLOCK
+      rep_cell_call_action_available: false
+      twilio_call_created: false
+      suppression_survives_rediscovery: true
+
+  - id: account_wide_dnc_blocks_alternate_numbers
+    given:
+      account_dnc: true
+      alternate_phone_discovered_later: true
+    expect:
+      alternate_phone_can_be_researched: true
+      human_manual_call: BLOCK
+      autonomous_ai_voice: BLOCK
+      no_new_cold_target_created: true
+
+  - id: endpoint_specific_dnc_does_not_delete_account
+    given:
+      endpoint_a_dnc: true
+      endpoint_b_exists: true
+      account_scope_dnc: false
+    expect:
+      account_retained: true
+      endpoint_a_human: BLOCK
+      endpoint_a_ai: BLOCK
+      endpoint_b_requires_independent_policy_evaluation: true
+      system_does_not_assume_endpoint_b_allowed: true
+
+  - id: twilio_registry_provider_block_human_policy_independent
+    given:
+      base_human_policy: ALLOW
+      base_ai_policy: REVIEW_REQUIRED
+      twilio_provider_registry_rule: BLOCK
+    expect:
+      twilio_ai_call: BLOCK
+      human_manual_call: ALLOW
+      no_twilio_request_sent: true
+      human_decision_has_own_decision_id: true
+
+  - id: registry_match_never_used_as_marketing_feature
+    given:
+      registry_screen_result: MATCH
+    expect:
+      phone_action: BLOCK_under_applicable_policy
+      added_to_fit_score: false
+      added_to_hook: false
+      shown_in_sales_personalization: false
+      raw_registry_data_exposed_to_rep: false
+
+  - id: registry_screen_error_not_no_match
+    given:
+      registry_screen_result: ERROR
+    expect:
+      autonomous_ai_voice: REVIEW_REQUIRED_or_BLOCK
+      human_manual_call: policy_dependent_not_auto_allow
+      no_match_assumed: false
+      review_or_retry_created: true
+
+  - id: stale_registry_screen_requires_refresh
+    given:
+      prior_screen_result: NO_MATCH
+      result_is_past_policy_ttl: true
+      action_requested: AUTONOMOUS_AI_VOICE
+    expect:
+      old_result_does_not_authorize_call: true
+      refresh_before_action: true
+      twilio_request_waits_for_current_decision: true
+
+  - id: rep_marks_dnc_during_cell_call
+    given:
+      human_manual_call: ALLOW
+      call_transport: REP_CELL
+      prospect_says: "Do not call this number again"
+    expect:
+      suppression_written_durably: true
+      endpoint_human_manual_call: BLOCK
+      endpoint_autonomous_ai_voice: BLOCK
+      other_rep_action_removed: true
+      queued_twilio_attempt_cancelled_or_blocked_before_start: true
+
+  - id: rep_cell_is_not_bypass
+    given:
+      endpoint_human_manual_call: BLOCK
+      endpoint_autonomous_ai_voice: BLOCK
+      rep_owns_account: true
+    expect:
+      claim_may_persist_for_nonphone_work: true
+      portal_call_action_disabled: true
+      phone_not_presented_as_call_ready: true
+      ownership_does_not_override_policy: true
+
+  - id: phone_block_email_allowed
+    given:
+      human_manual_call: BLOCK
+      autonomous_ai_voice: BLOCK
+      email_policy: ALLOW
+    expect:
+      account_retained: true
+      rep_label: EMAIL_ONLY
+      call_action: false
+      email_action: true
+
+  - id: phone_unknown_does_not_block_research
+    given:
+      endpoint_type: UNKNOWN_PHONE_TYPE
+      line_type: unknown
+      ai_voice_policy: REVIEW_REQUIRED
+    expect:
+      account_research_continues: true
+      score_not_forced_to_zero: true
+      autonomous_ai_voice: REVIEW_REQUIRED
+      no_ai_dial: true
+
+  - id: rediscovery_does_not_reset_dnc
+    given:
+      account_has_dnc: true
+      rediscovered_sources:
+        - GOOGLE_ADVERTISER_MINER
+        - IMPORTED_CSV
+        - LICENSED_PROVIDER
+    expect:
+      one_canonical_account: true
+      dnc_preserved: true
+      human_manual_call: BLOCK
+      autonomous_ai_voice: BLOCK
+
+  - id: requested_callback_uses_relationship_policy
+    given:
+      prior_cold_call: true
+      prospect_requested_callback: true
+      callback_time: future_valid_time
+      no_dnc: true
+    expect:
+      intent: REQUESTED_CALLBACK
+      generic_cold_cadence_not_used: true
+      channel_policy_rechecked: true
+      callback_not_treated_as_new_cold_attempt: true
+
+  - id: account_claim_does_not_grant_channel_permission
+    given:
+      account_claimed_by_rep: true
+      phone_human_policy: REVIEW_REQUIRED
+      email_policy: ALLOW
+    expect:
+      rep_owns_account: true
+      manual_phone_action: blocked_pending_review
+      email_action: allowed
+      claim_not_equal_contact_permission: true
+
+  - id: dnc_store_unavailable_fails_closed_for_ai
+    given:
+      autonomous_ai_action_requested: true
+      suppression_store_available: false
+    expect:
+      autonomous_ai_voice: BLOCK
+      twilio_request_sent: false
+      critical_alert_or_review: true
+
+invariants:
+  - researchable_does_not_mean_callable
+  - human_call_eligibility_is_distinct_from_ai_voice_eligibility
+  - yad_dnc_cannot_be_bypassed_with_rep_cell_or_different_provider
+  - registry_data_is_compliance_only_not_targeting_data
+  - claim_ownership_never_overrides_channel_policy
+  - screening_error_never_becomes_no_match
+  - suppressed_endpoint_or_account_survives_rediscovery
+  - no_twilio_call_without_current_provider_aware_decision

@@ -1,5 +1,558 @@
 # Operational Brain Changelog
 
+## 2026-09-08 — The profiles and the runtime speaking one language
+
+The seven product decisions the sweep had deliberately left open, now
+made and implemented. The goal was not a count reaching zero: it was that
+anything ChatGPT authors for a vertical actually works when a rep opens
+an Account.
+
+**A canonical contract first.** `src/domain/signalRegistry.ts` says, for
+every executable signal, what it means, whose fact it is, what states it
+may be in, who can produce it, what capability it would need, and what
+its absence means. `src/domain/profileContract.ts` validates every active
+profile against it and `npm run profiles:validate` fails on a reference
+nothing defines. The distinction it exists to keep: **an unknown
+reference is a typo and a known reference with no source is a
+purchase.** Collapsing those is how twenty-seven document defects hid
+behind two missing data feeds. Nearest-name suggestions print as
+diagnostics and are never applied, because fuzzy-matching production
+configuration is how a fact about a market becomes a claim about a
+company.
+
+**Dangling references: 37 occurrences across 27 names, to zero.** Five
+were corrected to the name the profile already uses. Twelve were declared
+with a producer actually implemented -- six first-party recognisers, two
+whose phrases the profile itself supplies, a hail-headline ad promotion,
+and a prospect-statement route. Ten name no measurable fact and moved to
+`aspirational_trigger_signals`, kept as the author's intent rather than
+deleted or faked. No hypothesis lost all its executable triggers.
+
+**Hook ordering was not two authorities disagreeing.** Read the way its
+numbers mean -- roofing's most important hook carries `base_priority:
+10` -- `hook_priorities` and `preferred_primary_hook_order` are identical
+in every vertical that declares both. The conflict was a reading error,
+and it had a live consequence: the hypothesis generator sorted that
+number ascending, so where it matched a hypothesis at all it put the
+weakest reason to call at the top of a rep's screen. It mostly did not
+match, because three of five roofing hook families are named differently
+from the hypotheses they belong to and nothing links them, so most
+hypotheses fell to a default and were ordered by accident. One reader
+now, and an invariant that fails if the two ever diverge.
+
+Then the thing the downstream walk caught: the resolver had been built
+and nothing read it. A resolver nothing reads is the defect this contract
+exists to end, so the order is carried on the call pack with its source.
+
+**Roles kept small and specific at once.** Sixty-five declared roles
+across thirteen trades each carry an explicit `canonical_role_category`
+in the profile, so the mapping is reviewable where the roles are authored
+rather than buried in string heuristics. The runtime taxonomy stayed at
+fifteen. Four things are kept per classification: the raw title exactly
+as the source gave it, the profile's own wording, the canonical category,
+and which route decided. "Managing Partner" files under `owner` instead
+of falling through; "Chief Vibes Officer" is still unknown, which is the
+truth.
+
+**Objections supplement, never replace wholesale.** Generic is the base,
+a vertical answer to the same intent wins, unrelated generic answers
+survive, and nothing is concatenated -- two scripts for one objection is
+worse than either, because the agent then argues with itself in front of
+a prospect. Same-intent detection is explicit: the id equals a generic
+key, or the profile says so.
+
+**Offers in two layers.** A catalog authoritative for what an offer is,
+every product entry tracing to a document, because inventing an offer is
+the one thing this repository forbids outright. Three names the profiles
+use are capabilities rather than products, and every one of the twelve
+lists naming one also names a canonical offer -- so "delivered within an
+offer" is what the documents already said. Seventy-one spelling variants
+normalised away.
+
+**The market and the company, finally apart.** `storm_hail_market_signal`
+is a MARKET fact with no source, so it is UNKNOWN and never false. The
+company half is `storm_hail_service_promoted`, evidenced only by their
+own site. Roofing's market condition moved to a field whose subject rule
+is the opposite one, and ordinary roofing discovery needs no storm
+evidence at all.
+
+**And the categories stopped collapsing.** `intake`, `capacity`,
+`governance` and `repetitive_admin` are stored as themselves, with a
+reconciliation for rows already filed as `other`. Round-tripped from the
+profile through persistence to the call pack.
+
+Five verticals were walked end to end afterwards and the final rep-facing
+text read, not just asserted on: roofing, hvac, law-firms,
+collision-repair and one non-home-service trade. Suite 1697/1697, and
+identical in reverse file order.
+
+## 2026-09-07 — Failures that told nobody: one file for support, and seven quiet fail-opens
+
+Offline work on `feature/outbound-sales-brain`. Nothing deployed, no call
+placed, no prospect contacted, no provider credential used.
+
+**One file to hand over.** Five operator reports already existed --
+doctor, manifest, coverage, retention, preflight -- and an operator with
+a broken system should not have to know which to run. But concatenating
+them was not the point. The first thing anybody asks is "what was the
+error", and not one of the five carried error text: they report counts,
+and a count cannot say that a provider rejected a credential or that a
+page returned HTML where JSON was expected. `npm run support` is one
+file that carries the build, the state, the diagnoses, the row counts
+and the recent errors.
+
+Error text is also exactly where a secret leaks, so most of the tests
+for it are about what it must not contain: a database driver's exception
+carries the connection string, and a provider client puts the
+Authorization header in its message. Both are redacted, along with the
+service login -- half a credential, and often a person's email address.
+The shell's own user name is deliberately *not* redacted, because it
+appears in every file path an error quotes and blanking it would turn a
+stack trace into nonsense. No company name, phone number, email address
+or page content appears anywhere in the bundle. It is about the machine.
+
+**Then the last audit, done by reading rather than running.** Every
+finding below is a path where the system already behaved wrongly and
+every test stayed green, because the wrong behaviour was to say nothing.
+
+- **A spend ceiling written the way a person writes money was not a
+  ceiling.** `DISCOVERY_DAILY_BUDGET_USD=$20` read through `Number()` is
+  NaN, every comparison against NaN is false, and `!(NaN > 0)` is true
+  -- so the guard reported the ceiling as *unset* and a 24/7 miner would
+  spend the night against a limit somebody believed they had typed in.
+- **The same coercion sat under the DNC snapshot staleness block and a
+  webhook's replay window.** One typo could remove a money limit, a
+  compliance limit or a replay defence, and each of them by staying
+  quiet. Twenty-six numeric settings now go through one reader that
+  refuses a value that is not a number, naming the variable and what it
+  was set to. Unset still means the default; that part was deliberate.
+- **Two dialects of "true", on the one flag that can ring a real
+  phone.** `config` accepted `true`, `1` and `yes`; nine other places
+  compared against the string `'true'`. Both read
+  `OUTBOUND_DIAL_ENABLED`, so `=1` armed outbound dialling while the
+  release manifest and the exposure preflight each reported it disabled.
+  True of the code and false of the screen. One reader now, and a value
+  neither a yes nor a no stops the process instead of being guessed at.
+- **A retention plan dropped tables it could not read.** The plan is the
+  artefact an operator approves, and a table that quietly vanished from
+  the list is one nobody decided about. Named now, as unreadable rather
+  than as empty.
+- **A migration count nobody could read was reported as zero.** Zero
+  shipped against forty-four applied reads as "the database is ahead of
+  the build", which sends support after a migration that was never the
+  problem.
+- **A provider validation that ran no checks said OK.** Nothing reaches
+  it today, which is exactly how it would have survived to the first
+  validator that returns early.
+- **A canary that could not read today's spend dropped the daily
+  ceiling** instead of refusing. The comment said "reporting only"; two
+  lines down the value decided a refusal.
+- **A research run whose scoring failed reported COMPLETED.** The only
+  trace was a console line on a box where nobody reads worker logs. It
+  reports PARTIAL with a redacted reason now, on the job itself, where
+  the doctor and the support bundle can see it.
+
+**And one the audit found by running the tool it had just fixed.** The
+doctor told an operator "the worker back-fills these on its sweep" for a
+researched company with no score, and nothing did. Two sweeps exist --
+one for companies with no research at all, one for scores under an older
+ruleset -- and a company researched and then not scored fell between
+them and stayed there, unranked, so no rep ever saw it. That gap is the
+ordinary outcome of a scoring fault rather than an exotic one: scoring
+runs after the research transaction commits on purpose, so that a
+scoring fault cannot roll back a crawl.
+
+The same finding had a second half. The doctor counted *every* Account
+without a tier and described them as researched companies with no score.
+On this box that was six companies nothing had ever looked at, paired
+with an unrelated "1 has fresh research" -- an operator sent to fix a
+scoring step that had never run for them. The finding now counts the
+companies its advice applies to, and correctly disappeared.
+
+**Two more from running each operator tool and reading it.** Coverage
+with no arguments printed a market-shaped report about the whole
+database -- every company held, and a saturation state for a market
+nobody had named -- and said "none: every term has been asked" when zero
+terms had been asked, because zero unasked out of zero defined satisfies
+the same branch. The vacuous truth again, this time in prose.
+
+And 49 companies carried a score with no row in `canonical_scores`
+behind it. The scorer writes the ledger and the projection in one
+transaction, so none of them came from the scorer: the seed writes the
+tier directly, and stamps `last_researched_at` while it is there. The
+consequence is concrete -- the Account page reads the ledger, so not one
+of those scores can answer "why this score". The doctor names it now.
+The seed was left alone: it writes fixed demo tiers on purpose, and
+computing them from evidence would change what the demo is for.
+
+**Then the portal itself, which nothing had walked end to end.** On a
+throwaway database, logged in as a rep and as a manager, reading what the
+screens actually say. Four more, none of which reading the code had
+found:
+
+- **A market nobody named reported as FRESH.** Searching by industry with
+  the place left blank -- an ordinary thing a rep does -- answered with
+  the most reassuring state there is and four zeroes, and the page
+  printed "8 researched prospects" beside "0 unclaimeds in this market"
+  while all eight were claimable. A count that contradicts the list
+  under it.
+- **"unclaimeds"**, because the plural helper appends an s to whatever it
+  is given and "unclaimed" is an adjective.
+- **"1 thing need attention"**, on the first line of the page a manager
+  opens to decide whether the system is trustworthy.
+- **A build comparison that passed with nothing to compare.** "Are the
+  API and the worker the same build?" read ok whenever no worker had ever
+  heartbeated -- the same green a matching pair gets, on the question
+  whose whole purpose is catching two processes running different code.
+- **Analytics re-capitalised every filter label**, so "AI voice" became
+  "Ai Voice", "SMS" became "Sms", "HVAC" became "Hvac", and a saved
+  market someone had typed themselves came back as "Jacksonville Hvac
+  Advertisers". The labels were already right at the source.
+
+**Then the largest one, reached by following what that page reads.**
+Nothing in the product ever wrote advertiser evidence.
+
+Every vertical profile declares `evidence_claim_key:
+active_google_search_ad`, `confidence_required: confirmed`,
+`score_rule_reference: module4c_google_ads_plus4`. The scorer reads
+`evidence_records` for exactly that key. The panel a rep reads does too.
+`EVIDENCE_TTL_HOURS` sets its freshness at forty-eight hours. And the
+only writer of `evidence_records` is `recordEvidence`, whose three
+product callers are first-party website research, imports and person
+resolution -- none of them the miner.
+
+So `advertiser_first` mining, which selects companies *because* they
+advertise, recorded the paid result as an observation -- query, position,
+headline, the provider's own timestamp -- and wrote nothing a rep or the
+scorer could read. The panel said "nobody has looked" about a company we
+found in an ad, and the +4 rule, the largest single input in that
+strategy, could never fire. `EVIDENCE_TTL_HOURS` was itself dead: a
+freshness matrix governing evidence that was never written.
+
+The promotion runs in the same transaction as the observation and is
+deliberately narrow. It reads the provider's own result type rather than
+the stored projection, because the projection collapses
+`SHOPPING_OR_IRRELEVANT_PAID` into `paid_search` and a shopping ad is not
+evidence that a contractor runs search ads. A sponsored local pack result
+is promoted to nothing: it is paid, and it is neither the text-ad claim
+nor a Local Services Ad. The claim says what was seen, for which search,
+on which day -- repeatable aloud, impossible to turn into "you always
+advertise", and silent about cost. It expires forty-eight hours after the
+provider's observation rather than after our collection of it.
+
+This changes scores. Mined advertisers now earn the points the profiles
+always specified, which is the written policy becoming reachable rather
+than a new one.
+
+**Generalised, it was worse than one claim.** Six of the thirteen claim
+keys the canonical profiles declare had no writer at all -- each declared
+with a `score_rule_reference`, so the scorer looks it up and awards
+points. The signal that distinguishes a vertical from every other
+vertical was the one signal it could never earn: a collision shop
+advertising hail repair scored the same as one that never mentions it.
+
+Recognisers were written for the four whose meaning the profile states
+unambiguously -- `hail_repair_service`, `high_value_plumbing_services`,
+`open_house_listing_signal`, `field_sales_presence`. Two were left alone
+on purpose: `active_meta_ad` has no source, because a SERP search cannot
+observe a Meta ad, and `storm_hail_market_signal` names a market while
+its profile describes lead pressure, which could be a weather source or
+the company advertising storm work. Those are different claims about
+different subjects, and choosing one would be inventing the semantics.
+
+The guard matters more than the four. `tests/signalCoverage.test.ts`
+assembles the writable set from the writers themselves rather than from a
+second list, because a second list is what drifts, and it fails in both
+directions: a declared signal with no writer fails, and an excuse for a
+key that now has a writer fails too. The remaining gaps are sentences
+somebody wrote, not differences somebody would have to notice. Proved by
+hiding a recogniser and watching it fail.
+
+**And then the one that mattered most, from asking which *sections* of a
+profile the runtime reads at all.** Sixteen of twenty have no reader. Two
+of those sixteen were being read -- under the wrong name.
+
+`prohibitedClaimsFor`, which builds the rep's screen, and
+`buildCallPack`, which builds the prompt an AI voice agent speaks from,
+both looked up `profile.opportunity_hypotheses`. No profile has a section
+by that name; they are `leak_hypotheses`. Both loops ran over an empty
+array, so not one vertical-specific prohibition ever reached either
+place. And `safety_boundaries` was read by nothing at all.
+
+For roofing that is not cosmetic. The profile declares seven
+must-not-claim entries plus nine `prohibited_agent_claims` and three
+escalation instructions, among them *insurance coverage decision*,
+*legal interpretation*, *unauthorized public adjusting* and *guaranteed
+claim outcome*. Unauthorized public adjusting is a licensed activity in
+Florida, and the prompt had no instruction against it. Collision repair
+was missing vehicle safety clearance and structural repair judgment;
+plumbing was missing emergency hazard decision without approved
+escalation.
+
+Outbound dialling is disabled and no call has ever been placed, which is
+the only reason this is a defect rather than an incident. It is also
+exactly what a pre-pilot compliance review exists to catch, and it would
+have passed that review invisibly: the code reads a section, and the
+profiles contain one, just not the same one.
+
+Both readers now share one renderer, so the screen and the prompt cannot
+say different things, and the escalation sentence passes through
+verbatim -- rewriting a compliance instruction into our own words is how
+its meaning drifts. A test walks all eight verticals and fails if any
+declares a boundary the call pack does not carry.
+
+**And the same shape on the thing the product is for.** Nothing ever
+generated a hypothesis. The only writers of `opportunity_hypotheses` were
+the seed script, a demo CLI and a synthetic fixture, and every consumer
+already existed: the Account page's "Why reach out", its suggested first
+question, the Call Pack the agent speaks from, and a `generated_by`
+column defaulting to 'deterministic'. Only the producer was missing, so a
+real prospect showed an empty panel while a seeded demo company looked
+finished -- the one question this product exists to answer had no answer
+for anyone real.
+
+The generator invents nothing. The sentence is the profile's own
+`description`, the questions are its `questions_to_verify`,
+applicability is its `trigger_signals` against evidence we hold, and the
+order is its `hook_priorities`. A profile that declares nothing produces
+nothing. Together with the advertiser evidence above, the chain the
+product promises runs end to end for the first time: observe a paid
+result, write the evidence, trigger the hypothesis, hand the rep why this
+company and what to ask first.
+
+Three things came out of building it. The thirty-five disqualifying
+signals were unreachable -- every one is named `prospect_confirms_*` and
+none appears in any `public_signal_rules` list, because they are not
+website signals but things a prospect says, and `prospect_statements` is
+where those live. A company that told us their response process is
+measured would have been asked about it again. Second, the supersede
+pointer reads the opposite way from the one on `hook_attempts`: it is
+carried by the newer row, so filtering `is null` keeps the stale claim
+and discards the correction, which is the bug I wrote first and my own
+test caught. Third, eight hypothesis categories the profiles use are
+absent from the table's constraint: four are spellings, mapped, and four
+are new concepts filed as 'other' with the author's own word kept in a
+new column rather than given a home nobody chose.
+
+**Then the rest of the sections, and a guard to close the question.**
+Three more were real. `no_sale_conditions` -- what counts as no sale in
+this trade -- was declared by every profile and read by nothing, so the
+call brain knew how to record NOT_A_FIT without knowing what one is.
+`industry_aliases` and `classification_rules` were bypassed by a
+hard-coded regex list that was *broader* than the profiles: `/law/i` made
+a lawyer directory a law firm, `/dental/i` made a dental lab a practice,
+and `/roof/i` made a supply house a roofing prospect, while every
+vertical declared those exact exclusions.
+
+A number worth keeping: of a hundred and fifty declared hypothesis
+triggers, ninety-three can fire and fifty-seven cannot, because no source
+produces the signal -- hail ads, a phone-heavy site, CRM front-end
+signals, team size. Thirty-one new sources were not built; the numbers
+were pinned instead, so the gap can only close.
+
+The guard is the artefact. Every profile section now needs a verdict --
+read, deliberately not read with a reason, or unresolved with the
+decision written out -- and the RUNTIME labels are checked mechanically
+against the source, which is how the `safety_boundaries` defect was found
+in the first place. It failed immediately on two sections labelled from
+memory (`industry_name` and `profile_id` are read) and on four never
+seen, because only roofing's sections had been looked at.
+`scoring_overrides` is correctly unread -- every profile disables it --
+with a test that fails if one is ever enabled, since nothing would
+honour it.
+
+Four sections stay unresolved with the question stated rather than the
+gap hidden: the decision-maker vocabulary (twenty-four profile categories
+against fifteen atomic columns, several composite), whether a vertical's
+objection guidance replaces or supplements the generic responses, which
+of two offer declarations is authoritative, and a second hook ordering
+that conflicts with the one in use. Settling those silently would change
+what an agent says.
+
+**Last, the schema itself.** Ninety-four of a thousand and thirty-eight
+columns are never named anywhere in the product. Most are ordinary
+surrogate keys. Two clusters mattered, and they went opposite ways.
+
+`channel_eligibility_decisions` is append-only by trigger and exists to
+prove afterwards that a call was inside permitted hours. It has columns
+for the jurisdiction and the destination's local time, and the insert
+wrote neither. The calling-window check itself is correct -- it does
+evaluate local time against a nine-to-seven window -- it simply never
+recorded what it used, so a row read ALLOW with a UTC timestamp and
+answering "was that inside their local window" meant re-deriving the
+timezone from whatever the data says today. Both are written now,
+computed where every path through the function passes, including the
+early refusals.
+
+The other cluster was verified rather than fixed. Nothing writes
+`media_capture_consent` at all, and that is the intended state:
+`mediaCaptureAllowed` refuses when no row exists and names the Florida
+default in as many words, and a table constraint makes GRANTED
+impossible without saying who agreed and in what words. Empty because
+recording is off, and fail-closed by construction. Also named:
+`mining_jobs` is a table superseded by `jobs`, never written, never read,
+zero rows, recorded so nobody builds on it.
+
+The guard pins the count so it can only fall, and states its own limit:
+the detector is name-based, so a column name two tables share cannot be
+told apart -- writing `jurisdiction` for eligibility made it look read on
+the consent table too. A ceiling, not a census. It undercounts, never
+over.
+
+And an older guard caught the new one. `assertionIntegrity` flagged that
+the schema census queried the database without resetting it, so it would
+pass on state left by whichever file ran before. That rule earns its
+keep here: several tests rename a table and restore it in a finally, and
+a run that died mid-rename would leave the census silently not counting
+that table at all.
+
+**A closing measurement, because the first one was too coarse to act
+on.** "Fifty-seven hypothesis triggers cannot fire" turned out to be two
+problems wearing one number, and separating them changes who can fix it.
+
+Only two distinct signals genuinely need data we do not buy:
+`active_meta_ad`, which eight verticals declare and no SERP search can
+observe, and `storm_hail_market_signal`, whose source is the open
+question. The other twenty-seven are triggers naming a signal their own
+profile never declares -- dangling references in the document, fixable by
+editing it, needing no new capability. Two of those are plain
+misspellings of signals the product already writes:
+`multi_location_signal` for `multiple_locations`, `online_scheduling` for
+`online_quote_booking`. Several more are near-misses with material
+already in the same profile, and `call_tracking_signal` appears in five
+verticals while the schema has had a CALL_TRACKING_NUMBER endpoint role
+all along.
+
+The documents were not edited. They are canonical and renaming a declared
+signal is an authoring decision; doing it in code would hide a document
+defect rather than fix it. The two piles are pinned separately so each
+can only shrink and so a new dangling reference cannot be mistaken for a
+missing data source.
+
+Suite 1657/1657, and identical in reverse file order.
+
+The recurring shape, for the fifteenth time in this campaign:
+configuration written down deliberately and never read by the runtime --
+or, here, read in a way that could not fail. A guard that cannot fail
+loudly is not a guard.
+
+## 2026-09-05 — Production scale: eleven defects between 25,000 accounts and a rep's Monday morning
+
+A scale, concurrency and data-integrity pass. Nothing deployed, no call
+placed, no prospect contacted, no credential used.
+
+Built first: a deterministic synthetic generator (25,000 and 100,000
+accounts, 1.5M rows, 72 seconds), a query benchmark over the real read
+models, and a demo fixture a person can walk. Everything generated is
+unreachable by construction -- `.invalid` domains, 555 numbers,
+SYNTHETIC_FIXTURE provenance -- and the generator refuses to run against
+a database whose name does not say it is a scale target.
+
+Defects found and fixed:
+
+- **The claim ceiling did nothing under concurrency.** Eight
+  simultaneous claims against a ceiling of three each locked a different
+  Account row, each counted zero, and all eight succeeded. Bulk claim
+  runs one transaction per Account by design, so a rep selecting two
+  hundred rows took two hundred. Fixed by locking the rep's own row.
+- **A promised callback could be left with nobody to keep it.** Release
+  counts open callbacks in its transaction; recording one happens in
+  another; and the ownership check read the Account without locking it.
+  One race in twelve through the product path left an OPEN
+  prospect-requested callback on an Account with no owner.
+- **The analytics funnel could never report a connection.**
+  contact_attempts.disposition was never written, and the funnel counts
+  connections from that column. Fifty decision-makers reached, zero
+  reported.
+- **Contactable counted companies under DNC.** Account-scope suppression
+  does not flip the endpoint rows, so a suppressed company sat at the
+  top of the funnel.
+- **A misaligned CSV row created a phantom company.** An unquoted comma
+  shifts every column; the reject gate tested presence rather than
+  usability, so all three garbage values passed and then failed
+  normalisation. The Account landed with a name and no way to reach it,
+  counted as created.
+- **Confirming an import twice ran it twice.** The import runs inline in
+  the request and a ten-thousand row list takes longer than a proxy
+  timeout, so the rep presses again; the guard only checked CONFIRMED,
+  which is set at the end.
+- **A failed import blocked its own retry**, under a unique index on the
+  file hash that a failed batch still held.
+- **A `%` searched for everything.** LIKE metacharacters were unescaped:
+  `%%` matched every Account and took ten times as long as a real term.
+- **A ZIP found nothing.** postal_code was not searched at all.
+- **The merge lock I added created a deadlock.** Completing a follow-up
+  locked the child row first while a do-not-contact locked the Account
+  first; the pair met head-on. Found by the offline dry-run matrix, not
+  by a unit test.
+- **The operations panel's "waiting on a reply" counted discovery as a
+  reply**, because any activity satisfied it.
+
+Performance, measured before and after: Find Prospects 1781 ms -> 161 ms
+at 25k and 485 -> 65 at 100k; the audit page 505 -> 20 ms; the
+Overview's recently-claimed 133 -> 3.4 ms. PostgreSQL was JIT-compiling
+every page -- 148 ms of compilation on a query that then ran in 154 --
+so JIT is off as a startup option. Six indexes, each because a measured
+query was slow, each re-measured after.
+
+Built: account merge with a tombstone that redirects, no unmerge and an
+honest reason why; a lexical index over the Sales Manual scoring
+precision@1 60% and recall@5 95% against a 21-query evaluation set; a
+backup/restore drill that compares nine content checksums rather than
+row counts; a storage projection from measurement (737 MB at 100k
+accounts); and an operations panel answering the fourteen questions an
+operator has on a Monday morning.
+
+
+## 2026-09-04 — Release hardening: eight defects found in finished code
+
+An adversarial pass over work that already had passing tests. Nothing was deployed,
+no call was placed, no webhook changed and no switch was armed.
+
+Defects found and fixed:
+
+- **An oversized WebSocket frame killed the voice process.** `ws` raised "Max payload
+  size exceeded" with no error handler attached, so on the deployed service one bad
+  frame would have ended every call in progress, not just the offending one.
+- **DataForSEO Standard mode could never return a result.** The adapter posted to
+  `task_post` and normalised the acknowledgement as though it contained results. In
+  the mode it defaults to, the provider answers with a task id; the results have to
+  be collected afterwards. It would have found nothing on the day the credential
+  arrived, while recording every run as OK.
+- **A screened line type never reached the policy that reads it.** Twilio Lookup
+  results were cached in `line_type_screen_results`, and channel eligibility reads
+  `contact_endpoints.line_type`, which nothing wrote. A number identified as a
+  personal mobile kept being evaluated as unknown, so the personal-mobile rule could
+  not fire for anyone.
+- **A correct phone number was rendered struck through.** The account page struck out
+  any endpoint that was not currently callable, including a confirmed-current main
+  line merely awaiting an eligibility check. Struck through reads as "this number is
+  wrong", which invites a rep to correct a number that was right.
+- **Contradicted evidence rendered as an ordinary signal.** A claim our own sources
+  disagree with appeared as a neutral badge beside confirmed facts, so "Decision
+  Maker Name" read as something known. It now renders as contradicted, with the
+  instruction not to state it.
+- **A booking the provider never confirmed appeared on no tab.** Upcoming means
+  confirmed, and the attention tab covered no-shows and cancellations. A booking
+  stuck in PENDING — provider timeout, webhook never delivered — was invisible to
+  everyone while the prospect may have been told an invite was coming.
+- **Unscored was styled as tier D.** Not-yet-researched was coloured as
+  judged-and-found-poor, which is backwards: an unresearched advertiser is the one
+  worth looking at.
+- **The audit page could not answer who took an Account.** Ownership is recorded in
+  its own append-only ledger; the review surface read only `audit_log`. The two are
+  now unioned for reading, without duplicating either write.
+
+Added: a signed Smartlead webhook transport (HMAC over the raw bytes, timestamp
+inside the signed material, provider event id for idempotency); the hook experiment
+report on /analytics with explicit insufficient-evidence behaviour; breadcrumbs on
+the account page; `rollback.sh` and `OPERATOR.md` for the outbound voice deployment;
+and a Vultr-console key bootstrap that never generates or prints a private key.
+
+Still blocked: SB-B8, SSH access to the voice VPS. Everything else in that path is
+written, reviewed and tested offline.
+
+
 ## 2026-08-30 — Production tracking audited and Facebook identity started
 
 - Confirmed production Google Tag Manager container GTM-5G8Q7KKZ and GA4 stream G-GLSRPH43L4 from the supplied GTM workspace screenshots and live site.
@@ -25,3 +578,70 @@
 - Seeded launch priorities for assessment reconciliation, funnel routing, GTM, GA4, Meta Pixel, event design, attribution, creative, and campaign planning.
 - Added EdgeXpert, AI Ad Brain, and cross-agent working context.
 - Added start/end update protocols so Claude Code, GLM/OX, Codex, and humans maintain the same state.
+
+## 2026-09-03 — Outbound Sales Brain / internal sales portal
+
+Built the canonical prospect foundation and the internal sales portal on the EdgeXpert, working
+through gates T0–T8 of `docs/09-software/CLAUDE-CURRENT-TASK.md`. Full detail, including every
+defect found and how each gate was verified, is in `docs/09-software/IMPLEMENTATION-LOG.md`.
+
+- **One canonical Account model** in `services/sales-brain` — 36 tables, not a second lead database
+  beside `phone-agent/`. Ownership, suppression, evidence immutability and booking confirmation are
+  enforced by database constraints and triggers, so a later application bug cannot route around them.
+- **Rep portal** at Overview / Find Prospects / Markets / My Prospects / Account detail / Follow-Ups
+  / Team, server-rendered on the existing YAD design tokens. Claim is atomic: eight simultaneous
+  claimers produce one owner and one audit event.
+- **Public-first decision-maker resolver** — Apollo is not required. All 13 canonical fixtures pass,
+  and routing follows problem ownership rather than seniority.
+- **Strategy-call booking** that cannot claim a meeting is confirmed without a provider event id.
+- **Cold-call brain** built from Module 4A doctrine, exercised entirely as text roleplay. No dialling.
+- **Smartlead preparation** so email replies land in the same Account memory as phone and field.
+
+152 automated tests pass. `deploy/preflight.sh` reports 18 passed, 1 warning, 0 failures.
+
+Nothing has contacted a real prospect. `OUTBOUND_DIAL_ENABLED` and `OUTBOUND_EMAIL_ENABLED` are
+both false, and the preflight check fails if either changes.
+
+Five things now need Michael, tracked as SB-B1 to SB-B5 in `brain/TODO.md`: an Azure app
+registration for calendar booking, the real prospect lists, source-governance sign-off plus a search
+provider, HTTPS for `sales.youraidepartment.ai`, and a Smartlead key.
+
+## 2026-09-05 — Overnight miner hardening (GitHub Issue #3)
+
+Thirteen commits on `feature/outbound-sales-brain`. Suite 1311/1311, and identical in reverse file
+order. Typecheck, build and `npm audit --omit=dev` clean throughout. Migrations 040 and 041.
+
+Six defects that passing tests did not show, each found by asking a question the existing tests did
+not ask:
+
+- **Every company in one search collapsed into one Account.** The adapter fell back to the provider's
+  *search task* id when a SERP row carried no id of its own, and account resolution matches provider
+  identity before domain or phone. A twenty-result market search would have produced one prospect,
+  reporting the other nineteen as "already in inventory". Invisible to every existing fixture,
+  because they all set `advertiser_id` — a field real SERP rows do not carry.
+- **One PENDING provider answer retired a saved market for ever.** The scheduler skipped markets with
+  an outstanding task; collection happens inside the job it was refusing to queue. Found only by a
+  thirty-day simulated rehearsal.
+- **A paid ad's headline was becoming the company name** in the rep's list.
+- **The daily spend ceiling refused to collect searches already paid for**, and only protected
+  providers honest enough to record their own spending.
+- **Find Prospects claimed aged research on a market nobody had researched**, and told the rep to
+  treat as historical the advertising signals we had never looked for.
+- **`create table if not exists` races itself**, so on a fresh install — a first SiteGround boot —
+  the API and worker migrating together could leave one process dead with an error naming an
+  internal PostgreSQL catalogue index.
+
+Built alongside them: score policy versioning with a resumable recompute and full lineage from
+score to rule to evidence to provider; a realistic provider replay through the real registry and
+global fetch; an eighty-company golden market; a thirty-day shadow rehearsal; registration parity
+as an enforced invariant; build identity on the worker heartbeat so version skew is visible;
+`npm run preflight` and `npm run growth`, both of which refuse to answer what they cannot check.
+
+Five pieces of configuration were found written down carefully and never read by anything — the
+search taxonomy, the signal-to-score map, the business-model fields, the observation provenance
+columns, and `retention_class`. The pattern is worth naming: this codebase writes down more than it
+consults.
+
+Still not `MINER_LIVE_CANARY_READY`. Nothing was deployed, no live provider was called, no prospect
+was contacted, and `OUTBOUND_DIAL_ENABLED` remains false.
+

@@ -1,0 +1,66 @@
+# systemd unit for Production Outbound Sales voice.
+#
+# A SEPARATE unit from yad-voice-agent on purpose. The two services share the
+# approved Twilio number and nothing else: separate process, separate port,
+# separate health check, separate environment file, separate memory ceiling.
+# One crashing must not take the other down
+# (shared-twilio-number-dual-service-spec.md §5).
+#
+# NOT YET INSTALLED. Installing it is a deliberate step for the controlled-pilot
+# gate, not part of this integration:
+#   sudo cp deploy/yad-sales-voice.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now yad-sales-voice
+
+[Unit]
+Description=YAD Production Outbound Sales Voice (Twilio ConversationRelay)
+Documentation=https://github.com/GitterGlitter93rt/AiDepartment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yadsalesvoice
+Group=yadsalesvoice
+WorkingDirectory=/opt/yad-sales-voice/services/sales-voice
+
+# Its own secrets file. The receptionist's is not readable by this user, so an
+# outbound compromise cannot read inbound credentials.
+EnvironmentFile=/etc/yad-sales-voice.env
+
+ExecStart=/usr/bin/node --experimental-strip-types src/server.ts
+
+# Graceful shutdown: stop accepting connections and let calls in progress finish.
+KillSignal=SIGTERM
+TimeoutStopSec=35
+Restart=always
+RestartSec=3
+
+# A crash loop stops the service rather than flapping, so a bad deploy is obvious.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yad-sales-voice
+
+# --- Hardening ---------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/yad-sales-voice/services/sales-voice
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+
+# Inbound has priority for host resources: the receptionist answering a customer
+# matters more than an outbound attempt (dual-service spec §10).
+MemoryMax=768M
+CPUWeight=50
+
+[Install]
+WantedBy=multi-user.target

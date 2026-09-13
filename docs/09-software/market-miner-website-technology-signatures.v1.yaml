@@ -1,0 +1,327 @@
+catalog_id: yad_website_technology_signatures_v1
+version: 1.0.0
+status: architecture_seed_requires_implementation_validation
+purpose: Candidate first-party website signatures for research classification. Claude must validate patterns against current public examples/docs before marking high-confidence production signatures.
+
+rules:
+  - Detection proves only the stated public/frontend signal.
+  - Detection does not prove system-of-record status, workflow quality, integration completeness, automation existence, or active paid advertising unless the signature specifically represents a current ad observation source.
+  - Absence of every signature means unknown, not no-system.
+  - Multiple weak signatures can raise confidence but must follow configured signature policy.
+  - Catalog changes are versioned and regression-tested against known pages/fixtures.
+
+signatures:
+  - technology_id: google_tag_manager
+    display_name: Google Tag Manager
+    category: tag_management
+    candidate_patterns:
+      - type: url_contains
+        value: googletagmanager.com/gtm.js
+      - type: text_regex
+        value: 'GTM-[A-Z0-9]+'
+    default_confidence: confirmed
+    claim_key: website_technology_signal
+    proves: Google Tag Manager container-related frontend code is present on the observed page.
+    never_proves:
+      - active_google_ads
+      - correct_conversion_tracking
+      - revenue_attribution
+
+  - technology_id: google_analytics_4
+    display_name: Google Analytics 4
+    category: analytics
+    candidate_patterns:
+      - type: url_contains
+        value: googletagmanager.com/gtag/js
+      - type: text_regex
+        value: 'G-[A-Z0-9]{5,}'
+    default_confidence: likely
+    production_validation_note: Avoid treating any arbitrary G-prefixed text as a measurement ID; require contextual script/config evidence.
+    proves: GA4-related frontend measurement signal may be present.
+    never_proves:
+      - analytics_configured_correctly
+      - conversion_tracking_correct
+      - closed_loop_attribution
+
+  - technology_id: google_ads_tag
+    display_name: Google Ads Conversion / Google Tag Signal
+    category: advertising_tracking
+    candidate_patterns:
+      - type: text_regex
+        value: 'AW-[0-9]+'
+      - type: context_contains
+        value: google_conversion
+    default_confidence: confirmed_when_contextual
+    claim_key: google_ads_tag_signal
+    proves: Google Ads-related frontend tag/config signal is present.
+    never_proves:
+      - active_google_search_ad
+      - current_ad_spend
+      - campaign_performance
+
+  - technology_id: meta_pixel
+    display_name: Meta Pixel
+    category: advertising_tracking
+    candidate_patterns:
+      - type: url_contains
+        value: connect.facebook.net
+      - type: url_contains
+        value: fbevents.js
+      - type: text_contains
+        value: "fbq('init'"
+      - type: text_contains
+        value: 'fbq("init"'
+    default_confidence: confirmed_when_script_context
+    claim_key: meta_pixel_signal
+    proves: Meta/Facebook tracking code is present on the observed page.
+    never_proves:
+      - active_meta_ad
+      - current_meta_spend
+      - campaign_performance
+
+  - technology_id: callrail
+    display_name: CallRail
+    category: call_tracking
+    candidate_patterns:
+      - type: url_contains
+        value: callrail.com
+      - type: text_contains
+        value: CallRail
+      - type: url_contains
+        value: cdn.callrail.com
+    default_confidence: likely_to_confirmed
+    claim_key: call_tracking_signal
+    proves: CallRail-related frontend/call-tracking signal is present.
+    never_proves:
+      - closed_loop_revenue_attribution
+      - calls_answered
+      - call_recording_enabled
+      - marketing_roi_known
+
+  - technology_id: hubspot_forms
+    display_name: HubSpot Forms / Marketing Frontend
+    category: crm_marketing_frontend
+    candidate_patterns:
+      - type: url_contains
+        value: js.hsforms.net
+      - type: text_contains
+        value: hbspt.forms.create
+      - type: url_contains
+        value: hubspot.com
+    default_confidence: likely_to_confirmed
+    claim_key: crm_frontend_signal
+    normalized_provider: HubSpot
+    proves: HubSpot-related frontend form/marketing technology signal is present.
+    never_proves:
+      - hubspot_is_crm_system_of_record
+      - every_lead_enters_hubspot
+      - automated_follow_up_exists
+      - sales_team_uses_crm_consistently
+
+  - technology_id: salesforce_web_to_lead
+    display_name: Salesforce Web-to-Lead Signal
+    category: crm_frontend
+    candidate_patterns:
+      - type: url_contains
+        value: webto.salesforce.com
+      - type: text_contains
+        value: WebToLead
+    default_confidence: likely_to_confirmed
+    claim_key: crm_frontend_signal
+    normalized_provider: Salesforce
+    proves: Salesforce-related web lead capture signal may be present.
+    never_proves:
+      - salesforce_is_current_system_of_record
+      - every_lead_enters_salesforce
+      - follow_up_configuration
+
+  - technology_id: salesforce_pardot_account_engagement
+    display_name: Salesforce Account Engagement / Pardot Signal
+    category: marketing_automation_frontend
+    candidate_patterns:
+      - type: url_contains
+        value: pardot.com
+      - type: url_contains
+        value: go.pardot.com
+    default_confidence: likely
+    normalized_provider: Salesforce Account Engagement
+    proves: Pardot/Account Engagement-related public frontend signal may be present.
+    never_proves:
+      - crm_system_of_record
+      - lead_follow_up_quality
+
+  - technology_id: zoho_forms
+    display_name: Zoho Forms / CRM Frontend Signal
+    category: crm_marketing_frontend
+    candidate_patterns:
+      - type: url_contains
+        value: zohopublic.com
+      - type: url_contains
+        value: zoho.com
+      - type: url_contains
+        value: zohoforms
+    default_confidence: likely
+    claim_key: crm_frontend_signal
+    normalized_provider: Zoho
+    proves: Zoho-related frontend/form signal may be present.
+    never_proves:
+      - zoho_crm_is_system_of_record
+      - workflow_configuration
+
+  - technology_id: gohighlevel_leadconnector
+    display_name: HighLevel / LeadConnector Frontend Signal
+    category: crm_marketing_frontend
+    candidate_patterns:
+      - type: url_contains
+        value: leadconnectorhq.com
+      - type: url_contains
+        value: msgsndr.com
+      - type: url_contains
+        value: link.msgsndr.com
+    default_confidence: likely
+    production_validation_note: Validate current HighLevel/LeadConnector domains/widgets before production classifier release.
+    claim_key: crm_frontend_signal
+    normalized_provider: HighLevel
+    proves: HighLevel/LeadConnector-related public frontend signal may be present.
+    never_proves:
+      - highlevel_is_primary_crm
+      - automation_is_configured
+      - missed_call_text_back_enabled
+
+  - technology_id: servicetitan_frontend
+    display_name: ServiceTitan Frontend / Booking Signal
+    category: field_service_frontend
+    candidate_patterns:
+      - type: text_contains
+        value: ServiceTitan
+      - type: url_contains
+        value: servicetitan
+    default_confidence: likely
+    production_validation_note: Replace broad patterns with validated current widget/booking signatures and regression fixtures before high-confidence production detection.
+    claim_key: crm_frontend_signal
+    normalized_provider: ServiceTitan
+    proves: ServiceTitan-related public frontend/booking signal may be present.
+    never_proves:
+      - servicetitan_is_system_of_record
+      - lead_follow_up_automation
+      - call_center_configuration
+      - attribution_quality
+
+  - technology_id: housecall_pro_frontend
+    display_name: Housecall Pro Frontend / Booking Signal
+    category: field_service_frontend
+    candidate_patterns:
+      - type: text_contains
+        value: Housecall Pro
+      - type: url_contains
+        value: housecallpro.com
+    default_confidence: likely
+    production_validation_note: Validate exact current booking/widget signatures before production.
+    claim_key: crm_frontend_signal
+    normalized_provider: Housecall Pro
+    proves: Housecall Pro-related frontend/booking signal may be present.
+    never_proves:
+      - system_of_record
+      - automation_configuration
+
+  - technology_id: jobber_frontend
+    display_name: Jobber Frontend / Client Hub / Booking Signal
+    category: field_service_frontend
+    candidate_patterns:
+      - type: text_contains
+        value: Jobber
+      - type: url_contains
+        value: getjobber.com
+    default_confidence: likely
+    production_validation_note: Validate current public booking/client-hub domains and distinguish unrelated mentions.
+    claim_key: crm_frontend_signal
+    normalized_provider: Jobber
+    proves: Jobber-related public frontend signal may be present.
+    never_proves:
+      - system_of_record
+      - lead_follow_up_configuration
+
+  - technology_id: podium
+    display_name: Podium
+    category: messaging_reviews_frontend
+    candidate_patterns:
+      - type: text_contains
+        value: Podium
+      - type: url_contains
+        value: podium.com
+    default_confidence: likely
+    production_validation_note: Require widget/script context; footer/article mentions should not confirm.
+    normalized_provider: Podium
+    proves: Podium-related messaging/reviews frontend signal may be present.
+    never_proves:
+      - crm_system_of_record
+      - all_customer_messages_use_podium
+      - automated_follow_up_quality
+
+  - technology_id: lawmatics
+    display_name: Lawmatics Frontend Signal
+    category: legal_crm_frontend
+    candidate_patterns:
+      - type: text_contains
+        value: Lawmatics
+      - type: url_contains
+        value: lawmatics.com
+    default_confidence: likely
+    production_validation_note: Validate current public forms/widgets before law-firm profile production.
+    claim_key: crm_frontend_signal
+    normalized_provider: Lawmatics
+    proves: Lawmatics-related public frontend signal may be present.
+    never_proves:
+      - lawmatics_is_primary_crm
+      - intake_automation_quality
+
+  - technology_id: clio_frontend
+    display_name: Clio / Clio Grow Frontend Signal
+    category: legal_practice_crm_frontend
+    candidate_patterns:
+      - type: text_contains
+        value: Clio
+      - type: url_contains
+        value: clio.com
+    default_confidence: likely
+    production_validation_note: Broad mention patterns require contextual validation before production detection.
+    claim_key: crm_frontend_signal
+    normalized_provider: Clio
+    proves: Clio-related public frontend signal may be present.
+    never_proves:
+      - clio_is_system_of_record
+      - lead_intake_configuration
+
+  - technology_id: calendly
+    display_name: Calendly
+    category: scheduling
+    candidate_patterns:
+      - type: url_contains
+        value: calendly.com
+      - type: text_contains
+        value: calendly-inline-widget
+    default_confidence: likely_to_confirmed
+    proves: Calendly booking/scheduling link or widget is visible.
+    never_proves:
+      - booking_conversion_rate
+      - calendar_availability
+      - crm_integration
+
+  - technology_id: generic_chat_widget
+    display_name: Chat Widget
+    category: chat
+    candidate_patterns: []
+    default_confidence: provider_specific
+    production_validation_note: Implement provider-specific signatures rather than a single vague `chat=true` regex.
+    proves: Public chat/communication path exists when a validated widget is detected.
+    never_proves:
+      - live_human_availability
+      - response_time
+      - ai_chat
+
+signature_validation_tests:
+  - A visible brand name in article/blog/footer text alone does not confirm a technology unless signature rule explicitly permits contextual text.
+  - Script/network/widget evidence outranks incidental plain-text mentions.
+  - A technology signal can be confirmed while workflow remains unknown.
+  - Missing signature is always unknown unless a separate affirmative negative source exists.
+  - Broad candidate patterns for ServiceTitan/Housecall Pro/Jobber/Podium/Lawmatics/Clio must be narrowed with real fixture validation before high-confidence production use.

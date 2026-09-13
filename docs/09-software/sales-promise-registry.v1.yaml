@@ -1,0 +1,211 @@
+registry_id: yad_sales_promise_authority_v1
+version: 1.0.0
+status: architecture_authority
+source_authorities:
+  - docs/00-company/launch-decisions.md
+  - docs/07-sales/training-manual/module-09-proposal-presentation-and-closing.md
+  - docs/09-software/commercial-truth-snapshot.v1.yaml
+
+rules:
+  - rule_id: commercial_assessment_free
+    promise_type: pricing
+    subject: AI Department Assessment
+    status: APPROVED_GENERAL
+    approved_wording: The public AI Department Assessment is free.
+    prohibited_wording:
+      - The public assessment costs $495.
+
+  - rule_id: executive_strategy_price
+    promise_type: pricing
+    subject: Executive AI Strategy
+    status: APPROVED_GENERAL
+    approved_wording: The current indicative starting point is approximately $5,000+, with final pricing depending on scope and company complexity.
+    prohibited_wording:
+      - Executive AI Strategy always costs exactly $5,000.
+
+  - rule_id: implementation_range
+    promise_type: pricing
+    subject: AI Implementation
+    status: APPROVED_GENERAL
+    approved_wording: Implementation projects can vary widely; the current indicative range for many projects is approximately $5,000–$50,000+, with final scope and pricing based on requirements.
+    prohibited_wording:
+      - Your implementation will cost $10,000.
+      - $50,000 is the maximum implementation price.
+
+  - rule_id: managed_department_pricing
+    promise_type: pricing
+    subject: Managed AI Department
+    status: APPROVAL_REQUIRED
+    conditional_wording: Managed AI Department is currently custom monthly retainer pricing; we need to scope and approve the commercial structure.
+    prohibited_wording:
+      - Starter package
+      - Professional package
+      - Enterprise package
+      - fixed monthly price without approved quote
+
+  - rule_id: custom_discount
+    promise_type: discount
+    subject: any
+    status: APPROVAL_REQUIRED
+    conditional_wording: I can't authorize an unapproved price change on the spot; we can review scope or get the right commercial approval.
+    prohibited_wording:
+      - automatic discount
+      - same scope for less money without approval
+
+  - rule_id: specific_integration
+    promise_type: integration
+    subject: any_specific_client_system
+    status: VERIFICATION_REQUIRED
+    conditional_wording: We need to verify that specific integration before I promise it or put it in scope.
+    required_evidence:
+      - technical_verification_record_for_specific_scope
+    prohibited_wording:
+      - guaranteed integration based only on public API existence
+
+  - rule_id: implementation_timeline
+    promise_type: timeline
+    subject: custom_implementation
+    status: VERIFICATION_REQUIRED
+    conditional_wording: We can define the phases now; exact dates depend on the validated scope, dependencies, access, and technical plan.
+    prohibited_wording:
+      - guaranteed live by Friday without approved delivery plan
+      - unsupported exact duration
+
+  - rule_id: roi_guarantee
+    promise_type: financial_result
+    subject: any
+    status: PROHIBITED
+    approved_wording: We can model a scenario and define measurement, but we should not guarantee a financial result before measuring the actual baseline and implementation outcome.
+    prohibited_wording:
+      - guaranteed ROI
+      - guaranteed revenue recovery
+      - guaranteed cost savings
+      - guaranteed conversion improvement
+
+  - rule_id: case_study_result
+    promise_type: social_proof
+    subject: client_results
+    status: VERIFICATION_REQUIRED
+    required_evidence:
+      - approved_case_study_or_verified_result_record
+    prohibited_wording:
+      - invented customer result
+      - invented testimonial
+      - invented customer count
+
+  - rule_id: security_compliance_general
+    promise_type: compliance_security
+    subject: any
+    status: VERIFICATION_REQUIRED
+    conditional_wording: Security, privacy, compliance, permissions, vendor terms, and data handling need to be reviewed for the specific workflow before we make a claim.
+    prohibited_wording:
+      - universally secure
+      - automatically compliant
+      - guaranteed HIPAA compliant
+      - guaranteed TCPA compliant
+      - guaranteed legally compliant
+      - guaranteed ABA ethics compliant
+
+  - rule_id: law_legal_judgment
+    promise_type: professional_decision
+    subject: law
+    status: PROHIBITED
+    prohibited_wording:
+      - AI decides if a case is good
+      - AI gives legal advice
+      - AI clears conflicts without approved human process
+      - AI guarantees case outcome
+
+  - rule_id: healthcare_clinical_judgment
+    promise_type: professional_decision
+    subject: dental_medspa_healthcare
+    status: PROHIBITED
+    prohibited_wording:
+      - AI diagnoses patients
+      - AI recommends treatment without qualified clinical process
+      - AI determines treatment suitability
+
+  - rule_id: electrical_safety_judgment
+    promise_type: professional_decision
+    subject: electrical
+    status: PROHIBITED
+    prohibited_wording:
+      - AI diagnoses electrical safety
+      - AI determines code compliance
+      - AI designs electrical load/system without qualified review
+
+  - rule_id: collision_repair_judgment
+    promise_type: professional_decision
+    subject: collision_pdr
+    status: PROHIBITED
+    prohibited_wording:
+      - AI determines repairability
+      - AI makes safety-critical repair decisions
+      - AI fabricates completion/status dates
+
+  - rule_id: restoration_claim_scope
+    promise_type: professional_decision
+    subject: restoration
+    status: PROHIBITED
+    prohibited_wording:
+      - AI determines insurance coverage
+      - AI decides mitigation scope without qualified professional
+      - AI makes environmental safety decisions
+
+  - rule_id: employee_replacement_pitch
+    promise_type: positioning
+    subject: any
+    status: PROHIBITED
+    approved_wording: YAD should position around capacity, productivity, consistency, customer service, and reducing repetitive work while preserving appropriate human judgment.
+    prohibited_wording:
+      - fire your receptionist
+      - replace your staff as the primary ROI story
+      - eliminate employees to justify the project
+
+  - rule_id: third_party_costs
+    promise_type: commercial_scope
+    subject: external_platform_costs
+    status: APPROVED_GENERAL
+    approved_wording: Third-party software, phone, model, SMS, API, advertising, and other usage costs must be identified as included, separate, client-paid, estimated, or TBD in the proposal.
+    prohibited_wording:
+      - hide recurring external costs
+
+  - rule_id: unlimited_support
+    promise_type: support
+    subject: any
+    status: APPROVAL_REQUIRED
+    conditional_wording: Support, optimization, revisions, and ongoing responsibilities need to match the approved scope or managed relationship.
+    prohibited_wording:
+      - unlimited support unless explicitly approved
+      - unlimited revisions unless explicitly approved
+
+  - rule_id: custom_sla
+    promise_type: service_level
+    subject: any
+    status: APPROVAL_REQUIRED
+    prohibited_wording:
+      - custom response SLA without authority
+      - uptime guarantee without approved agreement
+
+  - rule_id: exclusivity
+    promise_type: contract_term
+    subject: any
+    status: APPROVAL_REQUIRED
+    prohibited_wording:
+      - exclusivity commitment without approval
+
+  - rule_id: deceptive_scarcity
+    promise_type: closing_claim
+    subject: any
+    status: PROHIBITED
+    prohibited_wording:
+      - fake deadline
+      - fake competitor claim
+      - fake limited availability
+      - unsupported exact cost of delay
+
+  - rule_id: no_sale_allowed
+    promise_type: sales_behavior
+    subject: any
+    status: APPROVED_GENERAL
+    approved_wording: If the economics, workflow, feasibility, security, professional boundaries, or business need do not justify a YAD engagement, the correct recommendation may be no sale, measurement first, existing software/process improvement, training, hiring, or another simpler option.

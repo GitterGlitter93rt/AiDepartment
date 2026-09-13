@@ -1,0 +1,201 @@
+schema: yad_manager_list_request_v1
+version: 1.0.0
+purpose: Machine-readable request for creating researched call/email work packages for YAD sales reps.
+
+request_fields:
+  request_id:
+    type: string
+    required: true
+  requested_by:
+    type: user_id
+    required: true
+  assigned_rep_ids:
+    type: array[user_id]
+    required: true
+  vertical_profile_ids:
+    type: array[string]
+    required: true
+  geography:
+    type: object
+    required: true
+    supported:
+      - state
+      - county
+      - city
+      - postal_or_zcta
+      - metro
+      - radius
+  mining_mode:
+    type: enum
+    values:
+      - ADVERTISER_ONLY
+      - ADVERTISER_FIRST
+      - FULL_LOCAL_MARKET
+      - NO_VERIFIED_WEBSITE
+      - WEAK_WEBSITE
+      - MULTI_LOCATION
+      - IMPORTED_LIST
+      - FIELD_ROUTE
+      - RESEARCH_ONLY
+    required: true
+  channels:
+    type: array[enum]
+    values:
+      - CALL
+      - EMAIL
+      - CALL_AND_EMAIL
+      - HUMAN_ASSIST_ONLY
+    required: true
+  minimum_yad_tier:
+    type: enum
+    values: [A, B, C, D]
+    default: B
+  target_ready_count:
+    type: integer
+    required: true
+  advertiser_requirements:
+    type: object
+    properties:
+      google_paid: optional_boolean
+      local_services: optional_boolean
+      meta: optional_boolean
+      multi_channel: optional_boolean
+  contact_requirements:
+    type: object
+    properties:
+      named_decision_maker: preferred_or_required
+      usable_business_phone: preferred_or_required
+      usable_email: preferred_or_required
+      both_phone_and_email: preferred_or_required
+  research_freshness:
+    type: enum
+    values: [FRESH_ONLY, CURRENT_ENOUGH_FOR_HOOK, ALLOW_PARTIAL_WITH_SAFE_LANGUAGE]
+    default: CURRENT_ENOUGH_FOR_HOOK
+  excluded_relationship_states:
+    default:
+      - SUPPRESSED
+      - CLIENT
+      - ACTIVE_OPPORTUNITY
+  assignment_mode:
+    type: enum
+    values:
+      - EQUAL_SPLIT
+      - ROUND_ROBIN
+      - TERRITORY_SPLIT
+      - MANUAL_PREVIEW
+      - SKILL_MATCH
+    default: MANUAL_PREVIEW
+  priority:
+    type: enum
+    values: [NORMAL, HIGH, URGENT]
+    default: NORMAL
+  expiration_or_review_at:
+    type: datetime
+    required: false
+
+examples:
+  - request_id: list_jax_hvac_brent_001
+    requested_by: manager_001
+    assigned_rep_ids: [brent]
+    vertical_profile_ids: [hvac-us-v1]
+    geography:
+      city: Jacksonville
+      state: FL
+    mining_mode: ADVERTISER_FIRST
+    channels: [CALL_AND_EMAIL]
+    minimum_yad_tier: B
+    target_ready_count: 50
+    advertiser_requirements:
+      google_paid: true
+    contact_requirements:
+      named_decision_maker: preferred
+      usable_business_phone: required
+      usable_email: preferred
+      both_phone_and_email: preferred
+    research_freshness: CURRENT_ENOUGH_FOR_HOOK
+    assignment_mode: MANUAL_PREVIEW
+    priority: HIGH
+
+  - request_id: list_staug_roof_rep2_001
+    requested_by: manager_001
+    assigned_rep_ids: [rep_002]
+    vertical_profile_ids: [roofing-us-v1]
+    geography:
+      city: St. Augustine
+      state: FL
+    mining_mode: ADVERTISER_ONLY
+    channels: [CALL_AND_EMAIL]
+    minimum_yad_tier: B
+    target_ready_count: 75
+    contact_requirements:
+      usable_business_phone: required
+      usable_email: preferred
+    assignment_mode: MANUAL_PREVIEW
+
+  - request_id: list_florida_pi_email_001
+    requested_by: manager_001
+    assigned_rep_ids: [rep_email_001]
+    vertical_profile_ids: [law-firms-us-v1]
+    geography:
+      state: FL
+    mining_mode: ADVERTISER_FIRST
+    channels: [EMAIL]
+    minimum_yad_tier: B
+    target_ready_count: 200
+    advertiser_requirements:
+      google_paid: true
+    contact_requirements:
+      named_decision_maker: preferred
+      usable_email: required
+    research_freshness: CURRENT_ENOUGH_FOR_HOOK
+    assignment_mode: TERRITORY_SPLIT
+
+processing_pipeline:
+  - validate_request
+  - resolve_approved_geography
+  - check_existing_ready_inventory
+  - mine_research_if_inventory_short
+  - dedupe_against_canonical_accounts
+  - remove_suppressed_clients_active_opportunities
+  - apply_vertical_and_tier_filter
+  - apply_channel_endpoint_requirements
+  - apply_research_freshness
+  - rank_ready_accounts
+  - preview_shortfall_and_exclusions
+  - manager_approve_or_auto_assign_per_policy
+  - create_work_package
+  - lease_or_assign_accounts
+  - expose_to_rep_worklists
+
+shortfall_behavior:
+  rule: Never lower quality criteria silently to hit target count.
+  output:
+    - requested_count
+    - ready_count
+    - shortfall_count
+    - primary_shortfall_reasons
+    - optional_expansion_suggestions_for_manager_approval
+
+work_package_output:
+  fields:
+    - work_package_id
+    - source_request_id
+    - campaign_id
+    - rep_ids
+    - account_ids
+    - channel_plan
+    - created_at
+    - review_at
+    - filters_snapshot
+    - count
+    - coverage_report
+
+invariants:
+  - one_canonical_account
+  - no_suppressed_account
+  - no_client_in_cold_package
+  - no_active_opportunity_in_cold_package
+  - no_duplicate_simultaneous_rep_assignment
+  - target_count_never_overrides_minimum_quality
+  - channel_requirements_must_be_met_before_assignment
+  - work_package_is_a_view_over_canonical_state_not_a_parallel_database

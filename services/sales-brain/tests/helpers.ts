@@ -1,0 +1,119 @@
+import { execSync } from 'node:child_process';
+import pg from 'pg';
+import { runMigrations } from '../src/db/migrate.js';
+import { pool } from '../src/db/pool.js';
+import { createUser } from '../src/domain/auth.js';
+
+/**
+ * Tests run against a dedicated database so they never touch working inventory.
+ * TEST_DATABASE_URL is set by tests/setup before src/config is imported.
+ */
+export async function resetDatabase(): Promise<void> {
+  await runMigrations(() => {});
+  // Truncate in one statement so FK order does not matter.
+  await pool.query(`
+    truncate table
+      audit_log, ownership_events, activities, follow_ups, suppressions, prospect_statements,
+      evidence_records, search_observations, research_runs, canonical_scores, research_completeness,
+      opportunity_hypotheses, offer_hypotheses, call_packs, meeting_bookings,
+      import_rows, import_batches, provider_tasks, jobs, mining_jobs, provider_usage,
+      account_market_membership, saved_markets, search_contexts, source_identities, account_merges,
+      hook_attempts, pilot_candidates, voice_call_turns, voice_call_events,
+      audio_pilot_attempts, audio_pilot_batches, internal_test_numbers,
+      line_type_screen_results, audio_scenario_runs, media_capture_consent,
+      probe_state_events, probe_inbound_events, lead_response_probes,
+      probe_pool_numbers, probe_identities,
+      dnc_screen_log, dnc_membership, dnc_snapshots, dnc_subscriptions,
+      voice_calls, voice_pilot_state_events, worker_instances, login_attempts,
+      contact_endpoints, contacts, account_domains, locations, accounts, sessions, users
+    restart identity cascade
+  `);
+
+  // Truncating `users` cascades into every table that references it, which includes
+  // the operator state and the integration registry. Both are configuration rather
+  // than data, so they are restored to the state a fresh install ships with.
+  await pool.query(`insert into voice_pilot_state (singleton) values (true) on conflict do nothing`);
+  await pool.query(`
+    insert into integration_settings (integration_key, display_name, secret_env_var) values
+      ('calcom',       'Cal.com scheduling',   'CALCOM_API_KEY'),
+      ('smartlead',    'Smartlead email',      'SMARTLEAD_API_KEY'),
+      ('twilio_voice', 'Twilio voice',         'TWILIO_AUTH_TOKEN'),
+      ('dataforseo',   'DataForSEO research',  'DATAFORSEO_PASSWORD'),
+      ('anthropic',    'Anthropic',            'ANTHROPIC_API_KEY'),
+      ('crm',          'CRM export',           null),
+      ('notifications','Notifications',        null),
+      ('dnc',          'National DNC screening','DNC_SUBSCRIPTION_CREDENTIAL')
+    on conflict do nothing`);
+}
+
+export async function makeUser(
+  displayName: string,
+  role: 'SALES_REP' | 'SALES_MANAGER' | 'RESEARCH_OPS' | 'ADMIN' = 'SALES_REP',
+): Promise<{ userId: string; role: typeof role; activeClaimTarget: number | null; displayName: string }> {
+  const email = `${displayName.toLowerCase().replace(/\W+/g, '.')}@test.youraidepartment.ai`;
+  const userId = await createUser({ email, displayName, role, password: 'test-password-not-a-secret' });
+  return { userId, role, activeClaimTarget: null, displayName };
+}
+
+export { pool, pg, execSync };
+
+/**
+ * A discovery request with its one search already planned.
+ *
+ * Planning moved out of the adapter and into the orchestrator, which owns the
+ * fingerprint and the provider task. An adapter called with no plan refuses, so a
+ * test that calls `discover()` directly has to plan first -- the same way the miner
+ * does, through the same planner, rather than hand-building a shape the product no
+ * longer produces.
+ */
+export async function plannedRequest(overrides: {
+  verticalProfileId?: string | null;
+  geographyType?: string;
+  geographyValue?: string;
+  miningMode?: string;
+  queryBudget?: number;
+} = {}): Promise<Record<string, unknown>> {
+  const { planDiscoverySearches } = await import('../src/miner/searchPlan.js');
+  const base = {
+    verticalProfileId: 'hvac' as string | null,
+    geographyType: 'zip_zcta',
+    geographyValue: '32256',
+    miningMode: 'advertiser_first',
+    queryBudget: 5,
+    ...overrides,
+  };
+  const plan = await planDiscoverySearches({
+    verticalProfileId: base.verticalProfileId,
+    geographyType: base.geographyType,
+    geographyValue: base.geographyValue,
+    miningMode: base.miningMode,
+    count: 1,
+  });
+  const first = plan.searches[0];
+  return first
+    ? { ...base, search: {
+        keyword: first.keyword, locationName: first.locationName, term: first.term,
+        fingerprint: first.fingerprint, index: first.index } }
+    : base;
+}
+
+/**
+ * Marks a fixture Account as an established company.
+ *
+ * Entity status is not a thing `upsertAccount` decides -- deliberately, because the
+ * whole defect was a pipeline that created Accounts from rows nothing had established
+ * to be companies. In production the two callers entitled to say so stamp it: the
+ * miner, for a candidate the resolver promoted, and the listings ingest, for a
+ * business a listings provider resolved.
+ *
+ * A fixture that builds an Account directly is standing in for one of those, so it
+ * has to say so too. Without this the record is `legacy_unverified`, which is exactly
+ * what the canary's 65 webpages are, and the entity gate correctly refuses it.
+ */
+export async function markEntityVerified(accountId: string): Promise<void> {
+  await pool.query(
+    `update accounts set entity_status = 'verified',
+            entity_status_basis = 'test fixture: stands for a resolved discovery',
+            entity_status_at = now()
+      where account_id = $1`, [accountId]);
+}
