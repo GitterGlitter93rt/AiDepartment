@@ -1,8 +1,9 @@
 ---
-title: "How Home Service Companies Can Automate Estimate Follow-Up"
-seoTitle: "How Home Service Companies Can Automate Estimate Follow-Up | Your AI Department"
-description: "Many home service companies generate significant quoted work but lack a consistent follow-up process. Here's how to keep opportunities visible without losing human judgment."
+title: "How Home Service Companies Can Automate Unsold Estimate Follow-Up"
+seoTitle: "Unsold Estimate Follow-Up Automation for Home Services | Your AI Department"
+description: "How home service companies can automate unsold estimate follow-up: keep quoted work visible, prioritize open opportunities and route responses to your team."
 publishDate: "2026-08-18"
+updatedDate: "2026-09-14"
 primaryDestination:
   label: "Explore Home Service Estimate Automation"
   href: "/industries/home-services/"
@@ -18,23 +19,29 @@ relatedResources:
 
 import GroupedFlow from '../../components/interior/GroupedFlow.astro';
 
-HVAC replacements, plumbing replacements, electrical upgrades, roofing, pools, outdoor living projects, garage door replacements, generators, and restoration-related reconstruction all generate significant quoted work across the home-service trades — and nearly all of them share the same gap: a consistent process for following up after the estimate is sent.
+Most home service companies have a number they cannot easily produce: the total value of estimates sent in the last ninety days that were never sold and never formally lost.
+
+The work was quoted. Somebody drove to the property, measured, priced it, and sent it. Then the customer did not reply, and the estimate joined a growing pile of quoted jobs that nobody is working and nobody has closed out. That pile is the subject of this guide.
+
+HVAC replacements, plumbing repipes and water heaters, electrical panel upgrades, roofing, pools, outdoor living projects, garage door replacements, standby generators, and restoration-related reconstruction all generate significant quoted work. Nearly all of them share the same gap: a consistent process for following up after the estimate goes out.
+
+## Unsold Does Not Mean Lost
+
+The vocabulary matters, because it changes how the work gets treated.
+
+An **unsold estimate** is quoted work that has not been accepted and has not been declined. It is an open decision. In most home service trades, a meaningful share of these are still genuinely live — the customer is waiting on a spouse, a tax refund, a financing decision, the end of the season, or the sale of a house.
+
+An **open estimate**, a **quoted job**, a **stale estimate**, an **outstanding proposal** — these are all the same object at different ages, and the age is usually the only thing anyone knows about them.
+
+A **closed-lost** job is one where you actually know the answer. Most companies have far fewer of these than they should, because nothing ever moves an estimate into that state. It just gets old.
+
+Two honest caveats before anything below. Not every unsold estimate is recoverable — some customers went with a competitor the same week and never said so. And there is no universal close rate for followed-up estimates; anyone quoting one is describing their own sample, not your business. The reason to build this is narrower and defensible: work that was quoted and never followed up was never really given a chance to close, and you currently cannot see how much of it there is.
 
 ## The Workflow
 
-The estimate goes out, gets acknowledged, creates a salesperson task, triggers scheduled follow-up, generates a customer response, leads to a real human conversation, and results in either a sale, a move into nurture, or an honest closed-lost status if the customer went another direction.
+The shape is the same across trades:
 
-## AI Assistance
-
-AI can summarize the original job history, draft contextual follow-up messages, surface which estimates have gone stale, help organize the reasons a deal is delayed, create tasks automatically, and maintain a consistent follow-up cadence without requiring manual tracking.
-
-## Segmentation
-
-Not every open estimate is in the same place — some were just quoted, some are actively engaged, some are waiting on financing or timing, some are waiting on another decision entirely, some have gone quiet, some represent a future project rather than a current one, and some are genuinely closed-lost. Treating all of these the same way wastes the real value still sitting in your pipeline.
-
-## Human Role
-
-Pricing, diagnosis, design, technical questions, negotiation, customer objections, and any scope changes all stay with your team — automation supports the administrative follow-up around those conversations, not the conversations themselves.
+The estimate goes out and is acknowledged. A task is created with an owner and a due date. A follow-up runs on a defined cadence. The customer responds — or does not. A human conversation happens at the right moment. The outcome is recorded: sold, moved to long-term nurture, or honestly closed-lost with a reason.
 
 <GroupedFlow
   tone="light"
@@ -45,4 +52,108 @@ Pricing, diagnosis, design, technical questions, negotiation, customer objection
   ]}
 />
 
-A quoted job that never gets followed up isn't a lost sale — it's a sale that was never really given the chance to close.
+Almost nobody disputes that this is the right shape. The reason it does not happen is equally consistent: the person who wrote the estimate is the person running the next job, and follow-up is the first thing to fall off a full day.
+
+## Make Open Estimates Visible First
+
+Before automating anything, solve the visibility problem, because it is usually the real one.
+
+Most companies cannot answer, on demand: how many estimates are open right now, what they are worth in total, how old the oldest one is, which have had no contact in three weeks, and who owns each of them.
+
+That means a few unglamorous prerequisites:
+
+- Every estimate is recorded in one system, not split between a field app, an inbox, and a notebook.
+- Each has a status that can change, a value, a date sent, and an owner.
+- There is a defined point at which an unworked estimate is escalated or closed out.
+
+A weekly open-estimate report — total value, count, age buckets, owner — changes behaviour on its own, before a single automated message is sent. If your current systems cannot produce that, the follow-up automation is premature and the fix is upstream, in how the pipeline is structured.
+
+## Segmentation: Not Every Open Estimate Is in the Same Place
+
+Treating a quote sent yesterday the same as one sent in March is what makes follow-up feel like spam to customers and like busywork to your team. A workable segmentation:
+
+**Recently quoted.** Sent within the normal decision window for the trade. The customer is deciding. Light, helpful contact — confirm they received it, offer to answer questions.
+
+**Engaged.** They have replied, asked questions, or requested a change. These are the highest-value segment and should be a person's job, not a sequence's.
+
+**Waiting on timing.** Seasonal work, a planned renovation, a move. Not a live deal, and not a lost one. Set a genuine future date and stop contacting them until it arrives.
+
+**Waiting on financing.** A specific, resolvable blocker. Follow-up should be concrete and helpful rather than a generic nudge.
+
+**Unresponsive.** No reply across the defined cadence. Worth a final, direct, easy-to-answer message that makes it painless to say no — a clear answer is more valuable than an indefinite maybe.
+
+**Future project.** Real interest, wrong year. Long-cycle nurture, low frequency.
+
+**Closed-lost.** Record it, and record why. The reasons are the most useful sales data most home service companies never collect: price, timing, went with a competitor, scope changed, no longer needed.
+
+The cadence should differ by segment and by job size. A three-hundred-dollar repair quote and a forty-thousand-dollar project do not warrant the same number of touches, and a project with a long natural decision cycle should not be chased on a weekly rhythm.
+
+## What AI Can Do Here
+
+Specifically and usefully:
+
+- **Summarize the job history** so the follow-up conversation picks up where the site visit left off, rather than starting cold.
+- **Draft contextual follow-up messages** that reference the actual scope quoted — the specific equipment, the specific room, the specific question the customer asked — instead of a generic template.
+- **Surface stale estimates** and rank them by value and age, so the sales team works the largest live opportunities first.
+- **Classify responses** — interested, not now, price objection, wants a call, unsubscribe — and route each accordingly.
+- **Create tasks and reminders** automatically, with owners, so follow-up does not depend on memory.
+- **Maintain the cadence** across every open estimate, consistently, which is the thing humans reliably fail at when the schedule is full.
+- **Keep pipeline status current** by flagging what has gone quiet, so the report reflects reality.
+
+The drafting matters less than the consistency. A well-timed plain message that references the actual quote beats a beautifully written one sent three weeks late.
+
+## What Stays Human
+
+Unchanged, and worth being explicit about:
+
+- **Pricing.** Discounts, revisions, and payment terms are yours.
+- **Negotiation.** Every part of it.
+- **Technical scope and diagnosis.** What the job actually requires, and whether a change is feasible.
+- **Objections.** A real concern about cost, disruption, or timing deserves a person.
+- **Scope changes.** A new quote, not an automated reply.
+- **Anything safety-related**, in every trade on this list.
+
+The dividing line that holds up: automation handles the administrative follow-up *around* the sales conversation — the reminders, the tasks, the visibility, the timing. It does not have the sales conversation.
+
+## Compliance and Tone
+
+Two constraints that are not optional.
+
+**Consent.** Automated SMS and email follow-up are governed by real rules. A phone number given for a service appointment is not automatically consent to a marketing sequence. Opt-outs must work immediately and be recorded. This is a compliance question before it is a marketing one.
+
+**Frequency.** The fastest way to turn a live opportunity into a lost one is to contact someone six times in ten days. The cadence should be deliberate, spaced to the decision cycle of the actual job, and it should stop when the customer answers.
+
+## Vertical Variations
+
+The framework above is common to the trades; the decision cycle and the specifics differ.
+
+Pool projects are large, seasonal, and often decided jointly over weeks or months — covered in [AI follow-up for pool estimates](/resources/ai-follow-up-for-pool-estimates/). Garage door replacements turn on style, material, insulation and opener choices, usually identified during a service call — see [automating garage door replacement estimate follow-up](/resources/automating-garage-door-replacement-estimate-follow-up/). Electrical work such as panel upgrades and service changes has its own permitting and scheduling constraints — see [electrical estimate follow-up automation](/resources/how-electrical-contractors-can-automate-estimate-follow-up/). Plumbing splits sharply between urgent repairs and planned replacements, covered in [plumbing estimate follow-up](/resources/how-plumbing-companies-can-automate-estimate-follow-up/). And outdoor living and screen enclosure projects are weather- and season-bound in ways that make "waiting on timing" the dominant segment — see [outdoor living estimate follow-up](/resources/automating-estimate-follow-up-for-outdoor-living-projects/) and [screen enclosure estimate follow-up](/resources/how-screen-enclosure-companies-can-automate-estimate-follow-up/).
+
+Same structure, different clocks.
+
+## What to Measure
+
+Baseline these before launch, or you will not be able to tell whether anything changed:
+
+- Total value and count of open estimates, by age bucket.
+- Percentage of estimates that receive any follow-up at all — usually the most uncomfortable number.
+- Time from estimate sent to first follow-up.
+- Response rate by segment.
+- Estimates closed out to a definite status, sold or lost. An honest closed-lost is a success for this system.
+- Sold value from previously unsold estimates.
+- Opt-out and complaint rate, which tells you whether the cadence is wrong.
+
+## Common Failure Modes
+
+- **Automating on top of an unreliable pipeline**, so the sequence contacts people who already bought, or misses half the open quotes.
+- **One cadence for every job size**, which under-serves large projects and over-contacts small ones.
+- **Generic templates** that do not reference the actual quoted scope and read as bulk email.
+- **No closed-lost discipline**, so the open pipeline grows forever and the report becomes meaningless.
+- **Follow-up with no owner**, where a sequence runs but no human ever calls.
+- **Ignoring consent**, which creates a compliance problem and a reputation problem at once.
+
+## Where This Fits
+
+The wider system — lead response, call handling, estimate follow-up, and measurement connected rather than bought separately — is on [AI systems for home service companies](/industries/home-services/) and in [AI growth systems](/ai-growth-systems/). Upstream, the same opportunity leaks earlier: see [how AI can recover missed calls](/resources/how-ai-can-recover-missed-calls-for-home-service-companies/) and [why speed to lead matters](/resources/why-speed-to-lead-matters/). Downstream, connecting quoted work back to the marketing that produced it is [how home service companies can track marketing leads to revenue](/resources/how-home-service-companies-can-track-marketing-leads-to-revenue/).
+
+A quoted job that never gets followed up is not a lost sale. It is a sale that was never really given the chance to close.
