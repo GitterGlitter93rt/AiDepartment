@@ -150,13 +150,18 @@ test('the RMP is stored as a qualifier, never as an owner', async () => {
   const accountId = await seedTexasPlumber();
   await runContactResearch(accountId, 'newly_discovered');
 
-  const { rows } = await query<{ relationship: string; full_name: string }>(
-    `select relationship, full_name from contacts where account_id = $1`, [accountId]);
+  // `company_relationship` is what the column is called; `relationship` is the name
+  // the resolver's in-memory type uses. Two names for one idea, and the database has
+  // the authoritative one.
+  const { rows } = await query<{ company_relationship: string; full_name: string }>(
+    `select company_relationship, full_name from contacts where account_id = $1`,
+    [accountId]);
   const jordan = rows.find((row) => row.full_name?.toUpperCase().includes('JORDAN'));
-  if (jordan) {
-    assert.notEqual(jordan.relationship, 'OWNER',
-      'a regulatory designation became an ownership claim in the database');
-  }
+  assert.ok(jordan, 'the Responsible Master Plumber never reached the contacts table');
+  assert.notEqual(jordan.company_relationship, 'OWNER',
+    'a regulatory designation became an ownership claim in the database');
+  assert.equal(jordan.company_relationship, 'QUALIFIER',
+    'the RMP was stored as something other than the role the board gives them');
 });
 
 test('the account page shows a snapshot a rep can act on', async () => {
