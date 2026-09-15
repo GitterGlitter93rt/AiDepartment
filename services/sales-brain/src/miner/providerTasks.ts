@@ -110,6 +110,44 @@ export async function hasOpenProviderTaskForMarket(
   return (rows[0]?.n ?? 0) > 0;
 }
 
+/**
+ * Whether a provider still owes us results for one particular discovery run.
+ *
+ * `jobs.outcome = 'PROVIDER_PENDING'` is a record of how a run *ended*, not a
+ * statement about now. It is written once, when the bounded poll gives up, and
+ * nothing ever rewrites it -- so a job that ended pending in June still says
+ * PROVIDER_PENDING after its task has been collected, has failed, or was abandoned.
+ * The read model treated that historical sentence as a live one and told a rep "the
+ * provider has accepted a search and it will be collected rather than run again"
+ * about a task nobody was waiting for.
+ *
+ * The authority is the task table. Bound two ways because either alone has a hole:
+ * `job_id` is the exact link but is nullable (`on delete set null`, and a task may be
+ * recorded without one), and the fingerprint prefix catches the whole family of
+ * searches a run bought but would also match a *different* run of the same market.
+ * Either is enough to prove something is genuinely outstanding, and proving it
+ * matters more than attributing it -- reporting "nothing is owed" while a paid task
+ * is open is what invites buying the same market twice.
+ *
+ * The prefix is escaped: a geography carrying `%` or `_` would otherwise widen the
+ * match into other markets and resurrect the false-pending bug from the other side.
+ */
+export async function hasOutstandingProviderTaskForDiscovery(input: {
+  jobId: string | null;
+  fingerprintPrefix: string | null;
+}): Promise<boolean> {
+  if (!input.jobId && !input.fingerprintPrefix) return false;
+  const prefix = input.fingerprintPrefix === null ? null
+    : input.fingerprintPrefix.replace(/([\\%_])/g, '\\$1');
+  const { rows } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks
+      where status = 'PENDING'
+        and (($1::uuid is not null and job_id = $1::uuid)
+          or ($2::text is not null and fingerprint like ($2 || '%') escape '\\'))`,
+    [input.jobId, prefix]);
+  return (rows[0]?.n ?? 0) > 0;
+}
+
 export async function recordCollectionAttempt(providerTaskId: string): Promise<number> {
   const { rows } = await query<{ poll_attempts: number }>(
     `update provider_tasks

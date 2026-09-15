@@ -347,6 +347,15 @@ export function coverageNote(coverage: {
   // search happened that could not have happened.
   const canDiscover = coverage.discoveryAvailable !== false;
 
+  // A provider already owes us a search of this market, so offering to buy one is a
+  // contradiction -- and the page printed both at once: a blue banner saying the
+  // search "will be collected rather than run again" directly above a yellow one
+  // offering "Research this market". Only the discovery-buying calls to action are
+  // withheld; researching companies already in inventory is a different question and
+  // is not waiting on anybody.
+  const awaitingProvider = coverage.discovery?.state === 'PENDING';
+  const canBuyDiscovery = canResearch && canDiscover && !awaitingProvider;
+
   // A tier filter hides Accounts with no tier, and an Account with no tier is one
   // nobody has researched -- not one that scored badly. Without this line the rep
   // sees an empty market and has no way to learn the companies are there.
@@ -442,7 +451,7 @@ export function coverageNote(coverage: {
           ? html`No researched prospects yet for ${geographyLabel}. Market Miner has not covered this area.`
           : html`Nothing in inventory for ${geographyLabel} yet, and the system cannot
                  search for any: this is what we hold, not what exists.`}</span>
-        ${canResearch && canDiscover
+        ${canBuyDiscovery
           ? html`<button class="btn btn-secondary btn-sm js-research-more">Research this market</button>`
           : ''}
       </div>`;
@@ -468,7 +477,7 @@ export function coverageNote(coverage: {
       return html`${prefix}<div class="coverage-note">
         <span class="dot"></span>
         <span>More businesses may exist in ${geographyLabel}. Coverage here is partial, not complete.</span>
-        ${canResearch && canDiscover
+        ${canBuyDiscovery
           ? html`<button class="btn btn-secondary btn-sm js-research-more">Research more</button>`
           : ''}
       </div>`;

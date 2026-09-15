@@ -659,6 +659,15 @@ export async function searchProspects(
 }
 
 /**
+ * The geography kinds that name an actual place, and so can appear in a job payload.
+ *
+ * `any` and `saved_market` are not places; constraining a job lookup by either would
+ * match nothing and read as "never searched".
+ */
+const PLACE_TYPES = new Set<GeographyFilter['type']>(
+  ['zip_zcta', 'city', 'county', 'state']);
+
+/**
  * Honest coverage reporting. The UI must never imply a search found every business
  * in a market unless the coverage model actually supports that (browse-claim §10).
  */
@@ -753,12 +762,26 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   );
   const summary = rows[0]!;
 
+  // Scoped to the vertical as well as the place, for the same reason the discovery
+  // query below is: a Roofing search of 32095 is not news about Plumbing in 32095,
+  // and reporting one as the other told a rep a search was running for a market
+  // nobody had searched.
+  //
+  // Lenient where the historical query is strict, and the asymmetry is deliberate.
+  // The two failures are not symmetrical: mis-attributing a *finished* run invents
+  // coverage that never happened, while hiding a *running* one tells a rep the
+  // market is idle and invites them to buy a search that is already in flight. So a
+  // job that does not name a vertical -- which a zip_research refresh does not -- is
+  // still reported as active here, and still excluded from coverage there.
   const jobResult = await query<{ job_id: string; job_type: string }>(
     `select job_id, job_type from jobs
       where status in ('QUEUED','RUNNING') and job_type in ('market_mine','zip_research')
         and payload->>'geography_value' = $1
+        and ($2::text is null
+             or payload->>'vertical_profile_id' is null
+             or payload->>'vertical_profile_id' = $2)
       order by created_at desc limit 1`,
-    [geography?.value ?? ''],
+    [geography?.value ?? '', verticalProfileId],
   );
   const activeJobId = jobResult.rows[0]?.job_id ?? null;
   // A zip_research job never looks for new businesses, and a market_mine job can
@@ -777,8 +800,15 @@ export async function coverageFor(request: SearchRequest): Promise<CoverageSumma
   else if (summary.fresh < summary.researched) state = 'PARTIAL';
   else state = 'FRESH';
 
+  // The whole market identity, not just the place. Passing geography alone is what
+  // let one vertical's discovery history answer for another's.
   const discovery = await discoveryCoverageFor({
     geographyValue: geography?.value ?? null,
+    verticalProfileId,
+    // Only a real place type constrains anything. `any` and `saved_market` are ways
+    // of *not* naming one, and no job payload records them.
+    geographyType: geography && PLACE_TYPES.has(geography.type) ? geography.type : null,
+    marketId,
     discoveryAvailable, activeJobId, activeJobScope,
   });
 
@@ -811,6 +841,17 @@ export async function discoveryCoverageFor(input: {
   discoveryAvailable: boolean;
   activeJobId: string | null;
   activeJobScope: 'DISCOVER_NEW' | 'REFRESH_EXISTING' | null;
+  /**
+   * The rest of the market identity.
+   *
+   * Optional only so the existing direct callers keep compiling; `coverageFor`
+   * always passes what it knows. A caller that omits the vertical is asking the
+   * geography-only question and gets the geography-only answer -- which is the right
+   * answer to that question, and the wrong one to "how is Plumbing 32095 doing".
+   */
+  verticalProfileId?: string | null;
+  geographyType?: string | null;
+  marketId?: string | null;
 }): Promise<DiscoveryCoverage> {
   const empty = { providerRows: 0, matchedExisting: 0, discoveredNew: 0,
     entitiesRejected: 0, entitiesNeedingReview: 0, reason: null,
@@ -822,12 +863,32 @@ export async function discoveryCoverageFor(input: {
     return { ...empty, state: 'RUNNING' };
   }
 
+  // Scoped to the market, not to the place.
+  //
+  // This filtered on `geography_value` alone, so the newest completed market_mine job
+  // for a ZIP answered for every vertical in it: a Roofing run of 32095 supplied the
+  // discovery state -- its outcome, its counters, its "a provider searched this and
+  // found nothing" -- to a rep looking at Plumbing in 32095, a market that had never
+  // been searched at all.
+  //
+  // Strict on the vertical: a job that does not name one cannot be attributed to one.
+  // Every market_mine job carries `vertical_profile_id` (enqueueMarketResearch has
+  // written it since the payload existed), so this excludes nothing real -- and
+  // matching NULL against the requested vertical would be identifying the market by
+  // geography again, one row at a time.
+  //
+  // Tolerant of a missing type or market id, which is not the same leniency. The
+  // oldest runs predate `geography_type` in the payload and simply do not carry one;
+  // `geography_value` is matched exactly either way, so honouring those rows costs no
+  // precision, while excluding them would report a market that has been searched as
+  // one that never has. A job that *does* record either field still has to agree.
   const { rows } = await query<{
+    job_id: string; payload: Record<string, unknown> | null;
     outcome: string | null; outcome_reason: string | null; completed_at: Date | null;
     provider_rows: number; matched_existing: number; discovered_new: number;
     entities_rejected: number; entities_needing_review: number;
   }>(
-    `select outcome, outcome_reason, completed_at,
+    `select job_id, payload, outcome, outcome_reason, completed_at,
             coalesce((progress->>'providerRows')::int, 0) as provider_rows,
             coalesce((progress->>'matchedExisting')::int, 0) as matched_existing,
             coalesce((progress->>'discoveredNew')::int, 0) as discovered_new,
@@ -837,9 +898,17 @@ export async function discoveryCoverageFor(input: {
       where job_type = 'market_mine'
         and status in ('SUCCEEDED','FAILED')
         and payload->>'geography_value' = $1
+        and ($2::text is null or payload->>'vertical_profile_id' = $2)
+        and ($3::text is null or payload->>'geography_type' is null
+             or payload->>'geography_type' = $3)
+        and ($4::text is null or payload->>'market_id' is null
+             or payload->>'market_id' = $4)
       order by completed_at desc nulls last
       limit 1`,
-    [input.geographyValue ?? ''],
+    [
+      input.geographyValue ?? '', input.verticalProfileId ?? null,
+      input.geographyType ?? null, input.marketId ?? null,
+    ],
   );
   const last = rows[0];
 
@@ -862,8 +931,23 @@ export async function discoveryCoverageFor(input: {
   switch (last.outcome) {
     case 'DISCOVERY_BLOCKED':
       return { ...shared, state: 'BLOCKED' };
-    case 'PROVIDER_PENDING':
-      return { ...shared, state: 'PENDING' };
+    // PENDING is a claim about right now -- the page says the provider "will be
+    // collected rather than run again" -- and the job's outcome is a claim about a
+    // moment in the past. A run that ended PROVIDER_PENDING keeps saying so for ever,
+    // so the state survived its own task being collected, failed or abandoned. In
+    // production a Plumbing 32095 run whose task had been deliberately abandoned was
+    // still telling reps a provider owed us results.
+    //
+    // The task table decides. If nothing is outstanding the run simply did not come
+    // back with an answer, which is what PROVIDER_UNAVAILABLE already means and
+    // already says: the last search could not be completed, so it is not known
+    // whether this market has businesses we do not hold. That leaves the market
+    // researchable and keeps the run in the audit trail, without claiming a provider
+    // owes us anything.
+    case 'PROVIDER_PENDING': {
+      const outstanding = await hasOutstandingTaskFor(last.job_id, last.payload);
+      return { ...shared, state: outstanding ? 'PENDING' : 'PROVIDER_UNAVAILABLE' };
+    }
     case 'PROVIDER_UNAVAILABLE':
     case 'FAILED':
       return { ...shared, state: 'PROVIDER_UNAVAILABLE' };
@@ -889,6 +973,37 @@ export async function discoveryCoverageFor(input: {
   if (last.discovered_new > 0) return { ...shared, state: 'FOUND_NEW' };
   if (last.provider_rows > 0) return { ...shared, state: 'MATCHED_EXISTING' };
   return { ...shared, state: 'ZERO_RESULTS' };
+}
+
+/**
+ * Whether the run that ended PROVIDER_PENDING is still waiting on a provider.
+ *
+ * The job's own payload rebuilds the identity its tasks were fingerprinted with, so
+ * the question asked is "is anything this run bought still outstanding" rather than
+ * "is any task anywhere still pending" -- the latter would let an unrelated market's
+ * open task keep this one falsely pending, which is the same bug wearing a hat.
+ *
+ * Imported lazily, in the style of the other cross-module reads in this file, so the
+ * domain layer does not take a load-time dependency on the miner.
+ */
+async function hasOutstandingTaskFor(
+  jobId: string, payload: Record<string, unknown> | null,
+): Promise<boolean> {
+  const [providerTasks, searchPlan, miningMode] = await Promise.all([
+    import('../miner/providerTasks.js'),
+    import('../miner/searchPlan.js'),
+    import('../miner/miningMode.js'),
+  ]);
+  const fields = payload ?? {};
+  const prefix = searchPlan.searchFingerprintPrefix({
+    marketId: (fields['market_id'] as string | null) ?? null,
+    verticalProfileId: (fields['vertical_profile_id'] as string | null) ?? null,
+    geographyType: (fields['geography_type'] as string | null) ?? null,
+    geographyValue: (fields['geography_value'] as string | null) ?? null,
+    miningMode: miningMode.miningModeOrDefault(fields['mining_mode'] as string | null),
+  });
+  return providerTasks.hasOutstandingProviderTaskForDiscovery({
+    jobId, fingerprintPrefix: prefix });
 }
 
 /**

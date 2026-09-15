@@ -49,26 +49,47 @@ async function seedAccount(name: string): Promise<string> {
   return accountId;
 }
 
-/** A finished market_mine job exactly as the worker leaves one. */
+/**
+ * A finished market_mine job exactly as the worker leaves one.
+ *
+ * The payload carries `vertical_profile_id` because a real one always has: it is
+ * written by `enqueueMarketResearch` and it is half of the market's identity. This
+ * fixture used to omit it, which made every job here a job about a ZIP and nothing
+ * else -- the exact shape the coverage read model was wrongly assuming.
+ */
 async function completedJob(input: {
   outcome: string; reason?: string; providerRows?: number;
   matchedExisting?: number; discoveredNew?: number; ageDays?: number;
-  status?: string;
-}): Promise<void> {
-  await query(
+  status?: string; verticalProfileId?: string;
+}): Promise<string> {
+  const { rows } = await query<{ job_id: string }>(
     `insert into jobs (job_type, status, payload, outcome, outcome_reason, progress,
                        completed_at)
      values ('market_mine', $1,
-             jsonb_build_object('geography_type','zip_zcta','geography_value','32095'),
+             jsonb_build_object('geography_type','zip_zcta','geography_value','32095',
+                                'vertical_profile_id', $8::text),
              $2, $3,
              jsonb_build_object('providerRows', $4::int, 'matchedExisting', $5::int,
                                 'discoveredNew', $6::int),
-             now() - ($7 || ' days')::interval)`,
+             now() - ($7 || ' days')::interval)
+     returning job_id`,
     [
       input.status ?? 'SUCCEEDED', input.outcome, input.reason ?? 'because',
       input.providerRows ?? 0, input.matchedExisting ?? 0, input.discoveredNew ?? 0,
-      String(input.ageDays ?? 0),
+      String(input.ageDays ?? 0), input.verticalProfileId ?? 'hvac',
     ],
+  );
+  return rows[0]!.job_id;
+}
+
+/** A provider task in whatever state the scenario needs, bound to its job. */
+async function providerTask(jobId: string, status: string): Promise<void> {
+  await query(
+    `insert into provider_tasks (provider, provider_native_id, job_id, fingerprint,
+                                 status)
+     values ('dataforseo', $1, $2, $3, $4)`,
+    [`native-${jobId}`, jobId, `search::hvac:zip_zcta:32095:advertiser_first:ac repair`,
+      status],
   );
 }
 
@@ -158,12 +179,28 @@ test('a provider that could not answer is not a market with nothing in it', asyn
 });
 
 test('a provider still working is pending, not empty', async () => {
-  await completedJob({ outcome: 'PROVIDER_PENDING' });
+  // "Still working" is a fact about the provider task, not about how the run that
+  // submitted it happened to end. The job's outcome is written once and never
+  // revised, so on its own it cannot tell a provider that is still working from one
+  // that stopped months ago.
+  await providerTask(await completedJob({ outcome: 'PROVIDER_PENDING' }), 'PENDING');
   assert.equal((await coverage()).discovery!.state, 'PENDING');
 
   const page = await findPage();
   assert.match(page, /has accepted a search/);
   assert.match(page, /collected rather than run again/);
+});
+
+test('a provider that stopped working is not still working', async () => {
+  // The same job row, the same outcome, and nothing outstanding behind it. This is
+  // the production case: a pre-P0 run whose task was deliberately abandoned kept the
+  // page promising a result that was never coming.
+  await providerTask(await completedJob({ outcome: 'PROVIDER_PENDING' }), 'ABANDONED');
+  assert.notEqual((await coverage()).discovery!.state, 'PENDING');
+
+  const page = await findPage();
+  assert.doesNotMatch(page, /collected rather than run again/,
+    'the page promised a provider result nobody is waiting for');
 });
 
 test('a half-searched market says it is part of the market', async () => {
@@ -245,7 +282,10 @@ test('the ten states are genuinely distinct, not one sentence in ten hats', asyn
   const seen = new Set<string>();
   const cases: { setup: () => Promise<void>; expect: string }[] = [
     { setup: async () => {}, expect: 'BLOCKED' },
-    { setup: async () => { await completedJob({ outcome: 'PROVIDER_PENDING' }); },
+    // PENDING now requires what the word means: a task the provider still owes us.
+    // The outcome alone is a record of how a run ended, not of what is outstanding.
+    { setup: async () => {
+      await providerTask(await completedJob({ outcome: 'PROVIDER_PENDING' }), 'PENDING'); },
       expect: 'PENDING' },
     { setup: async () => { await completedJob({ outcome: 'PROVIDER_UNAVAILABLE' }); },
       expect: 'PROVIDER_UNAVAILABLE' },
