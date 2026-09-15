@@ -8,6 +8,7 @@ import { formatDateTime, pluralize, relativeTime, titleCase } from '../format.js
 import type { SessionUser } from '../../domain/auth.js';
 import type { ImportPreview, SessionSummary } from '../../import/session.js';
 import type { OperationalSnapshot } from '../../api/operations.js';
+import { OUTCOME_ORDER, outcomeLabel } from '../../domain/sourceHealth.js';
 import type { SemanticState } from '../components/primitives.js';
 
 /**
@@ -236,12 +237,14 @@ function discoveryBanner(kpis: any): RawHtml {
 export function renderResearchHealthPage(input: {
   user: SessionUser; counts: NavCounts; metrics: any; exceptions: any[];
   operations?: OperationalSnapshot | null;
+  sources?: import('../../domain/sourceHealth.js').SourceHealth[] | null;
 }): string {
   const { user, counts, metrics, exceptions } = input;
   const pct = (n: number, d: number): string => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
 
   const body = html`
     ${operationsPanel(input.operations ?? null)}
+    ${sourceHealthPanel(input.sources ?? null)}
     <div class="grid grid-kpi">
       ${kpiCard({ label: 'Inventory freshness', value: pct(metrics.fresh, metrics.total),
                   sub: `${metrics.fresh} of ${metrics.total} accounts`,
@@ -595,6 +598,63 @@ export { confirmDialog, errorState, tierBadge, timeline, formatDateTime };
  * monitoring product: a question with an answer next to it, and the reason the
  * answer matters where it is not obvious.
  */
+/**
+ * Official sources, for whoever has to fix them.
+ *
+ * Deliberately an operations panel and not a rep surface. A rep needs to know what we
+ * found about one company; an operator needs to know that a source has answered
+ * "could not look" two hundred times this week, which is a sentence that would only
+ * frighten a rep about accounts that are fine.
+ */
+function sourceHealthPanel(
+  sources: import('../../domain/sourceHealth.js').SourceHealth[] | null,
+): RawHtml {
+  if (!sources || sources.length === 0) return raw('');
+
+  const tone = (entry: import('../../domain/sourceHealth.js').SourceHealth): string =>
+    entry.enabled && entry.counts.SOURCE_UNAVAILABLE > 0
+      && entry.counts.SOURCE_UNAVAILABLE >= entry.lookups / 2 ? 'badge-bad'
+      : entry.enabled ? 'badge-good' : '';
+
+  return html`<div class="section">
+    <h3>Official sources</h3>
+    <table class="table">
+      <thead><tr>
+        <th>Source</th><th>State</th><th>Last 30 days</th><th>Dataset</th><th>Verdict</th>
+      </tr></thead>
+      <tbody>
+        ${sources.map((entry) => html`<tr>
+          <td class="small">${entry.displayName}</td>
+          <td class="small">
+            <span class="badge ${tone(entry)}">${entry.enabled ? 'live'
+              : entry.effectiveAvailability.toLowerCase().replace(/_/g, ' ')}</span>
+          </td>
+          <td class="small">
+            ${entry.lookups === 0 ? html`<span class="muted">no lookups</span>` : html`
+              ${OUTCOME_ORDER.filter((status) => entry.counts[status] > 0)
+                .map((status) => html`<div class="micro">
+                  ${String(entry.counts[status])} ${outcomeLabel(status)}
+                </div>`)}`}
+          </td>
+          <td class="small">
+            ${entry.snapshot
+              ? html`<span class="badge ${entry.snapshot.state === 'STALE' ? 'badge-bad'
+                  : entry.snapshot.state === 'MISSING' ? '' : 'badge-good'}"
+                  >${entry.snapshot.state.toLowerCase().replace(/_/g, ' ')}</span>
+                <div class="micro muted">${entry.snapshot.summary}</div>`
+              : html`<span class="muted">&mdash;</span>`}
+          </td>
+          <td class="small">${entry.verdict}</td>
+        </tr>`)}
+      </tbody>
+    </table>
+    <p class="micro muted">
+      A source that cannot be reached says nothing about the companies it was asked
+      about. "Could not look" is never a finding.
+    </p>
+  </div>`;
+}
+
 function operationsPanel(snapshot: OperationalSnapshot | null): RawHtml {
   if (!snapshot) return raw('');
   const tone: Record<string, SemanticState> = {

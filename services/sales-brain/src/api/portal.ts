@@ -399,8 +399,12 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
       navCountsFull(user.userId, user.role), researchHealthMetrics(), researchExceptions(),
       operationalSnapshot(),
     ]);
+    // Operator-facing source health. Failing softly: a fault in reporting on the
+    // sources must not take down the page that reports on everything else.
+    const { sourceHealth } = await import('../domain/sourceHealth.js');
+    const sources = await sourceHealth().catch(() => null);
     return reply.type('text/html').send(
-      renderResearchHealthPage({ user, counts, metrics, exceptions, operations }));
+      renderResearchHealthPage({ user, counts, metrics, exceptions, operations, sources }));
   });
 
   app.get<{ Querystring: { flash?: string; error?: string } }>('/imports', async (request, reply) => {
