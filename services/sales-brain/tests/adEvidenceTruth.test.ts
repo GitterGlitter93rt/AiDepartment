@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { pool, query, withTransaction } from '../src/db/pool.js';
 import { upsertAccount, recordEvidence } from '../src/domain/accounts.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
-import { resetDatabase, markEntityVerified } from './helpers.js';
-import { accountDetail } from '../src/domain/accountDetail.js';
+import { resetDatabase, markEntityVerified, makeUser } from './helpers.js';
+import { getAccountDetail } from '../src/domain/accountDetail.js';
 import { advertiserEvidenceFor } from '../src/domain/advertiserEvidence.js';
 
 /**
@@ -60,7 +60,9 @@ test('a paid placement keeps the keyword, the headline, the landing page and the
     const accountId = await account();
     await observation(accountId);
 
-    const detail = await accountDetail(accountId);
+    const viewer = await makeUser(`Ad Viewer ${sequence}`, 'SALES_MANAGER');
+    const detail = (await getAccountDetail(accountId,
+      { userId: viewer.userId, role: 'SALES_MANAGER' }))!;
     const found = detail.discoveries[0]!;
     assert.equal(found.query, 'plumber 32095', 'the keyword a rep opens with was lost');
     assert.equal(found.ad_headline, 'Emergency Plumber - Call Now');
@@ -75,7 +77,9 @@ test('an organic result is not a paid placement', async () => {
   await observation(accountId, {
     result_type: 'organic', ad_headline: null, landing_url: null, position: 4 });
 
-  const detail = await accountDetail(accountId);
+  const viewer = await makeUser(`Ad Viewer O${sequence}`, 'SALES_MANAGER');
+  const detail = (await getAccountDetail(accountId,
+    { userId: viewer.userId, role: 'SALES_MANAGER' }))!;
   assert.equal(detail.discoveries[0]!.result_type, 'organic');
   assert.notEqual(detail.discoveries[0]!.result_type, 'paid_search',
     'an organic ranking was recorded as advertising spend');
@@ -84,7 +88,9 @@ test('an organic result is not a paid placement', async () => {
 test('a local result is not paid unless the provider says it is', async () => {
   const accountId = await account();
   await observation(accountId, { result_type: 'local_result', ad_headline: null });
-  const detail = await accountDetail(accountId);
+  const viewer = await makeUser(`Ad Viewer L${sequence}`, 'SALES_MANAGER');
+  const detail = (await getAccountDetail(accountId,
+    { userId: viewer.userId, role: 'SALES_MANAGER' }))!;
   assert.equal(detail.discoveries[0]!.result_type, 'local_result');
 });
 
