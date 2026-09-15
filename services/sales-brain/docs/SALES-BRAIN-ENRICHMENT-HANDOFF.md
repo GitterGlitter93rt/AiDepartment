@@ -88,7 +88,32 @@ nowhere to book, advertising 24/7 with no after-hours intake. Both halves must b
 observed, and an absence only counts when the site was actually read — otherwise "no
 booking page" is a fact about our crawler.
 
-### 7. An SSRF hole, closed
+### 7. Site quality (`src/resolver/siteQuality.ts`)
+
+Front page only. Deliberately not an SEO crawler — the question is narrow and
+commercial: would a rep open a conversation differently knowing this? No mobile
+viewport, no LocalBusiness markup, a footer copyright three years stale. Nothing is
+scored out of a hundred, because a number invites an argument and a fact invites a
+question.
+
+These are the only deliberate `no` this worker records. A home page either declares a
+viewport or it does not; that is a fact about the page. Contrast "no booking page",
+which is only meaningful once the site was actually read.
+
+### 8. Where we looked (`src/domain/sourceAudit.ts`)
+
+`research_runs.adapter_results.official_sources` recorded every source attempt and
+nothing read it back. An empty licence panel has four possible meanings — we looked and
+there is none; we could not look; this state issues none; we found several and could
+not tell them apart — and an empty panel says all four at once.
+
+### 9. Contact routes told apart
+
+Toll-free vs local vs a number the company invites you to text (which requires an
+actual invitation, not a number near the word "text"). Role inboxes are classified so a
+rep writes to `sales@` rather than the dispatch queue at `service@`.
+
+### 10. An SSRF hole, closed
 
 `politeFetch` fetched whatever host it was handed, and every URL comes from outside. A
 site recorded as `169.254.169.254` would have had the worker read cloud metadata and
@@ -115,7 +140,14 @@ four are `FEATURE_FLAGGED` behind `SOURCE_*_ENABLED`.
 4. **One company holds several licences.** A register returns one row per licence, so
    candidates must be distinct *entities* (`distinctByEntity`), not distinct records.
 5. **Never overlap DB-backed suites** — they share `yad_sales_test` and will corrupt
-   each other's fixtures.
+   each other's fixtures. A `pgrep -f "tsx --test"` guard does **not** work for this:
+   the waiting shell's own command line contains that string, so it matches itself and
+   waits forever. Run DB suites sequentially in one command instead.
+6. **`search_observations.source_type` must be `'discovery'`.** That is what the miner
+   writes and what the Account page filters on; any other value produces a row nothing
+   will ever show a rep.
+7. **`getAccountDetail` needs a viewer** (`{ userId, role }`) and returns null for an
+   invisible account.
 
 ## What is deliberately not done
 
