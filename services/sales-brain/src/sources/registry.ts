@@ -9,8 +9,8 @@ import { parseDbprDetail, dbprCandidate, dbprFacts, dbprPeople, licenceCoversVer
   from './adapters/flDbpr.js';
 import { parseComptrollerStatus, comptrollerCandidate, comptrollerFacts, comptrollerPeople }
   from './adapters/txComptroller.js';
-import { parseTdlrResults, tdlrCandidate, tdlrFacts, tdlrPeople, tdlrProgramFor }
-  from './adapters/txTdlr.js';
+import { parseTdlrResults, tdlrCandidate, tdlrFacts, tdlrPeople, tdlrProgramFor,
+  tdlrLicenceCoversVertical } from './adapters/txTdlr.js';
 import { tsbpeCandidate, tsbpeFacts, tsbpePeople, rankTsbpe, type TsbpeRecord }
   from './adapters/txTsbpe.js';
 import { findSnapshotRecordsByCompany } from './snapshots.js';
@@ -70,7 +70,13 @@ async function lookupViaPage<TRecord>(input: {
       'The source returned no record that could be read as a result.');
   }
 
-  const candidates = distinctByEntity(records.map(input.toCandidate));
+  // The candidate a record produced, kept beside the record itself.
+  //
+  // `distinctByEntity` returns a subset of these very objects, so the selected
+  // candidate identifies its record by reference -- no second search by name, which
+  // is the thing that cannot be trusted here in the first place.
+  const pairs = records.map((record) => ({ record, candidate: input.toCandidate(record) }));
+  const candidates = distinctByEntity(pairs.map((pair) => pair.candidate));
   const decision = decideMatch(candidates, input.context);
   const capturedAt = new Date();
 
@@ -82,8 +88,21 @@ async function lookupViaPage<TRecord>(input: {
     };
   }
 
-  const index = records.findIndex((entry) => input.toCandidate(entry).name === decision.selected!.name);
-  const record = records[index === -1 ? 0 : index]!;
+  const selected = pairs.find((pair) => pair.candidate === decision.selected);
+  if (!selected) {
+    // Unreachable unless the matcher returns a candidate it was not given. Treated as
+    // an ambiguity rather than defaulting to the first record: falling back to
+    // records[0] would attach whichever company the source happened to list first,
+    // which is precisely the contamination the matcher exists to refuse.
+    return {
+      sourceId: input.sourceId, status: 'AMBIGUOUS',
+      reason: 'The matched record could not be tied back to a source row, so nothing '
+        + 'was recorded.',
+      sourceReference: response.finalUrl, capturedAt, matchMethod: null,
+      facts: [], people: [], endpoints: [], candidates: decision.considered,
+    };
+  }
+  const record = selected.record;
   const reference = decision.selected.reference
     ? `${response.finalUrl}#${decision.selected.reference}` : response.finalUrl;
   const built = input.build(record, reference);
@@ -158,18 +177,24 @@ export function createDbprAdapter(fetcher: Fetcher = defaultFetcher): SourceAdap
       context.stateRegion === 'FL'
       && licensingRequirement('FL', context.verticalProfileId).sourceId === 'fl_dbpr',
     lookup: async (context) => {
-      const result = await lookupViaPage({
+      return lookupViaPage({
         sourceId: 'fl_dbpr',
         url: 'https://www.myfloridalicense.com/wl11.asp?mode=2&search=Name&SID=&brd=&typ=N&hid='
           + encodeURIComponent(context.companyName),
         fetcher, context,
-        parse: parseDbprDetail,
+        // Only a licence for the trade this account is about. A roofing company
+        // holding an electrical licence has not had its roofing credentials verified,
+        // and reporting it as licensed would be true of the wrong thing.
+        parse: (html) => {
+          const licence = parseDbprDetail(html);
+          if (!licence) return null;
+          return licenceCoversVertical(licence, context.verticalProfileId) ? licence : null;
+        },
         toCandidate: dbprCandidate,
         build: (record, reference) => ({
           facts: dbprFacts(record, reference), people: dbprPeople(record, reference),
         }),
       });
-      return result;
     },
   };
 }
@@ -196,7 +221,11 @@ export function createTdlrAdapter(fetcher: Fetcher = defaultFetcher): SourceAdap
         url: 'https://www.tdlr.texas.gov/LicenseSearch/SearchResults.asp?searchtype=name&term='
           + encodeURIComponent(context.companyName),
         fetcher, context,
-        parse: (html) => parseTdlrResults(html, program),
+        // Only licences of the programme this trade needs. A company may hold both,
+        // and an HVAC account verified against an electrical licence has not had its
+        // air-conditioning credentials checked.
+        parse: (html) => parseTdlrResults(html, program)
+          .filter((licence) => tdlrLicenceCoversVertical(licence, context.verticalProfileId)),
         toCandidate: tdlrCandidate,
         build: (record, reference) => ({
           facts: tdlrFacts(record, reference), people: tdlrPeople(record, reference),

@@ -130,6 +130,33 @@ export function parseTdlrResults(html: string, program: TdlrProgram): TdlrLicenc
   return licences;
 }
 
+/**
+ * Whether the licence found is the licence the trade needs.
+ *
+ * TDLR runs both programmes this adapter covers, and a company can hold a licence in
+ * one while the account is about the other. Reporting "licensed" without checking
+ * would be true of the wrong thing -- an HVAC account verified against an electrical
+ * licence has not had its air-conditioning credentials checked at all, and a rep
+ * would read the green tick as though it had.
+ *
+ * Mirrors `licenceCoversVertical` in the Florida adapter, which had this check from
+ * the start; Texas was the side that was missing it.
+ */
+const TDLR_TRADE_PATTERNS: Record<TdlrProgram, RegExp> = {
+  AIR_CONDITIONING: /(air ?cond|refrigerat|hvac|\bacr?\b|tacl)/i,
+  ELECTRICAL: /(electric|wireman|\bec\b)/i,
+};
+
+export function tdlrLicenceCoversVertical(
+  licence: TdlrLicence, verticalProfileId: string | null,
+): boolean {
+  const program = tdlrProgramFor(verticalProfileId);
+  // No programme covers this trade, so there is nothing this licence could satisfy.
+  if (!program) return false;
+  const pattern = TDLR_TRADE_PATTERNS[program];
+  return pattern.test(`${licence.licenseType} ${licence.licenseNumber}`);
+}
+
 export function tdlrCandidate(licence: TdlrLicence): MatchCandidate {
   return {
     name: licence.businessName ?? licence.licenseeName,

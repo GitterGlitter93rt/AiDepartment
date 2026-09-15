@@ -40,7 +40,9 @@ async function account(): Promise<string> {
 async function observation(accountId: string, overrides: Record<string, unknown> = {}):
 Promise<void> {
   const values = {
-    provider: 'dataforseo', source_type: 'serp', query: 'plumber 32095',
+    // 'discovery' is what the miner writes and what the Account page reads back;
+    // any other value produces a row nothing will ever show a rep.
+    provider: 'dataforseo', source_type: 'discovery', query: 'plumber 32095',
     result_type: 'paid_search', position: 1,
     ad_headline: 'Emergency Plumber - Call Now',
     landing_url: 'https://ad.invalid/emergency',

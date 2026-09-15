@@ -323,3 +323,25 @@ test('a malformed dataset yields nothing rather than garbage', () => {
   assert.deepEqual(parseTsbpeDataset('a,b,c\n1,2,3'), [],
     'rows without a recognisable licence type were accepted');
 });
+
+// ------------------------------------------- licence must cover the trade --
+
+test('a Texas electrical licence does not verify an HVAC company', async () => {
+  const { tdlrLicenceCoversVertical } = await import('../src/sources/adapters/txTdlr.js');
+  const [licence] = parseTdlrResults(fixtures.TDLR_HVAC_RESULTS, 'AIR_CONDITIONING');
+  assert.equal(tdlrLicenceCoversVertical(licence!, 'hvac'), true);
+
+  const electrical = { ...licence!, licenseType: 'Master Electrician',
+    licenseNumber: 'EC99887', program: 'ELECTRICAL' as const };
+  assert.equal(tdlrLicenceCoversVertical(electrical, 'hvac'), false,
+    'an electrical licence was accepted as verifying air-conditioning work');
+  assert.equal(tdlrLicenceCoversVertical(electrical, 'electrical'), true);
+});
+
+test('a trade TDLR does not cover can never be satisfied by a TDLR licence', async () => {
+  const { tdlrLicenceCoversVertical } = await import('../src/sources/adapters/txTdlr.js');
+  const [licence] = parseTdlrResults(fixtures.TDLR_HVAC_RESULTS, 'AIR_CONDITIONING');
+  assert.equal(tdlrLicenceCoversVertical(licence!, 'roofing'), false);
+  assert.equal(tdlrLicenceCoversVertical(licence!, 'plumbing'), false,
+    'Texas plumbing belongs to the plumbing board, not TDLR');
+});
