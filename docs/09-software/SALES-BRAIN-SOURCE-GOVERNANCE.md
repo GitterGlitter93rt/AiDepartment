@@ -8,6 +8,51 @@ Reconnaissance was done on 2026-09-15 with a handful of read-only requests from 
 identified research user-agent. No source was bulk-downloaded, no access control was
 worked around, and no paid source was contacted.
 
+## Live validation, 2026-09-15 (second pass)
+
+The first pass established reachability. The second pass drove the actual request each
+adapter would make, and corrected three of them. Two findings were design errors rather
+than bugs.
+
+### Texas Comptroller — the scraping path is the one robots forbids
+
+The account-status search at `comptroller.texas.gov/taxes/franchise/account-status/search`
+is a JavaScript form posting to `comptroller.texas.gov/data-search/franchise-tax`. That
+host's robots.txt is `Disallow: /*/` with an explicit allow-list which does **not**
+include `/data-search/`.
+
+The Comptroller publishes a documented public API instead:
+`api.comptroller.texas.gov/public-data/v1/public/` — `franchise-tax-list` for search,
+`franchise-tax/{id}` for account and officer detail, schema `FranchiseAccountWithOfficers`
+(`AGNT_NM`, `AGNT_TITL_TX`, `TAXPAYER_ID`, `RIGHT_TO_TRANSACT`, …). It answers **403
+without an `api-key` header**.
+
+The adapter now targets the API and makes **no request at all** until
+`TX_COMPTROLLER_API_KEY` is set. Obtaining a key is a registration step for a human.
+
+### Florida DBPR — a session-bearing POST, not a GET
+
+`wl11.asp` is a legacy ASP application. The licensee search is a **POST** to
+`wl11.asp?mode=1&SID=&brd=&typ=` with a `SearchType` radio (Name | LicNbr | City |
+LicTyp) and ~30 hidden fields (`hOrgName`, `hLastName`, `hSearchType`, `hLicNbr`,
+`hCity`, `hDivision`, `hBoard`, `hSearchOpt`, `hRecsPerPage`), threading a session id
+through `SID`.
+
+The adapter had been building a GET with invented query parameters — it could never have
+returned a record. DBPR is now snapshot-backed, like TSBPE.
+
+### Texas TDLR — the parser returned nothing against every real page
+
+One query to `SearchResultsListBrowse.asp` found three mismatches:
+
+- the licence column is headed **`License Data Search Result`**, not "License #"
+- licence numbers print **spaced**: `ACR - 4471`
+- the browse view has **no status column at all**, and the parser required one
+
+Any one of them returned zero licences. Rebuilt from the captured shape; an unread
+status is `UNKNOWN`, never assumed active. robots still disallows `/*.csv`, so the
+published CSVs remain undownloaded.
+
 ## Status at a glance
 
 | Source | Status | Live calls | Why |
