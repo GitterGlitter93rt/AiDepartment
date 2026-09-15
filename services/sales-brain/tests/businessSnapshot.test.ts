@@ -190,3 +190,37 @@ test('a site check is an observation about the page, not a verified fact', () =>
   assert.equal(sections.find((section) => section.id === 'site')!.items[0]!.kind,
     'OBSERVATION');
 });
+
+test('a registered agent is never the highlighted person', () => {
+  const highlight = officialPersonHighlight([
+    evidence({ claim_key: 'registered_agent_name', normalized_value: 'COASTAL AGENTS INC',
+      claim_text: 'COASTAL AGENTS INC is the registered agent.' }),
+  ]);
+  assert.equal(highlight, null,
+    'the one role that frequently belongs to somebody who never worked there was '
+    + 'promoted to the headline');
+});
+
+test('official people keep the filing’s own words and carry their caution', async () => {
+  const { officialPeople } = await import('../src/domain/businessSnapshot.js');
+  const people = officialPeople([
+    { full_name: 'COASTAL AGENTS INC', relationship: 'REGISTERED_AGENT',
+      raw_title: 'Registered Agent' },
+    { full_name: 'PRIYA NAIR', relationship: 'OFFICER', raw_title: 'PRESIDENT' },
+    { full_name: 'JORDAN OKAFOR', relationship: 'QUALIFIER',
+      raw_title: 'Responsible Master Plumber' },
+  ]);
+
+  assert.equal(people[0]!.role, 'Registered Agent');
+  assert.match(people[0]!.caution!, /not a call target/i);
+  assert.equal(people[1]!.role, 'PRESIDENT', 'the filing’s own title was replaced');
+  assert.match(people[1]!.caution!, /hold an office, not that they run/i);
+  assert.match(people[2]!.caution!, /not evidence of ownership/i);
+});
+
+test('a person with no recorded title still gets a readable role', async () => {
+  const { officialPeople } = await import('../src/domain/businessSnapshot.js');
+  const [person] = officialPeople([
+    { full_name: 'ALEX RIVERS', relationship: 'LICENSE_HOLDER', raw_title: null }]);
+  assert.equal(person!.role, 'license holder');
+});

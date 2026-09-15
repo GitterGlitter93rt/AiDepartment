@@ -288,9 +288,52 @@ export function buildBusinessSnapshot(input: SnapshotInput): SnapshotSection[] {
  * record says "qualifying agent" is a rep who has been misled by their own CRM.
  */
 export function officialPersonHighlight(evidence: DetailEvidence[]): SnapshotItem | null {
+  /**
+   * Order is by how tightly the record ties the person to the company, not by how
+   * senior the title sounds.
+   *
+   * A Responsible Master Plumber is the company's licence to operate. A qualifying
+   * agent takes professional responsibility for its work. Both are bindings. A
+   * registered agent is deliberately absent from this list at any position: it is the
+   * one role on a filing that frequently belongs to somebody who has never worked
+   * there, and promoting it here is the exact error this product exists not to make.
+   */
   for (const key of ['responsible_master_plumber', 'license_qualifying_agent']) {
     const found = evidence.find((entry) => entry.claim_key === key && !entry.is_expired);
     if (found) return toItem(found);
   }
   return null;
+}
+
+/**
+ * Named people the official records establish, each at their recorded role.
+ *
+ * Separate from the highlight because these are a list rather than a headline, and
+ * separate from the resolver's decision-maker ranking because that answers "who should
+ * I call" while this answers "who does the state say is involved". A rep wants both,
+ * and conflating them is how an officer on a tax filing becomes a call target.
+ */
+export function officialPeople(
+  contacts: { full_name: string | null; relationship: string; raw_title: string | null;
+    source_class?: string | null }[],
+): { name: string; role: string; caution: string | null }[] {
+  const CAUTIONS: Record<string, string> = {
+    REGISTERED_AGENT: 'Receives legal service of process. Often a lawyer or an agent '
+      + 'service rather than anyone who works there — not a call target.',
+    QUALIFIER: 'Holds the licence the company operates under. A regulatory role, not '
+      + 'evidence of ownership.',
+    LICENSE_HOLDER: 'Named on a licence. Not evidence of ownership.',
+    OFFICER: 'Named as an officer on a public filing. A filing says they hold an '
+      + 'office, not that they run the operation.',
+    MEMBER: 'Named as a member on a public filing. Not by itself evidence of control.',
+  };
+
+  return contacts
+    .filter((contact) => Boolean(contact.full_name))
+    .map((contact) => ({
+      name: contact.full_name!,
+      // The filing's own words first; the normalized class only when there are none.
+      role: contact.raw_title ?? contact.relationship.replace(/_/g, ' ').toLowerCase(),
+      caution: CAUTIONS[contact.relationship] ?? null,
+    }));
 }
