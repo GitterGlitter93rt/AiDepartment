@@ -290,3 +290,45 @@ test('checksums distinguish datasets', () => {
 test('currentSnapshot returns nothing before anything is loaded', async () => {
   assert.equal(await currentSnapshot('tx_tsbpe', 'licensees'), null);
 });
+
+// ------------------------------------------------- queueing research, once --
+
+test('a newly discovered account queues research once, however often it is asked',
+  async () => {
+    const { enqueueAccountResearch } = await import('../src/workers/enqueue.js');
+    const accountId = await seedAccount({
+      name: 'Queue Once Plumbing', city: 'Austin', state: 'TX',
+      postalCode: '78701', vertical: 'plumbing' });
+
+    const first = await enqueueAccountResearch(accountId, null, 'newly_discovered');
+    const second = await enqueueAccountResearch(accountId, null, 'newly_discovered');
+    const third = await enqueueAccountResearch(accountId, null, 'scheduled_refresh');
+
+    assert.equal(first.created, true);
+    assert.equal(second.created, false, 'a repeated event queued a second research job');
+    assert.equal(third.created, false,
+      'a different trigger queued a duplicate job for the same account');
+
+    const { rows } = await query<{ n: number }>(
+      `select count(*)::int as n from jobs
+        where job_type = 'account_research' and account_id = $1`, [accountId]);
+    assert.equal(rows[0]!.n, 1, 'more than one research job exists for one account');
+  });
+
+test('research is retry-safe: a finished account can be researched again later',
+  async () => {
+    const { enqueueAccountResearch } = await import('../src/workers/enqueue.js');
+    const accountId = await seedAccount({
+      name: 'Retry Safe Plumbing', city: 'Austin', state: 'TX',
+      postalCode: '78701', vertical: 'plumbing' });
+
+    await enqueueAccountResearch(accountId, null, 'newly_discovered');
+    // The first run finishes.
+    await query(
+      `update jobs set status = 'SUCCEEDED', completed_at = now()
+        where job_type = 'account_research' and account_id = $1`, [accountId]);
+
+    const later = await enqueueAccountResearch(accountId, null, 'scheduled_refresh');
+    assert.equal(later.created, true,
+      'an account could never be re-researched after its first run completed');
+  });
