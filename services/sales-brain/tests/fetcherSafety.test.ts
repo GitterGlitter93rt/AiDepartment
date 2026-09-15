@@ -85,3 +85,41 @@ test('a host that simply does not resolve fails, and is not called internal', as
   assert.notEqual(result.blockedReason, 'private_address',
     'an ordinary DNS failure was reported as an internal-address refusal');
 });
+
+test('a credential does not follow a redirect to another origin', async () => {
+  // extraHeaders carries a registered API key. If the source redirects off-host, the
+  // key must not go with it: it belongs to the origin it was issued for.
+  const seen: { url: string; hadKey: boolean }[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
+    const url = String(input);
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    seen.push({ url, hadKey: 'api-key' in headers });
+    if (url.includes('robots.txt')) {
+      return new Response('User-agent: *\nAllow: /\n',
+        { status: 200, headers: { 'content-type': 'text/plain' } });
+    }
+    if (url.startsWith('https://api.example/')) {
+      return new Response('', { status: 302,
+        headers: { location: 'https://elsewhere.example/landing' } });
+    }
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof globalThis.fetch;
+
+  try {
+    await politeFetch('https://api.example/data', { 'api-key': 'secret-value' });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  const first = seen.find((entry) => entry.url.startsWith('https://api.example/data'))!;
+  const redirected = seen.find((entry) => entry.url.startsWith('https://elsewhere.example/'));
+  assert.equal(first.hadKey, true, 'the key was not sent to the origin it belongs to');
+  if (redirected) {
+    assert.equal(redirected.hadKey, false,
+      'the API key was handed to whoever answered the redirect');
+  }
+  assert.ok(!seen.some((entry) =>
+    entry.url.includes('elsewhere') && entry.hadKey),
+  'a credential crossed an origin boundary');
+});

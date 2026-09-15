@@ -318,13 +318,23 @@ export async function politeFetch(
     // though the origin had served it. Each hop is re-resolved and re-refused here.
     let response!: Response;
     let current = target;
+    /**
+     * Credentials do not survive a hop to another origin.
+     *
+     * `extraHeaders` carries a registered API key. Re-sending it on every hop means
+     * that if the source ever redirects off-host -- to a CDN, an error page, or
+     * anywhere an attacker can influence -- we hand the key to whoever answers. The
+     * key belongs to the origin it was issued for and nowhere else.
+     */
+    const startingOrigin = target.origin;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+      const credentialled = current.origin === startingOrigin;
       response = await fetch(current.toString(), {
         headers: {
           'user-agent': config.worker.userAgent,
           accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5',
           'accept-language': 'en-US,en;q=0.9',
-          ...extraHeaders,
+          ...(credentialled ? extraHeaders : {}),
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         redirect: 'manual',
