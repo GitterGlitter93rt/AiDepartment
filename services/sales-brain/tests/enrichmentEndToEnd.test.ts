@@ -158,10 +158,15 @@ test('the RMP is stored as a qualifier, never as an owner', async () => {
     [accountId]);
   const jordan = rows.find((row) => row.full_name?.toUpperCase().includes('JORDAN'));
   assert.ok(jordan, 'the Responsible Master Plumber never reached the contacts table');
-  assert.notEqual(jordan.company_relationship, 'OWNER',
-    'a regulatory designation became an ownership claim in the database');
-  assert.equal(jordan.company_relationship, 'QUALIFIER',
+  // The stored vocabulary is the database's, not the resolver's: contacts.
+  // company_relationship is constrained to employee/officer/member_manager/owner/
+  // registered_agent/license_qualifier/former/unknown, and QUALIFIER maps onto
+  // license_qualifier. `owner` is a value in that list, which is exactly why it
+  // matters that a regulatory designation never lands on it.
+  assert.equal(jordan.company_relationship, 'license_qualifier',
     'the RMP was stored as something other than the role the board gives them');
+  assert.notEqual(jordan.company_relationship, 'owner',
+    'a regulatory designation became an ownership claim in the database');
 });
 
 test('the account page shows a snapshot a rep can act on', async () => {
