@@ -78,11 +78,24 @@ export async function runOfficialSources(input: {
   };
 
   const stagesAttempted = new Set<string>();
+  /**
+   * Stages where a source covers this market but is not permitted to run.
+   *
+   * Distinct from a stage no source covers at all. "Florida has no company registry
+   * adapter" and "Florida's registry adapter exists and governance has not cleared it"
+   * are different sentences, and only the second one is actionable by us.
+   */
+  const stagesWithheld = new Map<string, string[]>();
 
   for (const adapter of adapters) {
     if (!adapter.supports(input.context)) continue;
 
     const availability = adapter.availability();
+    if (availability !== 'LIVE') {
+      const withheld = stagesWithheld.get(adapter.stage) ?? [];
+      withheld.push(`${adapter.displayName} (${availability.toLowerCase().replace(/_/g, ' ')})`);
+      stagesWithheld.set(adapter.stage, withheld);
+    }
     if (availability === 'DISABLED_PAID_SOURCE' || availability === 'BLOCKED') {
       result.outcomes.push({
         sourceId: adapter.id, displayName: adapter.displayName, stage: adapter.stage,
@@ -151,22 +164,39 @@ export async function runOfficialSources(input: {
   // as exactly that, so completeness and the UI can tell it from a gap.
   const requirement = licensingRequirement(
     input.context.stateRegion, input.context.verticalProfileId);
+  /**
+   * Why a stage did not run, said accurately.
+   *
+   * A source that covers this market but is not cleared to run is a governance
+   * decision of ours; a market no source covers is a gap in what is built; a trade the
+   * state does not license is neither. Reporting the first as the second would hide
+   * work that is one sign-off away from being done.
+   */
+  const withheldReason = (stage: string): string | null => {
+    const withheld = stagesWithheld.get(stage);
+    if (!withheld || withheld.length === 0) return null;
+    return `source governance has not cleared automatic use of ${withheld.join(', ')}`;
+  };
+
   if (!stagesAttempted.has('C_public_license_registry')) {
+    const withheld = withheldReason('C_public_license_registry');
     result.stagesSkipped.push({
       stage: 'C_public_license_registry',
-      reason: requirement.scope === 'NONE' || requirement.scope === 'LOCAL_ONLY'
-        ? requirement.note
-        : requirement.scope === 'UNKNOWN'
+      reason: withheld
+        ?? (requirement.scope === 'NONE' || requirement.scope === 'LOCAL_ONLY'
+          || requirement.scope === 'UNKNOWN'
           ? requirement.note
-          : 'No licence source is configured for this state and trade.',
+          : 'No licence source is configured for this state and trade.'),
     });
   }
   if (!stagesAttempted.has('B_public_company_registry')) {
+    const withheld = withheldReason('B_public_company_registry');
     result.stagesSkipped.push({
       stage: 'B_public_company_registry',
-      reason: input.context.stateRegion
-        ? `No company registry source covers ${input.context.stateRegion}.`
-        : 'The account has no state on record, so no state registry applies.',
+      reason: withheld
+        ?? (input.context.stateRegion
+          ? `no company registry source covers ${input.context.stateRegion}`
+          : 'the account has no state on record, so no state registry applies'),
     });
   }
   result.stagesRun.push(...stagesAttempted);

@@ -332,3 +332,33 @@ test('research is retry-safe: a finished account can be researched again later',
     assert.equal(later.created, true,
       'an account could never be re-researched after its first run completed');
   });
+
+test('a source that exists but is not cleared says so, rather than "none covers this"',
+  async () => {
+    // Sunbiz covers Florida. It is blocked, which is a decision of ours and one
+    // sign-off away from being undone -- reporting it as "no source covers Florida"
+    // would hide work that is nearly done behind a sentence that sounds structural.
+    const { createSunbizAdapter } = await import('../src/sources/registry.js');
+    const result = await runOfficialSources({
+      context: context({ stateRegion: 'FL', city: 'St Augustine', postalCode: '32095',
+        companyName: 'Kowalczyk Plumbing LLC' }),
+      adapters: [createSunbizAdapter()],
+    });
+    const skipped = result.stagesSkipped
+      .find((stage) => stage.stage === 'B_public_company_registry')!;
+    assert.match(skipped.reason, /governance/i,
+      'a withheld source was reported as a missing one');
+    assert.match(skipped.reason, /Florida Division of Corporations/,
+      'the reason did not name the source that is waiting on a sign-off');
+    assert.doesNotMatch(skipped.reason, /no company registry source covers/i);
+  });
+
+test('a state genuinely covered by nothing still says so plainly', async () => {
+  const result = await runOfficialSources({
+    context: context({ stateRegion: 'NV', city: 'Reno', postalCode: '89501' }),
+    adapters: [],
+  });
+  const skipped = result.stagesSkipped
+    .find((stage) => stage.stage === 'B_public_company_registry')!;
+  assert.match(skipped.reason, /no company registry source covers NV/i);
+});
