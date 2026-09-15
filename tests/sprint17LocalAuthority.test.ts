@@ -342,17 +342,19 @@ describe('The homepage proof section claims nothing it cannot support', () => {
     }
   });
 
-  test('it is framed as examples, not as customer case studies', () => {
+  test('it is framed as capability, and claims no social proof', () => {
     const text = visibleText(home());
-    assert.match(text, /not as customer case studies|examples of the work/i,
-      'the example framing was removed');
-    for (const forbidden of [/\btestimonial/i, /\bcase study\b/i, /\bour client\b/i, /\bclients say\b/i]) {
-      // "not as customer case studies" is the one legitimate use.
-      const matches = [...text.matchAll(new RegExp(forbidden.source, 'gi'))];
-      for (const m of matches) {
-        const ctx = text.slice(Math.max(0, m.index! - 40), m.index!).toLowerCase();
-        assert.ok(/\bnot\b/.test(ctx), `homepage uses "${m[0]}" as a claim`);
-      }
+    // The framing is positive rather than a disclaimer: a prospect should
+    // read what we build, not what we lack. The constraint behind it is
+    // unchanged and lives in ProofSection.astro's header comment.
+    assert.match(text, /examples of the practical systems we design and build/i,
+      'the capability framing was removed');
+    // Now that no disclaimer sentence needs an exception, these are
+    // banned outright — a stricter guard than the negation-aware one it
+    // replaces. Adding a testimonial or case study to the homepage fails
+    // here regardless of how it is phrased.
+    for (const forbidden of [/\btestimonial/i, /\bcase stud(?:y|ies)\b/i, /\bour client\b/i, /\bclients say\b/i]) {
+      assert.equal(forbidden.test(text), false, `homepage claims social proof (${forbidden})`);
     }
   });
 

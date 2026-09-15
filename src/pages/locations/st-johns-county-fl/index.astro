@@ -43,10 +43,10 @@ const overheadGroups = [
 
 const faqs = [
   { question: 'We are growing fast. Should we fix process first or automate now?', answer: 'Process first, almost always — but not for as long as people assume. Automating a broken process makes the mess faster and harder to see. The practical sequence is to standardize the two or three workflows that carry the most volume, then automate those specifically, rather than pausing everything for a six-month process project while the growth continues.' },
-  { question: 'Our next hire was going to be an office administrator. Is this instead of that?', answer: 'Sometimes, and sometimes not — we will not pretend otherwise. If the role is mostly repeatable coordination — confirmations, reminders, chasing quotes, moving data between systems — a good chunk of it is automatable and the hire can be deferred or redefined. If the role is judgment, customer relationships and exception handling, you should still make the hire. The useful exercise is separating the two before you write the job description.' },
+  { question: 'Our next hire was going to be an office administrator. Is this instead of that?', answer: 'Sometimes it replaces the hire, sometimes it changes it. If the role is mostly repeatable coordination — confirmations, reminders, chasing quotes, moving data between systems — a good chunk of it is automatable and the hire can be deferred or redefined. If the role is judgment, customer relationships and exception handling, you should still make the hire. The useful exercise is separating the two before you write the job description.' },
   { question: 'We have crews across the county and into Duval. Does that complicate things?', answer: 'It adds routing rules rather than complexity of kind. Territory boundaries, drive time and crew capacity become explicit rules instead of a scheduler’s working memory — which also means the process survives that scheduler taking a holiday.' },
   { question: 'A lot of our work comes from builders and developers rather than homeowners. Does that change the approach?', answer: 'Yes, meaningfully. Business-to-business work in new construction runs on longer relationships, scheduled phases, change orders and payment terms rather than fast consumer lead response. The emphasis shifts from speed-to-lead toward coordination, document handling and keeping commitments visible across a long project.' },
-  { question: 'Are you based in St. Johns County?', answer: 'Our business address is in Northeast Florida, and St. Johns County is effectively our home market. We do not operate a public office or a walk-in location anywhere, here included. In-person discovery is straightforward; the rest runs remotely.' },
+  { question: 'Do you work with St. Johns County businesses in person?', answer: 'Yes — this is effectively our home market. Your AI Department is based in Northeast Florida, so discovery, strategy and review sessions here are straightforward to arrange in person. Implementation, reporting and optimization are built to run remotely, which is what lets a project keep pace between meetings.' },
 ];
 ---
 
@@ -105,7 +105,7 @@ const faqs = [
       <SectionHeading
         eyebrow="The Choice"
         heading="Two Ways to Absorb Growth"
-        support="A conceptual pattern, not a claim that every business should choose the same path."
+        support="A conceptual pattern. Which path fits depends on where your load is actually accumulating."
       />
       <GroupedFlow groups={overheadGroups} tone="light" />
     </Container>

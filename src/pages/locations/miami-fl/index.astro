@@ -48,11 +48,11 @@ const crossBorderGroups = [
 ];
 
 const faqs = [
-  { question: 'Do you provide service in Spanish or Portuguese?', answer: 'We are not making that claim. Miami is a genuinely multilingual business environment and pretending otherwise would be silly, but claiming multilingual delivery we have not documented would be worse. What language an automated system handles, to what standard, and who reviews its output are scoping questions we work through honestly at the start of an engagement — including the possibility that the answer is to keep a language channel entirely human.' },
+  { question: 'Our customers do not all operate in English. How do you handle that?', answer: 'Language requirements are scoped during discovery. Where multilingual customer communication is part of the workflow, we determine the appropriate technology, the review process and the level of human oversight before anything is implemented. For a high-stakes conversation the right design is often a hybrid: automation handles capture and routing, and a fluent person handles the exchange that matters.' },
   { question: 'A lot of our enquiries come through referrals and messaging apps, not our website. Does that break the model?', answer: 'It changes where capture happens, not whether it is worth doing. The problem in a referral-driven business is usually that the enquiry lives in one person’s phone and never reaches a shared record, so nobody else can follow up and nobody can tell which relationships actually produce revenue. Getting those conversations onto a record is often the highest-value first step, ahead of any customer-facing automation.' },
   { question: 'Our deals take months and involve a lot of paperwork. Where does AI help there?', answer: 'Two places. Document work — extracting, organizing and summarizing volume so a person reviews rather than reads everything — and follow-up discipline across a long cycle, where the practical failure is not a lost deal but a deal nobody touched for five weeks. Neither replaces the professional judgment in the transaction itself.' },
-  { question: 'We deal with international counterparties. Does that affect what we can use?', answer: 'It can, and it is worth establishing early. Where data is processed, what your contracts and any applicable regimes require, and what your counterparties expect are all design inputs. We are not lawyers and do not advise on cross-border data obligations — we build within the constraints your advisors set.' },
-  { question: 'Do you have a Miami office?', answer: 'No. We are based in Northeast Florida and serve Miami businesses. There is no Miami office, no South Florida address, and we will not imply one. Remote delivery is how the engagement runs; travel for discovery is possible where it genuinely helps.' },
+  { question: 'We deal with international counterparties. Does that affect what we can use?', answer: 'It shapes the architecture, so we establish it early. Where data is processed, what your contracts and any applicable regimes require, and what your counterparties expect are all design inputs. Cross-border data requirements are treated as design constraints, and we implement within the requirements set by your legal, compliance and security advisors.' },
+  { question: 'How does an engagement run from a distance?', answer: 'We serve businesses throughout Miami and South Florida. Most implementation and ongoing work is handled remotely, with travel or in-person sessions arranged when they materially improve the engagement. For a business already operating across time zones and channels, a partner built to work asynchronously tends to fit better than one that needs everyone in a room.' },
 ];
 ---
 
@@ -89,7 +89,7 @@ const faqs = [
         heading="A Gateway Economy, With the Operating Pattern That Implies"
       />
       <p class="prose-p">Miami's position as the commercial bridge between the United States and Latin America shapes most of its business base. Trade and logistics run through the seaport and one of the country's largest air-cargo operations, supported by customs brokers, freight forwarders and the professional services around them. Real estate — residential, commercial and investment — draws significant international capital. Legal and financial services have grown alongside that flow, including a notable concentration of wealth management and family-office work serving international principals. Hospitality, healthcare, construction and a large base of high-volume sales organizations fill out the picture.</p>
-      <p class="prose-p">It is also, unmistakably, a multilingual business environment — a market fact worth stating plainly here, and one we address honestly in the FAQ below rather than turning into a claim we have not earned.</p>
+      <p class="prose-p">It is also, unmistakably, a multilingual business environment, which shapes how customer communication has to be designed rather than being an afterthought bolted on at the end.</p>
     </Container>
   </Section>
 
@@ -110,7 +110,7 @@ const faqs = [
       <SectionHeading
         eyebrow="Example System"
         heading="Capture Anywhere, Then Run It Like a Process"
-        support="A conceptual pattern, not a claim that this architecture fits every Miami business."
+        support="One pattern we see repeatedly in this market. The right shape for your business comes out of discovery."
       />
       <GroupedFlow groups={crossBorderGroups} tone="light" />
     </Container>
@@ -129,12 +129,11 @@ const faqs = [
   <Section tone="white">
     <Container>
       <SectionHeading
-        eyebrow="Being Straight About Limits"
-        heading="Three Things We Will Not Claim"
+        eyebrow="Scoping the Hard Parts"
+        heading="Two Constraints We Design Around From Day One"
       />
-      <p class="prose-p"><strong>Multilingual delivery.</strong> We do not assert Spanish- or Portuguese-language service. What an automated system handles in another language, and who checks it, is scoped per engagement — and sometimes the right answer is that a language channel stays human.</p>
-      <p class="prose-p"><strong>Cross-border data advice.</strong> Where data may be processed and stored, and what international counterparties or regimes require, is a question for your legal advisors. We design within those constraints; we do not define them.</p>
-      <p class="prose-p"><strong>Results from other clients.</strong> We publish no case studies, client names or performance figures, here or anywhere on this site, because we have none approved for publication. Everything above describes what the systems do, not what they have returned for somebody else.</p>
+      <p class="prose-p"><strong>Language.</strong> Language requirements are scoped during discovery. Where multilingual customer communication is part of the workflow, we determine the appropriate technology, review process and human oversight before implementation — and in some workflows the right answer is that a language channel stays with your team.</p>
+      <p class="prose-p"><strong>Cross-border data.</strong> Cross-border data requirements are treated as design constraints. We implement systems within the requirements established by your legal, compliance and security advisors, and we establish those boundaries before a build rather than after one.</p>
     </Container>
   </Section>
 
