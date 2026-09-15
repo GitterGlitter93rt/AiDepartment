@@ -1,0 +1,246 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// Orlando's spine is THROUGHPUT: very high interaction volume where
+// consistency across thousands of contacts matters more than any single
+// conversation, compounded by shift-based and high-turnover workforces
+// (which makes training and internal knowledge a first-class problem).
+// Winter Park is the deliberate inverse — low volume, high value per
+// enquiry — so neither page may drift into the other's argument.
+
+const description =
+  'AI consulting and automation for Orlando businesses: handling high customer-contact volume consistently across hospitality, healthcare and multi-site operations.';
+
+const path = '/locations/orlando-fl/';
+
+const opportunities = [
+  { icon: 'phone-call', title: 'High-Volume Intake', description: 'Answering and qualifying consistently at peak, including overflow that would otherwise hit a queue or voicemail.' },
+  { icon: 'calendar-clock', title: 'Scheduling at Scale', description: 'Bookings, confirmations, reminders and reschedules handled as routine rather than as a staffing cost.' },
+  { icon: 'message-square', title: 'Customer Service Deflection', description: 'Answering the same routine questions reliably, and escalating the ones that genuinely need a person.' },
+  { icon: 'book-open', title: 'Frontline Knowledge Tools', description: 'New staff finding the correct answer immediately, which matters when turnover is high and shifts rotate.' },
+  { icon: 'graduation-cap', title: 'Employee AI Enablement', description: 'Practical training so teams use AI tools consistently and within policy, rather than ad hoc.' },
+  { icon: 'bar-chart-3', title: 'Multi-Location Reporting', description: 'One comparable view across sites, rather than each location reporting in its own format.' },
+];
+
+const volumeGroups = [
+  { label: 'Contact Volume', steps: [{ text: 'Calls / Forms / Chat', icon: 'inbox' }] },
+  { label: 'Triage', steps: [{ text: 'Routine', icon: 'workflow' }, { text: 'Exception', icon: 'user-check' }] },
+  { label: 'Handling', steps: [{ text: 'Automated Resolution', icon: 'zap' }, { text: 'Human Specialist', icon: 'headset' }] },
+  { label: 'Record', steps: [{ text: 'CRM / System of Record', icon: 'database' }] },
+  { label: 'Oversight', steps: [{ text: 'Quality Review', icon: 'shield-check' }, { text: 'Reporting', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'We handle thousands of customer contacts a month. Where does automation actually help?', answer: 'At the routine end, and in triage. A large share of high-volume contact is a small number of repeated questions — hours, availability, status, booking, rescheduling, basic eligibility. Handling those consistently frees your specialists for the contacts that genuinely need judgment. The design work is in the triage rule: deciding what counts as routine, and making escalation err toward the human.' },
+  { question: 'Our staffing swings hard with the season and with events. Can systems absorb that?', answer: 'This is one of the better arguments for automation in this market. Automated intake capacity does not need to be hired, trained and then released — it absorbs a spike and costs the same in a quiet week. It does not replace the staffing plan, but it can take the volatility out of the first contact layer, which is usually where a spike does the most damage.' },
+  { question: 'Turnover on our frontline is high. Does that make this harder or easier?', answer: 'It makes the knowledge layer more valuable than the automation layer. When a meaningful share of the team is new in any given quarter, an internal assistant that gives a correct, current answer from your own documented procedures reduces both errors and the interruption load on supervisors. That is often worth more than a customer-facing agent.' },
+  { question: 'We are a technology or simulation company, not a consumer business. Is this relevant?', answer: 'The customer-contact material above is less relevant; the internal material is more so. Proposal and document workflows, knowledge management across long programmes, structured reporting and internal assistants tend to be the useful areas, alongside the governance question of what staff may and may not put into AI tools.' },
+  { question: 'Do you have an Orlando office?', answer: 'No. We serve Orlando businesses from Northeast Florida and will not claim a local office. Discovery and strategy sessions can be run in person when that is useful; implementation, reporting and ongoing optimization are remote by design.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting Orlando FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'Orlando', areaType: 'City', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'Orlando', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="Orlando, Florida"
+    headline="AI Consulting & Automation for Orlando Businesses"
+    support="Orlando businesses tend to have a volume problem rather than a demand problem. Enquiries, bookings, service requests and routine questions arrive in numbers that make consistency the hard part. Your AI Department helps Orlando companies handle that volume reliably — and route the contacts that genuinely need a person to one quickly."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="More Than the Theme Parks, but Shaped by Their Scale"
+      />
+      <p class="prose-p">Hospitality, attractions, conventions and the very large service economy around them are the obvious part of Orlando, and they set the region's operating tempo: high customer volume, seasonal and event-driven peaks, and shift-based workforces.</p>
+      <p class="prose-p">The less obvious part has been growing for years. Central Florida hosts a substantial healthcare and life-sciences cluster around Lake Nona, a globally significant modeling, simulation and training industry, a large university population feeding technical talent into the region, and expanding advanced-manufacturing and defence-adjacent activity. Underneath all of it sits the same broad base every growing metro has — construction, home services, real estate, professional services and multi-location consumer businesses.</p>
+      <p class="prose-p">Different as those sectors are, the operational pattern that brings them to us is remarkably consistent.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="At This Volume, Consistency Beats Brilliance"
+        support="When a business handles a handful of enquiries a day, quality depends on the people. When it handles hundreds, quality depends on the system. The failure mode here is not a bad conversation — it is variance: the same question answered three different ways, a booking confirmed by one site and not another, a follow-up that happens for the contacts a busy team got to and not the rest. Variance at volume is expensive and almost invisible, because no single instance looks like a problem."
+        tone="dark"
+      />
+      <p class="prose-p-dark">Shift work and turnover compound it. Every rotation is a handoff, and every new starter is a period during which the answer quality drops.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Example System"
+        heading="Triage First, Automation Second"
+        support="A conceptual pattern. The valuable design decision is the split in the middle, not the technology on either side."
+      />
+      <GroupedFlow groups={volumeGroups} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="Opportunities That Fit High-Volume Operations"
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="What Stays Human"
+        heading="Volume Is Not a Reason to Automate Judgment"
+      />
+      <p class="prose-p">High contact volume creates pressure to automate further up the difficulty curve than is wise. Complaints, service recovery, anything involving safety, medical or clinical questions, billing disputes and any situation where a customer is already unhappy should reach a person quickly — and the triage rule should be tuned to send too many rather than too few. A false escalation costs a few minutes. A missed one costs the relationship and, increasingly, the public review. The boundary is covered in <a href="/resources/what-business-processes-should-not-be-automated/">what business processes should not be automated</a>.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Industries We See Most Here" heading="Where This Work Tends to Land in Orlando" tone="dark" />
+      <p class="cross-links">
+        <a href="/industries/healthcare/">Healthcare</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/home-services/">Home Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/construction/">Construction</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/real-estate/">Real Estate</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/property-management/">Property Management</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/pest-control/">Pest Control</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="One Relationship Across Strategy, Build and Training"
+        support="High-volume operations rarely need one tool. They need intake, CRM, reporting and staff capability moving together — which is usually three vendors and an internal coordination problem. The external department model puts strategy, implementation, growth systems, training and ongoing optimization under one accountable relationship."
+      />
+      <p class="prose-p">Common paths here: <a href="/ai-agent-development/">AI Agent Development</a> for the contact layer, <a href="/ai-implementation/">AI Implementation</a> for the integrations behind it, <a href="/ai-training/">AI Training</a> for the frontline, and the <a href="/managed-ai-department/">Managed AI Department</a> to keep it improving. For multi-site groups, <a href="/enterprise/">Enterprise AI Transformation</a> may be the better entry point.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading eyebrow="Fit" heading="Who This Tends to Work For" />
+      <WhoItsFor
+        fitHeading="A strong fit for Orlando businesses that:"
+        fitItems={[
+          'Handle high inbound contact volume across phone, form and chat',
+          'Operate several locations or sites under one brand',
+          'Have seasonal or event-driven demand peaks',
+          'Run shift-based teams with meaningful turnover',
+          'Answer the same routine questions repeatedly',
+        ]}
+        notFitHeading="Probably not yet if:"
+        notFitItems={[
+          'Contact volume is low and each conversation is bespoke',
+          'There is no system of record behind the front line',
+          'You need a staffing decision rather than a systems decision',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="Orlando FAQ" heading="Common Questions From Operators Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Nearby" heading="Also in Central Florida" tone="dark" />
+      <p class="prose-p-dark">For boutique professional firms in the greater Orlando market, see <a href="/locations/winter-park-fl/">Winter Park</a>. Or view <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Handle the Volume Without Losing the Exceptions"
+    support="Take the free AI Department Assessment, or book a strategy call to talk through your contact operation."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>

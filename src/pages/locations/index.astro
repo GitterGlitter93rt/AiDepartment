@@ -1,0 +1,262 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../components/BreadcrumbSchema.astro';
+import Section from '../../components/Section.astro';
+import Container from '../../components/Container.astro';
+import InteriorHero from '../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../components/interior/SectionHeading.astro';
+import CTABand from '../../components/interior/CTABand.astro';
+import Icon from '../../components/Icon.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../lib/site';
+import { HOME_REGION, marketsByRegion, locationPath, locationsHubSchema } from '../../lib/locations';
+
+const description =
+  'AI consulting, implementation and workflow automation for businesses across Florida and nationwide, from Jacksonville and St. Augustine to Orlando and Miami.';
+
+const regions = marketsByRegion();
+const hubSchema = locationsHubSchema(description);
+
+// Services every market page routes into. Listed once here so the hub
+// is a genuine directory rather than a second services menu.
+const services = [
+  { href: '/ai-consulting/', label: 'AI Consulting', note: 'Find and prioritize the opportunities worth acting on.' },
+  { href: '/ai-implementation/', label: 'AI Implementation', note: 'Build the agents, automations and integrations.' },
+  { href: '/ai-agent-development/', label: 'AI Agent Development', note: 'Voice and chat agents that handle real intake.' },
+  { href: '/ai-growth-systems/', label: 'AI Growth Systems', note: 'Marketing, CRM, lead response and attribution as one system.' },
+  { href: '/managed-ai-department/', label: 'Managed AI Department', note: 'Ongoing strategy, oversight, training and optimization.' },
+  { href: '/free-ai-assessment/', label: 'Free AI Assessment', note: 'A scored starting point in about three minutes.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting in Florida | Locations | Your AI Department"
+  description={description}
+  path="/locations/"
+>
+  <script type="application/ld+json" set:html={JSON.stringify(hubSchema)} is:inline />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="Locations"
+    headline="AI Consulting & Automation Across Florida"
+    support={`Your AI Department is based in ${HOME_REGION} and works with businesses throughout the state and nationwide. Below are the Florida markets we currently write about in depth — each page covers the local business mix, the operational problems that actually show up there, and the systems worth building first.`}
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="How We Work"
+        heading="Local Enough to Sit Down With. Structured Enough to Run Remotely."
+        support="Most engagements run as a mix: discovery and strategy sessions where being in the room helps, then implementation, reporting and ongoing optimization that work just as well remotely. That is why our Northeast Florida base and our work in South Florida are not in tension — the model was built to operate both ways."
+      />
+      <p class="hub-note">
+        A note on how we describe ourselves: we have one business location, in Northeast Florida.
+        We do not operate offices in Orlando, Winter Park, Miami or Fort Lauderdale, and nothing
+        on these pages should suggest otherwise. Serving a market and having premises in it are
+        different claims, and we only make the first one.
+      </p>
+    </Container>
+  </Section>
+
+  {regions.map((group, i) => (
+    <Section tone={i % 2 === 0 ? 'white' : 'light'}>
+      <Container wide>
+        <h2 class="region-heading">{group.region}</h2>
+        <ul class="market-grid">
+          {group.markets.map((market) => (
+            <li>
+              <a class="market-card" href={locationPath(market.slug)}>
+                <span class="market-pin"><Icon name="map-pin" size={16} /></span>
+                <span class="market-name">{market.name}</span>
+                <span class="market-blurb">{market.blurb}</span>
+                <span class="market-go">View market &rarr;</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Container>
+    </Section>
+  ))}
+
+  <Section tone="dark">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Each Market Leads"
+        heading="The Same Capabilities, Applied to a Different Business Mix"
+        support="Every market page points into the same set of services. What changes between them is which problems come first and which systems are worth building early."
+        tone="dark"
+      />
+      <ul class="svc-grid">
+        {services.map((svc) => (
+          <li>
+            <a href={svc.href}>
+              <span class="svc-label">{svc.label}</span>
+              <span class="svc-note">{svc.note}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Outside These Markets"
+        heading="We Work Nationally, Not Only in Florida"
+        support="These seven pages exist because they are markets we know well enough to write something useful about. They are not the limit of who we work with — if your business is elsewhere in Florida or outside the state entirely, the assessment is still the right starting point, and the engagement model does not change."
+      />
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Start With Where AI Could Actually Help"
+    support="Take the free AI Department Assessment and receive your AI Department Score and an initial opportunity analysis."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .hub-note {
+    max-width: 700px;
+    margin-inline: auto;
+    margin-top: 8px;
+    padding: 18px 20px;
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-left: 3px solid var(--color-electric-blue);
+    border-radius: var(--radius-panel);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--color-slate-gray);
+  }
+
+  .region-heading {
+    font-size: var(--fs-h3);
+    font-weight: 800;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .market-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .market-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1040px) {
+    .market-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .market-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 24px 22px;
+  }
+
+  .market-card:hover {
+    border-color: var(--color-electric-blue);
+  }
+
+  .market-pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background-color: rgba(37, 99, 235, 0.08);
+    color: var(--color-electric-blue);
+    margin-bottom: 14px;
+  }
+
+  .market-name {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--color-near-black);
+    margin-bottom: 8px;
+  }
+
+  .market-blurb {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--color-slate-gray);
+    margin-bottom: 16px;
+  }
+
+  .market-go {
+    margin-top: auto;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-electric-blue);
+  }
+
+  .svc-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  @media (min-width: 640px) {
+    .svc-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1040px) {
+    .svc-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .svc-grid a {
+    display: block;
+    height: 100%;
+    padding: 18px 20px;
+    background-color: var(--color-dark-secondary-bg);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-panel);
+  }
+
+  .svc-grid a:hover {
+    border-color: var(--color-signal-cyan);
+  }
+
+  .svc-label {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--color-pure-white);
+    margin-bottom: 5px;
+  }
+
+  .svc-note {
+    display: block;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-dark-muted-text);
+  }
+</style>

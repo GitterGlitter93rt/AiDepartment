@@ -1,0 +1,235 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// Winter Park is the deliberate inverse of the Orlando page. Orlando is
+// volume and consistency; Winter Park is low volume where a single
+// enquiry carries real value, inside professional disciplines
+// (legal, financial, medical) whose confidentiality and duty-of-care
+// rules narrow what may be automated at all. The emphasis on what must
+// NOT be automated is heavier here than on any other location page,
+// and that is intentional rather than boilerplate.
+
+const description =
+  'AI consulting and automation for Winter Park firms: client intake, follow-up and document workflows where a single enquiry carries significant value.';
+
+const path = '/locations/winter-park-fl/';
+
+const opportunities = [
+  { icon: 'phone-call', title: 'Enquiry Capture That Never Misses', description: 'A new-client call answered properly at 6pm or during a meeting, with the details a partner needs to call back informed.' },
+  { icon: 'clipboard-list', title: 'Structured Client Intake', description: 'Consistent qualifying information gathered before the first substantive conversation, so senior time starts further along.' },
+  { icon: 'file-text', title: 'Document & Knowledge Workflows', description: 'Summarizing, organizing and retrieving across matter files, client records and internal precedent, with human verification.' },
+  { icon: 'repeat', title: 'Proposal & Engagement Follow-Up', description: 'Keeping a long consideration period alive without the follow-up depending on a partner remembering.' },
+  { icon: 'database', title: 'CRM for Relationship Businesses', description: 'A record of the relationship and the referral source, not just a pipeline of transactions.' },
+  { icon: 'graduation-cap', title: 'Executive & Staff AI Enablement', description: 'Training and a usage policy, so the firm adopts AI deliberately rather than through whatever staff try privately.' },
+];
+
+const faqs = [
+  { question: 'We only get a few new enquiries a week. Is automation worth it at that volume?', answer: 'The economics here are the opposite of a high-volume business, and they still work — for a different reason. When a single new client relationship is worth a great deal, the return does not come from handling volume efficiently. It comes from never losing one. If a prospective client calls during a meeting, reaches voicemail and calls the next firm on their list, the cost of that one event can exceed a year of the system that would have prevented it.' },
+  { question: 'We are a law firm. What can we actually use without creating a professional risk?', answer: 'The safe territory is administrative and preparatory: capturing enquiries, scheduling, conflict-check intake data, organizing and summarizing documents for a person to verify, and follow-up on engagement letters. The unsafe territory is anything that constitutes advice, any client-facing output not reviewed by the responsible professional, and anything that would place confidential information into a tool whose terms you have not examined. We build to that line and we do not give legal or compliance advice — your obligations govern the design.' },
+  { question: 'Our senior people are the bottleneck. Does AI fix that?', answer: 'Partly, and being precise about which part matters. It can reduce the volume of work that reaches them unprepared — better intake, organized documents, drafted summaries and scheduled follow-up. It cannot exercise their judgment, and a firm that lets it try will discover the problem at the worst possible time. The realistic goal is that senior time is spent on the work only they can do.' },
+  { question: 'Confidentiality is a genuine constraint for us. How do you handle it?', answer: 'As a design input rather than an afterthought. That means examining where data is processed and what the vendor terms permit before anything is built, keeping access least-privilege, deciding retention deliberately, and in some cases concluding that a workflow should not use an external AI service at all. Sometimes the correct recommendation is a narrower system than the one the firm asked about.' },
+  { question: 'Are you located in Winter Park?', answer: 'No. We are based in Northeast Florida and serve Winter Park and the greater Orlando market. We do not have an office on Park Avenue or anywhere else in Central Florida, and we would rather say so plainly than imply a presence we do not have.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting Winter Park FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'Winter Park', areaType: 'City', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'Winter Park', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="Winter Park, Florida"
+    headline="AI Consulting & Automation for Winter Park Businesses"
+    support="Winter Park runs on a different kind of business than the metro around it: established, owner-led professional firms where relationships are long, enquiry volume is modest and a single new client can matter enormously. Your AI Department helps firms here capture and follow up on that work reliably — while keeping professional judgment exactly where it belongs."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="A Concentration of Professional Practices"
+      />
+      <p class="prose-p">Winter Park has long supported a dense cluster of professional and advisory firms out of proportion to its size: law practices, wealth management and financial advisory offices, accounting firms, medical, dental and aesthetic practices, boutique real estate brokerages, marketing and design agencies, and independent consultancies. The presence of Rollins College and a well-established commercial district around Park Avenue reinforces a business community built on expertise and reputation rather than footfall or throughput.</p>
+      <p class="prose-p">These firms are typically owner-led or partner-led, deliberately not large, and competing on judgment and relationship rather than price or scale. That shapes what technology is useful to them — and what would actively damage them.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="Low Volume Makes Every Missed Enquiry Expensive"
+        support="A high-volume business can lose a contact and barely register it. A firm receiving a small number of qualified enquiries a week cannot. The people who would be best at handling a new enquiry — the partners and principals — are also the people most likely to be unavailable when it arrives, because they are doing the billable work. So the enquiry reaches a voicemail box, or an assistant taking a message, and a prospective client who is also calling two other firms forms their first impression there."
+        tone="dark"
+      />
+      <p class="prose-p-dark">The second problem is follow-up over long consideration periods. Professional engagements are often decided over weeks, and the follow-up that wins them competes with billable work for the same attention.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="Administrative Leverage, Not Professional Substitution"
+        support="Every item below sits around the professional work rather than inside it."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Hard Boundary"
+        heading="What a Professional Firm Must Not Automate"
+      />
+      <p class="prose-p">This deserves more weight here than in most markets, because the downside is not an unhappy customer — it is a professional liability, a regulator, or a breach of confidence.</p>
+      <p class="prose-p"><strong>Advice, in any form.</strong> Legal, financial, tax, medical or clinical guidance is the responsible professional's, and no automated system should generate client-facing advice that a qualified person has not reviewed and adopted.</p>
+      <p class="prose-p"><strong>Anything reaching a client unreviewed.</strong> Drafting assistance is legitimate. Autonomous sending is not.</p>
+      <p class="prose-p"><strong>Confidential information into unexamined tools.</strong> Where client data is processed, and what a vendor's terms permit, are questions to answer before a build, not after an incident.</p>
+      <p class="prose-p"><strong>Judgment about a client's situation.</strong> Eligibility, suitability, risk and merit are assessments your licence covers and a model does not.</p>
+      <p class="prose-p">The general framework is set out in <a href="/resources/what-business-processes-should-not-be-automated/">what business processes should not be automated</a>. Firms in regulated professions should read it as a floor rather than a ceiling.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Industries We See Most Here" heading="Where This Work Tends to Land in Winter Park" tone="dark" />
+      <p class="cross-links">
+        <a href="/industries/law-firms/">Law Firms</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/financial-services/">Financial Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/healthcare/">Healthcare</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/real-estate/">Real Estate</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/insurance/">Insurance</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="Senior Capability Without a Senior Hire"
+        support="A twelve-person firm cannot employ an AI strategist, and should not hand the decision to whichever staff member is most enthusiastic about it. The external department model provides the strategy, the implementation and the training as one relationship — including the unglamorous governance work of deciding what the firm will and will not use these tools for."
+      />
+      <p class="prose-p">Firms here usually begin with <a href="/ai-consulting/">AI Consulting</a> or <a href="/executive-ai-coaching/">Executive AI Coaching</a> for the principals, then <a href="/ai-training/">AI Training</a> for staff, with <a href="/ai-implementation/">AI Implementation</a> where a specific workflow justifies it. The <a href="/ai-department-method/">AI Department Method</a> describes the sequence.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading eyebrow="Fit" heading="Who This Tends to Work For" />
+      <WhoItsFor
+        fitHeading="A strong fit for Winter Park firms that:"
+        fitItems={[
+          'Receive a modest number of high-value enquiries',
+          'Are owner-led or partner-led with a small support team',
+          'Lose new enquiries to voicemail during billable work',
+          'Have long consideration periods before an engagement',
+          'Want a deliberate AI policy rather than ad hoc staff use',
+        ]}
+        notFitHeading="Probably not the right fit if:"
+        notFitItems={[
+          'You are looking for AI to produce client-facing advice',
+          'Confidentiality constraints rule out external processing entirely',
+          'The firm has no appetite for changing how intake is handled',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="Winter Park FAQ" heading="Common Questions From Firms Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Nearby" heading="Also in Central Florida" tone="dark" />
+      <p class="prose-p-dark">For higher-volume operations across the metro, see <a href="/locations/orlando-fl/">Orlando</a>. Or view <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Stop Losing the Enquiries That Matter Most"
+    support="Take the free AI Department Assessment, or book a strategy call to discuss your firm's intake and follow-up."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p strong {
+    color: var(--color-near-black);
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>

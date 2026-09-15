@@ -1,0 +1,253 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// Jacksonville's distinguishing operational fact is physical scale: it
+// covers an enormous land area, so territory, drive time, dispatch and
+// "which branch owns this lead" are structural problems here in a way
+// they are not in a compact metro. That is the spine of this page, and
+// it is deliberately not a theme on any other location page.
+
+const description =
+  'AI consulting and automation for Jacksonville businesses: lead response, dispatch and territory routing, CRM automation, document workflows and reporting.';
+
+const path = '/locations/jacksonville-fl/';
+
+const opportunities = [
+  { icon: 'route', title: 'Territory & Dispatch Routing', description: 'Route an inbound job to the right crew, branch or territory using the information captured at intake — not by whoever picks up.' },
+  { icon: 'phone-call', title: 'Lead Response Across Branches', description: 'One consistent intake standard when calls land at several locations, with missed-call recovery that reaches an owner.' },
+  { icon: 'file-text', title: 'Document-Heavy Back Office', description: 'Processing the paperwork that moves with freight, claims, loans and patient intake, with review steps where accuracy matters.' },
+  { icon: 'database', title: 'CRM Consolidation', description: 'Conversations, quotes and job history landing on one customer record instead of three systems and an inbox.' },
+  { icon: 'bar-chart-3', title: 'Multi-Location Reporting', description: 'Comparable numbers across branches, so leadership is reading one report rather than reconciling several.' },
+  { icon: 'book-open', title: 'Internal Knowledge Tools', description: 'Procedures, pricing rules and compliance answers reachable without interrupting the one person who knows them.' },
+];
+
+const chainGroups = [
+  { label: 'Demand', steps: [{ text: 'Call / Form / Referral', icon: 'inbox' }] },
+  { label: 'Intake', steps: [{ text: 'Qualify', icon: 'clipboard-list' }, { text: 'Locate', icon: 'map-pin' }] },
+  { label: 'Assignment', steps: [{ text: 'Territory Rule', icon: 'route' }, { text: 'Crew / Branch', icon: 'truck' }] },
+  { label: 'Delivery', steps: [{ text: 'Job / Appointment', icon: 'calendar' }] },
+  { label: 'Measurement', steps: [{ text: 'Revenue by Branch', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'We have four locations around the city. Do they each need their own setup?', answer: 'Usually not. The pattern that works is one standard for intake, qualification and follow-up applied everywhere, with routing and reporting that are location-aware. Branches differ in capacity and crew, not in what a good intake looks like. Where a location genuinely operates differently — a commercial division versus a residential one — that becomes a routing rule rather than a separate system.' },
+  { question: 'Our service area spans most of Duval County and beyond. Can automation handle that?', answer: 'It can handle the parts that are rule-based: whether an address is inside your service area, which territory it belongs to, which crew is nearest, and how much drive time to allow. What it should not do is override a dispatcher who knows the job is bigger than it sounds. We build the boundaries and let the dispatcher keep the judgment.' },
+  { question: 'How much of this depends on the software we already run?', answer: 'A great deal, and that is the first thing we establish. Some systems expose a documented API, some offer only scheduled exports, and some are effectively closed. That determines what is possible before any design work starts, which is why the assessment and discovery come before a proposal.' },
+  { question: 'Do you work with regulated industries here?', answer: 'Yes, with the caveat that regulation narrows what should be automated. In financial services and healthcare especially, AI belongs around the decision — intake, summarization, scheduling, follow-up — rather than inside it. We do not offer legal or compliance advice, and we build within your existing obligations rather than around them.' },
+  { question: 'Are you actually in Jacksonville?', answer: 'We are based in Northeast Florida and work with Jacksonville businesses regularly. We do not operate a Jacksonville office and will not claim one. In practice, discovery and strategy sessions can happen in person, and implementation, reporting and optimization run remotely.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting Jacksonville FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'Jacksonville', areaType: 'City', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'Jacksonville', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="Jacksonville, Florida"
+    headline="AI Consulting & Automation for Jacksonville Businesses"
+    support="Jacksonville runs on movement — freight through the port and rail yards, crews across a metro that takes an hour to cross, paperwork through back offices in finance, insurance and healthcare. Your AI Department helps Jacksonville companies put practical AI and automation around those workflows, so fewer opportunities are lost between the first call and the finished job."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="A Working City, Not a Single-Industry One"
+      />
+      <p class="prose-p">Jacksonville's economy does not rest on one sector. The port and the rail and highway corridors that feed it support a deep logistics, distribution and transportation base. A long-established concentration of banking, insurance and financial-services operations means a large number of process-heavy back offices. Healthcare systems and specialty practices employ at significant scale. Around and beneath all of that sits the part most people underestimate: a very large population of mid-market operators — contractors, home services, trades, professional firms, automotive, construction suppliers — serving both consumers and the businesses above them.</p>
+      <p class="prose-p">Two consequences follow, and they shape almost every engagement we see here.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="Jacksonville Is Physically Enormous, and Operations Pay for It"
+        support="Jacksonville covers a land area larger than most American cities by a wide margin. That is a geography fact with an operations bill attached: territory boundaries, drive time, crew assignment, branch ownership of a lead, and which location a customer should actually be sent to. In a compact city these are minor questions. Here they decide whether a job is profitable."
+        tone="dark"
+      />
+      <p class="prose-p-dark">The second consequence is volume of handoffs. Work passes between an intake person, a scheduler, a crew or branch, a billing function and occasionally a subcontractor. Every handoff is a place information gets retyped, lost, or quietly dropped — and most companies have no measurement at all of how often that happens.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="Opportunities That Fit This Market"
+        support="Not a menu of everything possible — the areas that come up repeatedly in Jacksonville operations."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Example System"
+        heading="From Inbound Enquiry to Revenue, by Territory"
+        support="A conceptual pattern, not a claim that this exact architecture fits every Jacksonville business."
+      />
+      <GroupedFlow groups={chainGroups} tone="light" />
+      <p class="prose-p flow-note">The step most companies are missing is the third one. Intake gets captured and the job gets done, but the assignment in between depends on a person remembering which crew covers which side of the river — and the reporting at the end cannot separate a profitable territory from an unprofitable one.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Industries We See Most Here"
+        heading="Where This Work Tends to Land in Jacksonville"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/industries/logistics-transportation/">Logistics &amp; Transportation</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/financial-services/">Financial Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/healthcare/">Healthcare</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/construction/">Construction</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/home-services/">Home Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/automotive-dealers/">Automotive Dealers</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="You Are Not Hiring One Freelancer"
+        support="A Jacksonville mid-market company rarely needs a full-time AI hire, and rarely gets value from a single contractor who builds one tool and leaves. What it usually needs is access to strategy, implementation, CRM and marketing systems, data and reporting, and training — coordinated, and accountable to a business result rather than a deliverable."
+      />
+      <p class="prose-p">That is the model: <a href="/ai-consulting/">consulting</a> to decide what is worth doing, <a href="/ai-implementation/">implementation</a> to build it, <a href="/ai-growth-systems/">growth systems</a> to connect marketing and CRM to revenue, and a <a href="/managed-ai-department/">Managed AI Department</a> if you want it run on an ongoing basis. The <a href="/ai-department-method/">AI Department Method</a> describes how an engagement actually proceeds.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Fit"
+        heading="Who This Tends to Work For"
+      />
+      <WhoItsFor
+        fitHeading="A strong fit for Jacksonville businesses that:"
+        fitItems={[
+          'Operate across multiple branches, territories or crews',
+          'Have real inbound call and enquiry volume',
+          'Run a CRM or job-management system that is not fully used',
+          'Spend meaningfully on marketing without clear revenue attribution',
+          'Handle repetitive document or data work at volume',
+        ]}
+        notFitHeading="Probably not yet if:"
+        notFitItems={[
+          'There is no defined process to automate around',
+          'Enquiry volume is low enough for one person to handle comfortably',
+          'You are looking for a single tool rather than a system',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="Jacksonville FAQ" heading="Common Questions From Operators Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Getting Started"
+        heading="Start With a Score, Not a Proposal"
+        support="The assessment takes a few minutes and produces an AI Department Score plus an initial opportunity analysis. If it turns out the honest answer is to fix a process before automating anything, we will say that."
+        tone="dark"
+      />
+      <p class="prose-p-dark">Other Northeast Florida markets: <a href="/locations/st-johns-county-fl/">St. Johns County</a> and <a href="/locations/st-augustine-fl/">St. Augustine</a>. Or see <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find Where AI Could Help Your Jacksonville Business"
+    support="Take the free AI Department Assessment, or book a strategy call to talk through your operation directly."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .flow-note {
+    margin-top: 28px;
+    margin-bottom: 0;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>

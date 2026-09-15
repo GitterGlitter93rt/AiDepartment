@@ -1,0 +1,256 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// Miami's spine is cross-border operation: enquiries arriving across
+// time zones and channels, long document-heavy transactions, and
+// referral networks rather than lead forms. Fort Lauderdale is
+// deliberately the project/quote/scheduling market — neither page may
+// drift into the other.
+//
+// LANGUAGE CLAIM: the brief is explicit that multilingual service must
+// not be claimed without approved supporting facts. Nothing in the
+// repository supports it, so this page names the multilingual business
+// environment as a market fact and states plainly that language
+// coverage is a scoping question, not a capability we assert.
+
+const description =
+  'AI consulting and automation for Miami businesses: capturing enquiries across time zones and channels, document-heavy transactions, CRM follow-up and reporting.';
+
+const path = '/locations/miami-fl/';
+
+const opportunities = [
+  { icon: 'globe-2', title: 'Enquiry Capture Across Time Zones', description: 'Business that arrives outside local hours captured properly rather than answered eleven hours later.' },
+  { icon: 'message-square', title: 'Multi-Channel Intake', description: 'Phone, form, chat and messaging consolidated into one record instead of living in individual inboxes and handsets.' },
+  { icon: 'file-text', title: 'Transaction Document Workflows', description: 'Extracting, organizing and summarizing the document volume behind a closing, a shipment or an onboarding — with human verification.' },
+  { icon: 'database', title: 'Referral & Relationship Tracking', description: 'Knowing which introducer, broker or professional network actually produced the business, and following up accordingly.' },
+  { icon: 'repeat', title: 'Long-Cycle Follow-Up', description: 'Deals measured in months kept warm on a deliberate cadence rather than by whoever remembers.' },
+  { icon: 'shield-check', title: 'Data Handling Discipline', description: 'Deciding what client and counterparty information may enter an AI tool at all, before anything is built.' },
+];
+
+const crossBorderGroups = [
+  { label: 'Origin', steps: [{ text: 'Referral / Enquiry', icon: 'globe-2' }] },
+  { label: 'Capture', steps: [{ text: 'Any Channel', icon: 'inbox' }, { text: 'Any Hour', icon: 'clock' }] },
+  { label: 'Qualification', steps: [{ text: 'Structured Intake', icon: 'clipboard-list' }, { text: 'Routing', icon: 'workflow' }] },
+  { label: 'Transaction', steps: [{ text: 'Documents', icon: 'file-text' }, { text: 'Human Review', icon: 'user-check' }] },
+  { label: 'Outcome', steps: [{ text: 'Closed + Attributed', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'Do you provide service in Spanish or Portuguese?', answer: 'We are not making that claim. Miami is a genuinely multilingual business environment and pretending otherwise would be silly, but claiming multilingual delivery we have not documented would be worse. What language an automated system handles, to what standard, and who reviews its output are scoping questions we work through honestly at the start of an engagement — including the possibility that the answer is to keep a language channel entirely human.' },
+  { question: 'A lot of our enquiries come through referrals and messaging apps, not our website. Does that break the model?', answer: 'It changes where capture happens, not whether it is worth doing. The problem in a referral-driven business is usually that the enquiry lives in one person’s phone and never reaches a shared record, so nobody else can follow up and nobody can tell which relationships actually produce revenue. Getting those conversations onto a record is often the highest-value first step, ahead of any customer-facing automation.' },
+  { question: 'Our deals take months and involve a lot of paperwork. Where does AI help there?', answer: 'Two places. Document work — extracting, organizing and summarizing volume so a person reviews rather than reads everything — and follow-up discipline across a long cycle, where the practical failure is not a lost deal but a deal nobody touched for five weeks. Neither replaces the professional judgment in the transaction itself.' },
+  { question: 'We deal with international counterparties. Does that affect what we can use?', answer: 'It can, and it is worth establishing early. Where data is processed, what your contracts and any applicable regimes require, and what your counterparties expect are all design inputs. We are not lawyers and do not advise on cross-border data obligations — we build within the constraints your advisors set.' },
+  { question: 'Do you have a Miami office?', answer: 'No. We are based in Northeast Florida and serve Miami businesses. There is no Miami office, no South Florida address, and we will not imply one. Remote delivery is how the engagement runs; travel for discovery is possible where it genuinely helps.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting Miami FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'Miami', areaType: 'City', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'Miami', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="Miami, Florida"
+    headline="AI Consulting & Automation for Miami Businesses"
+    support="Miami businesses operate across borders, time zones and channels more than almost anywhere else in the country. Opportunity arrives by referral at odd hours, deals run long and document-heavy, and the record of what happened often lives in somebody's phone. Your AI Department helps Miami companies capture that business properly and keep it moving."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="A Gateway Economy, With the Operating Pattern That Implies"
+      />
+      <p class="prose-p">Miami's position as the commercial bridge between the United States and Latin America shapes most of its business base. Trade and logistics run through the seaport and one of the country's largest air-cargo operations, supported by customs brokers, freight forwarders and the professional services around them. Real estate — residential, commercial and investment — draws significant international capital. Legal and financial services have grown alongside that flow, including a notable concentration of wealth management and family-office work serving international principals. Hospitality, healthcare, construction and a large base of high-volume sales organizations fill out the picture.</p>
+      <p class="prose-p">It is also, unmistakably, a multilingual business environment — a market fact worth stating plainly here, and one we address honestly in the FAQ below rather than turning into a claim we have not earned.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="The Business Arrives Everywhere Except Your System"
+        support="In a gateway market, opportunity does not arrive through a tidy web form during business hours. It comes by referral, through a messaging app, from an introducer three time zones away, at ten at night. Individually each of those is handled — someone answers, someone remembers. Collectively they produce a business whose real pipeline lives across several personal phones and inboxes, where nobody can cover for anyone else, follow-up depends entirely on memory, and no one can say which relationships are actually producing revenue."
+        tone="dark"
+      />
+      <p class="prose-p-dark">Long transaction cycles make it worse: the gap between first contact and closing is wide enough that the thread goes cold without anyone deciding it should.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Example System"
+        heading="Capture Anywhere, Then Run It Like a Process"
+        support="A conceptual pattern, not a claim that this architecture fits every Miami business."
+      />
+      <GroupedFlow groups={crossBorderGroups} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="Opportunities That Fit a Cross-Border Operation"
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Being Straight About Limits"
+        heading="Three Things We Will Not Claim"
+      />
+      <p class="prose-p"><strong>Multilingual delivery.</strong> We do not assert Spanish- or Portuguese-language service. What an automated system handles in another language, and who checks it, is scoped per engagement — and sometimes the right answer is that a language channel stays human.</p>
+      <p class="prose-p"><strong>Cross-border data advice.</strong> Where data may be processed and stored, and what international counterparties or regimes require, is a question for your legal advisors. We design within those constraints; we do not define them.</p>
+      <p class="prose-p"><strong>Results from other clients.</strong> We publish no case studies, client names or performance figures, here or anywhere on this site, because we have none approved for publication. Everything above describes what the systems do, not what they have returned for somebody else.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Industries We See Most Here" heading="Where This Work Tends to Land in Miami" tone="dark" />
+      <p class="cross-links">
+        <a href="/industries/real-estate/">Real Estate</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/law-firms/">Law Firms</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/financial-services/">Financial Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/logistics-transportation/">Logistics &amp; Transportation</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/construction/">Construction</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/healthcare/">Healthcare</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="One Accountable Relationship, Not Four Vendors"
+        support="Miami has no shortage of people selling AI tools. What is harder to buy is a single relationship that decides what is worth doing, builds it, connects it to the CRM and the reporting, trains the team, and stays accountable for whether the business improved."
+      />
+      <p class="prose-p">Common entry points: <a href="/ai-consulting/">AI Consulting</a> to establish priorities, <a href="/ai-implementation/">AI Implementation</a> to build, <a href="/ai-crm-integration/">AI CRM Integration</a> where the record-keeping is the real gap, and <a href="/managed-ai-department/">Managed AI Department</a> for ongoing operation. Larger multi-entity organizations may fit <a href="/enterprise/">Enterprise AI Transformation</a> better.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading eyebrow="Fit" heading="Who This Tends to Work For" />
+      <WhoItsFor
+        fitHeading="A strong fit for Miami businesses that:"
+        fitItems={[
+          'Receive enquiries across time zones and multiple channels',
+          'Depend on referral and introducer relationships',
+          'Run long, document-heavy transaction cycles',
+          'Have a pipeline that lives partly on personal phones',
+          'Cannot currently say which relationships produce revenue',
+        ]}
+        notFitHeading="Probably not the right fit if:"
+        notFitItems={[
+          'You need guaranteed multilingual delivery as a precondition',
+          'Data cannot leave your own environment under any arrangement',
+          'You are looking to buy a tool rather than fix a process',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="Miami FAQ" heading="Common Questions From Operators Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Nearby" heading="Also in South Florida" tone="dark" />
+      <p class="prose-p-dark">For Broward County operators and quoted, scheduled project work, see <a href="/locations/fort-lauderdale-fl/">Fort Lauderdale</a>. Or view <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Get the Pipeline Out of People's Phones"
+    support="Take the free AI Department Assessment, or book a strategy call to talk through how enquiries reach you today."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p strong {
+    color: var(--color-near-black);
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>
