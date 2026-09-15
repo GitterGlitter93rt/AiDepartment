@@ -433,6 +433,13 @@ Uploaded to `dropbox:/YourAiDepartment-Website/` per the runbook in
 reports 0 differences. The folder went from 12 files to 13 — the upload was purely
 additive, and no historical release package was deleted, replaced or overwritten.
 
+**On the SHA in the filename.** `fa57c05` is the last commit that touches shipped content.
+The commits after it change only this document, which is not part of `dist/` — a rebuild at
+the branch tip produces output byte-identical to the uploaded package, verified with
+`diff -r`. So there is exactly one release package, it is current, and it is named for the
+tree it was actually built from. Deploy it against branch tip; the two SHAs describe the
+same website.
+
 **Not deployed.** The handoff point is a verified ZIP in Dropbox; SiteGround upload and
 extraction remain Michael's step.
 
