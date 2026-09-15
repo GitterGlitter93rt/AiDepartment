@@ -250,9 +250,27 @@ export async function runContactResearch(
   // Every source runs inside its own timeout and its own try/catch. A Texas plumbing
   // licence is no less true because the Comptroller timed out, so one source failing
   // must never cost the account what another source already established.
-  const { runOfficialSources } = await import('../sources/run.js');
-  const officialContext = await buildSourceContext(accountId, account, domainRows[0]?.hostname ?? null);
-  const official = await runOfficialSources({ context: officialContext });
+  //
+  // Guarded as a whole, for the same reason scoring, completeness and hypotheses are:
+  // official enrichment is optional, and a fault around it -- a database hiccup
+  // building the lookup context, a module failing to import -- must not cost the
+  // account the first-party evidence already gathered above. Individual adapters are
+  // isolated inside runOfficialSources; this catches everything surrounding them.
+  let official: import('../sources/run.js').SourceStageResult = {
+    people: [], endpoints: [], facts: [], outcomes: [], stagesRun: [], stagesSkipped: [],
+  };
+  try {
+    const { runOfficialSources } = await import('../sources/run.js');
+    const officialContext = await buildSourceContext(
+      accountId, account, domainRows[0]?.hostname ?? null);
+    official = await runOfficialSources({ context: officialContext });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    for (const stage of ['B_public_company_registry', 'C_public_license_registry']) {
+      stagesSkipped.push({ stage, reason: `official source research could not run: ${reason}` });
+    }
+    console.error('[research] official sources failed', { accountId, error });
+  }
 
   people.push(...official.people);
   endpoints.push(...official.endpoints);
