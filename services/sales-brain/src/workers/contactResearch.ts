@@ -104,10 +104,14 @@ async function buildSourceContext(
   accountId: string, account: AccountRow, hostname: string | null,
 ): Promise<import('../sources/types.js').SourceLookupContext> {
   const { rows: locationRows } = await query<{
-    street_address: string | null; city: string | null; state_region: string | null;
+    address_line_1: string | null; city: string | null; state_region: string | null;
     postal_code: string | null;
   }>(
-    `select street_address, city, state_region, postal_code
+    // `address_line_1`, which is what the column is called. Selecting a column that
+    // does not exist threw, and the guard around this stage turned the throw into a
+    // silently skipped stage -- so every official source quietly did nothing while the
+    // unit tests, which hand-build this context, all passed.
+    `select address_line_1, city, state_region, postal_code
        from locations
       where account_id = $1 and is_active
       order by (location_type = 'physical') desc, created_at asc
@@ -130,7 +134,7 @@ async function buildSourceContext(
     domain: hostname ?? account.canonical_domain,
     verticalProfileId: account.primary_vertical_profile_id,
     knownPhones: phoneRows.map((row) => row.normalized_value),
-    streetAddress: location?.street_address ?? null,
+    streetAddress: location?.address_line_1 ?? null,
   };
 }
 

@@ -98,6 +98,15 @@ test('research reads the site and records what it found', async () => {
   assert.ok(outcome.pagesFetched > 0, 'the crawl read nothing');
   assert.ok(outcome.stagesRun.includes('A_company_first_party'));
 
+  // The official stage is wrapped so a fault cannot cost the crawl, which means a
+  // fault in it is *silent*. This is the assertion that makes it audible: a broken
+  // query in the context builder once skipped every official source while every unit
+  // test -- all of which hand-build that context -- passed.
+  const brokenStage = outcome.stagesSkipped
+    .find((stage) => /could not run/i.test(stage.reason));
+  assert.equal(brokenStage, undefined,
+    `official source research failed silently: ${brokenStage?.reason ?? ''}`);
+
   const { rows } = await query<{ claim_key: string; category: string }>(
     'select claim_key, category from evidence_records where account_id = $1', [accountId]);
   const keys = new Set(rows.map((row) => row.claim_key));
