@@ -464,3 +464,60 @@ test('the Comptroller adapter makes no request without an api key', async () => 
     if (previous !== undefined) process.env['TX_COMPTROLLER_API_KEY'] = previous;
   }
 });
+
+// ------------------------------------------- Florida DBPR, from a published file --
+
+test('a DBPR licensee export parses by column meaning', async () => {
+  const { parseDbprDataset } = await import('../src/sources/adapters/flDbpr.js');
+  const licences = parseDbprDataset(fixtures.DBPR_DATASET);
+  assert.equal(licences.length, 4);
+  const kowalczyk = licences.find((licence) => licence.licenseNumber === 'CFC1428888')!;
+  assert.equal(kowalczyk.qualifyingAgent, 'DANA KOWALCZYK');
+  assert.equal(kowalczyk.businessName, 'KOWALCZYK PLUMBING LLC');
+  assert.equal(kowalczyk.primaryStatus, 'Current');
+  assert.equal(kowalczyk.expiresDate, '08/31/2026');
+});
+
+test('the dataset keeps trades apart, so a roofer is not verified by an electrician',
+  async () => {
+    const { parseDbprDataset, licenceCoversVertical } =
+      await import('../src/sources/adapters/flDbpr.js');
+    const licences = parseDbprDataset(fixtures.DBPR_DATASET);
+    const electrical = licences.find((licence) => licence.licenseNumber === 'EC13009999')!;
+    assert.equal(licenceCoversVertical(electrical, 'roofing'), false);
+    assert.equal(licenceCoversVertical(electrical, 'electrical'), true);
+  });
+
+test('an expired roofing licence from the dataset is not reported active', async () => {
+  const { parseDbprDataset, dbprFacts } = await import('../src/sources/adapters/flDbpr.js');
+  const expired = parseDbprDataset(fixtures.DBPR_DATASET)
+    .find((licence) => licence.licenseNumber === 'CCC1330000')!;
+  const status = dbprFacts(expired, 'r')
+    .find((fact) => fact.claimKey === 'professional_license_status')!;
+  assert.notEqual(status.normalizedValue, 'ACTIVE');
+});
+
+test('an individually held licence in the dataset names a person, not a company',
+  async () => {
+    const { parseDbprDataset, dbprPeople } = await import('../src/sources/adapters/flDbpr.js');
+    const individual = parseDbprDataset(fixtures.DBPR_DATASET)
+      .find((licence) => licence.licenseNumber === 'CFC1499999')!;
+    const people = dbprPeople(individual, 'r');
+    assert.equal(people.length, 1);
+    assert.equal(people[0]!.personName, 'MARCUS ELLIS');
+    assert.equal(people[0]!.relationship, 'LICENSE_HOLDER');
+  });
+
+test('a malformed DBPR export yields nothing rather than garbage', async () => {
+  const { parseDbprDataset } = await import('../src/sources/adapters/flDbpr.js');
+  assert.deepEqual(parseDbprDataset(''), []);
+  assert.deepEqual(parseDbprDataset('a,b,c\n1,2,3'), []);
+});
+
+test('the real DBPR search contract is recorded rather than guessed at', async () => {
+  const { DBPR_SEARCH_CONTRACT } = await import('../src/sources/adapters/flDbpr.js');
+  assert.equal(DBPR_SEARCH_CONTRACT.method, 'POST',
+    'the search was recorded as a GET, which is what the adapter used to get wrong');
+  assert.equal(DBPR_SEARCH_CONTRACT.organizationNameField, 'hOrgName');
+  assert.ok(DBPR_SEARCH_CONTRACT.searchTypes.includes('Name'));
+});

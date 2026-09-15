@@ -232,3 +232,18 @@ export const COMPTROLLER_API_COLLISION = JSON.stringify({
 export const COMPTROLLER_API_NAMELESS = JSON.stringify({
   data: [{ TAXPAYER_ID: '32099999999', STATUS: 'ACTIVE' }],
 });
+
+/**
+ * A Florida DBPR licensee export.
+ *
+ * Column names follow DBPR's published licensee files; the values are invented. The
+ * live search is a session-bearing POST form, so this shape is what a loaded dataset
+ * looks like rather than what a scrape returns.
+ */
+export const DBPR_DATASET = [
+  'License Number,License Type,Rank,Licensee Name,DBA Name,Business Name,Qualifying Agent,Primary Status,Secondary Status,Original Licensure Date,Expires,City,County',
+  'CFC1428888,Certified Plumbing Contractor,Cert Plumbing,KOWALCZYK PLUMBING LLC,KOWALCZYK PLUMBING,KOWALCZYK PLUMBING LLC,DANA KOWALCZYK,Current,Active,06/02/2014,08/31/2026,St Augustine,St Johns',
+  'EC13009999,Certified Electrical Contractor,Cert Electrical,VOLT MASTERS INC,,VOLT MASTERS INC,RAY SIMMS,Current,Active,03/11/2011,08/31/2026,St Augustine,St Johns',
+  'CCC1330000,Certified Roofing Contractor,Cert Roofing,GULF ROOFING LLC,,GULF ROOFING LLC,MARIA SOLIS,Null,Expired,01/05/2009,08/31/2024,Miami,Miami-Dade',
+  'CFC1499999,Certified Plumbing Contractor,Cert Plumbing,MARCUS ELLIS,,,,Current,Active,09/14/2018,08/31/2026,St Augustine,St Johns',
+].join('\n');

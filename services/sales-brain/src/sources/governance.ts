@@ -83,18 +83,27 @@ export const SOURCE_GOVERNANCE: SourceGovernance[] = [
       'qualifying agent', 'licensee name', 'business name'],
     businessPurpose: 'Verify that a Florida contractor holds the licence its trade '
       + 'requires, and surface the qualifying agent as a named, verifiable person.',
-    requestPolicy: 'One search per account lookup. Shared polite fetcher limits.',
-    bulkStrategy: 'None yet. DBPR publishes downloadable licence files; moving to '
-      + 'those is the right next step and is recorded as a known limitation.',
+    requestPolicy: 'Zero per-account live requests. Reads a loaded licensee dataset.',
+    bulkStrategy: 'Snapshot-based, sharing the source_snapshots infrastructure with '
+      + 'the Texas plumbing board: one published licensee file, checksummed, indexed, '
+      + 'and matched against every Florida account.',
     freshnessStrategy: 'Licence status re-verified every 30 days -- status and expiry '
       + 'both change without notice.',
     attribution: 'Facts store the DBPR detail reference.',
     failureBehaviour: 'SOURCE_UNAVAILABLE; never reported as an unlicensed company.',
     enableFlag: 'SOURCE_FL_DBPR_ENABLED',
     status: 'FEATURE_FLAGGED',
-    statusReason: 'Reachable and unrestricted by robots, but live automation is not '
-      + 'switched on by default: the search is a legacy ASP form whose response shape '
-      + 'should be confirmed against a governance sign-off before it runs unattended.',
+    statusReason: 'Validated against the live form on 2026-09-15. wl11.asp is a legacy '
+      + 'ASP application: the licensee search is a POST to wl11.asp?mode=1 carrying a '
+      + 'SearchType radio (Name | LicNbr | City | LicTyp) and roughly thirty hidden '
+      + 'fields -- hOrgName, hLastName, hSearchType, hLicNbr, hCity, hDivision, '
+      + 'hBoard, hSearchOpt, hRecsPerPage -- with a session identifier threaded '
+      + 'through SID. The adapter previously built a GET with invented query '
+      + 'parameters and would never have returned a record. Driving a stateful form '
+      + 'once per account is fragile and rude to a state system, so DBPR now reads a '
+      + 'published licensee dataset through the snapshot infrastructure. The parser, '
+      + 'trade-coverage check, matching and tests are complete; the dataset must be '
+      + 'obtained from DBPR before live use.',
   },
   {
     sourceId: 'tx_comptroller',

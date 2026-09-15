@@ -220,3 +220,112 @@ export function dbprPeople(licence: DbprLicence, reference: string): PersonObser
   }
   return people;
 }
+
+/**
+ * The real search contract, recorded from the live form (2026-09-15).
+ *
+ * `wl11.asp` is a legacy ASP application. The licensee search is a POST to
+ * `wl11.asp?mode=1&SID=&brd=&typ=` carrying a `SearchType` radio (Name | LicNbr |
+ * City | LicTyp) and around thirty hidden fields -- `hOrgName`, `hLastName`,
+ * `hSearchType`, `hLicNbr`, `hCity`, `hDivision`, `hBoard`, `hSearchOpt`,
+ * `hRecsPerPage` and the rest -- with a session identifier threaded through `SID`.
+ *
+ * The adapter previously constructed a GET with invented query parameters, which
+ * would never have returned a record. Rather than drive a stateful form once per
+ * account -- fragile, and rude to a state system -- DBPR is treated the way the Texas
+ * plumbing board is: a published licensee file, loaded once and indexed locally.
+ *
+ * Recorded here because it is the thing a future engineer will otherwise rediscover.
+ */
+export const DBPR_SEARCH_CONTRACT = {
+  url: 'https://www.myfloridalicense.com/wl11.asp?mode=1&SID=&brd=&typ=',
+  method: 'POST' as const,
+  searchTypes: ['Name', 'LicNbr', 'City', 'LicTyp'] as const,
+  organizationNameField: 'hOrgName',
+  licenceNumberField: 'hLicNbr',
+  sessionField: 'hSID',
+};
+
+/**
+ * A DBPR licensee export, parsed by column meaning rather than position.
+ *
+ * DBPR publishes licensee data files; their exact column headings vary between
+ * boards and between releases, so headers are matched on what they mean. A row
+ * without a licence number and a name is skipped rather than guessed at -- the same
+ * rule the plumbing-board importer follows, for the same reason.
+ */
+export function parseDbprDataset(content: string): DbprLicence[] {
+  const lines = content.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  const delimiter = (lines[0]!.match(/\t/g)?.length ?? 0) > (lines[0]!.match(/,/g)?.length ?? 0)
+    ? '\t' : ',';
+  const splitRow = (line: string): string[] => {
+    if (delimiter === '\t') return line.split('\t').map((cell) => cell.trim());
+    const cells: string[] = [];
+    let current = '';
+    let quoted = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index]!;
+      if (character === '"') {
+        if (quoted && line[index + 1] === '"') { current += '"'; index += 1; continue; }
+        quoted = !quoted;
+        continue;
+      }
+      if (character === ',' && !quoted) { cells.push(current.trim()); current = ''; continue; }
+      current += character;
+    }
+    cells.push(current.trim());
+    return cells;
+  };
+
+  const headers = splitRow(lines[0]!).map((header) => header.toLowerCase().replace(/[^a-z]/g, ''));
+  const indexOf = (...candidates: string[]): number =>
+    headers.findIndex((header) => candidates.some((candidate) => header.includes(candidate)));
+
+  const columns = {
+    licenseNumber: indexOf('licensenumber', 'licenseno', 'licnbr', 'license'),
+    licenseType: indexOf('licensetype', 'lictyp', 'type'),
+    rank: indexOf('rank'),
+    licenseeName: indexOf('licenseename', 'name'),
+    dbaName: indexOf('dbaname', 'dba'),
+    businessName: indexOf('businessname', 'orgname', 'organization'),
+    qualifyingAgent: indexOf('qualifyingagent', 'qualifier'),
+    primaryStatus: indexOf('primarystatus', 'status'),
+    secondaryStatus: indexOf('secondarystatus'),
+    licensureDate: indexOf('licensuredate', 'originallicensure', 'issued'),
+    expires: indexOf('expires', 'expiration'),
+    city: indexOf('city'),
+    county: indexOf('county'),
+  };
+  if (columns.licenseNumber === -1 || columns.licenseeName === -1) return [];
+
+  const licences: DbprLicence[] = [];
+  for (const line of lines.slice(1)) {
+    const cells = splitRow(line);
+    const at = (index: number): string | null =>
+      index === -1 ? null : (cells[index]?.trim() || null);
+
+    const licenseNumber = at(columns.licenseNumber);
+    const licenseeName = at(columns.licenseeName);
+    if (!licenseNumber || !licenseeName || !/\d/.test(licenseNumber)) continue;
+
+    licences.push({
+      licenseNumber,
+      licenseType: at(columns.licenseType) ?? 'Unknown',
+      rank: at(columns.rank),
+      licenseeName,
+      dbaName: at(columns.dbaName),
+      businessName: at(columns.businessName),
+      qualifyingAgent: at(columns.qualifyingAgent),
+      primaryStatus: at(columns.primaryStatus) ?? 'UNKNOWN',
+      secondaryStatus: at(columns.secondaryStatus),
+      licensureDate: at(columns.licensureDate),
+      expiresDate: at(columns.expires),
+      city: at(columns.city),
+      county: at(columns.county),
+      stateRegion: 'FL',
+    });
+  }
+  return licences;
+}

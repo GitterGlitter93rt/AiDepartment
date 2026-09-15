@@ -5,8 +5,8 @@ import { liveCallsPermitted, availabilityFor } from './governance.js';
 import { emptyResult, type SourceAdapter, type SourceLookupContext,
   type SourceLookupResult } from './types.js';
 import { parseSunbizDetail, sunbizCandidate, sunbizFacts, sunbizPeople } from './adapters/flSunbiz.js';
-import { parseDbprDetail, dbprCandidate, dbprFacts, dbprPeople, licenceCoversVertical }
-  from './adapters/flDbpr.js';
+import { dbprCandidate, dbprFacts, dbprPeople, licenceCoversVertical,
+  type DbprLicence } from './adapters/flDbpr.js';
 import { parseComptrollerApiList, comptrollerCandidate, comptrollerFacts,
   comptrollerPeople, COMPTROLLER_API_BASE } from './adapters/txComptroller.js';
 import { parseTdlrResults, tdlrCandidate, tdlrFacts, tdlrPeople, tdlrProgramFor,
@@ -180,37 +180,88 @@ export function createComptrollerAdapter(fetcher: Fetcher = defaultFetcher): Sou
   };
 }
 
-export function createDbprAdapter(fetcher: Fetcher = defaultFetcher): SourceAdapter {
+/**
+ * Florida DBPR, read from a published licensee file rather than the search form.
+ *
+ * The live search is a POST to a legacy ASP application carrying a session
+ * identifier and about thirty hidden fields (see `DBPR_SEARCH_CONTRACT`). Driving a
+ * stateful form once per account is fragile and rude to a state system, and it makes
+ * each account's licence freshness depend on when that account happened to be
+ * researched. One file, loaded and indexed, answers for every Florida account at once
+ * -- and lets the read model state freshness honestly, because a snapshot is only ever
+ * as fresh as its download.
+ */
+export function createDbprAdapter(_fetcher: Fetcher = defaultFetcher): SourceAdapter {
   return {
     id: 'fl_dbpr',
     displayName: 'Florida DBPR',
     sourceClass: 'PUBLIC_LICENSE_REGISTRY',
     stage: 'C_public_license_registry',
     stateRegion: 'FL',
-    timeoutMs: 20_000,
+    timeoutMs: 10_000,
     availability: () => availabilityFor('fl_dbpr'),
     supports: (context) =>
       context.stateRegion === 'FL'
       && licensingRequirement('FL', context.verticalProfileId).sourceId === 'fl_dbpr',
     lookup: async (context) => {
-      return lookupViaPage({
-        sourceId: 'fl_dbpr',
-        url: 'https://www.myfloridalicense.com/wl11.asp?mode=2&search=Name&SID=&brd=&typ=N&hid='
-          + encodeURIComponent(context.companyName),
-        fetcher, context,
-        // Only a licence for the trade this account is about. A roofing company
-        // holding an electrical licence has not had its roofing credentials verified,
-        // and reporting it as licensed would be true of the wrong thing.
-        parse: (html) => {
-          const licence = parseDbprDetail(html);
-          if (!licence) return null;
-          return licenceCoversVertical(licence, context.verticalProfileId) ? licence : null;
-        },
-        toCandidate: dbprCandidate,
-        build: (record, reference) => ({
-          facts: dbprFacts(record, reference), people: dbprPeople(record, reference),
-        }),
+      const found = await findSnapshotRecordsByCompany({
+        sourceId: 'fl_dbpr', dataset: 'licensees', companyName: context.companyName,
       });
+      if (!found) {
+        return emptyResult('fl_dbpr', 'SOURCE_UNAVAILABLE',
+          'No Florida DBPR licensee dataset has been loaded, so no licence could be '
+          + 'looked up. This says nothing about the company.');
+      }
+
+      const records = (found.payloads as unknown as DbprLicence[])
+        // A licence for another trade does not verify this one.
+        .filter((licence) => licenceCoversVertical(licence, context.verticalProfileId));
+      const snapshot = {
+        snapshotId: found.snapshot.snapshotId,
+        downloadedAt: found.snapshot.downloadedAt,
+        sourceGeneratedAt: found.snapshot.sourceGeneratedAt,
+      };
+
+      if (records.length === 0) {
+        return {
+          sourceId: 'fl_dbpr', status: 'NO_MATCH',
+          reason: 'The DBPR dataset holds no licence for this trade under this company name.',
+          sourceReference: found.snapshot.sourceReference,
+          capturedAt: found.snapshot.downloadedAt,
+          facts: [], people: [], endpoints: [], fromSnapshot: snapshot,
+        };
+      }
+
+      const candidates = distinctByEntity(records.map(dbprCandidate));
+      const decision = decideMatch(candidates, context);
+      if (decision.status !== 'MATCHED' || !decision.selected) {
+        return {
+          sourceId: 'fl_dbpr', status: decision.status, reason: decision.reason,
+          sourceReference: found.snapshot.sourceReference,
+          capturedAt: found.snapshot.downloadedAt,
+          facts: [], people: [], endpoints: [], candidates: decision.considered,
+          fromSnapshot: snapshot,
+        };
+      }
+
+      const selectedName = decision.selected.name;
+      const matching = records.filter((licence) =>
+        (licence.businessName ?? licence.dbaName ?? licence.licenseeName) === selectedName);
+      const reference = found.snapshot.sourceReference
+        ?? `dbpr-snapshot:${found.snapshot.snapshotId}`;
+
+      return {
+        sourceId: 'fl_dbpr', status: 'MATCHED', reason: decision.reason,
+        sourceReference: reference,
+        // The download time, not now: a cached licence read today was not verified today.
+        capturedAt: found.snapshot.downloadedAt,
+        matchMethod: decision.matchMethod,
+        facts: matching.flatMap((licence) => dbprFacts(licence, reference)),
+        people: matching.flatMap((licence) => dbprPeople(licence, reference)),
+        endpoints: [],
+        candidates: decision.considered,
+        fromSnapshot: snapshot,
+      };
     },
   };
 }
