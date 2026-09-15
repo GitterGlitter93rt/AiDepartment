@@ -164,6 +164,7 @@ const breadcrumbs = breadcrumbSchema([
   }
 
   .res-article-body :global(h2),
+  .res-article-body :global(h3),
   .res-article-body :global(p),
   .res-article-body :global(ul),
   .res-article-body :global(ol) {
@@ -175,6 +176,19 @@ const breadcrumbs = breadcrumbSchema([
     font-size: 1.4rem;
     font-weight: 800;
     margin-block: 40px 16px;
+  }
+
+  /* Sprint 16: the longer GSC-driven guides are the first resources in
+     the collection deep enough to need a second heading level. Without
+     these rules an h3 would inherit the browser default and sit at the
+     full 1120px article-body width, breaking the reading column the h2
+     and p rules above establish. Sized to read as clearly subordinate
+     to the h2 it sits under. */
+  .res-article-body :global(h3) {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--color-near-black);
+    margin-block: 28px 10px;
   }
 
   .res-article-body :global(p) {

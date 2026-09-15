@@ -1,0 +1,188 @@
+---
+title: "How to Integrate an AI Chatbot With Your CRM"
+seoTitle: "How to Integrate an AI Chatbot With a CRM | Your AI Department"
+description: "How AI chatbot CRM integration works: lead capture, record matching, conversation summaries, routing, tasks, follow-up triggers, security and human handoff."
+publishDate: "2026-09-14"
+primaryDestination:
+  label: "Explore AI CRM Integration"
+  href: "/ai-crm-integration/"
+secondaryDestinations:
+  - label: "CRM Setup & Automation"
+    href: "/crm-setup-automation/"
+  - label: "AI Agent Development"
+    href: "/ai-agent-development/"
+relatedResources:
+  - "why-speed-to-lead-matters"
+  - "what-business-processes-should-not-be-automated"
+---
+
+import GroupedFlow from '../../components/interior/GroupedFlow.astro';
+
+Putting an AI chatbot on a website is the easy half. The hard half is everything that happens after the conversation ends: whether a record was created, whether it was the *right* record, whether anyone was told, and whether the next person to speak to that customer can see what was already said.
+
+A chatbot that is not integrated with your CRM produces conversations. A chatbot that is integrated produces pipeline. This guide walks through what that integration actually involves — the data flow, the decisions, the failure modes, and the parts that should stay human.
+
+It is written for the person who has to make the decision or supervise the build: an owner, a sales or marketing leader, or an operations manager. It assumes you already have a CRM and are deciding how an AI assistant should write into it.
+
+## What "Integration" Actually Means Here
+
+At minimum, four things have to happen reliably:
+
+1. The conversation is **captured** — what was said, when, through which channel.
+2. The person is **resolved** to a record — existing contact, or a genuinely new one.
+3. Something **useful is written** to that record — a summary, structured fields, a source.
+4. Someone or something is **triggered** — a task, a routing decision, a notification, a follow-up sequence.
+
+Everything below is detail underneath those four. If any one of them is unreliable, the integration will quietly degrade your CRM instead of improving it, and the degradation is usually invisible for months.
+
+<GroupedFlow
+  tone="light"
+  groups={[
+    { label: 'Conversation', steps: [{ text: 'Chat Session', icon: 'message-square' }, { text: 'Captured Data', icon: 'inbox' }] },
+    { label: 'Resolution', steps: [{ text: 'Identity Match', icon: 'user-check' }, { text: 'Create or Update', icon: 'database' }] },
+    { label: 'Write', steps: [{ text: 'Summary + Fields', icon: 'file-text' }, { text: 'Source / Attribution', icon: 'bar-chart-3' }] },
+    { label: 'Action', steps: [{ text: 'Routing', icon: 'workflow' }, { text: 'Task / Follow-Up', icon: 'repeat' }] },
+    { label: 'Human', steps: [{ text: 'Handoff', icon: 'handshake' }] },
+  ]}
+/>
+
+## Step One: Decide What the Chatbot Is Allowed to Collect
+
+Before any technical work, decide what the conversation is for. A chatbot that tries to do everything collects nothing well.
+
+Most useful implementations gather a small, deliberate set: who the person is and how to reach them, what they are asking about, roughly how urgent it is, and enough qualifying detail for a human to pick up the conversation intelligently. That is usually four to seven pieces of information, not twenty.
+
+Two rules worth setting at this stage:
+
+- **Only collect what you will actually use.** Every additional field is another thing to map, validate, and keep accurate.
+- **Do not collect sensitive information through a general website chat widget.** Payment details, government identifiers, health information, credit or financial details, and anything covered by a specific regulatory regime do not belong in an open chat interface feeding a general CRM. If your business genuinely needs those, that belongs in a purpose-built, access-controlled flow designed with your legal and security requirements in mind — not a chat bubble.
+
+## Step Two: Resolve Identity Before You Write Anything
+
+This is where most integrations break, and it breaks silently.
+
+The chatbot has an email address, or a phone number, or just a first name. Your CRM may already have that person — from a form last year, from a purchased list, from a different email address at the same company. Writing before resolving is how you end up with four records for one customer and a sales team that has stopped trusting the database.
+
+A workable resolution order for most businesses:
+
+- **Match on a strong identifier first.** A normalized email address, or a phone number normalized to E.164 before comparison. `(555) 010-1234`, `555-010-1234`, and `+15550101234` are the same phone number and three different strings.
+- **Then consider a secondary match** — name plus company, or name plus address — but treat it as a candidate rather than a certainty.
+- **When a match is ambiguous, do not guess.** Create the record and flag it for review, or attach the conversation to a queue a human clears. A wrong merge is much harder to undo than a duplicate.
+
+### Create Versus Update
+
+Once resolution is done, the branch is simple in principle and worth stating explicitly in your design:
+
+- **No match:** create a new contact or lead, with the source set correctly and the full conversation attached.
+- **Match, no open opportunity:** update the existing contact, append the conversation, and create a new opportunity or deal only if the conversation actually indicates new intent.
+- **Match with an open opportunity:** append to the existing record and notify its owner. Do not create a second opportunity because the same person asked a follow-up question.
+
+That last case is the one most commonly handled badly, and it is the one that inflates pipeline reports.
+
+## Step Three: Write Something a Human Can Use
+
+A raw chat transcript dumped into a notes field is technically integration and practically useless. Nobody reads a hundred lines of dialogue before a callback.
+
+What earns its place on the record:
+
+- **A short structured summary** — what the person wants, what they said about timing, what is still unresolved. Three or four sentences that a salesperson can read in ten seconds.
+- **The structured fields** the conversation actually established: service or product of interest, location, urgency, budget signal if it was genuinely given.
+- **Source and attribution data** — the channel, the campaign or referrer where available, the page the conversation started on. This is what later lets you tell which marketing produced which revenue.
+- **The full transcript, attached but out of the way**, for the cases where someone needs the detail.
+
+One discipline is worth enforcing: an AI-generated summary should be **labelled as AI-generated** on the record. When a salesperson later finds that a detail in the summary was wrong, they need to know whether they are looking at something a person wrote or something a model inferred.
+
+### Field Mapping Is a Real Design Task
+
+Field mapping looks clerical and is where correctness lives. For every field you intend to write:
+
+- What is the source in the conversation, and what happens if the conversation did not establish it?
+- What is the valid set of values, and what does the AI do when the customer's answer is not in it? (Usually: leave it empty and let a human set it. Never: invent the closest-looking option.)
+- Is it safe to overwrite an existing value, or should the new value be appended or held for review? Overwriting a human-verified field with a model's guess is a genuine data-loss event.
+
+A short, well-mapped set of fields beats a large, loosely-mapped one every time.
+
+## Step Four: Routing, Tasks, and Follow-Up
+
+A record that nobody is told about is barely better than no record.
+
+**Routing.** The information gathered up front is what makes routing possible — by service line, by location or territory, by whether the enquiry is new business or existing customer, by urgency. Routing rules should be explicit and owned by the business, not inferred conversationally on the fly.
+
+**Tasks and ownership.** Every conversation that represents real intent should produce an owner and a task with a due time. "Assigned to the team" is not ownership.
+
+**Follow-up triggers.** Where the conversation happened outside working hours, or the person asked for a callback, or a question went unanswered, the integration can start an appropriate follow-up sequence. Two constraints apply: the cadence should be a business decision rather than an AI improvisation, and outbound messaging has to respect consent and the relevant communication rules for your channel — an automated SMS follow-up in particular is subject to real consent requirements, not a technical convenience.
+
+**Stage and status changes.** Automating movement *forward* through a pipeline on weak evidence is a common mistake. It inflates the forecast and hides real activity. A safer default: let AI create records, attach information, and flag intent; let humans, or a clearly defined and conservative rule, move a deal stage.
+
+## Step Five: Plan the Handoff
+
+The handoff is a design decision, not an exception, and it should be built before launch rather than added after the first complaint.
+
+Hand off to a human when the customer asks for a person, when the conversation involves pricing or negotiation, when it becomes a complaint or a dispute, when it touches anything safety-related or regulated, when the AI's confidence is low, or when it has gone in circles twice. In several of those cases the right behaviour is to stop attempting to answer at all.
+
+Two practical requirements: the human must receive the context — summary, transcript, and record link — rather than starting cold, and the customer should not have to repeat what they already said. A handoff that loses the conversation is worse than no chatbot, because the customer has now told their story twice.
+
+## How the Connection Is Actually Built
+
+There are three common technical patterns, and the right one depends on your CRM and your appetite for maintenance.
+
+- **Native integration.** Your chat platform and your CRM already support each other. Fastest, least flexible, and worth checking carefully — "integrates with" sometimes means one direction and three fields.
+- **API and webhooks.** The chat platform emits an event, a small service resolves identity and writes to the CRM API. The most control, the most capability, and the most to maintain.
+- **An integration platform in the middle.** A workflow tool orchestrates the steps between the two systems. A good middle ground for most businesses, with the caveat that logic spread across dozens of workflow steps becomes hard to reason about if nobody owns it.
+
+Whichever pattern you choose, some things are not optional:
+
+- **Idempotency.** A retried webhook must not create a second record. Use a stable identifier per conversation so a duplicate delivery is recognized as a duplicate.
+- **Handling the CRM being unavailable.** Queue and retry. A conversation that happened during a five-minute API outage should not be lost.
+- **Rate limits.** Most CRM APIs have them, and hitting them at your busiest hour is a predictable way to lose your best leads.
+
+## Security, Permissions, and Auditability
+
+The integration is a service account with write access to your customer database. Treat it that way.
+
+- **Least privilege.** Give the integration access to the objects and fields it genuinely needs, not a full administrator key because it was quicker.
+- **Credentials stay server-side.** API keys and tokens belong in server-side configuration, never in front-end code where anyone can read them.
+- **Audit trail.** Every write should be attributable to the integration and timestamped, so that six months later you can answer "where did this value come from?"
+- **Retention.** Decide how long transcripts are kept and where, in line with your privacy policy and any obligations that apply to your industry.
+- **Data residency and vendor terms.** Know where the conversation data is processed and what the AI vendor's terms permit. This is a question to answer before launch, not after a customer asks.
+
+## Testing and Rollback
+
+The thing you are changing is the system of record for your revenue. Stage it.
+
+A reasonable sequence: build against a sandbox or a clearly-marked test segment; run a set of deliberate scenarios — a brand-new person, an existing customer, an existing customer with an open deal, a bad email address, a person who refuses to give a name, a duplicate submission, an ambiguous match; then run in **shadow mode**, where the integration produces its output for review without writing to live records, for long enough to see real traffic.
+
+Then go live narrowly — one channel, or one service line — with a human reviewing what lands for the first period.
+
+Before launch, have an answer to: how do we turn this off, and how do we identify and clean up everything it wrote if we have to? A feature flag that disables writes, and a marker on every record the integration created, together make that a twenty-minute problem instead of a week.
+
+## What to Measure
+
+- Percentage of conversations that produced a CRM record.
+- Duplicate rate after identity resolution.
+- Fields populated correctly versus left empty versus wrong, sampled by a human.
+- Time from conversation to first human contact.
+- Handoff rate, and the reasons behind it.
+- Conversations that became qualified opportunities, and what happened to them.
+
+The last one is the only one that matters commercially. The rest explain it.
+
+## Common Failure Modes
+
+- **Duplicate records**, from writing before resolving identity or from non-idempotent webhooks.
+- **Overwriting verified data** with a model's guess.
+- **Transcript dumping** with no summary, so nobody reads the record.
+- **Silent failures** — the CRM write fails, nothing alerts, and the leads simply stop arriving.
+- **Pipeline inflation** from automatic stage advancement on weak signals.
+- **Over-collection**, including sensitive data that should never have been in a chat widget.
+- **No handoff design**, so the AI keeps trying to answer a question it should have escalated.
+
+## Where This Fits
+
+This guide is the implementation view. If what you actually need is the service that designs and builds this connection into the CRM you already run, that is [AI CRM integration](/ai-crm-integration/).
+
+If the CRM underneath is the real problem — pipeline stages that do not match how you sell, missing lifecycle definitions, no task automation — integrating a chatbot into it will amplify the mess rather than fix it. Start with [CRM setup and automation](/crm-setup-automation/) first. And if the agent doing the talking is the piece you do not have yet, that is [AI agent development](/ai-agent-development/).
+
+Two related considerations are worth reading alongside this: [why speed to lead matters](/resources/why-speed-to-lead-matters/), which is the reason the routing and task layer is worth building carefully, and [what business processes should not be automated](/resources/what-business-processes-should-not-be-automated/), which is the discipline behind the handoff rules above.
+
+A chatbot integration is not really a chat project. It is a data-quality project with a conversation on the front of it.
