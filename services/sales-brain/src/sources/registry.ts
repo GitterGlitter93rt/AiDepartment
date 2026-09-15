@@ -1,5 +1,5 @@
 import { politeFetch } from '../resolver/fetcher.js';
-import { decideMatch, type MatchCandidate } from './match.js';
+import { decideMatch, distinctByEntity, type MatchCandidate } from './match.js';
 import { licensingRequirement } from './requirements.js';
 import { liveCallsPermitted, availabilityFor } from './governance.js';
 import { emptyResult, type SourceAdapter, type SourceLookupContext,
@@ -70,7 +70,7 @@ async function lookupViaPage<TRecord>(input: {
       'The source returned no record that could be read as a result.');
   }
 
-  const candidates = records.map(input.toCandidate);
+  const candidates = distinctByEntity(records.map(input.toCandidate));
   const decision = decideMatch(candidates, input.context);
   const capturedAt = new Date();
 
@@ -82,8 +82,8 @@ async function lookupViaPage<TRecord>(input: {
     };
   }
 
-  const index = candidates.findIndex((candidate) => candidate === decision.selected);
-  const record = records[index]!;
+  const index = records.findIndex((entry) => input.toCandidate(entry).name === decision.selected!.name);
+  const record = records[index === -1 ? 0 : index]!;
   const reference = decision.selected.reference
     ? `${response.finalUrl}#${decision.selected.reference}` : response.finalUrl;
   const built = input.build(record, reference);
@@ -249,7 +249,9 @@ export function createTsbpeAdapter(): SourceAdapter {
         };
       }
 
-      const candidates = records.map(tsbpeCandidate);
+      // One company may hold several licences; those rows are one entity, not
+      // several candidates competing to be it.
+      const candidates = distinctByEntity(records.map(tsbpeCandidate));
       const decision = decideMatch(candidates, context);
       if (decision.status !== 'MATCHED' || !decision.selected) {
         return {

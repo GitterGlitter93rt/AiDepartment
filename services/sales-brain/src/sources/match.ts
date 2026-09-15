@@ -31,6 +31,42 @@ export interface MatchCandidate {
   alternateNames?: string[];
 }
 
+/**
+ * Collapses records that describe the same entity into one candidate.
+ *
+ * A licence register returns one row per licence, and a company that holds a
+ * Responsible Master Plumber licence and a journeyman licence is one company with two
+ * licences -- not two companies competing to be matched. Passing both to `decideMatch`
+ * makes it see two equally-corroborated candidates of the same name and correctly
+ * refuse to choose, which is the right answer to the wrong question.
+ *
+ * Same normalized name in the same city and state is one entity. Same name in a
+ * *different* city stays two candidates, which is exactly the ambiguity that must
+ * survive: two companies of one name in two cities is the case this whole module
+ * exists for.
+ */
+export function distinctByEntity(candidates: MatchCandidate[]): MatchCandidate[] {
+  const seen = new Map<string, MatchCandidate>();
+  for (const candidate of candidates) {
+    const key = [
+      normalizeCompanyName(candidate.name),
+      normalizeCity(candidate.city)?.toLowerCase() ?? '',
+      normalizeState(candidate.stateRegion) ?? '',
+    ].join('|');
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, candidate);
+      continue;
+    }
+    // Keep the richer record: more corroborating fields means a better decision.
+    const weight = (entry: MatchCandidate): number =>
+      [entry.streetAddress, entry.postalCode, entry.domain,
+        entry.phones?.length ? 'p' : null].filter(Boolean).length;
+    if (weight(candidate) > weight(existing)) seen.set(key, candidate);
+  }
+  return [...seen.values()];
+}
+
 export interface MatchDecision {
   status: Extract<MatchStatus, 'MATCHED' | 'AMBIGUOUS' | 'NO_MATCH'>;
   selected: MatchCandidate | null;
