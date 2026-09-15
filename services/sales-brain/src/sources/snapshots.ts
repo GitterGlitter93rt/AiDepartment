@@ -47,6 +47,32 @@ export function checksumOf(content: string): string {
  * re-download that produces the same bytes is not new information and must not look
  * like a refresh.
  */
+export interface LoadResult {
+  snapshot: SnapshotMeta;
+  created: boolean;
+  /** Rows the parser produced that this loader would not index, and why. */
+  rejected: { reason: string; count: number }[];
+}
+
+/**
+ * Rows that cannot be matched against anything.
+ *
+ * A record with neither a company name nor a person name nor a licence number is not
+ * a record we can ever join to an account: it would sit in the index for ever,
+ * counted in `record_count`, inflating an operator's sense of how much data we hold.
+ * Rejected loudly, with a count, rather than stored and forgotten.
+ */
+function rejectionReason(record: SnapshotRecordInput): string | null {
+  const hasKey = Boolean(record.matchCompanyName?.trim())
+    || Boolean(record.matchPersonName?.trim())
+    || Boolean(record.licenseNumber?.trim());
+  if (!hasKey) return 'no company name, person name or licence number to match on';
+  if (!record.payload || Object.keys(record.payload).length === 0) {
+    return 'empty payload, so nothing could be read back from it';
+  }
+  return null;
+}
+
 export async function loadSnapshot(input: {
   sourceId: string;
   dataset: string;
@@ -56,7 +82,7 @@ export async function loadSnapshot(input: {
   sourceReference?: string | null;
   sourceGeneratedAt?: Date | null;
   notes?: string | null;
-}): Promise<{ snapshot: SnapshotMeta; created: boolean }> {
+}): Promise<LoadResult> {
   const checksum = checksumOf(input.content);
 
   const existing = await query<SnapshotRow>(
@@ -64,10 +90,35 @@ export async function loadSnapshot(input: {
       where source_id = $1 and dataset = $2 and checksum = $3`,
     [input.sourceId, input.dataset, checksum]);
   if (existing.rows[0]) {
-    return { snapshot: toMeta(existing.rows[0]), created: false };
+    return { snapshot: toMeta(existing.rows[0]), created: false, rejected: [] };
   }
 
+  const rejectedCounts = new Map<string, number>();
+  const usable: SnapshotRecordInput[] = [];
+  for (const record of input.records) {
+    const reason = rejectionReason(record);
+    if (reason) {
+      rejectedCounts.set(reason, (rejectedCounts.get(reason) ?? 0) + 1);
+      continue;
+    }
+    usable.push(record);
+  }
+  const rejected = [...rejectedCounts.entries()]
+    .map(([reason, count]) => ({ reason, count }));
+
   return withTransaction(async (client) => {
+    /**
+     * One loader at a time per dataset.
+     *
+     * Two concurrent loads of different files would both supersede the other's
+     * CURRENT row and could leave the dataset with none, or with two. The advisory
+     * lock is released when the transaction ends, including on failure -- which is
+     * also what makes a failed load leave the previous snapshot untouched and still
+     * CURRENT.
+     */
+    await client.query('select pg_advisory_xact_lock(hashtext($1))',
+      [`source_snapshot:${input.sourceId}:${input.dataset}`]);
+
     const inserted = await client.query<SnapshotRow>(
       `insert into source_snapshots
          (source_id, dataset, source_reference, checksum, source_generated_at,
@@ -75,11 +126,13 @@ export async function loadSnapshot(input: {
        values ($1,$2,$3,$4,$5,$6,$7,'LOADED',$8)
        returning *`,
       [input.sourceId, input.dataset, input.sourceReference ?? null, checksum,
-        input.sourceGeneratedAt ?? null, input.records.length, input.parserVersion,
+        // The count is what was indexed, not what was parsed: a record_count that
+        // includes rows nothing can match overstates what this source can answer.
+        input.sourceGeneratedAt ?? null, usable.length, input.parserVersion,
         input.notes ?? null]);
     const snapshot = inserted.rows[0]!;
 
-    for (const record of input.records) {
+    for (const record of usable) {
       await client.query(
         `insert into source_snapshot_records
            (snapshot_id, match_company_name, match_person_name, license_number,
@@ -105,7 +158,7 @@ export async function loadSnapshot(input: {
 
     const refreshed = await client.query<SnapshotRow>(
       'select * from source_snapshots where snapshot_id = $1', [snapshot.snapshot_id]);
-    return { snapshot: toMeta(refreshed.rows[0]!), created: true };
+    return { snapshot: toMeta(refreshed.rows[0]!), created: true, rejected };
   });
 }
 
