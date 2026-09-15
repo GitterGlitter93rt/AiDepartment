@@ -83,6 +83,7 @@ const faqs = [
         tone="dark"
       />
       <p class="growth-systems-link"><a href="/ai-growth-systems/">Explore AI Growth Systems &rarr;</a></p>
+      <p class="prose-p-dark">The same principle now applies to AI-assisted search. Being named in an AI-generated answer depends on the same things a good organic result depends on — accurate, specific, consistent information about your business that a system can actually read. A worked example for one local trade is <a href="/resources/ai-search-optimization-for-garage-door-companies/">AI search optimization for garage door companies</a>.</p>
     </Container>
   </Section>
 
@@ -142,6 +143,24 @@ const faqs = [
     font-weight: 700;
     font-size: 0.9rem;
     color: var(--color-signal-cyan);
+  }
+
+  /* Body copy in a dark section. The global reset gives anchors
+     `color: inherit; text-decoration: none`, so an in-prose link needs
+     an explicit colour to read as a link at all. */
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: 24px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
   }
 
   .fit-panel {

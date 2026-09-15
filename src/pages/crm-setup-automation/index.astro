@@ -69,6 +69,7 @@ const faqs = [
       />
       <p class="prose-p">Buying and installing a CRM is the easy part. The harder, more valuable work is configuring it around your actual sales process — pipeline stages that mean something, fields that capture the information your team actually needs, automation that removes manual busywork, and a structure disciplined enough that reporting is trustworthy rather than aspirational.</p>
       <p class="prose-p">Most businesses we work with already have a CRM. The opportunity isn't usually a new platform — it's fixing a pipeline that was configured once, years ago, and never revisited as the business changed.</p>
+      <p class="prose-p">Order matters here. Connecting an AI assistant to a CRM whose stages and fields don't reflect how you sell amplifies the problem rather than solving it — the reasoning behind that is set out in <a href="/resources/how-to-integrate-an-ai-chatbot-with-a-crm/">how to integrate an AI chatbot with your CRM</a>, which treats this configuration work as the prerequisite it is.</p>
     </Container>
   </Section>
 
@@ -168,6 +169,14 @@ const faqs = [
     max-width: 760px;
     margin-inline: auto;
     margin-bottom: 18px;
+  }
+
+  /* Same convention as the industry and conversion-tracking pages — the
+     global anchor reset would otherwise render an in-prose link
+     identically to the surrounding body copy. */
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
   }
 
   .cross-links {

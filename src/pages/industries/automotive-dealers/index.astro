@@ -119,6 +119,7 @@ const faqs = [
         support="Implementation across a dealer group means coordinating rooftop ownership, CRM, DMS, inventory systems, service schedulers, telephony, OEM systems, marketing platforms, permissions, data flows, customer consent, human escalation, and reporting. We do not treat this as trivial, and neither should any partner you work with."
         tone="dark"
       />
+      <p class="prose-p-dark">The dealer management system is usually the hardest part of that list, because what is possible depends on your vendor's approved integration methods, your contract, and your OEM requirements rather than on what the technology could do in principle. <a href="/resources/ai-dms-integration-for-automotive-dealerships/">AI and DMS integration for dealerships</a> covers the access patterns, the service workflows worth starting with, and the data mapping the work actually turns on.</p>
     </Container>
   </Section>
 
@@ -219,6 +220,24 @@ const faqs = [
 </BaseLayout>
 
 <style>
+  /* Body copy inside a dark section. The global reset makes anchors
+     inherit their colour with no underline, so an in-prose link needs an
+     explicit colour to be visible at all. */
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
   .cross-links {
     text-align: center;
     font-size: 0.9rem;

@@ -163,6 +163,7 @@ const faqs = [
         <li><strong>What happens when the bot should stop.</strong> A clear handoff — to a person, to a scheduler, or to a queue — with the conversation so far attached, so the customer never repeats themselves. The handoff is the part that determines whether people trust the thing.</li>
       </ul>
       <p class="prose-p">The same three decisions apply to a voice agent taking after-hours calls. Only the transcript source changes.</p>
+      <p class="prose-p">For the step-by-step version of that connection — identity matching, create versus update, field mapping, summaries, routing, testing and rollback — see <a href="/resources/how-to-integrate-an-ai-chatbot-with-a-crm/">how to integrate an AI chatbot with your CRM</a>.</p>
     </Container>
   </Section>
 
@@ -324,6 +325,17 @@ const faqs = [
   .prose-list strong,
   .prose-p strong {
     color: var(--color-near-black);
+  }
+
+  /* Matches the convention already used on the industry and
+     conversion-tracking pages. Without it the global `a { color:
+     inherit; text-decoration: none }` reset renders an in-prose link in
+     the same slate-gray as the surrounding copy — indistinguishable
+     from body text, which also applied to the /crm-setup-automation/
+     link added below this section in Sprint 14. */
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
   }
 
   .prose-note {
