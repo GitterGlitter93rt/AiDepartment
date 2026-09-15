@@ -132,25 +132,38 @@ export async function hasOpenProviderTaskForMarket(
  *
  * Bound two ways because either alone has a hole: `job_id` is the exact link but is
  * nullable (`on delete set null`, and a task may be recorded without one), and the
- * fingerprint prefix catches the whole family of searches a run bought but would
- * also match a *different* run of the same market. Either is enough to prove
- * something is genuinely outstanding, and proving it matters more than attributing
- * it -- reporting "nothing is owed" while a paid task is open is what invites buying
- * the same market twice.
+ * fingerprint prefix catches the whole family of searches a run bought -- but it
+ * also matches a *different* run of the same market, which is why the two questions
+ * are scoped differently below.
+ *
+ * "Is anything still owed" reads the whole family, because an outstanding task is a
+ * spend risk whoever bought it, and proving it matters more than attributing it:
+ * reporting "nothing is owed" while a paid task is open is what invites buying the
+ * same market twice. "What happened to this run" reads only this run's own tasks and
+ * orphaned ones, because a previous run's COLLECTED or ABANDONED is somebody else's
+ * finished history -- letting it in would make a failed run look fulfilled, a clean
+ * run look partial, and would date this market from a search this run never bought.
  *
  * The prefix is escaped: a geography carrying `%` or `_` would otherwise widen the
  * match into other markets and resurrect the false-pending bug from the other side.
  */
 export interface DiscoveryTaskSummary {
-  /** Searches the provider still owes us. */
-  pending: number;
-  /** Searches that completed and whose results reached inventory. */
-  collected: number;
-  /** Searches given up on -- FAILED or ABANDONED. */
-  unfulfilled: number;
-  total: number;
   /**
-   * When the newest *collected* search landed.
+   * Searches the provider still owes us, anywhere in this market's fingerprint
+   * family -- including tasks explicitly attached to a *different* run.
+   *
+   * Deliberately the broad question. An outstanding task means money is already
+   * committed to these words, whoever bought it, so buying again risks paying twice
+   * for one answer. Over-reporting PENDING costs a delayed refresh; under-reporting
+   * it costs a duplicate purchase.
+   */
+  pending: number;
+  /** Searches of THIS run that completed and whose results reached inventory. */
+  collected: number;
+  /** Searches of THIS run given up on -- FAILED or ABANDONED. */
+  unfulfilled: number;
+  /**
+   * When THIS run's newest collected search landed.
    *
    * Read only from COLLECTED rows: `closeProviderTask` stamps `collected_at` on
    * every close, so on a FAILED or ABANDONED row it is the moment we gave up, not
@@ -165,28 +178,50 @@ export async function discoveryTaskSummary(input: {
   fingerprintPrefix: string | null;
 }): Promise<DiscoveryTaskSummary> {
   const empty: DiscoveryTaskSummary = {
-    pending: 0, collected: 0, unfulfilled: 0, total: 0, latestCollectedAt: null };
+    pending: 0, collected: 0, unfulfilled: 0, latestCollectedAt: null };
   if (!input.jobId && !input.fingerprintPrefix) return empty;
   const prefix = input.fingerprintPrefix === null ? null
     : input.fingerprintPrefix.replace(/([\\%_])/g, '\\$1');
+
+  // Two scopes, because the two questions are not the same question.
+  //
+  // `family` is every task for this market's words, whoever bought them. `mine` is
+  // this run's own work: its tasks, plus orphans -- rows whose `job_id` is null
+  // because it was never recorded or was cleared by `on delete set null`, which
+  // cannot be attributed to any other run and would otherwise be lost.
+  //
+  // A task explicitly linked to a *different* job is somebody else's finished
+  // history. Counting it here would let a previous run's COLLECTED make this run
+  // look fulfilled, or its ABANDONED make a cleanly delivered run look PARTIAL, and
+  // would date this market's freshness from a search this run never bought. Only
+  // PENDING reads the wide scope, and only because an outstanding task is a spend
+  // risk rather than a historical fact.
   const { rows } = await query<{
-    pending: number; collected: number; unfulfilled: number; total: number;
+    pending: number; collected: number; unfulfilled: number;
     latest_collected_at: Date | null;
   }>(
-    `select count(*) filter (where status = 'PENDING')::int as pending,
-            count(*) filter (where status = 'COLLECTED')::int as collected,
-            count(*) filter (where status in ('FAILED','ABANDONED'))::int as unfulfilled,
-            count(*)::int as total,
-            max(collected_at) filter (where status = 'COLLECTED') as latest_collected_at
-       from provider_tasks
-      where (($1::uuid is not null and job_id = $1::uuid)
-          or ($2::text is not null and fingerprint like ($2 || '%') escape '\\'))`,
+    `with matched as (
+       select status, collected_at,
+              ($1::uuid is not null and job_id = $1::uuid) as mine_exact,
+              (job_id is null) as orphan
+         from provider_tasks
+        where ($1::uuid is not null and job_id = $1::uuid)
+           or ($2::text is not null and fingerprint like ($2 || '%') escape '\\')
+     )
+     select count(*) filter (where status = 'PENDING')::int as pending,
+            count(*) filter (where status = 'COLLECTED'
+                               and (mine_exact or orphan))::int as collected,
+            count(*) filter (where status in ('FAILED','ABANDONED')
+                               and (mine_exact or orphan))::int as unfulfilled,
+            max(collected_at) filter (where status = 'COLLECTED'
+                               and (mine_exact or orphan)) as latest_collected_at
+       from matched`,
     [input.jobId, prefix]);
   const row = rows[0];
   if (!row) return empty;
   return {
     pending: row.pending, collected: row.collected, unfulfilled: row.unfulfilled,
-    total: row.total, latestCollectedAt: row.latest_collected_at,
+    latestCollectedAt: row.latest_collected_at,
   };
 }
 

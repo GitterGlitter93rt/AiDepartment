@@ -389,6 +389,112 @@ test('the freshness of a late delivery is the collection, not the job', async ()
     'the market was dated from the job rather than from the delivery');
 });
 
+// ------------------------- one run's history is not another run's history --------
+
+/**
+ * The fingerprint family spans runs, so it answers "is money already committed to
+ * these words" and nothing else. A previous run's finished tasks are that run's
+ * history: letting them in would make a failed run look fulfilled, a cleanly
+ * delivered run look partial, and would date this market from a search this run
+ * never bought.
+ */
+test('an older run\u2019s collected search does not rescue this run\u2019s abandoned one',
+  async () => {
+    providerConfigured();
+    const older = await minedJob({
+      vertical: 'plumbing', outcome: 'COMPLETED', ageDays: 30,
+      providerRows: 9, discoveredNew: 3 });
+    await providerTask({
+      jobId: older, status: 'COLLECTED', term: 'drain cleaning', closedAgeDays: 30 });
+
+    // The latest run for this market ended pending and its own task was abandoned.
+    const current = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+    await providerTask({
+      jobId: current, status: 'ABANDONED', term: 'drain cleaning',
+      errorCode: 'NEVER_DELIVERED' });
+
+    const discovery = await discoveryFor('plumbing');
+    assert.equal(discovery.state, 'PROVIDER_UNAVAILABLE',
+      'a previous run\u2019s delivered search was counted as this run\u2019s');
+    assert.notEqual(discovery.state, 'FULFILLED_LATER');
+    assert.notEqual(discovery.state, 'PARTIAL');
+  });
+
+test('an older run\u2019s abandoned search does not make this run look partial', async () => {
+  providerConfigured();
+  const older = await minedJob({
+    vertical: 'plumbing', outcome: 'PROVIDER_UNAVAILABLE', ageDays: 30 });
+  await providerTask({
+    jobId: older, status: 'ABANDONED', term: 'drain cleaning', closedAgeDays: 30,
+    errorCode: 'NEVER_DELIVERED' });
+
+  const current = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+  await providerTask({ jobId: current, status: 'COLLECTED', term: 'drain cleaning' });
+
+  const discovery = await discoveryFor('plumbing');
+  assert.equal(discovery.state, 'FULFILLED_LATER',
+    'a previous run\u2019s failure was blamed on a run that delivered cleanly');
+  assert.notEqual(discovery.state, 'PARTIAL');
+});
+
+test('freshness comes from this run\u2019s collection, not another run\u2019s', async () => {
+  providerConfigured();
+  // The other run's delivery is the NEWER one, so a naive max() over the whole
+  // family reports this market as freshly searched on the strength of a search this
+  // run never bought -- and a market that looks fresh is a market nobody refreshes.
+  const current = await minedJob({
+    vertical: 'plumbing', outcome: 'PROVIDER_PENDING', ageDays: 60 });
+  await providerTask({
+    jobId: current, status: 'COLLECTED', term: 'drain cleaning',
+    closedAgeDays: DISCOVERY_STALE_AFTER_DAYS + 5 });
+
+  const other = await minedJob({
+    vertical: 'plumbing', outcome: 'COMPLETED', ageDays: 90,
+    providerRows: 9, discoveredNew: 3 });
+  await providerTask({
+    jobId: other, status: 'COLLECTED', term: 'drain cleaning', closedAgeDays: 1 });
+
+  const discovery = await discoveryFor('plumbing');
+  assert.equal(discovery.state, 'STALE',
+    'this market was called current on the strength of another run\u2019s delivery');
+  const age = Date.now() - new Date(discovery.lastRunAt!).getTime();
+  assert.ok(age > DISCOVERY_STALE_AFTER_DAYS * 86_400_000,
+    'the market was dated from a search this run never bought');
+});
+
+test('another run\u2019s outstanding task still holds this market pending', async () => {
+  providerConfigured();
+  // Deliberately the wide scope. Money is already committed to these words, so
+  // buying again would pay twice however the latest run happens to have ended.
+  const other = await minedJob({
+    vertical: 'plumbing', outcome: 'PROVIDER_PENDING', ageDays: 2 });
+  await providerTask({ jobId: other, status: 'PENDING', term: 'drain cleaning' });
+
+  const current = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+  await providerTask({
+    jobId: current, status: 'ABANDONED', term: 'water heater repair',
+    errorCode: 'NEVER_DELIVERED' });
+
+  assert.equal((await discoveryFor('plumbing')).state, 'PENDING',
+    'a market with a paid search still outstanding was reported as idle');
+
+  const page = await findPage('plumbing');
+  assert.doesNotMatch(page, /Research this market/,
+    'the page offered to buy a search of a market already waiting on one');
+});
+
+test('an orphaned task with no job still counts as this run\u2019s work', async () => {
+  providerConfigured();
+  // `job_id` is nullable -- never recorded, or cleared by `on delete set null`. An
+  // orphan cannot be attributed to any other run, so it stays with this one rather
+  // than being dropped.
+  await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+  await providerTask({ jobId: null, status: 'COLLECTED', term: 'drain cleaning' });
+
+  assert.equal((await discoveryFor('plumbing')).state, 'FULFILLED_LATER',
+    'a delivered search with no job link was thrown away');
+});
+
 // ----------------------------------------- a run buys a family, not one search --
 
 test('one search still owed keeps the whole family pending', async () => {
