@@ -73,6 +73,23 @@ export function extractSiteQuality(input: {
   isHomepage: boolean;
 }): SiteQualitySignal[] {
   if (!input.isHomepage) return [];
+
+  /**
+   * A page with no title is not a site we can assess.
+   *
+   * These are the only checks in the worker that record a deliberate "no", and that
+   * privilege has a precondition: there has to be something to judge. A response with
+   * no title and no head is a holding page, a fragment, or a fetch that did not land
+   * where we think it did -- and reporting "no meta description" about it would be
+   * recording our own inability to find the real page as a finding about the company.
+   *
+   * It also keeps the older and more important rule intact: research of a page that
+   * states nothing writes no evidence at all. That invariant is about not
+   * manufacturing claims from silence, and silence should not acquire an exception
+   * merely because a new category arrived.
+   */
+  if (!hasTitle(input.html)) return [];
+
   const signals: SiteQualitySignal[] = [];
   const add = (
     claimKey: string, present: boolean, yes: string, no: string, ttlDays: number,

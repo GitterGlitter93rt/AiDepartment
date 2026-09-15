@@ -75,6 +75,17 @@ test('a copyright range reports its newest year', () => {
   assert.equal(copyrightYear('no year here'), null);
 });
 
+test('a page with no title is not assessed at all', () => {
+  // The invariant these checks must not break: research of a page that states nothing
+  // writes no evidence. A bare fragment with no head is not a site we can judge, and
+  // "no meta description" about it would record our own failed fetch as a finding.
+  assert.deepEqual(extractSiteQuality({
+    html: '<html><body><h1>Quiet Air</h1><p>Heating and cooling.</p></body></html>',
+    text: 'Quiet Air Heating and cooling.', url: 'https://quiet.invalid/',
+    isHomepage: true }), [],
+  'a page with nothing to assess produced negative findings about the company');
+});
+
 test('these checks run on the front page only', () => {
   assert.deepEqual(extractSiteQuality({
     html: GOOD, text: '', url: 'https://co.invalid/about', isHomepage: false }), [],
