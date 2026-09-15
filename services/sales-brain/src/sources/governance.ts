@@ -100,7 +100,7 @@ export const SOURCE_GOVERNANCE: SourceGovernance[] = [
     sourceId: 'tx_comptroller',
     displayName: 'Texas Comptroller — Taxable Entity Search',
     owner: 'Texas Comptroller of Public Accounts',
-    publicUrl: 'https://mycpa.cpa.state.tx.us/coa/',
+    publicUrl: 'https://api.comptroller.texas.gov/public-data/v1/public/franchise-tax-list',
     publicAccess: true,
     authenticationRequired: false,
     paid: false,
@@ -110,16 +110,27 @@ export const SOURCE_GOVERNANCE: SourceGovernance[] = [
     businessPurpose: 'The free official confirmation that a Texas business exists and '
       + 'may legally transact -- the Texas equivalent of the Sunbiz question, without '
       + 'the per-search charge SOSDirect makes.',
-    requestPolicy: 'One search per account lookup. Shared polite fetcher limits.',
-    bulkStrategy: 'None per account. The Comptroller publishes open data sets; using '
-      + 'those instead of per-account queries is the recorded next step.',
+    requestPolicy: 'One API call per account lookup, with a registered api-key header. '
+      + 'Shared polite fetcher limits.',
+    bulkStrategy: 'The published API also exposes franchise-tax-list, which is the '
+      + 'route to bulk if per-account calls ever become the bottleneck.',
     freshnessStrategy: 'Re-verified every 90 days; right-to-transact status can lapse.',
     attribution: 'Facts store the Comptroller record reference.',
     failureBehaviour: 'SOURCE_UNAVAILABLE. Never falls back to paid SOSDirect.',
     enableFlag: 'SOURCE_TX_COMPTROLLER_ENABLED',
     status: 'FEATURE_FLAGGED',
-    statusReason: 'Reachable, no robots.txt restriction, simple public form. Left '
-      + 'behind a flag pending a governance sign-off rather than enabled by default.',
+    statusReason: 'Validated against the live site on 2026-09-15, and the finding '
+      + 'changed the design. The account-status page is a JavaScript form posting to '
+      + 'comptroller.texas.gov/data-search/, and that host\'s robots.txt is '
+      + '"Disallow: /*/" with an explicit allow-list that does not include '
+      + '/data-search/ -- so the obvious scraping path is one the site asks us not to '
+      + 'take. The Comptroller instead publishes a documented public API at '
+      + 'api.comptroller.texas.gov/public-data/v1/public/ (franchise-tax-list for '
+      + 'search, franchise-tax/{id} for account and officer detail). It answers 403 '
+      + 'without an api-key header. The adapter now targets that API and makes no '
+      + 'request at all until TX_COMPTROLLER_API_KEY is set. Obtaining a key is a '
+      + 'registration step for a human; everything else is built and tested against '
+      + 'the published schema.',
   },
   {
     sourceId: 'tx_tdlr',

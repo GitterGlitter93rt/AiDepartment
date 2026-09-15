@@ -378,3 +378,89 @@ test('a business licence and an individual licence produce different people', ()
   assert.ok(dbprPeople(business, 'r').some((person) => person.relationship === 'QUALIFIER'));
   assert.ok(!dbprPeople(individual, 'r').some((person) => person.relationship === 'QUALIFIER'));
 });
+
+// ------------------------------------- Texas Comptroller, via the published API --
+
+test('the official API response yields entity identity and right to transact', async () => {
+  const { parseComptrollerApiList } = await import('../src/sources/adapters/txComptroller.js');
+  const [record] = parseComptrollerApiList(fixtures.COMPTROLLER_API_LIST);
+  assert.ok(record, 'the documented response shape did not parse');
+  assert.equal(record!.legalName, 'LONE STAR DRAIN WORKS LLC');
+  assert.equal(record!.sosFileNumber, '0801234567');
+  assert.equal(record!.rightToTransact, 'ACTIVE');
+  assert.equal(record!.stateOfFormation, 'TX');
+  assert.equal(record!.registeredOffice?.city, 'AUSTIN');
+  assert.equal(record!.registeredOffice?.postalCode, '78701');
+});
+
+test('API officers keep the title the schema gives them', async () => {
+  const { parseComptrollerApiList, comptrollerPeople } =
+    await import('../src/sources/adapters/txComptroller.js');
+  const [record] = parseComptrollerApiList(fixtures.COMPTROLLER_API_LIST);
+  const people = comptrollerPeople(record!, 'ref');
+  const priya = people.find((person) => person.personName === 'PRIYA NAIR')!;
+  assert.equal(priya.rawTitle, 'PRESIDENT');
+  assert.notEqual(priya.relationship, 'OWNER',
+    'an officer from a tax filing was promoted to owner');
+});
+
+test('the taxpayer id is used to look up and never written as a fact', async () => {
+  const { parseComptrollerApiList, comptrollerFacts } =
+    await import('../src/sources/adapters/txComptroller.js');
+  const [record] = parseComptrollerApiList(fixtures.COMPTROLLER_API_LIST);
+  assert.equal(record!.taxpayerNumber, '32012345678', 'the lookup key was discarded');
+  assert.doesNotMatch(JSON.stringify(comptrollerFacts(record!, 'ref')), /32012345678/,
+    'a tax identifier reached the fact model');
+});
+
+test('"franchise tax ended" survives the API path too', async () => {
+  const { parseComptrollerApiList, comptrollerFacts } =
+    await import('../src/sources/adapters/txComptroller.js');
+  const [record] = parseComptrollerApiList(fixtures.COMPTROLLER_API_FRANCHISE_ENDED);
+  const fact = comptrollerFacts(record!, 'ref')
+    .find((entry) => entry.claimKey === 'entity_right_to_transact')!;
+  assert.equal(fact.normalizedValue, 'FRANCHISE TAX ENDED');
+});
+
+test('two API records of one name in two cities stay ambiguous', async () => {
+  const { parseComptrollerApiList, comptrollerCandidate } =
+    await import('../src/sources/adapters/txComptroller.js');
+  const records = parseComptrollerApiList(fixtures.COMPTROLLER_API_COLLISION);
+  assert.equal(records.length, 2);
+  const decision = decideMatch(records.map(comptrollerCandidate), context({
+    companyName: 'Statewide Plumbing Co', stateRegion: 'TX', city: null,
+    postalCode: null, streetAddress: null, verticalProfileId: 'plumbing' }));
+  assert.equal(decision.status, 'AMBIGUOUS');
+});
+
+test('a nameless API row is dropped rather than becoming a company', async () => {
+  const { parseComptrollerApiList } = await import('../src/sources/adapters/txComptroller.js');
+  assert.deepEqual(parseComptrollerApiList(fixtures.COMPTROLLER_API_NAMELESS), [],
+    'a row with no name became an Account');
+});
+
+test('malformed API output yields nothing rather than throwing', async () => {
+  const { parseComptrollerApiList } = await import('../src/sources/adapters/txComptroller.js');
+  assert.deepEqual(parseComptrollerApiList('not json'), []);
+  assert.deepEqual(parseComptrollerApiList('{}'), []);
+  assert.deepEqual(parseComptrollerApiList('{"data":null}'), []);
+});
+
+test('the Comptroller adapter makes no request without an api key', async () => {
+  const { createComptrollerAdapter } = await import('../src/sources/registry.js');
+  const previous = process.env['TX_COMPTROLLER_API_KEY'];
+  delete process.env['TX_COMPTROLLER_API_KEY'];
+  try {
+    let called = false;
+    const adapter = createComptrollerAdapter(async (url) => {
+      called = true;
+      return { ok: true, body: fixtures.COMPTROLLER_API_LIST, finalUrl: url };
+    });
+    const result = await adapter.lookup(context({ stateRegion: 'TX' }));
+    assert.equal(called, false, 'a request was sent that was certain to be refused');
+    assert.equal(result.status, 'SOURCE_REQUIRES_MANUAL_OR_APPROVED_ACCESS');
+    assert.match(result.reason, /api-key/i);
+  } finally {
+    if (previous !== undefined) process.env['TX_COMPTROLLER_API_KEY'] = previous;
+  }
+});

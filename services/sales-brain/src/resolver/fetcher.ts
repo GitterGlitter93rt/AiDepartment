@@ -268,7 +268,15 @@ function detectWall(status: number, body: string): FetchResult['blockedReason'] 
   return undefined;
 }
 
-export async function politeFetch(url: string): Promise<FetchResult> {
+/**
+ * Extra request headers, for sources that require a registered credential.
+ *
+ * Never logged. The only caller today is the Texas Comptroller's public-data API,
+ * which answers 403 without an `api-key` header.
+ */
+export async function politeFetch(
+  url: string, extraHeaders: Record<string, string> = {},
+): Promise<FetchResult> {
   let target: URL;
   try {
     target = new URL(url);
@@ -316,6 +324,7 @@ export async function politeFetch(url: string): Promise<FetchResult> {
           'user-agent': config.worker.userAgent,
           accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5',
           'accept-language': 'en-US,en;q=0.9',
+          ...extraHeaders,
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         redirect: 'manual',

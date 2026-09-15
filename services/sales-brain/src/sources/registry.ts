@@ -7,8 +7,8 @@ import { emptyResult, type SourceAdapter, type SourceLookupContext,
 import { parseSunbizDetail, sunbizCandidate, sunbizFacts, sunbizPeople } from './adapters/flSunbiz.js';
 import { parseDbprDetail, dbprCandidate, dbprFacts, dbprPeople, licenceCoversVertical }
   from './adapters/flDbpr.js';
-import { parseComptrollerStatus, comptrollerCandidate, comptrollerFacts, comptrollerPeople }
-  from './adapters/txComptroller.js';
+import { parseComptrollerApiList, comptrollerCandidate, comptrollerFacts,
+  comptrollerPeople, COMPTROLLER_API_BASE } from './adapters/txComptroller.js';
 import { parseTdlrResults, tdlrCandidate, tdlrFacts, tdlrPeople, tdlrProgramFor,
   tdlrLicenceCoversVertical } from './adapters/txTdlr.js';
 import { tsbpeCandidate, tsbpeFacts, tsbpePeople, rankTsbpe, type TsbpeRecord }
@@ -24,11 +24,11 @@ import { findSnapshotRecordsByCompany } from './snapshots.js';
  * state agency.
  */
 
-export type Fetcher = (url: string) => Promise<{ ok: boolean; body: string; finalUrl: string;
-  blockedReason?: string }>;
+export type Fetcher = (url: string, headers?: Record<string, string>) =>
+Promise<{ ok: boolean; body: string; finalUrl: string; blockedReason?: string }>;
 
-const defaultFetcher: Fetcher = async (url) => {
-  const response = await politeFetch(url);
+const defaultFetcher: Fetcher = async (url, headers) => {
+  const response = await politeFetch(url, headers ?? {});
   return { ok: response.ok, body: response.body, finalUrl: response.finalUrl,
     blockedReason: response.blockedReason };
 };
@@ -40,6 +40,8 @@ async function lookupViaPage<TRecord>(input: {
   fetcher: Fetcher;
   context: SourceLookupContext;
   parse: (html: string) => TRecord | TRecord[] | null;
+  /** Sent with the request. Used for sources that require a registered credential. */
+  headers?: Record<string, string>;
   toCandidate: (record: TRecord) => MatchCandidate;
   build: (record: TRecord, reference: string) => Pick<SourceLookupResult, 'facts' | 'people'>;
 }): Promise<SourceLookupResult> {
@@ -50,7 +52,7 @@ async function lookupViaPage<TRecord>(input: {
 
   let response: Awaited<ReturnType<Fetcher>>;
   try {
-    response = await input.fetcher(input.url);
+    response = await input.fetcher(input.url, input.headers);
   } catch (error) {
     return emptyResult(input.sourceId, 'SOURCE_UNAVAILABLE',
       `The source could not be reached: ${error instanceof Error ? error.message : String(error)}`);
@@ -149,18 +151,32 @@ export function createComptrollerAdapter(fetcher: Fetcher = defaultFetcher): Sou
     timeoutMs: 20_000,
     availability: () => availabilityFor('tx_comptroller'),
     supports: (context) => context.stateRegion === 'TX' && Boolean(context.companyName),
-    lookup: (context) => lookupViaPage({
-      sourceId: 'tx_comptroller',
-      url: 'https://mycpa.cpa.state.tx.us/coa/search?name='
-        + encodeURIComponent(context.companyName),
-      fetcher, context,
-      parse: parseComptrollerStatus,
-      toCandidate: comptrollerCandidate,
-      build: (record, reference) => ({
-        facts: comptrollerFacts(record, reference),
-        people: comptrollerPeople(record, reference),
-      }),
-    }),
+    lookup: async (context) => {
+      // The API answers 403 without a key, and a key is a registration step rather
+      // than an obstacle to route around. Saying so plainly beats sending a request
+      // that is certain to be refused.
+      if (!process.env['TX_COMPTROLLER_API_KEY']) {
+        return emptyResult('tx_comptroller', 'SOURCE_REQUIRES_MANUAL_OR_APPROVED_ACCESS',
+          'The Texas Comptroller public-data API requires an api-key header. None is '
+          + 'configured, so no request was made. Obtaining one is a registration step, '
+          + 'not a technical obstacle.');
+      }
+      return lookupViaPage({
+        sourceId: 'tx_comptroller',
+        // The published API, not the account-status page: that page posts to
+        // /data-search/, which comptroller.texas.gov's robots.txt disallows.
+        url: `${COMPTROLLER_API_BASE}/franchise-tax-list?BUSINESS_NAME=`
+          + encodeURIComponent(context.companyName),
+        fetcher, context,
+        headers: { 'api-key': process.env['TX_COMPTROLLER_API_KEY'] ?? '' },
+        parse: parseComptrollerApiList,
+        toCandidate: comptrollerCandidate,
+        build: (record, reference) => ({
+          facts: comptrollerFacts(record, reference),
+          people: comptrollerPeople(record, reference),
+        }),
+      });
+    },
   };
 }
 

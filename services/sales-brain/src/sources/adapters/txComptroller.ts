@@ -278,3 +278,133 @@ export function comptrollerPeople(
   }
   return people;
 }
+
+/**
+ * The official public-data API, which is the only path robots permits.
+ *
+ * Reconnaissance (2026-09-15) found two things that change how this adapter must
+ * work. First, the account-status search page is a JavaScript form that posts to
+ * `comptroller.texas.gov/data-search/franchise-tax` -- and that host's robots.txt is
+ * `Disallow: /*​/` with an explicit allow-list which does not include `/data-search/`.
+ * Fetching it would be reading a path the site asks us not to read.
+ *
+ * Second, the Comptroller publishes a documented public API at
+ * `api.comptroller.texas.gov/public-data/v1/public/`, with `franchise-tax-list` for
+ * search and `franchise-tax/{id}` for account and officer detail. It answers 403
+ * without an `api-key` header, which is an access control and a registration step --
+ * not something to work around.
+ *
+ * So the adapter targets the API, and stays unavailable until a key is obtained. The
+ * field names below are the ones the published schema declares.
+ */
+export const COMPTROLLER_API_BASE = 'https://api.comptroller.texas.gov/public-data/v1/public';
+
+/** One officer row, as `FranchiseAccountOfficer` declares it. */
+interface ApiOfficer {
+  AGNT_NM?: string | null;
+  AGNT_TITL_TX?: string | null;
+  AGNT_ACTV_YR?: string | number | null;
+  AD_STR_POB_TX?: string | null;
+  CITY_NM?: string | null;
+  ST_CD?: string | null;
+  AD_ZP?: string | null;
+}
+
+/** One account, as the franchise-tax endpoints return it. */
+export interface ComptrollerApiAccount {
+  TAXPAYER_ID?: string | null;
+  BUSINESS_NAME?: string | null;
+  TAXPAYER_NAME?: string | null;
+  STATUS?: string | null;
+  RIGHT_TO_TRANSACT?: string | null;
+  SOS_FILE_NUMBER?: string | null;
+  fileNumber?: string | null;
+  STATE_OF_FORMATION?: string | null;
+  SOS_REGISTRATION_DATE?: string | null;
+  REPORT_YEAR?: string | number | null;
+  AD_STR_POB_TX?: string | null;
+  CITY_NM?: string | null;
+  ST_CD?: string | null;
+  AD_ZP?: string | null;
+  officers?: ApiOfficer[] | null;
+  OFFICERS?: ApiOfficer[] | null;
+}
+
+function text(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Turns an API account into the same record the HTML parser produces.
+ *
+ * One record shape downstream, whichever way the data arrived, so the matcher, the
+ * fact builder and the people builder do not each need to know which path was used.
+ *
+ * Returns null without a name: a response we cannot name is not a company, and
+ * guessing produces an Account called "undefined".
+ */
+export function parseComptrollerApiAccount(
+  account: ComptrollerApiAccount | null | undefined,
+): ComptrollerRecord | null {
+  if (!account) return null;
+  const legalName = text(account.TAXPAYER_NAME) ?? text(account.BUSINESS_NAME);
+  if (!legalName) return null;
+
+  const address: ComptrollerAddress | null = text(account.AD_STR_POB_TX) || text(account.CITY_NM)
+    ? {
+      street: text(account.AD_STR_POB_TX),
+      city: text(account.CITY_NM),
+      stateRegion: text(account.ST_CD) ?? 'TX',
+      postalCode: text(account.AD_ZP),
+    }
+    : null;
+
+  const officerRows = account.officers ?? account.OFFICERS ?? [];
+  const officers = officerRows
+    .map((officer) => ({
+      name: text(officer.AGNT_NM),
+      // The schema's own word for the role. An officer row with no title keeps none
+      // rather than being given a flattering default.
+      title: text(officer.AGNT_TITL_TX),
+    }))
+    .filter((officer): officer is { name: string; title: string } =>
+      Boolean(officer.name) && Boolean(officer.title));
+
+  return {
+    legalName,
+    // Carried for the lookup only; `comptrollerFacts` never writes it.
+    taxpayerNumber: text(account.TAXPAYER_ID),
+    sosFileNumber: text(account.SOS_FILE_NUMBER) ?? text(account.fileNumber),
+    rightToTransact: text(account.RIGHT_TO_TRANSACT),
+    entityStatus: text(account.STATUS),
+    stateOfFormation: text(account.STATE_OF_FORMATION),
+    registrationDate: text(account.SOS_REGISTRATION_DATE),
+    mailingAddress: null,
+    registeredAgent: null,
+    registeredOffice: address,
+    officers,
+    reportYear: text(account.REPORT_YEAR),
+  };
+}
+
+/** The list endpoint's rows, whichever envelope the API wraps them in. */
+export function parseComptrollerApiList(body: string): ComptrollerRecord[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return [];
+  }
+  const container = parsed as Record<string, unknown> | unknown[];
+  const rows: unknown[] = Array.isArray(container)
+    ? container
+    : (container['data'] as unknown[] | undefined)
+      ?? (container['results'] as unknown[] | undefined)
+      ?? (container['items'] as unknown[] | undefined)
+      ?? [];
+  return rows
+    .map((row) => parseComptrollerApiAccount(row as ComptrollerApiAccount))
+    .filter((record): record is ComptrollerRecord => record !== null);
+}

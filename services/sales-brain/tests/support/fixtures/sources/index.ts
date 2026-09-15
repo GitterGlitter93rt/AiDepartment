@@ -181,3 +181,54 @@ export const DBPR_INDIVIDUAL_LICENCE = `<html><body>
 <tr><td>Expires</td><td>08/31/2026</td></tr>
 <tr><td>City</td><td>St Augustine</td></tr>
 </table></body></html>`;
+
+/**
+ * Texas Comptroller public-data API responses.
+ *
+ * Field names come from the published schema at api-doc.comptroller.texas.gov
+ * (`FranchiseAccountWithOfficers`, `FranchiseAccountOfficer`). The values are
+ * invented; the shape is the documented one. The live API answers 403 without a
+ * registered api-key, so these could not be captured from a real response.
+ */
+export const COMPTROLLER_API_LIST = JSON.stringify({
+  data: [
+    {
+      TAXPAYER_ID: '32012345678',
+      TAXPAYER_NAME: 'LONE STAR DRAIN WORKS LLC',
+      BUSINESS_NAME: 'LONE STAR DRAIN WORKS',
+      STATUS: 'ACTIVE',
+      RIGHT_TO_TRANSACT: 'ACTIVE',
+      SOS_FILE_NUMBER: '0801234567',
+      STATE_OF_FORMATION: 'TX',
+      SOS_REGISTRATION_DATE: '05/09/2016',
+      REPORT_YEAR: '2025',
+      AD_STR_POB_TX: '4400 CONGRESS AVE',
+      CITY_NM: 'AUSTIN',
+      ST_CD: 'TX',
+      AD_ZP: '78701',
+      officers: [
+        { AGNT_NM: 'PRIYA NAIR', AGNT_TITL_TX: 'PRESIDENT', AGNT_ACTV_YR: '2025' },
+        { AGNT_NM: 'TOMAS HERRERA', AGNT_TITL_TX: 'DIRECTOR', AGNT_ACTV_YR: '2025' },
+      ],
+    },
+  ],
+});
+
+/** The status that is neither active nor gone. */
+export const COMPTROLLER_API_FRANCHISE_ENDED = COMPTROLLER_API_LIST
+  .replace('"RIGHT_TO_TRANSACT":"ACTIVE"', '"RIGHT_TO_TRANSACT":"FRANCHISE TAX ENDED"');
+
+/** Two companies of one name in two cities: the ambiguity that must survive. */
+export const COMPTROLLER_API_COLLISION = JSON.stringify({
+  data: [
+    { TAXPAYER_NAME: 'STATEWIDE PLUMBING CO', SOS_FILE_NUMBER: '0800000001',
+      STATUS: 'ACTIVE', CITY_NM: 'AUSTIN', ST_CD: 'TX', AD_ZP: '78701' },
+    { TAXPAYER_NAME: 'STATEWIDE PLUMBING CO', SOS_FILE_NUMBER: '0800000002',
+      STATUS: 'ACTIVE', CITY_NM: 'HOUSTON', ST_CD: 'TX', AD_ZP: '77002' },
+  ],
+});
+
+/** A row the API returns with no usable name. */
+export const COMPTROLLER_API_NAMELESS = JSON.stringify({
+  data: [{ TAXPAYER_ID: '32099999999', STATUS: 'ACTIVE' }],
+});
