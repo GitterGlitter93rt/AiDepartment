@@ -345,3 +345,36 @@ test('a trade TDLR does not cover can never be satisfied by a TDLR licence', asy
   assert.equal(tdlrLicenceCoversVertical(licence!, 'plumbing'), false,
     'Texas plumbing belongs to the plumbing board, not TDLR');
 });
+
+test('a filing with an agent and no officers yields the agent, and no invented people',
+  () => {
+    const record = parseSunbizDetail(fixtures.SUNBIZ_AGENT_ONLY)!;
+    assert.equal(record.legalName, 'QUIET HOLDINGS LLC');
+    assert.equal(record.authorizedPersons.length, 0,
+      'people were manufactured for a filing that names none');
+    assert.equal(record.registeredAgent?.name, 'COASTAL AGENT SERVICES INC');
+
+    const people = sunbizPeople(record, 'ref');
+    assert.equal(people.length, 1);
+    assert.equal(people[0]!.relationship, 'REGISTERED_AGENT');
+  });
+
+test('an individually held licence names a person, not a company', () => {
+  const licence = parseDbprDetail(fixtures.DBPR_INDIVIDUAL_LICENCE)!;
+  assert.equal(licence.licenseeName, 'MARCUS ELLIS');
+  assert.equal(licence.qualifyingAgent, null,
+    'a qualifying agent was invented for a licence that names none');
+
+  const people = dbprPeople(licence, 'ref');
+  assert.equal(people.length, 1);
+  assert.equal(people[0]!.personName, 'MARCUS ELLIS');
+  assert.equal(people[0]!.relationship, 'LICENSE_HOLDER',
+    'an individual licensee was promoted beyond holding a licence');
+});
+
+test('a business licence and an individual licence produce different people', () => {
+  const business = parseDbprDetail(fixtures.DBPR_BUSINESS_LICENCE)!;
+  const individual = parseDbprDetail(fixtures.DBPR_INDIVIDUAL_LICENCE)!;
+  assert.ok(dbprPeople(business, 'r').some((person) => person.relationship === 'QUALIFIER'));
+  assert.ok(!dbprPeople(individual, 'r').some((person) => person.relationship === 'QUALIFIER'));
+});

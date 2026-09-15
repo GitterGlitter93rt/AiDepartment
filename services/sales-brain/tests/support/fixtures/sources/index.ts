@@ -145,3 +145,39 @@ export const TSBPE_DUPLICATE_COMPANY = [
   'M-60111\tResponsible Master Plumber\tALEX RIVERS\tSTATEWIDE PLUMBING CO\tActive\t03/31/2027\t\tAustin\tTravis\t',
   'M-60222\tResponsible Master Plumber\tMORGAN DIAZ\tSTATEWIDE PLUMBING CO\tActive\t03/31/2027\t\tHouston\tHarris\t',
 ].join('\n');
+
+/** A filing that names a registered agent and no officers at all. */
+export const SUNBIZ_AGENT_ONLY = `<html><body>
+<div class="searchResultDetail">
+<h2>Detail by Entity Name</h2>
+<p>Florida Limited Liability Company</p>
+<p>QUIET HOLDINGS LLC</p>
+<div><h3>Filing Information</h3>
+<span>Document Number</span><span>L20000055555</span>
+<span>Date Filed</span><span>07/02/2020</span>
+<span>State</span><span>FL</span>
+<span>Status</span><span>ACTIVE</span>
+</div>
+<div><h3>Principal Address</h3>
+<div>88 QUIET WAY</div>
+<div>ST AUGUSTINE, FL 32095</div>
+</div>
+<div><h3>Registered Agent Name &amp; Address</h3>
+<div>COASTAL AGENT SERVICES INC</div>
+<div>900 REGISTRY WAY</div>
+<div>TALLAHASSEE, FL 32301</div>
+</div>
+</div></body></html>`;
+
+/** A DBPR licence held by an individual rather than a business. */
+export const DBPR_INDIVIDUAL_LICENCE = `<html><body>
+<table>
+<tr><td>Licensee Name</td><td>MARCUS ELLIS</td></tr>
+<tr><td>License Number</td><td>CFC1455555</td></tr>
+<tr><td>License Type</td><td>Certified Plumbing Contractor</td></tr>
+<tr><td>Rank</td><td>Cert Plumbing</td></tr>
+<tr><td>Primary Status</td><td>Current</td></tr>
+<tr><td>Secondary Status</td><td>Active</td></tr>
+<tr><td>Expires</td><td>08/31/2026</td></tr>
+<tr><td>City</td><td>St Augustine</td></tr>
+</table></body></html>`;
