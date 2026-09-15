@@ -107,8 +107,25 @@ const UNRESOLVABLE_TLDS = ['.invalid', '.test', '.example'];
 /** Verdict per host, so eight pages of one site ask the resolver once. */
 const addressVerdicts = new Map<string, boolean>();
 
+/**
+ * The one way loopback is reachable, and it is not available in production.
+ *
+ * The test suite stands up real HTTP servers on 127.0.0.1 to exercise the crawl
+ * against robots rules, login walls and anti-bot interstitials -- tests that have to
+ * drive the actual fetcher rather than a stub, because what they assert is the
+ * fetcher's behaviour. Blocking loopback outright makes those tests untestable.
+ *
+ * Read from the environment on every call rather than captured once, so a test can
+ * turn it off and prove the guard still refuses. `tests/setup.ts` sets it; nothing
+ * else does, and it must never appear in a deployed .env.
+ */
+function privateAddressesAllowed(): boolean {
+  return process.env['RESEARCH_ALLOW_PRIVATE_ADDRESSES'] === '1';
+}
+
 /** Resolves a hostname and refuses it if anything it points at is internal. */
 async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
+  if (privateAddressesAllowed()) return true;
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (BLOCKED_HOSTNAMES.has(host) || host.endsWith('.localhost') || host.endsWith('.internal')) {
     return false;

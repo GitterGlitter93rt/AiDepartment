@@ -1,5 +1,5 @@
 import './setup.js';
-import { test, beforeEach } from 'node:test';
+import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { politeFetch, resetFetchState } from '../src/resolver/fetcher.js';
 
@@ -13,7 +13,25 @@ import { politeFetch, resetFetchState } from '../src/resolver/fetcher.js';
  * about a prospect.
  */
 
+/**
+ * These tests assert production behaviour, so they run with the test harness's
+ * loopback allowance switched off. Without this they would pass against a guard that
+ * was not actually guarding.
+ */
+let allowance: string | undefined;
+before(() => {
+  allowance = process.env['RESEARCH_ALLOW_PRIVATE_ADDRESSES'];
+  delete process.env['RESEARCH_ALLOW_PRIVATE_ADDRESSES'];
+});
+after(() => {
+  if (allowance !== undefined) process.env['RESEARCH_ALLOW_PRIVATE_ADDRESSES'] = allowance;
+});
+
 beforeEach(() => { resetFetchState(); });
+
+test('the loopback allowance is off by default, so the guard is real', () => {
+  assert.equal(process.env['RESEARCH_ALLOW_PRIVATE_ADDRESSES'], undefined);
+});
 
 test('loopback is refused, by name and by address', async () => {
   for (const url of [
