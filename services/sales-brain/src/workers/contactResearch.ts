@@ -188,6 +188,10 @@ export async function runContactResearch(
   const endpoints: EndpointObservation[] = [];
   let pagesFetched = 0;
   let pageText: { url: string; text: string }[] = [];
+  let technologies: import('../resolver/techSignals.js').TechObservation[] = [];
+  let socials: import('../resolver/companyProfile.js').SocialProfile[] = [];
+  let contactRoutes: import('../resolver/companyProfile.js').ContactRoute[] = [];
+  let profileClaims: import('../resolver/companyProfile.js').ProfileObservation[] = [];
   let pagesBlocked = 0;
   const notes: string[] = [];
 
@@ -223,6 +227,10 @@ export async function runContactResearch(
     pagesBlocked = firstParty.pagesBlocked.length;
     notes.push(...firstParty.notes);
     pageText = firstParty.pageText;
+    technologies = firstParty.technologies;
+    socials = firstParty.socials;
+    contactRoutes = firstParty.contactRoutes;
+    profileClaims = firstParty.profileClaims;
   } else {
     stagesSkipped.push({ stage: 'A_company_first_party', reason: attribution.reason });
   }
@@ -333,6 +341,83 @@ export async function runContactResearch(
         // Official records outrank the company's own marketing copy about itself,
         // and are outranked by a person telling us directly.
         precedenceRank: 1,
+      });
+    }
+
+    // What the company says about itself: founding year, ownership claims, service
+    // area, hours, licence numbers it displays. Its own words, recorded as its own
+    // words -- strong evidence of what it claims, and no evidence at all that the
+    // claim is true. The licence registries are what verify a displayed licence.
+    for (const claim of profileClaims) {
+      await recordEvidence(client, {
+        accountId, researchRunId,
+        category: 'company_profile',
+        claimKey: claim.claimKey,
+        claimText: claim.claimText,
+        normalizedValue: claim.normalizedValue,
+        confidence: 'confirmed',
+        canStateAsFact: true,
+        sourceType: 'first_party',
+        sourceReference: claim.sourceReference,
+        expiresAt: new Date(Date.now() + claim.ttlDays * 86_400_000),
+        precedenceRank: 2,
+      });
+    }
+
+    // Technology, each with the marker that proves it. A rep reading "runs Google Ads
+    // tags and call tracking, no booking widget" is reading a sales opening.
+    for (const technology of technologies) {
+      await recordEvidence(client, {
+        accountId, researchRunId,
+        category: 'technology',
+        claimKey: `tech_${technology.id}`,
+        claimText: `Runs ${technology.displayName} (${technology.category.replace(/_/g, ' ')})`
+          + `${technology.salesNote ? `. ${technology.salesNote}` : '.'}`,
+        normalizedValue: technology.id,
+        confidence: 'confirmed',
+        canStateAsFact: true,
+        sourceType: 'first_party',
+        sourceReference: technology.sourceReference,
+        // Sites get rebuilt. A stack read three months ago is a guess.
+        expiresAt: new Date(Date.now() + 90 * 86_400_000),
+        precedenceRank: 3,
+        notes: `Detected from ${technology.evidence}`,
+      });
+    }
+
+    // Social profiles the company links to from its own site. Attribution comes from
+    // that link; nothing here searches a platform by name and guesses.
+    for (const social of socials) {
+      await recordEvidence(client, {
+        accountId, researchRunId,
+        category: 'social_profile',
+        claimKey: `social_${social.network}`,
+        claimText: `Links to its own ${social.network} profile: ${social.url}`,
+        normalizedValue: social.url,
+        confidence: 'confirmed',
+        canStateAsFact: true,
+        sourceType: 'first_party',
+        sourceReference: social.sourceReference,
+        expiresAt: new Date(Date.now() + 180 * 86_400_000),
+        precedenceRank: 2,
+      });
+    }
+
+    // Contact routes, kept apart from one another: a booking page and a quote form
+    // are different things to a rep, and "has a form" hides which.
+    for (const route of contactRoutes) {
+      await recordEvidence(client, {
+        accountId, researchRunId,
+        category: 'contact_route',
+        claimKey: `route_${route.kind}`,
+        claimText: `Has a ${route.kind.replace(/_/g, ' ')} page: ${route.url}`,
+        normalizedValue: route.url,
+        confidence: 'confirmed',
+        canStateAsFact: true,
+        sourceType: 'first_party',
+        sourceReference: route.sourceReference,
+        expiresAt: new Date(Date.now() + 90 * 86_400_000),
+        precedenceRank: 2,
       });
     }
 

@@ -1,5 +1,9 @@
 import { politeFetch } from '../fetcher.js';
 import { relationshipFromTitle } from '../roles.js';
+import { detectTechnologies, type TechObservation } from '../techSignals.js';
+import { extractSocialProfiles, extractContactRoutes, extractProfileClaims,
+  extractServiceArea, extractHours,
+  type SocialProfile, type ContactRoute, type ProfileObservation } from '../companyProfile.js';
 import { normalizeEmail, normalizePhone } from '../../domain/normalize.js';
 import type { EndpointObservation, PersonObservation } from '../types.js';
 
@@ -32,6 +36,17 @@ export interface FirstPartyResult {
   pageText: { url: string; text: string }[];
   pagesBlocked: { url: string; reason: string }[];
   notes: string[];
+  /**
+   * What the site runs, what it claims and how it can be contacted.
+   *
+   * Collected inside the crawl loop rather than from retained HTML: eight pages at
+   * the 2MB fetch cap is sixteen megabytes held per account for no reason, when each
+   * page only needs to be looked at once.
+   */
+  technologies: TechObservation[];
+  socials: SocialProfile[];
+  contactRoutes: ContactRoute[];
+  profileClaims: ProfileObservation[];
 }
 
 /** Page paths worth trying, best first. */
@@ -406,6 +421,7 @@ export async function researchFirstParty(
 ): Promise<FirstPartyResult> {
   const result: FirstPartyResult = {
     people: [], endpoints: [], pagesFetched: [], pageText: [], pagesBlocked: [], notes: [],
+    technologies: [], socials: [], contactRoutes: [], profileClaims: [],
   };
 
   let origin: string;
@@ -451,6 +467,32 @@ export async function researchFirstParty(
     result.endpoints.push(...jsonLd.endpoints);
     result.people.push(...peopleFromText(text, reference, companyName));
     result.endpoints.push(...endpointsFromHtml(response.body, reference));
+
+    // Read each page once, for everything it can answer.
+    for (const technology of detectTechnologies(response.body, reference)) {
+      if (!result.technologies.some((entry) => entry.id === technology.id)) {
+        result.technologies.push(technology);
+      }
+    }
+    for (const social of extractSocialProfiles(response.body, reference)) {
+      if (!result.socials.some((entry) => entry.network === social.network)) {
+        result.socials.push(social);
+      }
+    }
+    for (const route of extractContactRoutes(response.body, origin, reference)) {
+      if (!result.contactRoutes.some((entry) => entry.kind === route.kind)) {
+        result.contactRoutes.push(route);
+      }
+    }
+    for (const claim of [
+      ...extractProfileClaims(text, reference),
+      extractServiceArea(text, reference),
+      extractHours(text, reference),
+    ]) {
+      if (claim && !result.profileClaims.some((entry) => entry.claimKey === claim.claimKey)) {
+        result.profileClaims.push(claim);
+      }
+    }
 
     if (!discovered) {
       discovered = true;
