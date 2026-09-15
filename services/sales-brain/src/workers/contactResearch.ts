@@ -372,6 +372,46 @@ export async function runContactResearch(
     // area, hours, licence numbers it displays. Its own words, recorded as its own
     // words -- strong evidence of what it claims, and no evidence at all that the
     // claim is true. The licence registries are what verify a displayed licence.
+    // The structured service area, kept apart from the address on purpose.
+    //
+    // A company that serves forty ZIPs is located in one of them. This writes the
+    // coverage it claims; nothing here touches `locations`, which is where the
+    // business actually is.
+    {
+      const { extractStructuredServiceArea } = await import('../resolver/companyProfile.js');
+      const joined = pageText.map((page) => page.text).join('\n');
+      const area = joined ? extractStructuredServiceArea(joined) : null;
+      if (area && (area.zips.length > 0 || area.cities.length > 0
+        || area.counties.length > 0 || area.regions.length > 0)) {
+        await recordEvidence(client, {
+          accountId, researchRunId,
+          category: 'service_area',
+          claimKey: 'service_area_structured',
+          claimText: `States it serves ${[
+            area.zips.length > 0 ? `${area.zips.length} ZIP(s): ${area.zips.slice(0, 12).join(', ')}` : null,
+            area.cities.length > 0 ? area.cities.slice(0, 8).map((city) => city.name).join(', ') : null,
+            area.counties.length > 0 ? area.counties.join(', ') : null,
+            area.regions.length > 0 ? area.regions.join(', ') : null,
+          ].filter(Boolean).join('; ')}`
+            + `${area.vague ? ', and unspecified surrounding areas' : ''}. `
+            + 'A service area is where a company will travel, not where it is located.',
+          normalizedValue: JSON.stringify({
+            zips: area.zips,
+            cities: area.cities.map((city) => city.name),
+            counties: area.counties,
+            regions: area.regions,
+            vague: area.vague,
+          }),
+          confidence: 'confirmed',
+          canStateAsFact: true,
+          sourceType: 'first_party',
+          sourceReference: pageText[0]?.url ?? websiteUrl,
+          expiresAt: new Date(Date.now() + 365 * 86_400_000),
+          precedenceRank: 2,
+        });
+      }
+    }
+
     for (const claim of profileClaims) {
       await recordEvidence(client, {
         accountId, researchRunId,

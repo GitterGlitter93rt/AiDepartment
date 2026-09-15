@@ -35,6 +35,7 @@ const SITE = `<!doctype html><html><head>
 </head><body>
 <h1>Lone Star Drain Works</h1>
 <p>Family owned and operated, proudly serving Austin since 2009.</p>
+<p>Service Areas: 78701, 78702 and 78704.</p>
 <p>Open 24/7 for emergency plumbing. Financing available. Se habla espanol.</p>
 <p>Call us at (512) 555-1212 or email <a href="mailto:service@lonestar.invalid">service@lonestar.invalid</a></p>
 <a href="/contact-us">Contact</a>
@@ -130,6 +131,22 @@ test('research reads the site and records what it found', async () => {
     'an inbox the site does not publish was invented');
   // What the site itself is like.
   assert.ok(keys.has('site_mobile_viewport'));
+  // Where they will travel, which is not where they are.
+  assert.ok(keys.has('service_area_structured'),
+    'an explicit ZIP service area was not captured');
+
+  const { rows: areaRows } = await query<{ normalized_value: string | null }>(
+    `select normalized_value from evidence_records
+      where account_id = $1 and claim_key = 'service_area_structured'`, [accountId]);
+  const area = JSON.parse(areaRows[0]!.normalized_value!) as { zips: string[] };
+  assert.deepEqual(area.zips, ['78701', '78702', '78704']);
+
+  // And the physical address is untouched by it.
+  const { rows: locationRows } = await query<{ postal_code: string | null }>(
+    'select postal_code from locations where account_id = $1', [accountId]);
+  assert.equal(locationRows.length, 1,
+    'a service area created extra locations for the company');
+  assert.equal(locationRows[0]!.postal_code, '78701');
 });
 
 test('a Texas plumber gets its Responsible Master Plumber from the board', async () => {

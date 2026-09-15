@@ -1,4 +1,5 @@
 import { normalizeHostname, registrableDomain } from '../domain/normalize.js';
+import { parseServiceArea as parseServiceAreaImpl } from './serviceArea.js';
 
 /**
  * The company, as its own site describes it.
@@ -265,6 +266,22 @@ export function extractProfileClaims(
  * ZIP codes is located in one of them, and conflating the two is how a read model
  * starts telling reps a business has an office in every town it drives to.
  */
+/**
+ * The structured reading, when the copy supports one.
+ *
+ * Returned alongside the prose observation rather than instead of it: the sentence is
+ * what a rep reads and checks, the structure is what a filter uses, and the two answer
+ * different questions.
+ */
+export function extractStructuredServiceArea(
+  text: string,
+): import('./serviceArea.js').ServiceAreaParse | null {
+  // Imported lazily to keep this module free of a load-time dependency it only needs
+  // when a page actually states a service area.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return parseServiceAreaImpl(text);
+}
+
 export function extractServiceArea(
   text: string, sourceReference: string,
 ): ProfileObservation | null {
