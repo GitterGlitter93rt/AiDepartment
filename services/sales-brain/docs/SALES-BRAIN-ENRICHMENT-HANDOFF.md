@@ -145,6 +145,29 @@ it back off so the guard is proven rather than assumed.
 The `SOURCE_*` flags cannot enable a source whose governance entry says `BLOCKED` or
 `DISABLED_PAID_SOURCE`; `liveCallsPermitted()` refuses before it reads the flag.
 
+## Second sprint: what live validation changed
+
+Reconnaissance against the real sites (2026-09-15) corrected three adapters. Two of the
+findings were design errors rather than bugs, and none was visible from fixtures:
+
+| Source | Finding |
+|---|---|
+| TX Comptroller | The search page posts to `/data-search/`, which robots disallows. A documented public **API** exists and needs a registered `api-key` (403 without). Adapter rebuilt against the published schema. |
+| FL DBPR | The licensee search is a **POST** to a legacy ASP app with a session id and ~30 hidden fields. The adapter had been building a GET with invented parameters — it could never have returned a record. Now snapshot-backed. |
+| TX TDLR | The live table broke the parser three ways: column headed `License Data Search Result`, licence numbers printed spaced (`ACR - 4471`), and **no status column**. It returned zero rows against every real page while fixture tests stayed green. |
+
+The lesson worth carrying: a parser tested only against fixtures you wrote yourself is
+tested against your assumptions. All three of these passed their tests and would have
+failed in production.
+
+### New modules
+
+- `src/sources/snapshotPolicy.ts` — refresh cadence, staleness, and the exact wording to
+  send each agency to obtain a dataset
+- `src/domain/sourceHealth.ts` — operator view of every source, in one query
+- `src/resolver/serviceArea.ts` — structured coverage, never an address
+- `src/domain/bestContact.ts` — likely best contact, separate from verified role
+
 ## Source enablement
 
 See `docs/09-software/SALES-BRAIN-SOURCE-GOVERNANCE.md`. Summary: **nothing is on**.

@@ -3,64 +3,86 @@
 Ranked by value to a sales rep on a call, which is not the same as engineering
 interest.
 
-## 1. Obtain the TSBPE dataset through an official data request
-Everything is built: loader, parser, index, matcher, tests, UI. The Responsible Master
-Plumber is the single highest-value person on a Texas plumbing account — a named,
-state-verified individual tied to the company. It needs one dataset and a flag.
+## Closed in the second sprint (2026-09-15)
 
-## 2. Arrange Sunbiz access, or find the published bulk download
-Sunbiz answered HTTP 403 to an identified research agent, so live automation is off.
-The parser, identity rules, persistence and tests are complete and fixture-tested.
-Florida is half our P0 market and this is the entity-verification answer for it.
+Live validation against the real sites changed three adapters, and in two cases the
+finding was that the design was wrong rather than the code:
 
-## 3. Sign off the Texas Comptroller adapter and switch it on
-Reachable, no robots restriction, simple public form, free — the whole Texas entity
-question answered without SOSDirect. It needs a governance sign-off, not code.
+- **Texas Comptroller** — the account-status page posts to `/data-search/`, which
+  `comptroller.texas.gov/robots.txt` disallows. The Comptroller publishes a documented
+  public API instead (`api.comptroller.texas.gov/public-data/v1/public/`), which
+  answers 403 without a registered `api-key`. Adapter rebuilt against the published
+  schema; makes no request until `TX_COMPTROLLER_API_KEY` is set.
+- **Florida DBPR** — the licensee search is a POST to a legacy ASP app with a session
+  id and ~30 hidden fields. The adapter had been building a GET with invented
+  parameters and would never have returned a record. Now snapshot-backed.
+- **Texas TDLR** — the live result table broke the parser three ways (column headed
+  "License Data Search Result", spaced licence numbers like `ACR - 4471`, and no status
+  column at all). It returned zero licences against every real page. Rebuilt; an
+  unread status is `UNKNOWN`, never assumed active.
+- **Snapshot lifecycle** — CURRENT/DUE_REFRESH/STALE/MISSING, data date kept apart
+  from download date, unmatchable rows rejected with counts, advisory lock so
+  concurrent loads cannot leave a dataset with no current file.
+- **Source health** — an operations view of every source in one query.
+- **Structured service area** — ZIPs, cities, counties, regions, parsed only from
+  explicit coverage statements and never from an address.
+- **Best contact** — verified role and likely-best-contact as separate fields.
 
-## 4. Move DBPR to its published licence files
-Currently one search per account. DBPR publishes downloadable licence data; snapshot
-infrastructure already exists (migration 053) and would make Florida licence
-verification free of per-account requests.
+## Still open, most valuable first
 
-## 5. Vertical profile trigger signals for the new claim keys
-The profiles drive hypotheses from `trigger_signals`. The new evidence keys
-(`tech_*`, `route_*`, company profile claims) are not referenced by any profile yet, so
-today only the hard-coded gap rules use them. Wiring them into profile YAML would let
-each vertical express its own openings.
+## 1. Obtain the two datasets and the one API key
+Three finished adapters are blocked on paperwork, not code: a TSBPE licensee extract, a
+DBPR licensee file, and a Texas Comptroller `api-key`. `SNAPSHOT_POLICIES` in
+`src/sources/snapshotPolicy.ts` carries the exact wording to send each agency.
 
-## 6. Service-area geography as structured data
-`stated_service_area` is captured as text. Parsing it into ZIP/city lists would let a
-rep filter "companies that serve this ZIP but are not located in it" — a real
-prospecting axis, and one the data model already keeps separate from the address.
+## 2. Sunbiz access, or the published bulk download
+Still HTTP 403 to an identified agent. Parser, identity rules and tests are complete and
+fixture-tested. Florida is half our P0 market and this is its entity-verification
+answer.
 
-## 7. Decision-maker ranking for officers from filings
-Checked during the sprint and left deliberately conservative: the resolver penalises
-`EVIDENCE_ONLY_RELATIONSHIPS` (+40) so a qualifier, licence holder, member, officer or
-registered agent never wins routing on its own. An explicit `PRESIDENT` on a filing
-maps to `PRESIDENT` and ranks normally; an ambiguous officer title falls back to
-`OFFICER` and stays evidence-only.
+## 3. Vertical profile trigger signals for the new claim keys
+The profiles drive hypotheses from `trigger_signals`. The new evidence keys (`tech_*`,
+`route_*`, `site_*`, company-profile claims) are not referenced by any profile, so only
+the hard-coded gap rules use them. Wiring them into profile YAML would let each vertical
+express its own openings without code changes.
 
-That is the right default under the data rules (OFFICER ≠ OWNER). But for a
-three-person LLC the officer on the filing usually *is* the decision maker, and a
-size-aware rule — company size, vertical, whether the site names anyone at all — would
-beat one constant. Worth revisiting with real data rather than by guessing.
+## 4. ZIP-to-place data for service-area filtering
+`serviceAreaCoversZip` only matches an explicit ZIP, because expanding "Travis County"
+into ZIPs would manufacture coverage the company never claimed. A real ZIP/city/county
+table would make "serves 32095 but headquartered elsewhere" work for the majority of
+sites, which state cities rather than ZIPs.
 
-## 8. Snapshot refresh scheduling
-`loadSnapshot` supersedes correctly but nothing schedules a refresh. A snapshot should
-age visibly and re-download on a cadence, with the UI showing the download date — the
-read model already reports it honestly.
+## 5. Size-aware decision-maker ranking
+The ranking is deliberately conservative: evidence-only roles never outrank operational
+ones. On a three-person LLC the officer on the filing usually *is* the decision maker.
+A rule aware of company size, vertical, and whether the site names anyone would beat one
+constant — worth doing with real data rather than by guessing.
 
-## 9. An operations view of source health
-The Account page now answers "why is this panel empty" per account
-(`src/domain/sourceAudit.ts`). What is still missing is the fleet view: which sources
-are failing across all accounts, how often, and how stale the snapshots are. The data
-is already recorded per run.
+## 6. Feed official verification into scoring
+Completeness gained `official_entity` and `license_verified`; tier scoring is untouched,
+so no account moves tier because of this branch. Whether an entity is verified and
+licensed is plainly relevant to how good a prospect is.
 
-## 10. Live-fire validation of the fixture-only parsers
-Sunbiz and the State Bar parsers have never seen a live page, and the Comptroller,
-DBPR and TDLR parsers have seen one each during reconnaissance. The first time any of
-them runs against production HTML, expect selector adjustments. Budget an hour per
-source and keep the fixtures updated from whatever real markup is captured.
+## 7. Surface service area and best contact in Find Prospects
+Both are on the Account page only. A rep triaging a list would benefit from "serves this
+ZIP" and "named contact" as row-level chips — needs care to avoid an N+1 on the list
+query.
+
+## 8. Snapshot refresh automation
+The lifecycle exists (cadence, staleness, dedupe, locking, history) but nothing schedules
+a download. Deliberately not enabled: autonomous fetching of official datasets needs its
+own governance decision.
+
+## 9. Ad-evidence recency on the list view
+Google Ads observations are dated and shown on the Account page. Find Prospects still
+sorts on a boolean-ish advertiser state; "observed advertising in the last 14 days" is a
+much better prospecting filter.
+
+## 10. Live-fire validation of the remaining fixture-only parsers
+Sunbiz and the State Bar parsers have never met a live page. The Comptroller parser is
+built to a published schema but has never seen a real response, because the API refuses
+without a key. Budget an hour per source on first contact and update the fixtures from
+whatever real payloads are captured.
 
 ## Known limitations
 
