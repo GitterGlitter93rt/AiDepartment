@@ -4,6 +4,7 @@ import { detectTechnologies, type TechObservation } from '../techSignals.js';
 import { extractSocialProfiles, extractContactRoutes, extractProfileClaims,
   extractServiceArea, extractHours,
   type SocialProfile, type ContactRoute, type ProfileObservation } from '../companyProfile.js';
+import { extractSiteQuality, type SiteQualitySignal } from '../siteQuality.js';
 import { normalizeEmail, normalizePhone } from '../../domain/normalize.js';
 import type { EndpointObservation, PersonObservation } from '../types.js';
 
@@ -47,6 +48,8 @@ export interface FirstPartyResult {
   socials: SocialProfile[];
   contactRoutes: ContactRoute[];
   profileClaims: ProfileObservation[];
+  /** Front-page only: the checks that describe the site rather than the company. */
+  siteQuality: SiteQualitySignal[];
 }
 
 /** Page paths worth trying, best first. */
@@ -421,7 +424,7 @@ export async function researchFirstParty(
 ): Promise<FirstPartyResult> {
   const result: FirstPartyResult = {
     people: [], endpoints: [], pagesFetched: [], pageText: [], pagesBlocked: [], notes: [],
-    technologies: [], socials: [], contactRoutes: [], profileClaims: [],
+    technologies: [], socials: [], contactRoutes: [], profileClaims: [], siteQuality: [],
   };
 
   let origin: string;
@@ -483,6 +486,13 @@ export async function researchFirstParty(
       if (!result.contactRoutes.some((entry) => entry.kind === route.kind)) {
         result.contactRoutes.push(route);
       }
+    }
+    if (result.siteQuality.length === 0) {
+      // The first page read is the front page, and these checks describe the site
+      // rather than the company: running them on every page would report a missing
+      // meta description five times for one site.
+      result.siteQuality = extractSiteQuality({
+        html: response.body, text, url: reference, isHomepage: true });
     }
     for (const claim of [
       ...extractProfileClaims(text, reference),

@@ -192,6 +192,7 @@ export async function runContactResearch(
   let socials: import('../resolver/companyProfile.js').SocialProfile[] = [];
   let contactRoutes: import('../resolver/companyProfile.js').ContactRoute[] = [];
   let profileClaims: import('../resolver/companyProfile.js').ProfileObservation[] = [];
+  let siteQuality: import('../resolver/siteQuality.js').SiteQualitySignal[] = [];
   let pagesBlocked = 0;
   const notes: string[] = [];
 
@@ -231,6 +232,7 @@ export async function runContactResearch(
     socials = firstParty.socials;
     contactRoutes = firstParty.contactRoutes;
     profileClaims = firstParty.profileClaims;
+    siteQuality = firstParty.siteQuality;
   } else {
     stagesSkipped.push({ stage: 'A_company_first_party', reason: attribution.reason });
   }
@@ -361,6 +363,25 @@ export async function runContactResearch(
         sourceReference: claim.sourceReference,
         expiresAt: new Date(Date.now() + claim.ttlDays * 86_400_000),
         precedenceRank: 2,
+      });
+    }
+
+    // What the site itself is like. The only place in this worker that records a
+    // deliberate "no": a home page either declares a mobile viewport or it does not,
+    // and that absence is a fact about the page rather than a gap in our research.
+    for (const signal of siteQuality) {
+      await recordEvidence(client, {
+        accountId, researchRunId,
+        category: 'site_quality',
+        claimKey: signal.claimKey,
+        claimText: signal.claimText,
+        normalizedValue: signal.normalizedValue,
+        confidence: 'confirmed',
+        canStateAsFact: true,
+        sourceType: 'first_party',
+        sourceReference: signal.sourceReference,
+        expiresAt: new Date(Date.now() + signal.ttlDays * 86_400_000),
+        precedenceRank: 3,
       });
     }
 

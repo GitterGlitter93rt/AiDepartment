@@ -203,6 +203,25 @@ const PROFILE_CLAIMS: {
     describe: () => 'Sells a recurring maintenance or membership plan.',
   },
   {
+    claimKey: 'promotions_offered',
+    ttlDays: 90,
+    patterns: [
+      /\b(?:current\s+)?(?:specials?|promotions?|coupons?)\b/i,
+      /\b\$\d{2,4}\s+off\b/i, /\b\d{1,2}%\s+off\b/i,
+      /\blimited[- ]time offer\b/i,
+    ],
+    describe: () => 'Advertises coupons or promotional offers.',
+  },
+  {
+    claimKey: 'referral_program',
+    ttlDays: 365,
+    patterns: [
+      /\brefer(?:ral)?\s+(?:a\s+friend|program|bonus|reward)/i,
+      /\brefer\s+(?:a|your)\s+(?:friend|neighbou?r)/i,
+    ],
+    describe: () => 'Runs a customer referral programme.',
+  },
+  {
     claimKey: 'license_number_displayed',
     ttlDays: 365,
     patterns: [
