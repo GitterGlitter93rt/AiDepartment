@@ -121,6 +121,30 @@ file it as evidence about a prospect. Literal and resolved addresses are both ch
 IPv4-mapped IPv6 included, and redirects are followed by hand because a 302 to
 localhost is otherwise unobserved.
 
+## Environment flags this branch introduces
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `SOURCE_FL_DBPR_ENABLED` | off | Live Florida DBPR lookups |
+| `SOURCE_TX_COMPTROLLER_ENABLED` | off | Live Texas Comptroller lookups |
+| `SOURCE_TX_TDLR_ENABLED` | off | Live TDLR lookups |
+| `SOURCE_TX_TSBPE_ENABLED` | off | Texas plumbing board (snapshot-backed) |
+| `RESEARCH_ALLOW_PRIVATE_ADDRESSES` | off | **Test harness only** |
+
+`RESEARCH_ALLOW_PRIVATE_ADDRESSES=1` relaxes the crawler's SSRF guard so it will fetch
+loopback. It exists because `tests/worker.test.ts` stands up a real HTTP server on
+127.0.0.1 and drives the actual fetcher against robots rules, login walls and anti-bot
+interstitials — behaviour that cannot be proven against a stub.
+
+**It must never be set in a deployed environment.** With it on, a company website
+recorded as `http://127.0.0.1:8080/` would have the research worker read this product's
+own API and file the result as evidence about a prospect. It is set by
+`tests/setup.ts`, is absent from every `.env`, and `tests/fetcherSafety.test.ts` turns
+it back off so the guard is proven rather than assumed.
+
+The `SOURCE_*` flags cannot enable a source whose governance entry says `BLOCKED` or
+`DISABLED_PAID_SOURCE`; `liveCallsPermitted()` refuses before it reads the flag.
+
 ## Source enablement
 
 See `docs/09-software/SALES-BRAIN-SOURCE-GOVERNANCE.md`. Summary: **nothing is on**.
