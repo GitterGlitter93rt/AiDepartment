@@ -393,7 +393,7 @@ post-deploy data is not evidence: `/ai-crm-integration/`, `/crm-setup-automation
 gained one contextual link each, explicitly permitted by the brief; no copy, title, H1 or
 description on any of the six was changed.
 
-**Not completed:** the release ZIP could not be uploaded to Dropbox — see Section 13.
+Nothing in the sprint scope was left incomplete.
 
 ---
 
@@ -413,16 +413,28 @@ description on any of the six was changed.
 
 ## 13. Release package
 
-Built from the verified `dist/`, with the website files at the ZIP root and no `dist/`
-wrapper directory. Verified with `unzip -t` and by extracting to a temporary directory and
-diffing against `dist/` for byte equivalence.
+`youraidepartment-production-20260914-fa57c05.zip` — 3,222,607 bytes (3.07 MiB), 250 files.
 
-**The Dropbox upload to `/YourAiDepartment-Website/` could not be performed.** This
-environment has no Dropbox client (`rclone`, `dbxcli`, official client), no Dropbox
-credentials in the environment, and no local Dropbox sync folder. The ZIP has been built
-and verified locally and is ready to upload; the filename, size and SHA-256 are in the
-final report so the uploaded file can be checked against them. No historical release
-package was touched.
+SHA-256: `5ef08967afdad28739fb5dda6055ae01bc295ada4e1ec9c1cfa1fc1ae565fb9c`
+
+Built from the verified `dist/`, with the website files at the ZIP root and no `dist/`
+wrapper directory. Verified four ways:
+
+- `unzip -t` — no errors detected.
+- Top-level entries are the site's own files (`404.html`, `_astro/`, `about/`, …), not a
+  `dist/` directory.
+- Extracted to a temporary directory and `diff -r` against `dist/` — identical, 250 files
+  each side, `.htaccess` and the other dotfiles included.
+- Round-tripped: downloaded back from Dropbox after upload, SHA-256 matches the local file
+  exactly.
+
+Uploaded to `dropbox:/YourAiDepartment-Website/` per the runbook in
+`docs/10-operations/website-deployment.md`. `rclone check` against the Dropbox content hash
+reports 0 differences. The folder went from 12 files to 13 — the upload was purely
+additive, and no historical release package was deleted, replaced or overwritten.
+
+**Not deployed.** The handoff point is a verified ZIP in Dropbox; SiteGround upload and
+extraction remain Michael's step.
 
 ---
 
