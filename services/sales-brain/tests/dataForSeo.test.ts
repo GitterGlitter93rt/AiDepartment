@@ -220,10 +220,29 @@ test('a discovered business carries its provider evidence, and no invented locat
 test('provider cost is recorded from the response, and a failure is still recorded', async () => {
   const ok = createDataForSeoAdapter({ config: READY, transport: transportReturning(RESPONSE) });
   await ok.discover(await planned({ verticalProfileId: 'hvac', geographyType: 'city', geographyValue: 'Jacksonville, FL', miningMode: 'advertiser_first', queryBudget: 5 }));
+
+  /**
+   * One purchase, charged once, at the moment the provider accepted it.
+   *
+   * Standard charges at `task_post` and nothing afterwards: `task_get` is free, and
+   * the `cost` it echoes back is that same historical price rather than a new charge.
+   * Summing every row that reports a cost billed the search twice here and would have
+   * billed it four times for a task collected three times -- against a daily ceiling
+   * that reads exactly this table.
+   */
   const success = await pool.query(
-    `select status, actual_cost_usd from provider_usage where provider = 'dataforseo'`);
-  assert.equal(success.rows[0]!.status, 'OK');
-  assert.equal(Number(success.rows[0]!.actual_cost_usd), 0.0031);
+    `select operation, status, actual_cost_usd from provider_usage
+      where provider = 'dataforseo' order by operation`);
+  assert.ok(success.rows.every((row) => row.status === 'OK'));
+
+  const charged = success.rows.filter((row) => Number(row.actual_cost_usd) > 0);
+  assert.equal(charged.length, 1, 'a Standard task must carry exactly one charge');
+  assert.equal(charged[0]!.operation, 'serp.discover.task_post',
+    'the charge belongs to the call that actually spent the money');
+  assert.equal(Number(charged[0]!.actual_cost_usd), 0.0031);
+
+  const total = success.rows.reduce((sum, row) => sum + Number(row.actual_cost_usd ?? 0), 0);
+  assert.equal(total, 0.0031, 'collecting a paid task must not add to what it cost');
 
   await resetDatabase();
   await syncVerticalProfiles();

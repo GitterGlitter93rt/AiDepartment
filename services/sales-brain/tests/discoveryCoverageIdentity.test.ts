@@ -411,7 +411,7 @@ test('an older run\u2019s collected search does not rescue this run\u2019s aband
     const current = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
     await providerTask({
       jobId: current, status: 'ABANDONED', term: 'drain cleaning',
-      errorCode: 'NEVER_DELIVERED' });
+      errorCode: 'RESULT_RETENTION_EXPIRED' });
 
     const discovery = await discoveryFor('plumbing');
     assert.equal(discovery.state, 'PROVIDER_UNAVAILABLE',
@@ -426,7 +426,7 @@ test('an older run\u2019s abandoned search does not make this run look partial',
     vertical: 'plumbing', outcome: 'PROVIDER_UNAVAILABLE', ageDays: 30 });
   await providerTask({
     jobId: older, status: 'ABANDONED', term: 'drain cleaning', closedAgeDays: 30,
-    errorCode: 'NEVER_DELIVERED' });
+    errorCode: 'RESULT_RETENTION_EXPIRED' });
 
   const current = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
   await providerTask({ jobId: current, status: 'COLLECTED', term: 'drain cleaning' });
@@ -473,7 +473,7 @@ test('another run\u2019s outstanding task still holds this market pending', asyn
   const current = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
   await providerTask({
     jobId: current, status: 'ABANDONED', term: 'water heater repair',
-    errorCode: 'NEVER_DELIVERED' });
+    errorCode: 'RESULT_RETENTION_EXPIRED' });
 
   assert.equal((await discoveryFor('plumbing')).state, 'PENDING',
     'a market with a paid search still outstanding was reported as idle');
@@ -514,7 +514,7 @@ test('some delivered and some given up on is part of the market, not all of it',
     await providerTask({ jobId: job, status: 'COLLECTED', term: 'drain cleaning' });
     await providerTask({
       jobId: job, status: 'ABANDONED', term: 'water heater repair',
-      errorCode: 'NEVER_DELIVERED' });
+      errorCode: 'RESULT_RETENTION_EXPIRED' });
 
     const discovery = await discoveryFor('plumbing');
     assert.equal(discovery.state, 'PARTIAL',

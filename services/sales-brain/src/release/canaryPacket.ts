@@ -5,7 +5,7 @@ import { schemaState } from '../db/migrate.js';
 import { dailyBudgetUsd, assumedRunCostUsd } from '../miner/spend.js';
 import { planCanary, MAX_CANARY_SEARCHES, type CanaryPlan } from '../miner/canary.js';
 import { availableDiscoveryAdapters } from '../workers/marketMiner.js';
-import { MAX_TASK_COLLECTIONS } from '../miner/providerTasks.js';
+import { MAX_TASK_COLLECTIONS, PROVIDER_TASK_RETENTION_DAYS } from '../miner/providerTasks.js';
 
 /**
  * What a first paid search would need, what it would do, and what would prove it
@@ -189,7 +189,9 @@ export async function canaryPacket(options: {
         'SUBMITTED -> PENDING while the provider works, with each poll recorded as a '
           + 'collection attempt rather than a silent retry.',
         'PENDING -> READY -> COLLECTED once results are fetched, or -> ABANDONED '
-          + `after ${MAX_TASK_COLLECTIONS} collection attempts.`,
+          + `once the result is no longer retrievable (${PROVIDER_TASK_RETENTION_DAYS} days). `
+          + 'A task still reported as queued stays PENDING however often it has been '
+          + 'asked for: the provider working is not the provider failing.',
         'A restart mid-flight must resume from the stored task, not re-buy it: the '
           + 'partial unique index on the idempotency key is what prevents a second '
           + 'purchase of the same question.',
@@ -336,7 +338,10 @@ export function renderCanaryPacket(packet: CanaryPacket): string {
   lines.push(`  daily ceiling         $${packet.configuration.dailyBudgetUsd.toFixed(2)}`);
   lines.push(`  assumed per search    $${packet.configuration.assumedPerSearchUsd.toFixed(3)}`);
   lines.push(`  canary search ceiling ${packet.configuration.maxCanarySearches}`);
-  lines.push(`  collection attempts   ${packet.configuration.maxTaskCollections}`);
+  // Printed as observability, not as a deadline: a collection count no longer ends
+  // a task. What ends one is its result becoming unfetchable.
+  lines.push(`  collections logged    ${packet.configuration.maxTaskCollections} (observability only; not an abandonment trigger)`);
+  lines.push(`  result retention      ${PROVIDER_TASK_RETENTION_DAYS} days (the only abandonment trigger)`);
 
   section('the smallest run worth authorising');
   const proposal = packet.proposal;

@@ -18,7 +18,7 @@ export type { DiscoveredBusiness, ProviderObservation };
 import { enqueueAccountResearch } from './enqueue.js';
 import {
   closeProviderTask, openProviderTask, recordCollectionAttempt, recordProviderTask,
-  MAX_TASK_COLLECTIONS,
+  isBeyondRetention, PROVIDER_TASK_RETENTION_DAYS,
 } from '../miner/providerTasks.js';
 import { recordEvidence } from '../domain/accounts.js';
 
@@ -50,6 +50,15 @@ export interface DiscoveryQuery {
   miningMode: string;
   /** Hard ceiling on provider calls for this run. */
   queryBudget: number;
+  /**
+   * The run this search belongs to, for attribution on the rows it writes.
+   *
+   * Carried so the adapter can record the purchase and its ledger row against the job
+   * at the moment the provider accepts the task, rather than the orchestrator having
+   * to reconstruct the link afterwards -- which it could only do for tasks slow enough
+   * to still be pending when the run ended.
+   */
+  jobId?: string | null;
   /**
    * The one search this call is for: its words, its place and its identity.
    *
@@ -265,6 +274,14 @@ export interface DiscoveryAdapter {
    * the moment the worker that submitted it stops.
    */
   collect?(providerTaskId: string, request: DiscoveryQuery): Promise<DiscoveryResult>;
+  /**
+   * Which of this provider's tasks have finished and not yet been collected.
+   *
+   * Optional, and free where it exists. `null` means the question could not be
+   * answered -- an outage, or a response shape we do not recognise -- which is not
+   * the same as "nothing is ready" and must not be read as one.
+   */
+  tasksReady?(): Promise<string[] | null>;
 }
 
 /** A result for a call that never reached the provider, or that it refused. */
@@ -874,6 +891,7 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
     const fingerprint = planned.fingerprint;
     const searchRequest: DiscoveryQuery = {
       ...request,
+      jobId: job.job_id,
       search: {
         keyword: planned.keyword, locationName: planned.locationName,
         term: planned.term, fingerprint, index: planned.index,
@@ -1013,17 +1031,30 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         result = await adapter.collect(outstanding.provider_native_id, searchRequest);
 
         if (result.status === 'PENDING') {
-          if (attempts >= MAX_TASK_COLLECTIONS) {
-            // A task the provider will never finish must not become a job that polls
-            // for ever. It is abandoned with a reason, so the operator can see that a
-            // search was paid for and never delivered.
+          /**
+           * Still queued is not still failing.
+           *
+           * This abandoned a task once it had been asked for twenty times, which was a
+           * sane number against a three-second loop and is a destructive one against a
+           * three-minute sweep: an hour of ordinary waiting would throw away a search
+           * we had paid for and the provider was still working on. DataForSEO's 40602
+           * means "in queue"; in production every task that ever returned it went on to
+           * complete, four of them after ~15 minutes.
+           *
+           * The only thing that makes a paid task genuinely unrecoverable is its result
+           * no longer being retrievable, so that -- and not a tally of polite questions
+           * -- is what ends it.
+           */
+          if (isBeyondRetention(outstanding.submitted_at)) {
             await closeProviderTask({
               providerTaskId: outstanding.provider_task_id, status: 'ABANDONED',
-              errorCode: 'NEVER_DELIVERED' });
+              errorCode: 'RESULT_RETENTION_EXPIRED' });
             result = refusedDiscovery('TIMEOUT',
-              `The provider accepted this search ${attempts} collection attempts ago and has `
-              + 'never delivered it. It has been given up on rather than polled for ever.');
+              `The provider accepted this search more than ${PROVIDER_TASK_RETENTION_DAYS} `
+              + 'days ago and its result is no longer retrievable, so it has been given up '
+              + 'on. Nothing was bought to replace it.');
           }
+          void attempts;
         } else if (providerAnswered(result.status)) {
           // Closed after ingestion, not here.
           //
@@ -1066,14 +1097,41 @@ registerHandler('market_mine', async (job: JobRecord): Promise<Record<string, un
         result = await adapter.discover(searchRequest);
         await recordUnbilledRun(adapter.name, before, result, job.job_id);
 
-        // A task the provider accepted is remembered before this job ends. Without
-        // this row the id dies with the process and the search is bought again.
-        if (result.status === 'PENDING' && result.providerTaskId) {
-          await recordProviderTask({
+        /**
+         * The ledger row already exists; this is where a fast one gets closed.
+         *
+         * Recording the task moved into the adapter, to the moment the provider accepts
+         * it, because a row written only when the poll gave up could not describe a
+         * search that finished before then -- and production contains exactly one such
+         * search, bought and delivered and never written down at all.
+         *
+         * What is left here is the other half: a task whose results came back inside
+         * the fast path is already in inventory, so its row must not stay PENDING. If
+         * it did, the sweeper would find it outstanding and collect the same search
+         * again. Closed after ingestion rather than here, for the reason the collect
+         * branch above gives.
+         */
+        if (result.providerTaskId) {
+          // Still recorded here, for every provider. The DataForSEO adapter also writes
+          // this row the instant the provider accepts the task -- which is the only way
+          // a search that finishes inside the fast path can be on the ledger at all --
+          // but that is a guarantee one adapter offers, not a contract all of them
+          // meet. An adapter that only reports its task id on the way out must still
+          // end up with a durable row, or its paid search is lost exactly as before.
+          // The write is an upsert keyed on the provider's own id, so the two paths
+          // converge on one row rather than racing to create two.
+          const providerTaskId = await recordProviderTask({
             provider: adapter.name, providerNativeId: result.providerTaskId,
             fingerprint, jobId: job.job_id,
             request: searchRequest as unknown as Record<string, unknown>,
+            costUsd: result.costUsd ?? null,
           });
+
+          // A task whose results came back inside the fast path is already in
+          // inventory, so its row must not stay PENDING: the sweeper would find it
+          // outstanding and collect the same search a second time. Closed after
+          // ingestion rather than here, for the reason the collect branch above gives.
+          if (providerAnswered(result.status)) collected = providerTaskId;
         }
       }
     } catch (error) {
