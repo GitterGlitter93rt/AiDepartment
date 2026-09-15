@@ -538,7 +538,12 @@ export async function runContactResearch(
   let hypothesesWritten = 0;
   try {
     const { deriveHypotheses, storeHypotheses } = await import('../domain/hypotheses.js');
-    const derived = await deriveHypotheses(accountId);
+    const { deriveGapHypotheses } = await import('../domain/gapHypotheses.js');
+    // Two producers, one list. The profile's hypotheses come from signals a company
+    // has; the gap rules come from one signal sitting next to the absence of another,
+    // which is where the most sellable openings are and which no single-signal rule
+    // can see.
+    const derived = [...await deriveHypotheses(accountId), ...await deriveGapHypotheses(accountId)];
     const stored = await storeHypotheses(accountId, derived);
     hypothesesWritten = stored.written;
   } catch (error) {
