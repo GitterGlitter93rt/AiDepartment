@@ -1,4 +1,5 @@
 import { stripTags } from '../../resolver/adapters/firstParty.js';
+import { tableRows, preBlocks, labelledValue } from '../html.js';
 import { relationshipFromTitle } from '../../resolver/roles.js';
 import type { PersonObservation } from '../../resolver/types.js';
 import type { MatchCandidate } from '../match.js';
@@ -79,48 +80,70 @@ function field(lines: string[], label: RegExp): string | null {
 
 export function parseComptrollerStatus(html: string): ComptrollerRecord | null {
   const lines = stripTags(html).split('\n').map((line) => line.trim()).filter(Boolean);
+  const rows = tableRows(html);
+  // The page is a two-column table; read it as one, and fall back to the flattened
+  // text for layouts that are not tabular.
+  const read = (label: RegExp): string | null =>
+    labelledValue(rows, label) ?? field(lines, label);
 
-  const legalName = field(lines, /^Taxpayer Name\s*:?/i)
-    ?? field(lines, /^Entity Name\s*:?/i);
+  const legalName = read(/^Taxpayer Name\s*:?/i) ?? read(/^Entity Name\s*:?/i);
   if (!legalName) return null;
-
-  const officers: ComptrollerRecord['officers'] = [];
-  // The officer table prints Name / Title / Director columns in order.
-  const officerStart = lines.findIndex((line) =>
-    /^(Officer|Director) (and|&) Director Information$/i.test(line)
-    || /^Officers and Directors$/i.test(line));
-  if (officerStart !== -1) {
-    for (let index = officerStart + 1; index < lines.length; index += 1) {
-      const line = lines[index]!;
-      if (/^(Registered Agent|Mailing Address|Total|Notes?|Report Year)/i.test(line)) break;
-      const match = /^(.+?)\s{2,}(.+?)(?:\s{2,}(?:YES|NO))?$/.exec(line)
-        ?? /^(.+?)\s*\|\s*(.+?)$/.exec(line);
-      if (!match) continue;
-      const name = match[1]!.trim();
-      const title = match[2]!.trim();
-      if (!name || !title || /^name$/i.test(name)) continue;
-      officers.push({ name, title });
-    }
-  }
-
-  const reportYears = lines
-    .map((line) => /^Report Year\s*:?\s*((?:19|20)\d{2})$/i.exec(line)?.[1])
-    .filter(Boolean) as string[];
 
   return {
     legalName,
-    taxpayerNumber: field(lines, /^Taxpayer Number\s*:?/i),
-    sosFileNumber: field(lines, /^(?:Texas )?SOS (?:File )?Number\s*:?/i),
-    rightToTransact: field(lines, /^Right to Transact Business in Texas\s*:?/i),
-    entityStatus: field(lines, /^(?:Taxpayer|Entity) Status\s*:?/i),
-    stateOfFormation: field(lines, /^State of Formation\s*:?/i),
-    registrationDate: field(lines, /^(?:Effective )?SOS Registration Date\s*:?/i),
-    mailingAddress: parseAddress(field(lines, /^Mailing Address\s*:?/i)),
-    registeredAgent: field(lines, /^Registered Agent Name\s*:?/i),
-    registeredOffice: parseAddress(field(lines, /^Registered Office Street Address\s*:?/i)),
-    officers,
-    reportYear: reportYears.length > 0 ? String(Math.max(...reportYears.map(Number))) : null,
+    taxpayerNumber: read(/^Taxpayer Number\s*:?/i),
+    sosFileNumber: read(/^(?:Texas )?SOS (?:File )?Number\s*:?/i),
+    rightToTransact: read(/^Right to Transact Business in Texas\s*:?/i),
+    entityStatus: read(/^(?:Taxpayer|Entity) Status\s*:?/i),
+    stateOfFormation: read(/^State of Formation\s*:?/i),
+    registrationDate: read(/^(?:Effective )?SOS Registration Date\s*:?/i),
+    mailingAddress: parseAddress(read(/^Mailing Address\s*:?/i)),
+    registeredAgent: read(/^Registered Agent Name\s*:?/i),
+    registeredOffice: parseAddress(read(/^Registered Office Street Address\s*:?/i)),
+    officers: parseOfficers(html, rows),
+    reportYear: read(/^Report Year\s*:?/i),
   };
+}
+
+/**
+ * Officers and directors, from whichever shape the page uses.
+ *
+ * A public information report is sometimes a table and sometimes a fixed-width block
+ * inside `<pre>`, where column alignment is the only separator -- which is why the
+ * `<pre>` text is read with its spacing intact rather than through `stripTags`, which
+ * collapses runs of spaces and would merge a name into a title.
+ */
+function parseOfficers(html: string, rows: string[][]): { name: string; title: string }[] {
+  const officers: { name: string; title: string }[] = [];
+  const seen = new Set<string>();
+  const add = (name: string, title: string): void => {
+    const key = `${name}|${title}`.toLowerCase();
+    if (!name || !title || seen.has(key)) return;
+    if (/^(name|officer|director|title)$/i.test(name)) return;
+    seen.add(key);
+    officers.push({ name, title });
+  };
+
+  for (const block of preBlocks(html)) {
+    for (const line of block.split('\n')) {
+      const match = /^\s*(\S.*?)\s{2,}(\S.*?)(?:\s{2,}(?:YES|NO)\s*)?$/.exec(line);
+      if (match) add(match[1]!.trim(), match[2]!.trim());
+    }
+  }
+
+  // A table whose header names an officer column.
+  for (let index = 0; index < rows.length; index += 1) {
+    const header = rows[index]!;
+    if (!header.some((cell) => /^name$/i.test(cell))
+      || !header.some((cell) => /^title$/i.test(cell))) continue;
+    const nameColumn = header.findIndex((cell) => /^name$/i.test(cell));
+    const titleColumn = header.findIndex((cell) => /^title$/i.test(cell));
+    for (const cells of rows.slice(index + 1)) {
+      if (cells.length <= Math.max(nameColumn, titleColumn)) break;
+      add(cells[nameColumn]!.trim(), cells[titleColumn]!.trim());
+    }
+  }
+  return officers;
 }
 
 /**

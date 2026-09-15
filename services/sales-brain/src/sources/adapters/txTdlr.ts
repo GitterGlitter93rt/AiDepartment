@@ -1,4 +1,4 @@
-import { stripTags } from '../../resolver/adapters/firstParty.js';
+import { tableRows } from '../html.js';
 import type { PersonObservation } from '../../resolver/types.js';
 import type { MatchCandidate } from '../match.js';
 import type { OfficialFact } from '../types.js';
@@ -74,54 +74,55 @@ export interface TdlrLicence {
  * or a "no records found" banner can never become a licence.
  */
 export function parseTdlrResults(html: string, program: TdlrProgram): TdlrLicence[] {
-  const text = stripTags(html);
-  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+  const rows = tableRows(html);
+  if (rows.length === 0) return [];
+
+  // The header names the columns; the two programmes label them slightly
+  // differently, so columns are found by meaning rather than by position.
+  const header = rows.find((cells) =>
+    cells.some((cell) => /licen[cs]e\s*#|licen[cs]e number/i.test(cell)))
+    ?? rows[0]!;
+  const columnFor = (...patterns: RegExp[]): number =>
+    header.findIndex((cell) => patterns.some((pattern) => pattern.test(cell)));
+
+  const columns = {
+    number: columnFor(/licen[cs]e\s*#/i, /licen[cs]e number/i),
+    name: columnFor(/^name$/i, /licensee/i, /individual/i),
+    business: columnFor(/business/i, /company/i, /dba/i),
+    city: columnFor(/^city$/i),
+    county: columnFor(/^county$/i),
+    status: columnFor(/^status$/i),
+    expires: columnFor(/expir/i),
+    type: columnFor(/licen[cs]e type/i, /^type$/i),
+  };
+
   const licences: TdlrLicence[] = [];
+  for (const cells of rows) {
+    if (cells === header) continue;
+    const licenseNumber = columns.number === -1 ? null : cells[columns.number]?.trim();
+    // A licence number is the one field a row must have to be a licence. Without it
+    // a header, a footer or a "no records found" banner would become a credential.
+    if (!licenseNumber || !/^[A-Z]{0,6}\d{4,9}$/i.test(licenseNumber)) continue;
 
-  for (const line of lines) {
-    // Rows arrive as pipe- or multi-space-separated cells.
-    const cells = (line.includes('|') ? line.split('|') : line.split(/\s{2,}/))
-      .map((cell) => cell.trim()).filter(Boolean);
-    if (cells.length < 4) continue;
+    const status = (columns.status === -1 ? '' : cells[columns.status] ?? '').trim();
+    if (!status) continue;
 
-    const numberIndex = cells.findIndex((cell) => /^[A-Z]{0,4}\d{4,9}$/.test(cell));
-    if (numberIndex === -1) continue;
+    const licenseeName = (columns.name === -1 ? '' : cells[columns.name] ?? '').trim();
+    if (!licenseeName) continue;
 
-    const statusIndex = cells.findIndex((cell) =>
-      /^(Active|Expired|Inactive|Suspended|Revoked|Surrendered|Delinquent)$/i.test(cell));
-    if (statusIndex === -1) continue;
-
-    const expiration = cells.find((cell) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cell)) ?? null;
-    const typeCell = cells.find((cell) =>
-      TDLR_PROGRAMS[program].licenseTypes.some((type) =>
-        cell.toLowerCase().includes(type.toLowerCase().split(' ')[0]!)))
-      ?? TDLR_PROGRAMS[program].licenseTypes[0]!;
-
-    // The name is the longest remaining cell that is not a number, status, date or
-    // a two-letter state.
-    const nameCandidates = cells.filter((cell, index) =>
-      index !== numberIndex && index !== statusIndex
-      && !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cell) && !/^[A-Z]{2}$/.test(cell)
-      && cell !== typeCell && cell.length > 2);
-    if (nameCandidates.length === 0) continue;
-
-    const licenseeName = nameCandidates[0]!;
-    // A second long name-ish cell is the business the licence is tied to.
-    const businessName = nameCandidates.length > 1
-      && /(l\.?l\.?c|inc|co\b|company|services|corp|ltd)/i.test(nameCandidates[1]!)
-      ? nameCandidates[1]! : null;
-    const city = nameCandidates.find((cell, index) =>
-      index > 0 && /^[A-Za-z .'-]{3,}$/.test(cell) && cell !== businessName) ?? null;
+    const businessName = columns.business === -1
+      ? null : (cells[columns.business]?.trim() || null);
 
     licences.push({
-      licenseNumber: cells[numberIndex]!,
+      licenseNumber,
       licenseeName,
       businessName,
-      licenseType: typeCell,
-      status: cells[statusIndex]!,
-      expirationDate: expiration,
-      city,
-      county: null,
+      licenseType: (columns.type === -1 ? '' : cells[columns.type] ?? '').trim()
+        || TDLR_PROGRAMS[program].licenseTypes[0]!,
+      status,
+      expirationDate: (columns.expires === -1 ? null : cells[columns.expires]?.trim()) || null,
+      city: (columns.city === -1 ? null : cells[columns.city]?.trim()) || null,
+      county: (columns.county === -1 ? null : cells[columns.county]?.trim()) || null,
       stateRegion: 'TX',
       program,
     });

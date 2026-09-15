@@ -521,20 +521,32 @@ export async function recordEvidence(
     canStateAsFact: boolean; sourceType: string; sourceProvider?: string | null;
     sourceReference?: string | null; expiresAt?: Date | null; precedenceRank?: number;
     notes?: string | null;
+    /**
+     * When the source actually said this, when that is not now.
+     *
+     * Defaults to now(), which is right for a page just read. It is wrong for a fact
+     * taken from a downloaded dataset: a licence row read out of a snapshot pulled in
+     * March was observed in March, and stamping it today would present cached data as
+     * freshly verified -- the same class of error as a read model claiming a provider
+     * still owes us results.
+     */
+    observedAt?: Date | null;
   },
 ): Promise<string> {
   const { rows } = await client.query<{ evidence_id: string }>(
     `insert into evidence_records (account_id, contact_id, endpoint_id, research_run_id, category,
                                    claim_key, claim_text, normalized_value, confidence,
                                    can_state_as_fact, source_type, source_provider, source_reference,
-                                   expires_at, freshness, precedence_rank, notes)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'fresh',coalesce($15,9),$16)
+                                   expires_at, freshness, precedence_rank, notes, observed_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'fresh',coalesce($15,9),$16,
+             coalesce($17, now()))
      returning evidence_id`,
     [
       input.accountId, input.contactId ?? null, input.endpointId ?? null, input.researchRunId ?? null,
       input.category, input.claimKey, input.claimText, input.normalizedValue ?? null, input.confidence,
       input.canStateAsFact, input.sourceType, input.sourceProvider ?? null, input.sourceReference ?? null,
       input.expiresAt ?? null, input.precedenceRank ?? null, input.notes ?? null,
+      input.observedAt ?? null,
     ],
   );
   return rows[0]!.evidence_id;

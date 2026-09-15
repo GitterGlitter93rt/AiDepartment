@@ -89,6 +89,51 @@ export function researchTrigger(requested: string | null | undefined): string {
   return 'human_requested';
 }
 
+/**
+ * What the official sources need to know about this company.
+ *
+ * Address and phone come from what the account already holds, and they are here for
+ * one purpose: corroboration. A registry name match alone is not an identification,
+ * so the matcher needs something else to agree -- and the something else has to be
+ * what we independently believe about the company, not what the registry told us.
+ *
+ * The location read is deliberately the account's own location rows, never the ZIP a
+ * rep happened to search. A search geography is a question, not an address.
+ */
+async function buildSourceContext(
+  accountId: string, account: AccountRow, hostname: string | null,
+): Promise<import('../sources/types.js').SourceLookupContext> {
+  const { rows: locationRows } = await query<{
+    street_address: string | null; city: string | null; state_region: string | null;
+    postal_code: string | null;
+  }>(
+    `select street_address, city, state_region, postal_code
+       from locations
+      where account_id = $1 and is_active
+      order by (location_type = 'physical') desc, created_at asc
+      limit 1`,
+    [accountId]);
+  const location = locationRows[0];
+
+  const { rows: phoneRows } = await query<{ normalized_value: string }>(
+    `select normalized_value from contact_endpoints
+      where account_id = $1 and endpoint_type = 'PHONE' and is_active
+      limit 10`,
+    [accountId]);
+
+  return {
+    accountId,
+    companyName: account.canonical_name,
+    stateRegion: location?.state_region ?? null,
+    city: location?.city ?? null,
+    postalCode: location?.postal_code ?? null,
+    domain: hostname ?? account.canonical_domain,
+    verticalProfileId: account.primary_vertical_profile_id,
+    knownPhones: phoneRows.map((row) => row.normalized_value),
+    streetAddress: location?.street_address ?? null,
+  };
+}
+
 export async function runContactResearch(
   accountId: string, trigger: string | null = null,
 ): Promise<ContactResearchOutcome> {
@@ -182,16 +227,36 @@ export async function runContactResearch(
     stagesSkipped.push({ stage: 'A_company_first_party', reason: attribution.reason });
   }
 
-  // --- Stages B–D: public registries, licences, directories, search. -----------
-  // Each needs a credential and a written source-governance review before it may
-  // run automatically. They are wired as adapters and deliberately left off.
-  for (const stage of [
-    { stage: 'B_public_company_registry', reason: 'source governance review not signed off (blocker B-3)' },
-    { stage: 'C_public_license_registry', reason: 'source governance review not signed off (blocker B-3)' },
-    { stage: 'D_search_indexed_evidence', reason: 'no approved search provider configured (blocker B-3)' },
-  ]) {
-    stagesSkipped.push(stage);
+  // --- Stages B and C: official company registries and licence registries. -----
+  //
+  // These were skipped from the day this worker was written, with the reason
+  // "source governance review not signed off". That refusal was correct and is not
+  // deleted here: what has changed is that the review it was waiting for now exists,
+  // per source, in src/sources/governance.ts -- what we read, how often, under whose
+  // terms, and what happens when the source refuses us. Each adapter still consults
+  // it, and a source whose review says BLOCKED or DISABLED_PAID_SOURCE cannot be
+  // switched on by any flag.
+  //
+  // Every source runs inside its own timeout and its own try/catch. A Texas plumbing
+  // licence is no less true because the Comptroller timed out, so one source failing
+  // must never cost the account what another source already established.
+  const { runOfficialSources } = await import('../sources/run.js');
+  const officialContext = await buildSourceContext(accountId, account, domainRows[0]?.hostname ?? null);
+  const official = await runOfficialSources({ context: officialContext });
+
+  people.push(...official.people);
+  endpoints.push(...official.endpoints);
+  stagesRun.push(...official.stagesRun);
+  stagesSkipped.push(...official.stagesSkipped);
+  for (const outcome of official.outcomes) {
+    notes.push(`${outcome.displayName}: ${outcome.status} — ${outcome.reason}`);
   }
+
+  // --- Stage D: search-indexed evidence. ----------------------------------------
+  stagesSkipped.push({
+    stage: 'D_search_indexed_evidence',
+    reason: 'no approved search provider configured (blocker B-3)',
+  });
 
   // --- Stage G: prospect and gatekeeper corrections already on file. -----------
   const { rows: corrections } = await query<{
@@ -247,6 +312,30 @@ export async function runContactResearch(
   await withTransaction(async (client) => {
     await persistResolution(client, accountId, resolution, researchRunId);
 
+    // Official facts, each carrying the agency that produced it and the date it was
+    // captured. A snapshot-sourced fact captures at the snapshot's download time, so
+    // freshness never claims more than the data supports.
+    for (const entry of official.facts) {
+      await recordEvidence(client, {
+        accountId,
+        researchRunId,
+        category: 'official_record',
+        claimKey: entry.fact.claimKey,
+        claimText: entry.fact.claimText,
+        normalizedValue: entry.fact.normalizedValue ?? null,
+        confidence: entry.fact.confidence,
+        canStateAsFact: entry.fact.canStateAsFact,
+        sourceType: 'public_registry',
+        sourceProvider: entry.sourceId,
+        sourceReference: entry.sourceReference,
+        observedAt: entry.capturedAt,
+        expiresAt: new Date(entry.capturedAt.getTime() + entry.fact.ttlDays * 86_400_000),
+        // Official records outrank the company's own marketing copy about itself,
+        // and are outranked by a person telling us directly.
+        precedenceRank: 1,
+      });
+    }
+
     for (const signal of signals) {
       await recordEvidence(client, {
         accountId,
@@ -279,6 +368,10 @@ export async function runContactResearch(
           pages_fetched: pagesFetched,
           pages_blocked: pagesBlocked,
           resolution_status: resolution.status,
+          // Per source: what it said, how it matched, how long it took, and whether
+          // the answer came from a cached snapshot. This is what an operator needs to
+          // answer "why does this account have no licence on it".
+          official_sources: official.outcomes,
         }),
       ],
     );
