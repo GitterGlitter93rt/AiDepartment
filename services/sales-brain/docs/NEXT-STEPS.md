@@ -33,25 +33,34 @@ each vertical express its own openings.
 rep filter "companies that serve this ZIP but are not located in it" — a real
 prospecting axis, and one the data model already keeps separate from the address.
 
-## 7. Decision-maker ranking across sources
-The resolver ranks people, but official-source people (officers, qualifiers, RMPs) now
-arrive alongside first-party ones and the ranking has not been retuned for them. A
-named officer from a state filing should probably outrank an unnamed role inbox.
+## 7. Decision-maker ranking for officers from filings
+Checked during the sprint and left deliberately conservative: the resolver penalises
+`EVIDENCE_ONLY_RELATIONSHIPS` (+40) so a qualifier, licence holder, member, officer or
+registered agent never wins routing on its own. An explicit `PRESIDENT` on a filing
+maps to `PRESIDENT` and ranks normally; an ambiguous officer title falls back to
+`OFFICER` and stays evidence-only.
 
-## 8. Licence-to-trade coverage checking in TDLR
-`flDbpr.licenceCoversVertical` checks that the licence found is the licence the trade
-needs. TDLR has no equivalent yet, so an electrical licence could satisfy an HVAC
-account's check.
+That is the right default under the data rules (OFFICER ≠ OWNER). But for a
+three-person LLC the officer on the filing usually *is* the decision maker, and a
+size-aware rule — company size, vertical, whether the site names anyone at all — would
+beat one constant. Worth revisiting with real data rather than by guessing.
 
-## 9. Snapshot refresh scheduling
+## 8. Snapshot refresh scheduling
 `loadSnapshot` supersedes correctly but nothing schedules a refresh. A snapshot should
 age visibly and re-download on a cadence, with the UI showing the download date — the
 read model already reports it honestly.
 
-## 10. Operator visibility for source outcomes
-`research_runs.adapter_results.official_sources` records per-source status, match
-method, duration and snapshot date. Nothing surfaces it. An operations panel answering
-"why does this account have no licence on it" would close the loop.
+## 9. An operations view of source health
+The Account page now answers "why is this panel empty" per account
+(`src/domain/sourceAudit.ts`). What is still missing is the fleet view: which sources
+are failing across all accounts, how often, and how stale the snapshots are. The data
+is already recorded per run.
+
+## 10. Live-fire validation of the fixture-only parsers
+Sunbiz and the State Bar parsers have never seen a live page, and the Comptroller,
+DBPR and TDLR parsers have seen one each during reconnaissance. The first time any of
+them runs against production HTML, expect selector adjustments. Budget an hour per
+source and keep the fixtures updated from whatever real markup is captured.
 
 ## Known limitations
 
@@ -60,6 +69,13 @@ method, duration and snapshot date. Nothing surfaces it. An operations panel ans
   expect to adjust selectors on first live contact.
 - **TDLR parsing is table-shape dependent.** Two programmes present slightly different
   columns; columns are matched by meaning, but a layout change will need a fixture.
-- **No licence-to-trade check for Texas** (see 8).
-- **`officialPersonHighlight` prefers RMP then qualifying agent.** It does not yet
-  consider officers, because officer seniority is not comparable across states.
+- **`officialPersonHighlight` prefers RMP then qualifying agent**, and deliberately
+  never a registered agent. It does not consider officers, because officer seniority is
+  not comparable across states — see 7.
+- **Scoring was not changed.** Completeness gained two dimensions (`official_entity`,
+  and `license_verified` where a state licenses the trade), but tier scoring is
+  untouched, so no account's tier moves because of this branch. Feeding official
+  verification into scoring is a deliberate follow-up, not an oversight.
+- **Nothing is enabled.** Every live source sits behind a flag or a refusal, so on
+  deployment this branch changes what the Account page *can* show, not what it does
+  show, until a source is switched on.
