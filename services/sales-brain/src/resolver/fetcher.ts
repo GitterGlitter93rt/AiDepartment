@@ -17,6 +17,107 @@ import { config } from '../config.js';
 const MAX_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 const PER_HOST_DELAY_MS = 1_500;
+const MAX_REDIRECTS = 5;
+
+/**
+ * Hosts research must never reach.
+ *
+ * Every URL this fetcher is given comes from outside: a domain a discovery provider
+ * returned, or a link on a page that domain served. A company whose website is
+ * recorded as `http://169.254.169.254/` would have this worker read the cloud
+ * metadata service and file the result as evidence about a prospect -- and a link to
+ * `http://127.0.0.1:8080/` would point it at this product's own API, authenticated
+ * as nobody but reachable all the same.
+ *
+ * Checked on the literal host and again on every address it resolves to, because a
+ * public name is allowed to resolve to a private address and that is precisely the
+ * interesting case. Redirects are followed manually for the same reason: a 302 to
+ * localhost is otherwise unobserved.
+ */
+const BLOCKED_HOSTNAMES = new Set([
+  'localhost', 'localhost.localdomain', 'metadata.google.internal',
+]);
+
+/** Expands a (possibly `::`-compressed) IPv6 literal into its eight groups. */
+function expandIpv6(input: string): number[] | null {
+  if (!/^[0-9a-f:]+$/.test(input)) return null;
+  const halves = input.split('::');
+  if (halves.length > 2) return null;
+  const parse = (part: string): number[] => part.length === 0 ? []
+    : part.split(':').map((group) => Number.parseInt(group, 16));
+  const head = parse(halves[0] ?? '');
+  const tail = halves.length === 2 ? parse(halves[1] ?? '') : [];
+  if ([...head, ...tail].some((group) => !Number.isInteger(group) || group < 0 || group > 0xffff)) {
+    return null;
+  }
+  if (halves.length === 1) return head.length === 8 ? head : null;
+  const fill = 8 - head.length - tail.length;
+  if (fill < 0) return null;
+  return [...head, ...Array<number>(fill).fill(0), ...tail];
+}
+
+function isPrivateAddress(address: string): boolean {
+  const ip = address.trim().toLowerCase();
+  // IPv6, including the mapped-IPv4 forms that would otherwise slip past.
+  //
+  // `new URL()` rewrites [::ffff:127.0.0.1] to its compressed hex form ::ffff:7f00:1,
+  // so matching only the dotted spelling catches the one nobody would type and
+  // misses the one the URL parser actually produces.
+  if (ip.includes(':')) {
+    if (ip === '::' || ip === '::1') return true;
+    if (/^f[cd][0-9a-f]{2}:/.test(ip)) return true;          // unique-local
+    if (/^fe[89ab][0-9a-f]:/.test(ip)) return true;          // link-local
+    const dotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
+    if (dotted) return isPrivateAddress(dotted[1]!);
+    const groups = expandIpv6(ip);
+    if (groups && groups[5] === 0xffff
+      && groups.slice(0, 5).every((group) => group === 0)) {
+      const high = groups[6]!;
+      const low = groups[7]!;
+      return isPrivateAddress(
+        `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`);
+    }
+    return false;
+  }
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+  const [a, b] = parts as [number, number, number, number];
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;                   // link-local / metadata
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;         // carrier-grade NAT
+  if (a === 192 && b === 0) return true;                     // 192.0.0.0/24, 192.0.2.0/24
+  if (a >= 224) return true;                                 // multicast and reserved
+  return false;
+}
+
+/** Resolves a hostname and refuses it if anything it points at is internal. */
+async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (BLOCKED_HOSTNAMES.has(host) || host.endsWith('.localhost') || host.endsWith('.internal')) {
+    return false;
+  }
+  // A literal address needs no lookup, and must not get one.
+  if (/^[0-9.]+$/.test(host) || host.includes(':')) return !isPrivateAddress(host);
+
+  const { lookup } = await import('node:dns/promises');
+  try {
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    if (addresses.length === 0) return true;
+    return addresses.every((entry) => !isPrivateAddress(entry.address));
+  } catch {
+    // The question is "does this point somewhere internal", not "does this resolve".
+    // A name we cannot resolve is a name `fetch` cannot resolve either, so letting it
+    // through costs nothing and the request simply fails. Refusing here instead would
+    // make the guard depend on live DNS for correctness, which is both a false
+    // negative in any offline environment and a test that passes for the wrong
+    // reason.
+    return true;
+  }
+}
 
 const lastRequestAt = new Map<string, number>();
 const robotsCache = new Map<string, RobotsRules>();
@@ -29,7 +130,8 @@ export interface FetchResult {
   contentType: string;
   body: string;
   /** Set when we declined to fetch rather than failing to. */
-  blockedReason?: 'robots_disallow' | 'login_required' | 'anti_bot' | 'not_html' | 'too_large';
+  blockedReason?: 'robots_disallow' | 'login_required' | 'anti_bot' | 'not_html'
+    | 'too_large' | 'private_address';
 }
 
 interface RobotsRules {
@@ -134,6 +236,13 @@ export async function politeFetch(url: string): Promise<FetchResult> {
     return { ok: false, status: 0, url, finalUrl: url, contentType: '', body: '' };
   }
 
+  if (!(await resolvesToPublicAddress(target.hostname))) {
+    return {
+      ok: false, status: 0, url, finalUrl: url, contentType: '', body: '',
+      blockedReason: 'private_address',
+    };
+  }
+
   const origin = target.origin;
   const rules = await robotsFor(origin);
   if (!pathAllowed(rules, target.pathname)) {
@@ -151,15 +260,55 @@ export async function politeFetch(url: string): Promise<FetchResult> {
   lastRequestAt.set(origin, Date.now());
 
   try {
-    const response = await fetch(target.toString(), {
-      headers: {
-        'user-agent': config.worker.userAgent,
-        accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5',
-        'accept-language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      redirect: 'follow',
-    });
+    // Redirects are followed by hand, one hop at a time.
+    //
+    // `redirect: 'follow'` hands the whole chain to undici, which re-checks nothing:
+    // a public URL that 302s to http://127.0.0.1/ would be fetched and returned as
+    // though the origin had served it. Each hop is re-resolved and re-refused here.
+    let response!: Response;
+    let current = target;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+      response = await fetch(current.toString(), {
+        headers: {
+          'user-agent': config.worker.userAgent,
+          accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5',
+          'accept-language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        redirect: 'manual',
+      });
+      if (![301, 302, 303, 307, 308].includes(response.status)) break;
+      const location = response.headers.get('location');
+      if (!location) break;
+      let next: URL;
+      try {
+        next = new URL(location, current);
+      } catch {
+        return { ok: false, status: response.status, url, finalUrl: current.toString(),
+          contentType: '', body: '' };
+      }
+      if (next.protocol !== 'http:' && next.protocol !== 'https:') {
+        return { ok: false, status: response.status, url, finalUrl: current.toString(),
+          contentType: '', body: '', blockedReason: 'private_address' };
+      }
+      if (!(await resolvesToPublicAddress(next.hostname))) {
+        return { ok: false, status: response.status, url, finalUrl: next.toString(),
+          contentType: '', body: '', blockedReason: 'private_address' };
+      }
+      // A redirect onto a new host is a new host's robots question.
+      if (next.origin !== current.origin) {
+        const nextRules = await robotsFor(next.origin);
+        if (!pathAllowed(nextRules, next.pathname)) {
+          return { ok: false, status: response.status, url, finalUrl: next.toString(),
+            contentType: '', body: '', blockedReason: 'robots_disallow' };
+        }
+      }
+      current = next;
+      if (hop === MAX_REDIRECTS) {
+        return { ok: false, status: response.status, url, finalUrl: current.toString(),
+          contentType: '', body: '' };
+      }
+    }
 
     const contentType = response.headers.get('content-type') ?? '';
     const declaredLength = Number(response.headers.get('content-length') ?? 0);
@@ -184,7 +333,7 @@ export async function politeFetch(url: string): Promise<FetchResult> {
 
     return {
       ok: response.ok, status: response.status, url,
-      finalUrl: response.url || url, contentType, body,
+      finalUrl: response.url || current.toString() || url, contentType, body,
     };
   } catch {
     return { ok: false, status: 0, url, finalUrl: url, contentType: '', body: '' };
