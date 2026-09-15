@@ -168,6 +168,13 @@ export interface AccountDetail {
    */
   readiness: Readiness;
   discoveries: DetailDiscovery[];
+  /**
+   * Where the official sources were asked and what each said.
+   *
+   * Empty until a research run records them. An empty *panel* and "we looked and
+   * found nothing" are different sentences, which is the whole reason this is here.
+   */
+  sourceAttempts: import('./sourceAudit.js').SourceAttempt[];
   timeline: TimelineEvent[];
   followUps: Record<string, any>[];
   suppressions: Record<string, any>[];
@@ -353,6 +360,11 @@ export async function getAccountDetail(
 
   const entity = await entityPictureFor(accountId);
 
+  // Read after the parallel block: it depends on nothing else here, and a failure to
+  // explain where we looked must never cost the page the rest of the account.
+  const { sourceAttemptsFor } = await import('./sourceAudit.js');
+  const sourceAttempts = await sourceAttemptsFor(accountId).catch(() => []);
+
   return {
     account,
     locations: locations.rows,
@@ -361,6 +373,7 @@ export async function getAccountDetail(
     hypotheses: hypotheses.rows,
     evidence: evidence.rows,
     discoveries: discoveries.rows,
+    sourceAttempts,
     timeline: timeline.rows,
     followUps: followUps.rows,
     suppressions: suppressions.rows,

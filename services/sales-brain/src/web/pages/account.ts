@@ -742,7 +742,7 @@ function renderBusinessSnapshot(detail: AccountDetail): RawHtml {
 
   // Nothing researched yet is worth saying once, rather than printing six empty
   // panels that each look like a failed check.
-  if (populated.length === 0 && !highlight) {
+  if (populated.length === 0 && !highlight && detail.sourceAttempts.length === 0) {
     return html`<div class="section">
       <h3>Business snapshot</h3>
       <p class="muted small">Nothing has been researched for this company yet. What is
@@ -786,6 +786,23 @@ function renderBusinessSnapshot(detail: AccountDetail): RawHtml {
             </tbody>
           </table>
         </div>`)}
+
+    ${detail.sourceAttempts.length === 0 ? '' : html`
+      <div style="margin-top:12px">
+        <div class="small"><strong>Where we looked</strong></div>
+        <ul style="margin:4px 0 0;padding-left:18px">
+          ${detail.sourceAttempts.map((attempt) => html`<li class="micro ${
+            attempt.aboutTheCompany ? '' : 'muted'}">
+            ${attempt.summary}
+            ${attempt.snapshotDownloadedAt
+              // A cached answer is only ever as fresh as its download, and the page
+              // says so rather than implying it was checked just now.
+              ? html` <span class="muted">(from a dataset downloaded ${
+                  relativeTime(attempt.snapshotDownloadedAt)})</span>`
+              : ''}
+          </li>`)}
+        </ul>
+      </div>`}
 
     <p class="micro muted">
       <strong>Verified</strong> means an official record says so. <strong>They say</strong>
