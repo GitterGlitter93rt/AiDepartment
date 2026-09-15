@@ -18,6 +18,7 @@ const MAX_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 const PER_HOST_DELAY_MS = 1_500;
 const MAX_REDIRECTS = 5;
+const DNS_TIMEOUT_MS = 2_000;
 
 /**
  * Hosts research must never reach.
@@ -94,6 +95,18 @@ function isPrivateAddress(address: string): boolean {
   return false;
 }
 
+/**
+ * Reserved names that cannot resolve to anything, internal or otherwise.
+ *
+ * RFC 2606 and RFC 6761 guarantee these are never delegated, so asking a resolver
+ * about them buys nothing and costs a full DNS timeout each. `.localhost` is the
+ * exception and is refused above: it resolves, to exactly the place we must not go.
+ */
+const UNRESOLVABLE_TLDS = ['.invalid', '.test', '.example'];
+
+/** Verdict per host, so eight pages of one site ask the resolver once. */
+const addressVerdicts = new Map<string, boolean>();
+
 /** Resolves a hostname and refuses it if anything it points at is internal. */
 async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
@@ -102,12 +115,24 @@ async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
   }
   // A literal address needs no lookup, and must not get one.
   if (/^[0-9.]+$/.test(host) || host.includes(':')) return !isPrivateAddress(host);
+  // Reserved and undelegatable: not internal, and not worth a resolver round trip.
+  if (UNRESOLVABLE_TLDS.some((tld) => host.endsWith(tld))) return true;
+
+  const cached = addressVerdicts.get(host);
+  if (cached !== undefined) return cached;
 
   const { lookup } = await import('node:dns/promises');
   try {
-    const addresses = await lookup(host, { all: true, verbatim: true });
-    if (addresses.length === 0) return true;
-    return addresses.every((entry) => !isPrivateAddress(entry.address));
+    // Bounded: a resolver that never answers must not hold a crawl open.
+    const addresses = await Promise.race([
+      lookup(host, { all: true, verbatim: true }),
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error('dns timeout')), DNS_TIMEOUT_MS)),
+    ]);
+    const verdict = addresses.length === 0
+      || addresses.every((entry) => !isPrivateAddress(entry.address));
+    addressVerdicts.set(host, verdict);
+    return verdict;
   } catch {
     // The question is "does this point somewhere internal", not "does this resolve".
     // A name we cannot resolve is a name `fetch` cannot resolve either, so letting it
@@ -115,6 +140,7 @@ async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
     // make the guard depend on live DNS for correctness, which is both a false
     // negative in any offline environment and a test that passes for the wrong
     // reason.
+    addressVerdicts.set(host, true);
     return true;
   }
 }
@@ -344,4 +370,5 @@ export async function politeFetch(url: string): Promise<FetchResult> {
 export function resetFetchState(): void {
   lastRequestAt.clear();
   robotsCache.clear();
+  addressVerdicts.clear();
 }

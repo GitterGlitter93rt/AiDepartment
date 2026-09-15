@@ -8,6 +8,8 @@ import { isManager } from '../../domain/auth.js';
 import {
   endpointLabel, endpointRoleLabel, type AccountDetail, type DetailContact, type DetailEndpoint,
 } from '../../domain/accountDetail.js';
+import { buildBusinessSnapshot, officialPersonHighlight, type SnapshotItem }
+  from '../../domain/businessSnapshot.js';
 
 /**
  * Account detail. Same content renders as a full page and as the drawer body.
@@ -233,6 +235,8 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
       </ul>
     </div>
   </div>
+
+  ${renderBusinessSnapshot(detail)}
 
   ${discoveries.length > 0 ? html`
   <div class="section">
@@ -707,3 +711,85 @@ export function renderAccountPage(
 }
 
 export { isManager };
+
+/**
+ * How certain a line is, said in the line itself.
+ *
+ * A rep reading an account cannot be expected to remember which panel is verified and
+ * which is marketing copy, so each row carries it. FACT is the state saying so;
+ * OBSERVATION is the company saying so; and a stale row says when it was true rather
+ * than disappearing, because "we knew this in March" beats a blank.
+ */
+function claimBadge(item: SnapshotItem): RawHtml {
+  if (item.stale) {
+    return html`<span class="badge" title="This was true when we last looked; it may have changed."
+      >was true ${relativeTime(item.observedAt)}</span>`;
+  }
+  return item.kind === 'FACT'
+    ? html`<span class="badge badge-good" title="Stated by an official record.">verified</span>`
+    : html`<span class="badge" title="The company says this about itself. We have not verified it."
+      >they say</span>`;
+}
+
+function renderBusinessSnapshot(detail: AccountDetail): RawHtml {
+  const sections = buildBusinessSnapshot({
+    evidence: detail.evidence,
+    stateRegion: (detail.locations[0]?.['state_region'] as string | null) ?? null,
+    verticalProfileId: (detail.account['primary_vertical_profile_id'] as string | null) ?? null,
+  });
+  const populated = sections.filter((section) => section.items.length > 0);
+  const highlight = officialPersonHighlight(detail.evidence);
+
+  // Nothing researched yet is worth saying once, rather than printing six empty
+  // panels that each look like a failed check.
+  if (populated.length === 0 && !highlight) {
+    return html`<div class="section">
+      <h3>Business snapshot</h3>
+      <p class="muted small">Nothing has been researched for this company yet. What is
+      above is what discovery found, which is not the same as what is there.</p>
+    </div>`;
+  }
+
+  return html`<div class="section">
+    <h3>Business snapshot</h3>
+
+    ${highlight ? html`
+      <div class="callout" style="margin-bottom:10px">
+        <div><strong>${highlight.label}:</strong> ${highlight.value}</div>
+        <div class="micro muted" style="margin-top:4px">
+          From ${highlight.sourceLabel}. This is a regulatory role, which is not the
+          same as ownership \u2014 ask for them by the role the record gives them.
+        </div>
+      </div>` : ''}
+
+    ${sections.map((section) => section.items.length === 0
+      ? html`<div style="margin-bottom:10px">
+          <div class="small"><strong>${section.title}</strong></div>
+          <div class="micro muted">${section.emptyNote}</div>
+        </div>`
+      : html`<div style="margin-bottom:12px">
+          <div class="small"><strong>${section.title}</strong></div>
+          <table class="table" style="margin-top:4px">
+            <tbody>
+              ${section.items.map((item) => html`<tr>
+                <td style="width:38%" class="small">${titleCase(item.label)}</td>
+                <td class="small">
+                  ${item.value}
+                  <span style="margin-left:6px">${claimBadge(item)}</span>
+                  <div class="micro muted">
+                    ${item.sourceLabel}${item.observedAt
+                      ? html` &middot; read ${relativeTime(item.observedAt)}` : ''}
+                  </div>
+                </td>
+              </tr>`)}
+            </tbody>
+          </table>
+        </div>`)}
+
+    <p class="micro muted">
+      <strong>Verified</strong> means an official record says so. <strong>They say</strong>
+      means the company states it on its own site and nobody has checked it. Anything
+      not listed is not known, which is not the same as no.
+    </p>
+  </div>`;
+}

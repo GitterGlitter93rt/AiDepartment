@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { advertiserEvidenceFor, type AdvertiserState } from './advertiserEvidence.js';
+import { licensingRequirement } from '../sources/requirements.js';
 
 /**
  * What we know about a company, and how we know it.
@@ -256,6 +257,61 @@ export async function researchPictureFor(accountId: string): Promise<ResearchPic
         ? 'No named decision-maker was found in public sources. Ask the gatekeeper.'
         : 'Nobody has looked for a named person.',
   });
+
+  // --- are they real, and are they licensed ------------------------------------
+  //
+  // "Are they a real business" is one of the handful of questions a rep has to answer
+  // before spending an hour on an account, and until the official-source stages ran
+  // there was nothing in the fact model that could answer it.
+  const entityEvidence = evidence.find((row) =>
+    (row.claim_key === 'entity_status' || row.claim_key === 'entity_right_to_transact')
+    && !row.expired);
+  facts.push({
+    key: 'official_entity', label: 'Registered with the state',
+    state: entityEvidence ? 'YES' : everResearched ? 'NOT_OBSERVED' : 'NOT_CHECKED',
+    observedAt: entityEvidence?.observed_at ?? null,
+    canStateAsFact: Boolean(entityEvidence),
+    detail: entityEvidence
+      ? entityEvidence.claim_text
+      : everResearched
+        ? 'No official company record has been matched to this business. That may mean '
+          + 'it trades under another legal name, or that the registry could not be read.'
+        : 'Nobody has checked the state register for this company.',
+  });
+
+  /**
+   * The licence dimension exists only where the state issues a licence.
+   *
+   * Texas issues no statewide roofing licence. Including this fact for a Texas roofer
+   * would make every one of them permanently incomplete for failing a check they
+   * never had to sit -- and would show a rep a gap that is not a gap. So the
+   * dimension is omitted entirely rather than scored as unknown, which is the
+   * difference between "not applicable" and "not answered".
+   */
+  const { rows: stateRows } = await query<{ state_region: string | null }>(
+    `select state_region from locations
+      where account_id = $1 and is_active and state_region is not null
+      order by (location_type = 'physical') desc, created_at asc limit 1`,
+    [accountId]);
+  const licensing = licensingRequirement(
+    stateRows[0]?.state_region ?? null,
+    account?.primary_vertical_profile_id ?? null);
+  if (licensing.scope === 'STATEWIDE') {
+    const licenceEvidence = evidence.find((row) =>
+      row.claim_key === 'professional_license_status' && !row.expired);
+    facts.push({
+      key: 'license_verified', label: 'Licence verified',
+      state: licenceEvidence ? 'YES' : everResearched ? 'NOT_OBSERVED' : 'NOT_CHECKED',
+      observedAt: licenceEvidence?.observed_at ?? null,
+      canStateAsFact: Boolean(licenceEvidence),
+      detail: licenceEvidence
+        ? licenceEvidence.claim_text
+        : everResearched
+          ? `${licensing.authority} licenses this trade and no licence has been matched `
+            + 'to this company. Worth checking before a conversation about compliance.'
+          : 'The licence register has not been checked.',
+    });
+  }
 
   // --- what they do ------------------------------------------------------------
   //
