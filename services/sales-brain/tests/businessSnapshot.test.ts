@@ -159,3 +159,34 @@ test('an unchecked register is not a company that failed a check', async () => {
   assert.notEqual(fact.state, 'NO',
     'never having looked at the register was reported as a negative finding');
 });
+
+test('site checks lead with what is missing, not what is fine', () => {
+  const sections = buildBusinessSnapshot({
+    evidence: [
+      evidence({ category: 'site_quality', claim_key: 'site_title',
+        normalized_value: 'yes', claim_text: 'The home page has a title.',
+        source_type: 'first_party' }),
+      evidence({ category: 'site_quality', claim_key: 'site_mobile_viewport',
+        normalized_value: 'no',
+        claim_text: 'The site declares no mobile viewport.', source_type: 'first_party' }),
+    ],
+    stateRegion: 'FL', verticalProfileId: 'plumbing',
+  });
+  const site = sections.find((section) => section.id === 'site')!;
+  assert.equal(site.items[0]!.label, 'Mobile-ready',
+    'a rep scanning for gaps had to read past the things that are fine');
+  assert.equal(site.items[0]!.value, 'No');
+  assert.equal(site.items[0]!.detail, 'The site declares no mobile viewport.',
+    '"Mobile-ready: No" was shown without the sentence that explains it');
+});
+
+test('a site check is an observation about the page, not a verified fact', () => {
+  const sections = buildBusinessSnapshot({
+    evidence: [evidence({ category: 'site_quality', claim_key: 'site_https',
+      normalized_value: 'yes', claim_text: 'Served over HTTPS.',
+      source_type: 'first_party' })],
+    stateRegion: 'FL', verticalProfileId: 'plumbing',
+  });
+  assert.equal(sections.find((section) => section.id === 'site')!.items[0]!.kind,
+    'OBSERVATION');
+});

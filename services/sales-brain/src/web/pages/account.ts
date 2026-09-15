@@ -776,6 +776,7 @@ function renderBusinessSnapshot(detail: AccountDetail): RawHtml {
                 <td class="small">
                   ${item.value}
                   <span style="margin-left:6px">${claimBadge(item)}</span>
+                  ${item.detail ? html`<div class="micro muted">${item.detail}</div>` : ''}
                   <div class="micro muted">
                     ${item.sourceLabel}${item.observedAt
                       ? html` &middot; read ${relativeTime(item.observedAt)}` : ''}

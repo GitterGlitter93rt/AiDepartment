@@ -29,6 +29,14 @@ export interface SnapshotItem {
   observedAt: Date | null;
   /** True when the evidence has aged past its own expiry. */
   stale: boolean;
+  /**
+   * The full sentence, when the value alone does not carry the meaning.
+   *
+   * "Footer copyright: No" is not a sentence a rep can use. The claim text is --
+   * it says which year, and that a stale footer is worth a question rather than a
+   * conclusion.
+   */
+  detail?: string;
 }
 
 export interface SnapshotSection {
@@ -107,6 +115,14 @@ const CLAIM_LABELS: Record<string, string> = {
   license_number_displayed: 'Licence number shown on site',
   stated_service_area: 'Service area',
   stated_hours: 'Hours',
+  promotions_offered: 'Promotions',
+  referral_program: 'Referral programme',
+  site_https: 'HTTPS',
+  site_mobile_viewport: 'Mobile-ready',
+  site_meta_description: 'Meta description',
+  site_title: 'Page title',
+  site_local_business_schema: 'Local business markup',
+  site_copyright_year: 'Footer copyright',
 };
 
 const OFFICIAL_ENTITY_KEYS = [
@@ -126,7 +142,8 @@ const PROFILE_KEYS = [
   'year_founded', 'years_in_business', 'family_owned', 'locally_owned',
   'franchise_affiliation', 'stated_service_area', 'stated_hours',
   'spanish_language_service', 'insurance_claim_assistance', 'membership_plan_offered',
-  'licensed_and_insured_claim', 'license_number_displayed',
+  'licensed_and_insured_claim', 'license_number_displayed', 'promotions_offered',
+  'referral_program',
 ];
 
 function toItem(evidence: DetailEvidence, provider?: string | null): SnapshotItem {
@@ -189,6 +206,22 @@ export function buildBusinessSnapshot(input: SnapshotInput): SnapshotSection[] {
       label: entry.claim_key.replace(/^route_/, '').replace(/_/g, ' '),
     }));
 
+  /**
+   * Site checks, weakest-first so what is missing leads.
+   *
+   * A rep scanning this panel wants the gaps, not the ticks: "no mobile viewport" is
+   * the line that changes a conversation and "has a title tag" is not.
+   */
+  const siteQuality = input.evidence
+    .filter((entry) => entry.category === 'site_quality')
+    .sort((left, right) =>
+      Number(left.normalized_value === 'yes') - Number(right.normalized_value === 'yes'))
+    .map((entry) => ({
+      ...toItem(entry, provider(entry)),
+      value: entry.normalized_value === 'yes' ? 'Yes' : 'No',
+      detail: entry.claim_text,
+    }));
+
   const socials = input.evidence
     .filter((entry) => entry.category === 'social_profile')
     .map((entry) => ({
@@ -237,6 +270,11 @@ export function buildBusinessSnapshot(input: SnapshotInput): SnapshotSection[] {
       id: 'social', title: 'Social profiles they link to',
       emptyNote: 'Their site links to no social profiles.',
       items: socials,
+    },
+    {
+      id: 'site', title: 'Their website itself',
+      emptyNote: 'The site has not been read yet.',
+      items: siteQuality,
     },
   ];
 }
