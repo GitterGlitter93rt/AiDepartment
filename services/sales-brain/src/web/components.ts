@@ -278,6 +278,17 @@ function discoveryNote(
         <span>The search provider has accepted a search of ${geographyLabel} and has
         not answered yet. It will be collected rather than run again.</span>
       </div>`;
+    case 'FULFILLED_LATER':
+      // Deliberately not a warning, and deliberately not "no provider answered".
+      // A task is closed COLLECTED only once its results are in inventory, so this
+      // is a completed, paid-for search whose businesses are already here -- the
+      // opposite of a provider that could not answer.
+      return html`<div class="coverage-note">
+        <span class="dot"></span>
+        <span>The provider completed this search of ${geographyLabel} after the
+        original run ended. Its results were collected into inventory. Nothing is
+        currently outstanding.${refusedNote}</span>
+      </div>`;
     case 'PROVIDER_UNAVAILABLE':
       return html`<div class="coverage-note warn">
         <span class="dot"></span>
@@ -354,7 +365,14 @@ export function coverageNote(coverage: {
   // withheld; researching companies already in inventory is a different question and
   // is not waiting on anybody.
   const awaitingProvider = coverage.discovery?.state === 'PENDING';
-  const canBuyDiscovery = canResearch && canDiscover && !awaitingProvider;
+  // A search that has just been delivered is not a market to go and buy again. The
+  // job row still says PROVIDER_PENDING for ever, and offering a paid search off the
+  // back of that would spend money to re-learn what the collection already put in
+  // inventory. It ages out: once the collection passes the staleness window the
+  // discovery state becomes STALE, which offers a refresh in the ordinary way.
+  const freshlyFulfilled = coverage.discovery?.state === 'FULFILLED_LATER';
+  const canBuyDiscovery = canResearch && canDiscover
+    && !awaitingProvider && !freshlyFulfilled;
 
   // A tier filter hides Accounts with no tier, and an Account with no tier is one
   // nobody has researched -- not one that scored badly. Without this line the rep

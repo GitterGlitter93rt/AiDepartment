@@ -6,7 +6,7 @@ import { pool, query } from '../src/db/pool.js';
 import { buildServer } from '../src/api/server.js';
 import { createUser } from '../src/domain/auth.js';
 import { syncVerticalProfiles } from '../src/domain/verticals.js';
-import { coverageFor } from '../src/domain/search.js';
+import { coverageFor, DISCOVERY_STALE_AFTER_DAYS } from '../src/domain/search.js';
 import { clearDiscoveryAdapters, registerDiscoveryAdapter } from '../src/workers/marketMiner.js';
 import { resetDatabase } from './helpers.js';
 import { observationsFor } from './support/observations.js';
@@ -112,6 +112,14 @@ async function providerTask(input: {
   miningMode?: string;
   term?: string;
   errorCode?: string | null;
+  /**
+   * How long ago the task was closed.
+   *
+   * `closeProviderTask` stamps `collected_at` on every close, not just a successful
+   * one, so the fixture does the same -- otherwise a test could pass because the
+   * read model was reading a column that real rows always carry.
+   */
+  closedAgeDays?: number;
 }): Promise<void> {
   sequence += 1;
   const fingerprint = [
@@ -121,10 +129,12 @@ async function providerTask(input: {
   ].join(':');
   await query(
     `insert into provider_tasks (provider, provider_native_id, job_id, fingerprint,
-                                 status, error_code)
-     values ('dataforseo', $1, $2, $3, $4, $5)`,
+                                 status, error_code, collected_at)
+     values ('dataforseo', $1, $2, $3, $4, $5,
+             case when $4 = 'PENDING' then null
+                  else now() - ($6 || ' days')::interval end)`,
     [`native-task-${sequence}`, input.jobId, fingerprint, input.status,
-      input.errorCode ?? null],
+      input.errorCode ?? null, String(input.closedAgeDays ?? 0)],
   );
 }
 
@@ -273,7 +283,7 @@ test('a task outstanding under its fingerprint alone is still outstanding', asyn
     'an outstanding task with no job link was treated as no task at all');
 });
 
-for (const settled of ['COLLECTED', 'ABANDONED', 'FAILED']) {
+for (const settled of ['ABANDONED', 'FAILED']) {
   test(`a historical PROVIDER_PENDING run whose task is ${settled} is not pending`,
     async () => {
       providerConfigured();
@@ -295,6 +305,127 @@ test('a historical PROVIDER_PENDING run with no task at all is not pending', asy
   assert.notEqual(discovery.state, 'PENDING');
   assert.equal(discovery.state, 'PROVIDER_UNAVAILABLE');
 });
+
+// ------------------------------- collected is a completed search, not a failure --
+
+/**
+ * A task is closed COLLECTED only once its results are in inventory -- marketMiner:
+ * "the task is only finished with once its results are in inventory". So a collected
+ * task is a search that completed, was paid for, and whose businesses are already
+ * here. Calling that "no provider answered" is false twice over: it reports a
+ * success as a failure, and it invites buying the same market again to learn what
+ * the collection already delivered.
+ */
+test('a historical PROVIDER_PENDING run whose task was COLLECTED is fulfilled, not failed',
+  async () => {
+    providerConfigured();
+    const job = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+    await providerTask({ jobId: job, status: 'COLLECTED' });
+
+    const discovery = await discoveryFor('plumbing');
+    assert.notEqual(discovery.state, 'PENDING', 'a delivered search was still owed');
+    assert.notEqual(discovery.state, 'PROVIDER_UNAVAILABLE',
+      'a completed, ingested, paid-for search was reported as a provider failure');
+    assert.equal(discovery.state, 'FULFILLED_LATER');
+  });
+
+test('a collected search does not tell a rep no provider answered', async () => {
+  providerConfigured();
+  const job = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+  await providerTask({ jobId: job, status: 'COLLECTED' });
+
+  const page = await findPage('plumbing');
+  assert.doesNotMatch(page, /No provider answered/,
+    'a search that was delivered and ingested was reported as unanswered');
+  assert.doesNotMatch(page, /could not be completed/);
+  // Whitespace-tolerant: the copy wraps across lines in the template literal, and
+  // HTML collapses that on render.
+  assert.match(page, /completed this search/);
+  assert.match(page, /collected into inventory/);
+  assert.match(page, /Nothing is\s+currently outstanding/);
+});
+
+test('a freshly collected search does not invite buying the same market again',
+  async () => {
+    providerConfigured();
+    const job = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+    await providerTask({ jobId: job, status: 'COLLECTED' });
+
+    const page = await findPage('plumbing');
+    assert.doesNotMatch(page, /Research this market/,
+      'the page offered a paid search of a market whose results had just landed, '
+      + 'purely because the old job row still says PROVIDER_PENDING');
+  });
+
+test('a collected search ages out and becomes researchable again', async () => {
+  providerConfigured();
+  // Dated from the collection rather than from the job: a search delivered late is
+  // news as of when it arrived.
+  const job = await minedJob({
+    vertical: 'plumbing', outcome: 'PROVIDER_PENDING', ageDays: 90 });
+  await providerTask({
+    jobId: job, status: 'COLLECTED', closedAgeDays: DISCOVERY_STALE_AFTER_DAYS + 5 });
+
+  const discovery = await discoveryFor('plumbing');
+  assert.equal(discovery.state, 'STALE',
+    'a collection old enough for the market to have moved was still called current');
+
+  const page = await findPage('plumbing');
+  assert.match(page, /Research this market/,
+    'a market whose last delivered search has aged out stopped being researchable');
+});
+
+test('the freshness of a late delivery is the collection, not the job', async () => {
+  providerConfigured();
+  const job = await minedJob({
+    vertical: 'plumbing', outcome: 'PROVIDER_PENDING', ageDays: 120 });
+  await providerTask({ jobId: job, status: 'COLLECTED', closedAgeDays: 1 });
+
+  const discovery = await discoveryFor('plumbing');
+  assert.equal(discovery.state, 'FULFILLED_LATER',
+    'a search collected yesterday was aged from a job that ended four months ago');
+  const age = Date.now() - new Date(discovery.lastRunAt!).getTime();
+  assert.ok(age < 3 * 86_400_000,
+    'the market was dated from the job rather than from the delivery');
+});
+
+// ----------------------------------------- a run buys a family, not one search --
+
+test('one search still owed keeps the whole family pending', async () => {
+  providerConfigured();
+  const job = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+  await providerTask({ jobId: job, status: 'COLLECTED', term: 'drain cleaning' });
+  await providerTask({ jobId: job, status: 'PENDING', term: 'water heater repair' });
+
+  assert.equal((await discoveryFor('plumbing')).state, 'PENDING',
+    'a search the provider still owes us was hidden by a sibling that landed');
+});
+
+test('some delivered and some given up on is part of the market, not all of it',
+  async () => {
+    providerConfigured();
+    const job = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+    await providerTask({ jobId: job, status: 'COLLECTED', term: 'drain cleaning' });
+    await providerTask({
+      jobId: job, status: 'ABANDONED', term: 'water heater repair',
+      errorCode: 'NEVER_DELIVERED' });
+
+    const discovery = await discoveryFor('plumbing');
+    assert.equal(discovery.state, 'PARTIAL',
+      'a half-delivered family was reported as whole or as a total failure');
+    assert.notEqual(discovery.state, 'FULFILLED_LATER');
+    assert.notEqual(discovery.state, 'PROVIDER_UNAVAILABLE');
+  });
+
+test('a family given up on entirely is still a provider that did not answer',
+  async () => {
+    providerConfigured();
+    const job = await minedJob({ vertical: 'plumbing', outcome: 'PROVIDER_PENDING' });
+    await providerTask({ jobId: job, status: 'ABANDONED', term: 'drain cleaning' });
+    await providerTask({ jobId: job, status: 'FAILED', term: 'water heater repair' });
+
+    assert.equal((await discoveryFor('plumbing')).state, 'PROVIDER_UNAVAILABLE');
+  });
 
 test('somebody else’s open task does not keep this market pending', async () => {
   providerConfigured();

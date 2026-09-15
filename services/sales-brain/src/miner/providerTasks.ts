@@ -111,41 +111,83 @@ export async function hasOpenProviderTaskForMarket(
 }
 
 /**
- * Whether a provider still owes us results for one particular discovery run.
+ * What the provider actually did with one discovery run's searches.
  *
  * `jobs.outcome = 'PROVIDER_PENDING'` is a record of how a run *ended*, not a
  * statement about now. It is written once, when the bounded poll gives up, and
  * nothing ever rewrites it -- so a job that ended pending in June still says
- * PROVIDER_PENDING after its task has been collected, has failed, or was abandoned.
- * The read model treated that historical sentence as a live one and told a rep "the
- * provider has accepted a search and it will be collected rather than run again"
- * about a task nobody was waiting for.
+ * PROVIDER_PENDING after its tasks have been collected, have failed, or were
+ * abandoned. The read model treated that historical sentence as a live one and told
+ * a rep "the provider has accepted a search and it will be collected rather than run
+ * again" about a task nobody was waiting for.
  *
- * The authority is the task table. Bound two ways because either alone has a hole:
- * `job_id` is the exact link but is nullable (`on delete set null`, and a task may be
- * recorded without one), and the fingerprint prefix catches the whole family of
- * searches a run bought but would also match a *different* run of the same market.
- * Either is enough to prove something is genuinely outstanding, and proving it
- * matters more than attributing it -- reporting "nothing is owed" while a paid task
- * is open is what invites buying the same market twice.
+ * Counted rather than answered yes/no, because the four outcomes are four different
+ * things to tell an operator and one of them costs money to get wrong. COLLECTED in
+ * particular is not a failure: `closeProviderTask` is called with it only after the
+ * results are in inventory (marketMiner "the task is only finished with once its
+ * results are in inventory"), so a collected task means the search completed, was
+ * paid for, and its businesses are already here. Reporting that as "no provider
+ * answered" would invite buying the same market a second time to learn what we
+ * already know.
+ *
+ * Bound two ways because either alone has a hole: `job_id` is the exact link but is
+ * nullable (`on delete set null`, and a task may be recorded without one), and the
+ * fingerprint prefix catches the whole family of searches a run bought but would
+ * also match a *different* run of the same market. Either is enough to prove
+ * something is genuinely outstanding, and proving it matters more than attributing
+ * it -- reporting "nothing is owed" while a paid task is open is what invites buying
+ * the same market twice.
  *
  * The prefix is escaped: a geography carrying `%` or `_` would otherwise widen the
  * match into other markets and resurrect the false-pending bug from the other side.
  */
-export async function hasOutstandingProviderTaskForDiscovery(input: {
+export interface DiscoveryTaskSummary {
+  /** Searches the provider still owes us. */
+  pending: number;
+  /** Searches that completed and whose results reached inventory. */
+  collected: number;
+  /** Searches given up on -- FAILED or ABANDONED. */
+  unfulfilled: number;
+  total: number;
+  /**
+   * When the newest *collected* search landed.
+   *
+   * Read only from COLLECTED rows: `closeProviderTask` stamps `collected_at` on
+   * every close, so on a FAILED or ABANDONED row it is the moment we gave up, not
+   * the moment anything arrived. Used as the market's discovery freshness, because
+   * a search delivered after its job ended is news as of its collection.
+   */
+  latestCollectedAt: Date | null;
+}
+
+export async function discoveryTaskSummary(input: {
   jobId: string | null;
   fingerprintPrefix: string | null;
-}): Promise<boolean> {
-  if (!input.jobId && !input.fingerprintPrefix) return false;
+}): Promise<DiscoveryTaskSummary> {
+  const empty: DiscoveryTaskSummary = {
+    pending: 0, collected: 0, unfulfilled: 0, total: 0, latestCollectedAt: null };
+  if (!input.jobId && !input.fingerprintPrefix) return empty;
   const prefix = input.fingerprintPrefix === null ? null
     : input.fingerprintPrefix.replace(/([\\%_])/g, '\\$1');
-  const { rows } = await query<{ n: number }>(
-    `select count(*)::int as n from provider_tasks
-      where status = 'PENDING'
-        and (($1::uuid is not null and job_id = $1::uuid)
+  const { rows } = await query<{
+    pending: number; collected: number; unfulfilled: number; total: number;
+    latest_collected_at: Date | null;
+  }>(
+    `select count(*) filter (where status = 'PENDING')::int as pending,
+            count(*) filter (where status = 'COLLECTED')::int as collected,
+            count(*) filter (where status in ('FAILED','ABANDONED'))::int as unfulfilled,
+            count(*)::int as total,
+            max(collected_at) filter (where status = 'COLLECTED') as latest_collected_at
+       from provider_tasks
+      where (($1::uuid is not null and job_id = $1::uuid)
           or ($2::text is not null and fingerprint like ($2 || '%') escape '\\'))`,
     [input.jobId, prefix]);
-  return (rows[0]?.n ?? 0) > 0;
+  const row = rows[0];
+  if (!row) return empty;
+  return {
+    pending: row.pending, collected: row.collected, unfulfilled: row.unfulfilled,
+    total: row.total, latestCollectedAt: row.latest_collected_at,
+  };
 }
 
 export async function recordCollectionAttempt(providerTaskId: string): Promise<number> {

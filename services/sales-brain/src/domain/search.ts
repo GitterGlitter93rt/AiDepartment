@@ -220,6 +220,17 @@ export type DiscoveryState =
   | 'BLOCKED'
   /** The provider accepted a search and has not answered yet. */
   | 'PENDING'
+  /**
+   * The provider finished a search after the run that bought it had already ended,
+   * and its results are in inventory.
+   *
+   * Distinct from PENDING, which says something is still owed, and emphatically
+   * distinct from PROVIDER_UNAVAILABLE, which says no provider answered. A task is
+   * closed COLLECTED only once its businesses have been ingested, so this is a
+   * completed, paid-for search whose answer we already hold -- and saying otherwise
+   * invites buying the same market again to learn what is already here.
+   */
+  | 'FULFILLED_LATER'
   /** Every provider that was asked could not answer. */
   | 'PROVIDER_UNAVAILABLE'
   /** Some of the market was searched and some was not. */
@@ -945,8 +956,39 @@ export async function discoveryCoverageFor(input: {
     // researchable and keeps the run in the audit trail, without claiming a provider
     // owes us anything.
     case 'PROVIDER_PENDING': {
-      const outstanding = await hasOutstandingTaskFor(last.job_id, last.payload);
-      return { ...shared, state: outstanding ? 'PENDING' : 'PROVIDER_UNAVAILABLE' };
+      const tasks = await discoveryTasksFor(last.job_id, last.payload);
+
+      // A run buys a family of independent searches, so the family decides, and the
+      // order is what each answer costs to get wrong.
+
+      // Anything still owed outranks everything else: the answer is still coming,
+      // and buying again would pay twice for it.
+      if (tasks.pending > 0) return { ...shared, state: 'PENDING' };
+
+      // Some searches landed and others were given up on. That is genuinely part of
+      // the market rather than all of it, which is what PARTIAL already says.
+      if (tasks.collected > 0 && tasks.unfulfilled > 0) {
+        return { ...shared, state: 'PARTIAL' };
+      }
+
+      // Everything the run bought was delivered, after the run itself had ended.
+      // Dated from the collection rather than from the job: a search delivered late
+      // is news as of when it arrived, and that is also what decides when this
+      // market goes stale and becomes worth researching again.
+      if (tasks.collected > 0) {
+        const collectedAt = tasks.latestCollectedAt;
+        const ageDays = collectedAt
+          ? (Date.now() - collectedAt.getTime()) / 86_400_000 : Number.POSITIVE_INFINITY;
+        return {
+          ...shared,
+          lastRunAt: collectedAt ?? shared.lastRunAt,
+          state: ageDays > DISCOVERY_STALE_AFTER_DAYS ? 'STALE' : 'FULFILLED_LATER',
+        };
+      }
+
+      // Nothing outstanding and nothing delivered: the run did not come back with an
+      // answer, which is what PROVIDER_UNAVAILABLE already means and already says.
+      return { ...shared, state: 'PROVIDER_UNAVAILABLE' };
     }
     case 'PROVIDER_UNAVAILABLE':
     case 'FAILED':
@@ -976,7 +1018,7 @@ export async function discoveryCoverageFor(input: {
 }
 
 /**
- * Whether the run that ended PROVIDER_PENDING is still waiting on a provider.
+ * What became of the searches the run that ended PROVIDER_PENDING had bought.
  *
  * The job's own payload rebuilds the identity its tasks were fingerprinted with, so
  * the question asked is "is anything this run bought still outstanding" rather than
@@ -986,9 +1028,9 @@ export async function discoveryCoverageFor(input: {
  * Imported lazily, in the style of the other cross-module reads in this file, so the
  * domain layer does not take a load-time dependency on the miner.
  */
-async function hasOutstandingTaskFor(
+async function discoveryTasksFor(
   jobId: string, payload: Record<string, unknown> | null,
-): Promise<boolean> {
+): Promise<import('../miner/providerTasks.js').DiscoveryTaskSummary> {
   const [providerTasks, searchPlan, miningMode] = await Promise.all([
     import('../miner/providerTasks.js'),
     import('../miner/searchPlan.js'),
@@ -1002,8 +1044,7 @@ async function hasOutstandingTaskFor(
     geographyValue: (fields['geography_value'] as string | null) ?? null,
     miningMode: miningMode.miningModeOrDefault(fields['mining_mode'] as string | null),
   });
-  return providerTasks.hasOutstandingProviderTaskForDiscovery({
-    jobId, fingerprintPrefix: prefix });
+  return providerTasks.discoveryTaskSummary({ jobId, fingerprintPrefix: prefix });
 }
 
 /**
