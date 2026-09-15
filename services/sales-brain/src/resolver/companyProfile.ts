@@ -295,3 +295,88 @@ export function extractHours(text: string, sourceReference: string): ProfileObse
   }
   return null;
 }
+
+/**
+ * Phone routes that are worth telling a rep apart.
+ *
+ * A toll-free number and a local number are both "a phone number" to the data model
+ * and different things on a call sheet: the toll-free line is usually the one that
+ * reaches a call centre or an answering service, and the local one is usually the
+ * office. A number a company explicitly invites you to text is different again, and
+ * it is the strongest signal on a site that somebody is watching a messaging channel.
+ */
+export interface PhoneRoute {
+  value: string;
+  kind: 'toll_free' | 'sms_invited' | 'local';
+  /** The sentence that made this a text line, when that is what it is. */
+  evidence: string | null;
+  sourceReference: string;
+}
+
+const TOLL_FREE_PREFIXES = new Set(['800', '888', '877', '866', '855', '844', '833']);
+
+export function isTollFree(e164: string): boolean {
+  const match = /^\+1(\d{3})/.exec(e164);
+  return match ? TOLL_FREE_PREFIXES.has(match[1]!) : false;
+}
+
+/**
+ * Numbers a company invites you to text.
+ *
+ * Requires the invitation, not the mere presence of a number near the word "text".
+ * "Text us at 904-555-1212" is an invitation; "our text-only policy" beside a phone
+ * number is not, and a rep told to text a landline looks careless.
+ */
+export function extractPhoneRoutes(
+  text: string, normalizedPhones: string[], sourceReference: string,
+): PhoneRoute[] {
+  const routes: PhoneRoute[] = [];
+  const invitations = [
+    /\b(?:text|sms|message)\s+(?:us\s+)?(?:at\s+)?[:\-]?\s*(\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})/gi,
+    /\b(\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})\s*\((?:text|sms)\)/gi,
+  ];
+
+  const texted = new Set<string>();
+  for (const pattern of invitations) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const digits = match[1]!.replace(/\D/g, '').replace(/^1/, '');
+      if (digits.length === 10) texted.add(`+1${digits}`);
+      if (texted.size > 0) {
+        routes.push({
+          value: `+1${digits}`, kind: 'sms_invited',
+          evidence: match[0].trim().slice(0, 120), sourceReference,
+        });
+      }
+    }
+  }
+
+  for (const phone of normalizedPhones) {
+    if (texted.has(phone)) continue;
+    routes.push({
+      value: phone,
+      kind: isTollFree(phone) ? 'toll_free' : 'local',
+      evidence: null,
+      sourceReference,
+    });
+  }
+  return routes;
+}
+
+/**
+ * Role-specific inboxes, so a rep writes to the right one.
+ *
+ * `sales@` and `service@` are both "an email address" and completely different
+ * destinations: one reaches somebody whose job is to answer us, the other reaches a
+ * dispatch queue that will treat us as a customer with a broken water heater.
+ */
+export function classifyRoleInbox(email: string): 'sales' | 'service' | 'billing'
+  | 'careers' | 'general' | null {
+  const local = email.split('@')[0]?.toLowerCase() ?? '';
+  if (/^(sales|newbusiness|new\.business|estimates?|quotes?)$/.test(local)) return 'sales';
+  if (/^(service|dispatch|support|schedule|scheduling|repairs?)$/.test(local)) return 'service';
+  if (/^(billing|accounts?|ar|invoices?|accounting)$/.test(local)) return 'billing';
+  if (/^(careers?|jobs?|hr|hiring|recruiting)$/.test(local)) return 'careers';
+  if (/^(info|hello|contact|office|admin|mail)$/.test(local)) return 'general';
+  return null;
+}

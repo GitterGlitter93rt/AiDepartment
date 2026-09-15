@@ -151,3 +151,42 @@ test('nothing is claimed about a site that says nothing', () => {
   assert.deepEqual(extractSocialProfiles(bare, REF), []);
   assert.equal(extractServiceArea(bare, REF), null);
 });
+
+// ------------------------------------------------- contact routes, told apart --
+
+test('a toll-free line is distinguished from the local office number', async () => {
+  const { isTollFree, extractPhoneRoutes } = await import('../src/resolver/companyProfile.js');
+  assert.equal(isTollFree('+18005551212'), true);
+  assert.equal(isTollFree('+19045551212'), false);
+
+  const routes = extractPhoneRoutes('Call us today.', ['+18005551212', '+19045551212'], REF);
+  assert.equal(routes.find((route) => route.value === '+18005551212')!.kind, 'toll_free');
+  assert.equal(routes.find((route) => route.value === '+19045551212')!.kind, 'local');
+});
+
+test('a number is only a text line when the company invites it', async () => {
+  const { extractPhoneRoutes } = await import('../src/resolver/companyProfile.js');
+
+  const invited = extractPhoneRoutes('Text us at 904-555-1212 for faster service.',
+    ['+19045551212'], REF);
+  const smsRoute = invited.find((route) => route.kind === 'sms_invited')!;
+  assert.ok(smsRoute, 'an explicit text invitation was not recognised');
+  assert.match(smsRoute.evidence!, /Text us at/i);
+
+  const notInvited = extractPhoneRoutes('Call 904-555-1212. See our text-only policy.',
+    ['+19045551212'], REF);
+  assert.ok(!notInvited.some((route) => route.kind === 'sms_invited'),
+    'a rep was told to text a number the company never offered for texting');
+});
+
+test('role inboxes are told apart so a rep writes to the right one', async () => {
+  const { classifyRoleInbox } = await import('../src/resolver/companyProfile.js');
+  assert.equal(classifyRoleInbox('sales@co.invalid'), 'sales');
+  assert.equal(classifyRoleInbox('service@co.invalid'), 'service');
+  assert.equal(classifyRoleInbox('dispatch@co.invalid'), 'service');
+  assert.equal(classifyRoleInbox('billing@co.invalid'), 'billing');
+  assert.equal(classifyRoleInbox('careers@co.invalid'), 'careers');
+  assert.equal(classifyRoleInbox('info@co.invalid'), 'general');
+  assert.equal(classifyRoleInbox('dana.kowalczyk@co.invalid'), null,
+    'a person’s address was filed as a role inbox');
+});
