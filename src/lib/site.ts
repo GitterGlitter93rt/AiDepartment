@@ -231,6 +231,11 @@ export const FOOTER_LINKS = {
     { label: 'Resources', href: '/resources/' },
     { label: 'Enterprise', href: '/enterprise/' },
     { label: 'Assessment Options', href: '/ai-assessment/' },
+    // Sprint 17. Deliberately in the footer and not PRIMARY_NAV: the
+    // header already carries seven items, and an eighth top-level entry
+    // for a seven-page section would cost more in clutter than it
+    // returns. See docs/05-seo/local-seo.md.
+    { label: 'Locations', href: '/locations/' },
     { label: 'About', href: '/about/' },
     { label: 'Contact', href: '/contact/' },
   ],

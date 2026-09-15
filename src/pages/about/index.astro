@@ -105,7 +105,27 @@ const faqs = [
     </Container>
   </Section>
 
+  {/*
+    Sprint 17. Location only — deliberately no founder biography.
+    docs/02-website/about.md still records Founder, Leadership and
+    Headquarters as "[TO BE PROVIDED]", so there are no approved
+    biography facts to publish and inventing them is out of the
+    question. The regional statement below is supported by the one
+    verified business address in src/lib/businessIdentity.ts; no street
+    address, city-level HQ claim or office is asserted here.
+  */}
   <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Where We Are"
+        heading="Based in Northeast Florida. Working Nationwide."
+        support="Your AI Department is a Northeast Florida business. We work with companies across Florida and around the country, and the engagement model is built for both — discovery and strategy sessions in person where that genuinely helps, implementation, reporting and ongoing optimization run remotely."
+      />
+      <p class="about-note">We write in depth about seven Florida markets, from Jacksonville and St. Johns County to Orlando, Miami and Fort Lauderdale — see <a href="/locations/">Locations</a>. We do not operate offices in those markets, and we do not claim to.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
     <Container>
       <SectionHeading
         eyebrow="Fit"
@@ -159,6 +179,21 @@ const faqs = [
 </BaseLayout>
 
 <style>
+  .about-note {
+    max-width: 700px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--color-slate-gray);
+  }
+
+  .about-note a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
   .model-equation {
     display: flex;
     flex-wrap: wrap;
