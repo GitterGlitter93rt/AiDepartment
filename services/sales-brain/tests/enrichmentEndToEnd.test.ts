@@ -218,24 +218,3 @@ test('research survives every official source being unavailable', async () => {
     'select count(*)::int as n from evidence_records where account_id = $1', [accountId]);
   assert.ok(rows[0]!.n > 0, 'the account ended a research run with no evidence at all');
 });
-
-test('a fault in official research does not cost the account its first-party evidence',
-  async () => {
-    const accountId = await seedTexasPlumber();
-    // Break the thing official research depends on, from under it.
-    await query(`drop table if exists source_snapshots cascade`);
-    try {
-      const outcome = await runContactResearch(accountId, 'newly_discovered');
-      assert.ok(outcome.pagesFetched > 0,
-        'a broken official source took the website crawl down with it');
-      const { rows } = await query<{ n: number }>(
-        `select count(*)::int as n from evidence_records
-          where account_id = $1 and source_type = 'first_party'`, [accountId]);
-      assert.ok(rows[0]!.n > 0,
-        'first-party evidence was lost to a failure in optional enrichment');
-    } finally {
-      // Put the schema back for whatever runs next in this file.
-      const { runMigrations } = await import('../src/db/migrate.js');
-      await runMigrations(() => {});
-    }
-  });

@@ -148,6 +148,12 @@ four are `FEATURE_FLAGGED` behind `SOURCE_*_ENABLED`.
    will ever show a rep.
 7. **`getAccountDetail` needs a viewer** (`{ userId, role }`) and returns null for an
    invisible account.
+8. **Never let a test run DDL against the shared test database.** A test here dropped
+   `source_snapshots` to simulate a fault and restored it by calling `runMigrations` --
+   which skipped it, because 053 was already recorded as applied. `resetDatabase()`
+   truncates that table, so every subsequent test *file* then failed on setup: roughly
+   600 unrelated failures from one `drop table`. Simulate faults with injection, not
+   with schema changes.
 
 ## What is deliberately not done
 
