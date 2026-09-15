@@ -325,10 +325,16 @@ describe('Sprint 13 state is untouched', () => {
     }
   });
 
-  test('the sitemap is unchanged at 119 URLs — this sprint added no routes', () => {
+  // Sprint 14 asserted 119 because it added no routes. Sprint 16 added
+  // exactly three indexable resources, deliberately and with the count
+  // stated in its brief, so the number moves to 122. The assertion that
+  // matters is unchanged: the count is pinned, duplicates are rejected,
+  // and every listed URL must build and be indexable — so an accidental
+  // route still fails here rather than leaking into the sitemap.
+  test('the sitemap is pinned at 122 URLs — 119 from Sprint 14 plus Sprint 16 three', () => {
     const urls = [...read('public/sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    assert.equal(urls.length, 119);
-    assert.equal(new Set(urls).size, 119, 'duplicate sitemap entries');
+    assert.equal(urls.length, 122);
+    assert.equal(new Set(urls).size, 122, 'duplicate sitemap entries');
     // Everything listed must build and be indexable.
     for (const u of urls) {
       const route = u.slice(SITE.domain.length);
