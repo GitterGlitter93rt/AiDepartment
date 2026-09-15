@@ -77,52 +77,71 @@ export function parseTdlrResults(html: string, program: TdlrProgram): TdlrLicenc
   const rows = tableRows(html);
   if (rows.length === 0) return [];
 
-  // The header names the columns; the two programmes label them slightly
-  // differently, so columns are found by meaning rather than by position.
+  /**
+   * Column names taken from the live result table, not from what seemed likely.
+   *
+   * The licence column is headed "License Data Search Result" -- not "License #" --
+   * and the browse view carries no status column at all: it prints licence, expiry,
+   * name, city, ZIP, county and phone. A parser that required a status found nothing,
+   * every time, and every fixture-based test passed while it did.
+   */
   const header = rows.find((cells) =>
-    cells.some((cell) => /licen[cs]e\s*#|licen[cs]e number/i.test(cell)))
+    cells.some((cell) => /licen[cs]e\s*(data|#|number)/i.test(cell))
+      && cells.some((cell) => /^name$/i.test(cell)))
     ?? rows[0]!;
   const columnFor = (...patterns: RegExp[]): number =>
     header.findIndex((cell) => patterns.some((pattern) => pattern.test(cell)));
 
   const columns = {
-    number: columnFor(/licen[cs]e\s*#/i, /licen[cs]e number/i),
+    number: columnFor(/licen[cs]e\s*data\s*search\s*result/i, /licen[cs]e\s*#/i,
+      /licen[cs]e number/i, /^licen[cs]e$/i),
     name: columnFor(/^name$/i, /licensee/i, /individual/i),
-    business: columnFor(/business/i, /company/i, /dba/i),
+    business: columnFor(/business/i, /company/i, /dba/i, /owner/i),
     city: columnFor(/^city$/i),
     county: columnFor(/^county$/i),
     status: columnFor(/^status$/i),
-    expires: columnFor(/expir/i),
+    expires: columnFor(/exp\.?\s*date/i, /expir/i),
     type: columnFor(/licen[cs]e type/i, /^type$/i),
   };
+  if (columns.number === -1 || columns.name === -1) return [];
+
+  /**
+   * TDLR licence numbers are a programme prefix and a serial, printed with spaces
+   * around the separator: "AAU - 9849", "TACLA00123456", "ACR-1234". The previous
+   * pattern accepted only an unbroken prefix-and-digits and rejected the spaced form
+   * the site actually prints.
+   */
+  const LICENCE_NUMBER = /^[A-Z]{2,8}\s*-?\s*\d{3,9}$/i;
 
   const licences: TdlrLicence[] = [];
   for (const cells of rows) {
     if (cells === header) continue;
-    const licenseNumber = columns.number === -1 ? null : cells[columns.number]?.trim();
-    // A licence number is the one field a row must have to be a licence. Without it
-    // a header, a footer or a "no records found" banner would become a credential.
-    if (!licenseNumber || !/^[A-Z]{0,6}\d{4,9}$/i.test(licenseNumber)) continue;
+    const raw = cells[columns.number]?.trim();
+    if (!raw || !LICENCE_NUMBER.test(raw)) continue;
 
-    const status = (columns.status === -1 ? '' : cells[columns.status] ?? '').trim();
-    if (!status) continue;
+    const licenseeName = cells[columns.name]?.trim();
+    if (!licenseeName || /^name$/i.test(licenseeName)) continue;
 
-    const licenseeName = (columns.name === -1 ? '' : cells[columns.name] ?? '').trim();
-    if (!licenseeName) continue;
-
-    const businessName = columns.business === -1
-      ? null : (cells[columns.business]?.trim() || null);
+    const at = (index: number): string | null =>
+      index === -1 ? null : (cells[index]?.trim() || null);
 
     licences.push({
-      licenseNumber,
+      // Normalised so "AAU - 9849" and "AAU-9849" are one licence, while the printed
+      // form stays recoverable from the source reference.
+      licenseNumber: raw.replace(/\s*-\s*/, '-').replace(/\s+/g, ' '),
       licenseeName,
-      businessName,
-      licenseType: (columns.type === -1 ? '' : cells[columns.type] ?? '').trim()
-        || TDLR_PROGRAMS[program].licenseTypes[0]!,
-      status,
-      expirationDate: (columns.expires === -1 ? null : cells[columns.expires]?.trim()) || null,
-      city: (columns.city === -1 ? null : cells[columns.city]?.trim()) || null,
-      county: (columns.county === -1 ? null : cells[columns.county]?.trim()) || null,
+      businessName: at(columns.business),
+      licenseType: at(columns.type) ?? TDLR_PROGRAMS[program].licenseTypes[0]!,
+      /**
+       * The browse view does not print a status.
+       *
+       * UNKNOWN rather than an assumed "Active": a licence whose status nobody has
+       * read is not a verified licence, and `tdlrFacts` refuses to call it active.
+       */
+      status: at(columns.status) ?? 'UNKNOWN',
+      expirationDate: at(columns.expires),
+      city: at(columns.city),
+      county: at(columns.county),
       stateRegion: 'TX',
       program,
     });
@@ -181,8 +200,15 @@ export function tdlrFacts(licence: TdlrLicence, reference: string): OfficialFact
     },
     {
       claimKey: 'professional_license_status',
-      claimText: `TDLR licence status: ${licence.status}`
-        + `${licence.expirationDate ? `, expiring ${licence.expirationDate}` : ''}.`,
+      claimText: licence.status.toUpperCase() === 'UNKNOWN'
+        // The browse view lists licences without a status column. Saying so is more
+        // useful than a blank, and safer than an assumed "Active": an unread status
+        // is not a verified licence.
+        ? 'The TDLR result listing does not publish a licence status'
+          + `${licence.expirationDate ? `; the licence expires ${licence.expirationDate}` : ''}. `
+          + 'Status has not been verified.'
+        : `TDLR licence status: ${licence.status}`
+          + `${licence.expirationDate ? `, expiring ${licence.expirationDate}` : ''}.`,
       normalizedValue: active ? 'ACTIVE' : licence.status.toUpperCase(),
       // Status and expiry are the two fields that change without notice, so this is
       // the shortest-lived fact the adapter produces.

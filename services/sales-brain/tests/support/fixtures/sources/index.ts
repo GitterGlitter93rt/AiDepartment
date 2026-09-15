@@ -247,3 +247,18 @@ export const DBPR_DATASET = [
   'CCC1330000,Certified Roofing Contractor,Cert Roofing,GULF ROOFING LLC,,GULF ROOFING LLC,MARIA SOLIS,Null,Expired,01/05/2009,08/31/2024,Miami,Miami-Dade',
   'CFC1499999,Certified Plumbing Contractor,Cert Plumbing,MARCUS ELLIS,,,,Current,Active,09/14/2018,08/31/2026,St Augustine,St Johns',
 ].join('\n');
+
+/**
+ * A TDLR result listing, in the shape the live site actually returns.
+ *
+ * Captured from `SearchResultsListBrowse.asp` on 2026-09-15 and sanitized: the
+ * structure, column headings and licence-number format are real, the licensee is
+ * invented. Note the heading "License Data Search Result" rather than "License #",
+ * the spaced licence number, and the absence of any status column -- all three broke
+ * the original parser, and none of them were visible from the earlier fixtures.
+ */
+export const TDLR_BROWSE_REAL_SHAPE = `<html><body><table>
+<tr><th>License Data Search Result</th><th>Exp Date</th><th>Name</th><th>City</th><th>Zip</th><th>County</th><th>Phone</th></tr>
+<tr><td>ACR - 4471</td><td>07/20/2027</td><td>VOSS, ELENA MARIE</td><td>AUSTIN</td><td>78701</td><td>TRAVIS</td><td></td></tr>
+<tr><td>ACR - 9902</td><td>02/28/2026</td><td>SIMMS, RAYMOND</td><td>DALLAS</td><td>75201</td><td>DALLAS</td><td></td></tr>
+</table></body></html>`;

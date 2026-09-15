@@ -7,7 +7,7 @@ import { parseDbprDetail, dbprFacts, dbprPeople, licenceCoversVertical }
   from '../src/sources/adapters/flDbpr.js';
 import { parseComptrollerStatus, comptrollerFacts, comptrollerPeople }
   from '../src/sources/adapters/txComptroller.js';
-import { parseTdlrResults, tdlrPeople, tdlrProgramFor }
+import { parseTdlrResults, tdlrPeople, tdlrProgramFor, tdlrFacts }
   from '../src/sources/adapters/txTdlr.js';
 import { parseTsbpeDataset, tsbpeFacts, tsbpePeople, rankTsbpe, classifyTsbpeLicenseType }
   from '../src/sources/adapters/txTsbpe.js';
@@ -520,4 +520,43 @@ test('the real DBPR search contract is recorded rather than guessed at', async (
     'the search was recorded as a GET, which is what the adapter used to get wrong');
   assert.equal(DBPR_SEARCH_CONTRACT.organizationNameField, 'hOrgName');
   assert.ok(DBPR_SEARCH_CONTRACT.searchTypes.includes('Name'));
+});
+
+// ------------------------------- TDLR, against the shape the live site returns --
+
+test('the real TDLR result listing parses, headings and all', () => {
+  const licences = parseTdlrResults(fixtures.TDLR_BROWSE_REAL_SHAPE, 'AIR_CONDITIONING');
+  assert.equal(licences.length, 2,
+    'the live result shape produced no licences — which is what the original '
+    + 'parser did against every real page');
+  assert.equal(licences[0]!.licenseNumber, 'ACR-4471',
+    'the spaced licence number the site prints was not normalised');
+  assert.equal(licences[0]!.licenseeName, 'VOSS, ELENA MARIE');
+  assert.equal(licences[0]!.city, 'AUSTIN');
+  assert.equal(licences[0]!.county, 'TRAVIS');
+  assert.equal(licences[0]!.expirationDate, '07/20/2027');
+});
+
+test('a listing with no status column does not invent an active licence', () => {
+  const [licence] = parseTdlrResults(fixtures.TDLR_BROWSE_REAL_SHAPE, 'AIR_CONDITIONING');
+  assert.equal(licence!.status, 'UNKNOWN');
+
+  const status = tdlrFacts(licence!, 'ref')
+    .find((fact) => fact.claimKey === 'professional_license_status')!;
+  assert.equal(status.normalizedValue, 'UNKNOWN');
+  assert.notEqual(status.normalizedValue, 'ACTIVE',
+    'a licence whose status nobody read was reported as active');
+  assert.match(status.claimText, /has not been verified/i);
+});
+
+test('two same-named licences in different cities still stay apart in the real shape', () => {
+  const licences = parseTdlrResults(fixtures.TDLR_BROWSE_REAL_SHAPE, 'AIR_CONDITIONING');
+  assert.notEqual(licences[0]!.city, licences[1]!.city);
+});
+
+test('the older column layout still parses, so both shapes are covered', () => {
+  const licences = parseTdlrResults(fixtures.TDLR_HVAC_RESULTS, 'AIR_CONDITIONING');
+  assert.equal(licences.length, 1);
+  assert.equal(licences[0]!.status, 'Active');
+  assert.equal(licences[0]!.businessName, 'BLUEBONNET AIR LLC');
 });

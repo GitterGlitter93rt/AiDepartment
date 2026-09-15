@@ -161,8 +161,16 @@ export const SOURCE_GOVERNANCE: SourceGovernance[] = [
     failureBehaviour: 'SOURCE_UNAVAILABLE; never reported as unlicensed.',
     enableFlag: 'SOURCE_TX_TDLR_ENABLED',
     status: 'FEATURE_FLAGGED',
-    statusReason: 'Reachable and robots-compatible for search paths. Live automation '
-      + 'behind a flag pending governance sign-off.',
+    statusReason: 'Validated against a live result listing on 2026-09-15, which found '
+      + 'the parser broken in three ways that fixtures could never have shown. The '
+      + 'licence column is headed "License Data Search Result", not "License #"; '
+      + 'licence numbers print spaced, as "ACR - 4471"; and the browse view carries no '
+      + 'status column at all. The parser required a status, so against every real '
+      + 'page it returned nothing. Rebuilt from the live shape, with an unread status '
+      + 'recorded as UNKNOWN rather than assumed active. Search is a POST to '
+      + 'SearchResultsListBrowse.asp with per-programme forms. robots disallows '
+      + '/*.csv, so the published CSVs are not downloaded. Live automation stays behind '
+      + 'a flag pending governance sign-off.',
   },
   {
     sourceId: 'tx_tsbpe',
