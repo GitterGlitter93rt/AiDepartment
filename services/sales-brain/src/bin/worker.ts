@@ -83,6 +83,34 @@ const sweep = setInterval(async () => {
 }, SWEEP_INTERVAL_MS);
 sweep.unref();
 
+/**
+ * Paid provider work that outlived the run which bought it.
+ *
+ * On its own timer, not folded into the freshness sweep above, because the two answer
+ * different questions on different clocks: that one asks which saved markets are due,
+ * this one asks what the provider still owes us. Tying them together would have made
+ * collection depend on there being a saved market at all, which is the defect this
+ * exists to close.
+ */
+const { SWEEP_INTERVAL_MS: TASK_SWEEP_MS, sweepProviderTasks } =
+  await import('../workers/providerTaskSweeper.js');
+const taskSweep = setInterval(async () => {
+  try {
+    const swept = await sweepProviderTasks();
+    if (swept.queuedFromReady > 0 || swept.queuedFromFallback > 0 || swept.abandoned > 0) {
+      console.log(`[worker] provider tasks: ${swept.pending} outstanding, `
+        + `${swept.queuedFromReady} ready, ${swept.queuedFromFallback} rechecked, `
+        + `${swept.abandoned} past retention`);
+    }
+    if (swept.readyUnavailable && swept.pending > 0) {
+      console.log('[worker] provider ready list unavailable; outstanding tasks left pending');
+    }
+  } catch (error) {
+    console.error('[worker] provider task sweep failed', error);
+  }
+}, TASK_SWEEP_MS);
+taskSweep.unref();
+
 const { recordWorkerStopped } = await import('../workers/runner.js');
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

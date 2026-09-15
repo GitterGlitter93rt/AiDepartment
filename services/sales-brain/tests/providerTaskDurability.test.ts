@@ -152,28 +152,55 @@ test('a collected task is closed, so it is not collected for ever', async () => 
   assert.deepEqual(await pendingProviderTasks('queueing-provider'), []);
 });
 
-test('a provider that never delivers is given up on rather than polled for ever', async () => {
-  // readyAfter is beyond the ceiling, so it is never ready.
-  const adapter = queueingAdapter({ readyAfter: MAX_TASK_COLLECTIONS + 50 });
+test('a task still in the provider queue is not given up on for having been asked often',
+  async () => {
+    // Never ready, however many times it is asked for.
+    const adapter = queueingAdapter({ readyAfter: MAX_TASK_COLLECTIONS + 50 });
+    registerDiscoveryAdapter(adapter);
+
+    await runMarketJob();
+    let last: Record<string, any> = {};
+    for (let attempt = 0; attempt < MAX_TASK_COLLECTIONS + 5; attempt += 1) {
+      last = await runMarketJob();
+    }
+
+    assert.equal(adapter.submissions, 1,
+      'a task we were still waiting on was re-bought while it was still owed to us');
+
+    /**
+     * Well past the old ceiling and still open, which is the point.
+     *
+     * Abandoning on a count of polls was calibrated against a three-second loop and
+     * became destructive against a three-minute sweep: an hour of ordinary waiting
+     * would have thrown away a paid search the provider was still working on. In
+     * production every task that returned 40602 went on to complete, four of them
+     * after roughly fifteen minutes.
+     */
+    assert.equal(last['outcome'], 'PROVIDER_PENDING');
+    const { rows } = await query<{ status: string; error_code: string | null }>(
+      'select status, error_code from provider_tasks');
+    assert.equal(rows[0]!.status, 'PENDING');
+    assert.equal(rows[0]!.error_code, null);
+    assert.equal((await pendingProviderTasks('queueing-provider')).length, 1);
+  });
+
+test('a task is given up on when its result can no longer be fetched', async () => {
+  const adapter = queueingAdapter({ readyAfter: 999 });
   registerDiscoveryAdapter(adapter);
-
   await runMarketJob();
-  let last: Record<string, any> = {};
-  // One run submits; the next MAX_TASK_COLLECTIONS runs go back for it. The last of
-  // those gives up.
-  for (let attempt = 0; attempt < MAX_TASK_COLLECTIONS; attempt += 1) {
-    last = await runMarketJob();
-  }
 
-  assert.equal(adapter.submissions, 1,
-    'a task we were still waiting on was re-bought while it was still owed to us');
+  // Past the provider's documented result retention the search is genuinely
+  // unrecoverable, which is the only thing that ends it.
+  await query(
+    `update provider_tasks set submitted_at = now() - interval '31 days'`);
+  const last = await runMarketJob();
+
+  assert.equal(adapter.submissions, 1, 'expiry must not itself buy a replacement');
   assert.equal(last['outcome'], 'PROVIDER_UNAVAILABLE');
-  assert.match(String(last['outcome_reason']), /never delivered/);
-
   const { rows } = await query<{ status: string; error_code: string }>(
     'select status, error_code from provider_tasks');
   assert.equal(rows[0]!.status, 'ABANDONED');
-  assert.equal(rows[0]!.error_code, 'NEVER_DELIVERED');
+  assert.equal(rows[0]!.error_code, 'RESULT_RETENTION_EXPIRED');
 
   // Once we have formally given up, a later run is entitled to search again: that is
   // a new attempt after a recorded failure, not a duplicate of a task still owed.

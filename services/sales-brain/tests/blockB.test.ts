@@ -1103,7 +1103,7 @@ test('B2-9 an outstanding task is collected across repeated scheduler restarts',
   assert.equal(Number(tasks[0]!.cost_usd), 0.0125);
 });
 
-test('B2-9 a task the provider never delivers is given up on, and the market moves on',
+test('B2-9 a task whose result can no longer be fetched is given up on, and the market moves on',
   async () => {
   // The other end of the same rope. Polling for ever is not durability, it is a
   // market that can never be refreshed again -- and the operator has to be able to
@@ -1125,32 +1125,69 @@ test('B2-9 a task the provider never delivers is given up on, and the market mov
   await scheduleDueMarkets();
   await drainQueue();
 
-  // Enough restarts to exhaust the collection bound.
-  for (let restart = 0; restart < MAX_TASK_COLLECTIONS + 1; restart += 1) {
+  // Enough cycles to pass the old poll-count ceiling several times over.
+  for (let restart = 0; restart < MAX_TASK_COLLECTIONS + 5; restart += 1) {
     await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'
                   where market_id = $1`, [marketId]);
     await scheduleDueMarkets();
     await drainQueue();
   }
 
+  /**
+   * Asked many times over, and still open.
+   *
+   * Being asked for a result is not evidence that the result is not coming. This used
+   * to abandon after a fixed number of collection attempts, which was calibrated
+   * against a three-second poll loop; carried unchanged onto a three-minute sweep it
+   * would discard a paid search after an hour of the provider working normally. In
+   * production every task that reported 40602 went on to complete, four of them after
+   * roughly fifteen minutes.
+   *
+   * While it is still open we must also not have bought a replacement.
+   */
+  const { rows: stillOwed } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks where status = 'PENDING'`);
+  assert.equal(stillOwed[0]!.n, 1, 'a task the provider still owes us was given up on');
+  assert.equal(submissions, 1,
+    'a replacement search was bought while the first was still owed to us');
+
+  // What genuinely ends it is the result becoming unfetchable. Then, and only then,
+  // the market is searchable again rather than permanently owed -- which is the shape
+  // of the defect that retired a saved market for thirty simulated days.
+  await query(`update provider_tasks set submitted_at = now() - interval '31 days'`);
+  await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'
+                where market_id = $1`, [marketId]);
+  await scheduleDueMarkets();
+  await drainQueue();
+
   const { rows: abandoned } = await query<{ n: number; error_code: string | null }>(
     `select count(*)::int as n, min(error_code) as error_code from provider_tasks
       where status = 'ABANDONED'`);
   assert.equal(abandoned[0]!.n, 1,
-    'a task the provider never delivered is still being polled');
-  assert.equal(abandoned[0]!.error_code, 'NEVER_DELIVERED');
+    'a task whose result can no longer be fetched is still being polled');
+  assert.equal(abandoned[0]!.error_code, 'RESULT_RETENTION_EXPIRED');
 
-  // And the market is searchable again rather than permanently owed, which is the
-  // shape of the defect that retired a saved market for thirty simulated days: one
-  // PENDING answer that was never collected and never given up on.
-  //
-  // Note what is *not* claimed here. Once the dead task is abandoned the next run
-  // buys a fresh search, so the market is legitimately owed a task again and
-  // `collecting` is 1 -- correctly. My first version of this test asserted 0 and was
-  // wrong: "nothing outstanding" and "not stuck on a task that will never arrive"
-  // are different statements, and only the second one is the invariant.
+  /**
+   * Giving up and buying again are deliberately two different runs.
+   *
+   * The run that gives up took the collection branch: it went back for the task it was
+   * owed, found the result gone, and closed the row. Buying is the other branch, the
+   * one reached only when nothing is outstanding -- so the replacement is the *next*
+   * pass's decision, made after the ledger says nothing is owed. Collapsing the two
+   * would mean a run that failed to collect immediately spent money, which is the one
+   * ordering this system is built to prevent.
+   */
+  await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'
+                where market_id = $1`, [marketId]);
+  await scheduleDueMarkets();
+  await drainQueue();
+
+  // Note what is *not* claimed here. Once the dead task is given up on the next run
+  // buys a fresh search, so the market is legitimately owed a task again -- correctly.
+  // "Nothing outstanding" and "not stuck on a task that will never arrive" are
+  // different statements, and only the second one is the invariant.
   assert.ok(submissions >= 2,
-    'after giving up on the undelivered task the market was never searched again');
+    'after giving up on the undeliverable task the market was never searched again');
   const { rows: fresh } = await query<{ n: number }>(
     `select count(*)::int as n from provider_tasks
       where status = 'PENDING' and provider_native_id <> 'never-delivered-1'`);

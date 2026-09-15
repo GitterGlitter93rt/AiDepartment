@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { flag, numeric } from '../config.js';
+import { recordProviderTask } from './providerTasks.js';
 import {
   isPaidPlacement,
   type NormalizedResultType, type ProviderObservation,
@@ -453,6 +454,15 @@ export function createDataForSeoAdapter(options: {
       // is why this used to find nothing at all in the mode it defaults to.
       let response: ProviderResponse;
       let pollUnits = 0;
+      /**
+       * The task this call bought, whatever became of it.
+       *
+       * Reported on success as well as on PENDING. A task that finished inside the
+       * fast poll used to return without its id, so the orchestrator had nothing to
+       * close and the ledger row stayed PENDING for a search that was already in
+       * inventory -- the same row the sweeper would then go and collect a second time.
+       */
+      let submittedTaskId: string | null = null;
 
       if (config.mode === 'live') {
         const live = await callWithRetry(transport, sleep, config,
@@ -487,6 +497,36 @@ export function createDataForSeoAdapter(options: {
             'The provider accepted the request without returning a task id, so there is '
             + 'nothing to collect.');
         }
+
+        /**
+         * The purchase is on the ledger before we wait for it.
+         *
+         * `task_post` is the only moment money changes hands, and until this ran the
+         * two facts that follow from it were both recorded somewhere else or not at
+         * all. Spend was written only when a *collection* succeeded, so seven real
+         * production purchases totalling $0.042 appeared in `provider_usage` as a
+         * single $0.006 row -- and the daily ceiling reads that table, so the ceiling
+         * was metering roughly a seventh of actual spend. The ledger row was written
+         * only when the fast poll gave up, so the one task that finished inside the
+         * poll window was bought, charged and never recorded at all.
+         *
+         * Both are written here, once, at acceptance. Everything after this point is
+         * free: `task_get` costs nothing, and the cost it echoes back is this same
+         * charge, not a new one.
+         */
+        const postCost = typeof posted.body.cost === 'number' ? posted.body.cost
+          : typeof created.cost === 'number' ? created.cost : null;
+        await recordProviderUsage({
+          operation: 'serp.discover.task_post', units: 1, status: 'OK',
+          actualCostUsd: postCost,
+        });
+        await recordProviderTask({
+          provider: 'dataforseo', providerNativeId: taskId,
+          fingerprint: search.fingerprint, jobId: request.jobId ?? null,
+          request: request as unknown as Record<string, unknown>,
+          costUsd: postCost, submittedAt: new Date(),
+        });
+        submittedTaskId = taskId;
         // A task that was posted but never collected is still a task we paid for, so
         // the poll is bounded and its outcome is recorded either way.
         let fetched: ProviderResponse | null = null;
@@ -528,9 +568,13 @@ export function createDataForSeoAdapter(options: {
           // empty -- the money is spent and the answer is still coming -- and the
           // task id goes back with it so a later run collects this one rather than
           // paying for a second search of the same market.
-          await recordProviderUsage({
-            operation: 'serp.discover.task_get', units: pollUnits, status: 'FAILED',
-            errorCode: 'TASK_NOT_READY' });
+          //
+          // Deliberately no `provider_usage` row. A healthy Standard task that has not
+          // finished inside a 27-second window is not a failure, and writing one here
+          // recorded six of production's seven purchases as `FAILED / TASK_NOT_READY`
+          // -- every one of which the provider went on to complete successfully. The
+          // spend is already recorded against `task_post`, and the task's real state
+          // lives in `provider_tasks`, which is the source of truth for it.
           return {
             ...refusedDiscovery('PENDING',
               'The provider accepted the search and has not finished it yet. The task is '
@@ -542,11 +586,71 @@ export function createDataForSeoAdapter(options: {
       }
 
       const cost = typeof response.cost === 'number' ? response.cost : null;
+      /**
+       * Live pays here; Standard already paid at `task_post`.
+       *
+       * `task_get` echoes the task's original price back in `cost`, which reads exactly
+       * like a fresh charge and is not one -- verified against the account balance,
+       * which does not move across a retrieval. Recording it again would bill every
+       * purchase twice, and a collection that ran three times would bill it four times.
+       * The one authoritative charge per Standard task is the `task_post` row above.
+       */
       await recordProviderUsage({
         operation: config.mode === 'live' ? 'serp.discover.live' : 'serp.discover.task_get',
-        units: 1, status: 'OK', actualCostUsd: cost,
+        units: 1, status: 'OK',
+        actualCostUsd: config.mode === 'live' ? cost : 0,
       });
-      return resultFromResponse(response, keyword, cost);
+      return { ...resultFromResponse(response, keyword, cost),
+        ...(submittedTaskId ? { providerTaskId: submittedTaskId } : {}) };
+    },
+
+    /**
+     * The provider's own list of finished, uncollected tasks.
+     *
+     * One free GET that answers "which of my tasks are done" for every outstanding
+     * task at once, instead of asking about each one individually. This is the cheap
+     * primary path for late collection; it is not sufficient on its own, because the
+     * list holds only tasks completed within the last three days and a task leaves it
+     * as soon as anyone retrieves the result.
+     *
+     * Returns provider-native ids and nothing else. The caller decides which of them
+     * are ours -- an id we have no ledger row for is somebody else's task or a task
+     * from before this ledger existed, and either way it is not something to act on.
+     */
+    async tasksReady(): Promise<string[] | null> {
+      if (!this.isConfigured()) return null;
+      const auth = Buffer.from(`${config.login}:${config.password}`).toString('base64');
+      const got = await callWithRetry(transport, sleep, config,
+        `${config.baseUrl}/serp/google/organic/tasks_ready`,
+        { method: 'GET', headers: { authorization: `Basic ${auth}`, 'content-type': 'application/json' } });
+
+      if (!got.ok || !got.body) {
+        // Recorded because an outage that stops collection has to be visible; no cost,
+        // because this endpoint has none. Success writes nothing: it runs every few
+        // minutes for ever and a row per sweep would bury real spend in noise.
+        await recordProviderUsage({
+          operation: 'serp.tasks_ready', units: got.attempts, status: 'FAILED',
+          errorCode: got.errorCode, actualCostUsd: 0 });
+        return null;
+      }
+
+      // A malformed body is not an empty list. Returning `[]` here would say "the
+      // provider has nothing ready", and the caller would quietly collect nothing for
+      // as long as the shape stayed wrong; `null` says "we could not tell", and the
+      // caller falls back to asking about tasks directly.
+      const tasks = got.body.tasks;
+      if (!Array.isArray(tasks)) return null;
+      const ids: string[] = [];
+      for (const task of tasks) {
+        if (task?.status_code !== undefined && task.status_code !== TASK_DONE) continue;
+        const result = (task as { result?: unknown }).result;
+        if (!Array.isArray(result)) continue;
+        for (const entry of result) {
+          const id = (entry as { id?: unknown })?.id;
+          if (typeof id === 'string' && id.length > 0) ids.push(id);
+        }
+      }
+      return ids;
     },
 
     /**
@@ -599,8 +703,10 @@ export function createDataForSeoAdapter(options: {
       }
 
       const cost = typeof got.body.cost === 'number' ? got.body.cost : null;
+      // Free. The charge was made when the task was accepted; `cost` here is that same
+      // historical price echoed back, and adding it would bill the search twice.
       await recordProviderUsage({
-        operation: 'serp.discover.task_collect', units: 1, status: 'OK', actualCostUsd: cost });
+        operation: 'serp.discover.task_collect', units: 1, status: 'OK', actualCostUsd: 0 });
       const keyword = String((request as { keyword?: string }).keyword
         ?? first?.result?.[0]?.keyword ?? '');
       return { ...resultFromResponse(got.body, keyword, cost), providerTaskId };

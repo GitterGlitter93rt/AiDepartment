@@ -15,7 +15,7 @@ import {
   reconcileMissingResearch, scoreResearchedButUnscored, recomputeStaleScores,
 } from '../src/workers/researchReconcile.js';
 import { spendPosition } from '../src/miner/spend.js';
-import { MAX_TASK_COLLECTIONS } from '../src/miner/providerTasks.js';
+import { MAX_TASK_COLLECTIONS, PROVIDER_TASK_RETENTION_DAYS } from '../src/miner/providerTasks.js';
 import { observationsFor } from './support/observations.js';
 
 /**
@@ -194,13 +194,23 @@ test('no provider task is left outstanding for ever', async () => {
   assert.ok(terminal > 0,
     `all ${total} tasks are still outstanding after thirty days: nothing collects them`);
 
-  // The invariant that matters more than any count: nothing is polled past the
-  // ceiling and left open. That is the shape of a job that polls for ever.
-  const overPolled = await query<{ n: number }>(
+  /**
+   * The invariant that matters more than any count: nothing stays owed for ever.
+   *
+   * This used to assert that no open task had been asked for more times than a fixed
+   * ceiling -- which is now exactly the wrong question. Being asked again is not harm;
+   * a Standard task can legitimately be polled far past any count while the provider
+   * works, and in production four of seven took about fifteen minutes. What would be
+   * wrong is a task still outstanding after its result has stopped being retrievable,
+   * because then it is neither recoverable nor closed.
+   */
+  const stuck = await query<{ n: number }>(
     `select count(*)::int as n from provider_tasks
-      where status = 'PENDING' and poll_attempts > $1`, [MAX_TASK_COLLECTIONS]);
-  assert.equal(overPolled.rows[0]!.n, 0,
-    'a task has been asked for more times than the ceiling allows and is still open');
+      where status = 'PENDING'
+        and submitted_at < now() - ($1 || ' days')::interval`,
+    [String(PROVIDER_TASK_RETENTION_DAYS)]);
+  assert.equal(stuck.rows[0]!.n, 0,
+    'a task is still open although its result can no longer be fetched');
 });
 
 test('a market whose provider went quiet is not retired for ever', async () => {
@@ -237,9 +247,9 @@ test('a market whose provider went quiet is not retired for ever', async () => {
     },
   });
 
-  // Long enough to cross MAX_TASK_COLLECTIONS, so the abandonment path is exercised
-  // rather than assumed.
-  const days = MAX_TASK_COLLECTIONS + 2;
+  // Long enough to cross the old poll-count ceiling several times, so the fact that
+  // it no longer ends anything is exercised rather than assumed.
+  const days = MAX_TASK_COLLECTIONS + 5;
   for (let day = 0; day < days; day += 1) {
     await scheduleDueMarkets();
     await drainQueue();
@@ -248,19 +258,56 @@ test('a market whose provider went quiet is not retired for ever', async () => {
 
   assert.ok(collections > 0,
     `a task the provider owed us was never collected once in ${days} days`);
-  // Two: the original search, and one more after the first was given up on. Giving
-  // up is what makes the market searchable again, so a second purchase there is the
-  // system recovering rather than wasting money. What must not happen is a purchase
-  // per day while the provider still owes us an answer.
-  assert.equal(submissions, 2,
-    `${submissions} searches were bought over ${days} days for one market`);
 
-  // And a provider that never delivers must be given up on rather than polled for ever.
-  const { rows } = await query<{ status: string; n: number }>(
-    `select status, count(*)::int as n from provider_tasks group by status`);
+  /**
+   * One purchase, however long the provider takes.
+   *
+   * The original defect was the opposite of waste: a market with an outstanding task
+   * was skipped entirely, so the task was never collected, never closed, and the
+   * market never refreshed again -- one PENDING answer retired it permanently. The
+   * market must keep being visited.
+   *
+   * What it must *not* do is buy again while the answer is still owed. That invariant
+   * is now stronger than it was: this used to expect two purchases over these days,
+   * because the poll-count ceiling gave up on a perfectly healthy task and the next
+   * pass bought a replacement. Not abandoning it means not re-buying it, so the
+   * correct number here is one.
+   */
+  assert.equal(submissions, 1,
+    `${submissions} searches were bought over ${days} days for one market`);
+  const { rows: owed } = await query<{ n: number }>(
+    `select count(*)::int as n from provider_tasks where status = 'PENDING'`);
+  assert.equal(owed[0]!.n, 1, 'a task the provider still owes us was given up on');
+
+  // And the market is still being visited rather than retired: the scheduler keeps
+  // queueing runs for it, which is what collection depends on.
+  assert.ok(collections >= days - 1,
+    'the market stopped being visited while a task was still outstanding');
+
+  // A result that can no longer be fetched is the one thing that ends it. Then the
+  // market is searchable again, and the replacement purchase is recovery rather than
+  // waste.
+  await query(`update provider_tasks set submitted_at = now() - interval '31 days'`);
+  await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'`);
+  await scheduleDueMarkets();
+  await drainQueue();
+
+  const { rows } = await query<{ status: string; error_code: string | null; n: number }>(
+    `select status, min(error_code) as error_code, count(*)::int as n
+       from provider_tasks group by status`);
   const abandoned = rows.find((row) => row.status === 'ABANDONED');
   assert.ok(abandoned && abandoned.n > 0,
-    `a task the provider never delivered is still being polled after ${days} days`);
+    `a task whose result expired is still being polled after ${days} days`);
+  assert.equal(abandoned!.error_code, 'RESULT_RETENTION_EXPIRED');
+
+  // Giving up and buying again are two different runs: the pass above took the
+  // collection branch and closed the row; only a pass that finds nothing outstanding
+  // buys. A run that failed to collect must never spend in the same breath.
+  await query(`update saved_markets set next_refresh_at = now() - interval '1 minute'`);
+  await scheduleDueMarkets();
+  await drainQueue();
+  assert.equal(submissions, 2,
+    'after the expired task was given up on the market was never searched again');
 });
 
 test('every discovered company ends up researched or queued for it', async () => {

@@ -170,10 +170,27 @@ test('an acknowledgement with no results is never treated as an empty SERP', asy
   assert.equal(calls.filter((call) => call.url.includes('task_get')).length, BASE.maxPollAttempts,
     'the poll is bounded by configuration, not by hope');
 
-  const usage = await query<{ status: string; error_code: string; operation: string }>(
-    'select status, error_code, operation from provider_usage order by requested_at desc limit 1');
-  assert.equal(usage.rows[0]!.status, 'FAILED');
-  assert.equal(usage.rows[0]!.error_code, 'TASK_NOT_READY');
+  /**
+   * A queued task is not a failed one.
+   *
+   * 40602 means the provider has the work and is doing it. Recording that as a
+   * provider failure marked six of production's seven purchases FAILED, every one of
+   * which went on to complete -- so the usage table said discovery was broken while
+   * the provider was working perfectly, and said the searches were free while $0.042
+   * had already been spent.
+   *
+   * What is recorded instead is the purchase, once, at the moment it was made. The
+   * task's own state lives in `provider_tasks`, which is the source of truth for it.
+   */
+  const usage = await query<{ status: string; error_code: string | null; operation: string }>(
+    'select status, error_code, operation from provider_usage order by requested_at desc');
+  assert.equal(usage.rows.length, 1, 'a queued task wrote a second, failure-shaped row');
+  assert.equal(usage.rows[0]!.operation, 'serp.discover.task_post');
+  assert.equal(usage.rows[0]!.status, 'OK');
+  assert.equal(usage.rows[0]!.error_code, null);
+  assert.equal(
+    (await query('select 1 from provider_usage where error_code = \'TASK_NOT_READY\'')).rows.length,
+    0, 'a task still in the provider queue must never be recorded as a failure');
 });
 
 test('a task that errored stops the poll instead of running it out', async () => {

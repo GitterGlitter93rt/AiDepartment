@@ -33,6 +33,7 @@
     "scale:bench:recent": "tsx src/bin/scale-benchmark-recent.ts",
     "manifest": "tsx src/bin/manifest.ts",
     "support": "tsx src/bin/support-bundle.ts",
+    "audit:backlog": "tsx src/bin/audit-provider-backlog.ts",
     "profiles:validate": "tsx src/bin/profile-contract.ts",
     "canary:packet": "tsx src/bin/canary-packet.ts",
     "probe:packet": "tsx src/bin/probe-packet.ts",

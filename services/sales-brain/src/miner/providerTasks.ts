@@ -29,13 +29,54 @@ export interface ProviderTaskRow {
 /**
  * How many times a task is asked for before we stop asking.
  *
- * Bounded on purpose: a task the provider will never finish must not become a job
- * that polls for ever. It is abandoned with a reason, and the operator can see that
- * a search was paid for and never delivered.
+ * @deprecated as a terminal decision-maker. Retained because the release manifest
+ * still reports it, but nothing abandons a task on this number any more -- see
+ * `isBeyondRetention`. A poll count was the wrong unit: it was tuned against a
+ * three-second loop, and re-used unchanged it would abandon a healthy task after an
+ * hour of a three-minute sweep. DataForSEO 40602 means "in queue", which is the
+ * provider working, not the provider failing, and seven of seven observed production
+ * tasks were still 40602 well past twenty attempts. Four of them took ~15 minutes and
+ * every one of them completed.
  */
 export const MAX_TASK_COLLECTIONS = numeric('PROVIDER_TASK_MAX_POLLS', 20, { min: 1 });
 
-/** Records a task the provider accepted, so a later run can collect it. */
+/**
+ * How long a submitted task's result stays retrievable by id.
+ *
+ * DataForSEO documents that the results of a Standard task remain available through
+ * `task_get` for 30 days after the task is set, independently of `tasks_ready` (which
+ * lists only *uncollected* tasks completed in the last 3 days). Abandonment is keyed
+ * to this number and nothing else: while the result is still retrievable, a paid task
+ * is recoverable, and giving up on it throws away money we have already spent.
+ *
+ * Configurable because it is a provider policy we do not control, not a constant of
+ * nature. If DataForSEO changes its retention, this changes with it.
+ *
+ * Source: DataForSEO SERP API — Task GET / Tasks Ready documentation.
+ */
+export const PROVIDER_TASK_RETENTION_DAYS = numeric('PROVIDER_TASK_RETENTION_DAYS', 30, { min: 1 });
+
+/** True once a task's result can no longer be fetched, so recovery is impossible. */
+export function isBeyondRetention(submittedAt: Date, now: Date = new Date()): boolean {
+  const ageDays = (now.getTime() - submittedAt.getTime()) / 86_400_000;
+  return ageDays > PROVIDER_TASK_RETENTION_DAYS;
+}
+
+/**
+ * Records a task the provider accepted, so a later run can collect it.
+ *
+ * Called the moment `task_post` is acknowledged -- before the fast poll, not after it
+ * gives up. Two production facts forced that order. A task that completed in 22
+ * seconds was collected inside the fast path and therefore never got a row at all, so
+ * the paid ledger silently omitted a search we had bought; and every row that did
+ * exist carried a `submitted_at` ~30 seconds late, because the row was created when
+ * we stopped waiting rather than when the provider accepted the work. A ledger that
+ * only remembers the slow purchases is not a ledger.
+ *
+ * `submittedAt` is therefore passed explicitly by the caller at acceptance time, and
+ * the cost is written here because `task_post` is the only moment money changes
+ * hands.
+ */
 export async function recordProviderTask(input: {
   provider: string;
   providerNativeId: string;
@@ -43,19 +84,44 @@ export async function recordProviderTask(input: {
   jobId?: string | null;
   operation?: string;
   request?: Record<string, unknown>;
-}): Promise<void> {
-  await query(
+  costUsd?: number | null;
+  submittedAt?: Date | null;
+}): Promise<string> {
+  // `do update` rather than `do nothing`: re-recording the same accepted task must be
+  // harmless, because the sweeper, a retry and a restart can all arrive here for one
+  // task. The conflict target is the provider's own id, so a duplicate is the same
+  // purchase and never a second one. Cost is written once and never overwritten with
+  // null -- a later caller that does not know the price must not erase it.
+  const { rows } = await query<{ provider_task_id: string }>(
     `insert into provider_tasks
-       (provider, provider_native_id, job_id, fingerprint, operation, request)
-     values ($1,$2,$3,$4,$5,$6)
+       (provider, provider_native_id, job_id, fingerprint, operation, request,
+        cost_usd, submitted_at)
+     values ($1,$2,$3,$4,$5,$6,$7, coalesce($8::timestamptz, now()))
      on conflict (provider, provider_native_id) do update
         set fingerprint = excluded.fingerprint,
-            job_id = coalesce(provider_tasks.job_id, excluded.job_id)`,
+            job_id = coalesce(provider_tasks.job_id, excluded.job_id),
+            cost_usd = coalesce(provider_tasks.cost_usd, excluded.cost_usd)
+     returning provider_task_id`,
     [
       input.provider, input.providerNativeId, input.jobId ?? null, input.fingerprint,
       input.operation ?? 'serp.discover', JSON.stringify(input.request ?? {}),
+      input.costUsd ?? null, input.submittedAt ?? null,
     ],
   );
+  return rows[0]!.provider_task_id;
+}
+
+/** The ledger row for a provider's own task id, whatever state it is in. */
+export async function providerTaskByNativeId(
+  provider: string, providerNativeId: string,
+): Promise<ProviderTaskRow | null> {
+  const { rows } = await query<ProviderTaskRow>(
+    `select provider_task_id, provider, provider_native_id, fingerprint, status,
+            poll_attempts, submitted_at, request
+       from provider_tasks
+      where provider = $1 and provider_native_id = $2`,
+    [provider, providerNativeId]);
+  return rows[0] ?? null;
 }
 
 /**
@@ -89,6 +155,43 @@ export async function pendingProviderTasks(provider?: string): Promise<ProviderT
       order by submitted_at asc`,
     [provider ?? null],
   );
+  return rows;
+}
+
+/**
+ * Old pending tasks worth asking about directly, oldest first.
+ *
+ * The `tasks_ready` list is the cheap path, but it is not sufficient on its own: it
+ * holds only tasks completed in the last three days, and a task drops off it as soon
+ * as anybody retrieves the result -- including an operator investigating by hand.
+ * Production already contains exactly that case. So a task that is old enough to have
+ * plausibly finished, and has not been asked about recently, gets one direct
+ * `task_get` by its known id. That call is free, and the id is one we already own.
+ *
+ * Bounded by `limit` so a backlog cannot turn one sweep into hundreds of requests.
+ */
+export async function tasksNeedingDirectCheck(input: {
+  provider: string;
+  minAgeMs: number;
+  recheckAfterMs: number;
+  limit: number;
+  now?: Date;
+}): Promise<ProviderTaskRow[]> {
+  const now = input.now ?? new Date();
+  const { rows } = await query<ProviderTaskRow>(
+    `select provider_task_id, provider, provider_native_id, fingerprint, status,
+            poll_attempts, submitted_at, request
+       from provider_tasks
+      where provider = $1
+        and status = 'PENDING'
+        and submitted_at <= $2::timestamptz
+        and (last_polled_at is null or last_polled_at <= $3::timestamptz)
+      order by submitted_at asc
+      limit $4`,
+    [input.provider,
+     new Date(now.getTime() - input.minAgeMs).toISOString(),
+     new Date(now.getTime() - input.recheckAfterMs).toISOString(),
+     input.limit]);
   return rows;
 }
 

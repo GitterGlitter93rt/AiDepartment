@@ -622,3 +622,50 @@ profile, which is the same correction this codebase has now needed for the searc
 the signal-to-score map, the business-model fields, the negative terms, and the observation
 columns.
 
+
+## 2026-09-15 — DataForSEO Standard: the collector that never ran
+
+Seven paid tasks, $0.042, all seven completed at the provider, and `poll_attempts = 0,
+last_polled_at = null` on every ledger row. **No collection attempt had ever been made
+in this system's history.** Proven from `provider_tasks`, `jobs` and `provider_usage`,
+and against the provider's own `id_list`, `tasks_ready` and `task_get` (all free).
+
+The 27-second fast poll was never the defect. Collection lived inside a future
+`market_mine` job; those are queued only by the saved-market scheduler, which reads
+`saved_markets where enabled`; ad-hoc "Research this market" creates no saved market;
+production has zero saved markets. So an ad-hoc Standard search could be **paid for,
+completed by the provider, and PENDING for ever**.
+
+Observed turnarounds: 22s, 56s, 14m37s, 14m39s, 15m04s, 15m14s, 16m14s. Only the
+22-second one — `roofing contractor 32095` — landed inside the fast path, and job
+`399fb73a` records it: *113 row(s) read, 65 business(es) identified*. **That single task
+produced 65 of the 66 legacy Roofing Accounts.** The other four roofing searches plus
+`drain cleaning 32095` are exactly the five rows later quarantined as
+`SUPERSEDED_BY_P0_MINER_REMEDIATION`.
+
+### Decisions taken (approved 2026-09-15)
+
+1. **Spend is recorded at `task_post`, once.** It was recorded only when a *collection*
+   succeeded, so seven purchases appeared as one $0.006 row — and the daily ceiling reads
+   that table, so it was metering about a seventh of real spend. `task_get` is free; the
+   cost it echoes back is the same historical charge, verified against the account
+   balance, which does not move across a retrieval.
+2. **Every accepted task goes on the ledger immediately.** Writing the row only when the
+   poll gave up meant a fast search was bought, charged and never recorded at all, and
+   made `submitted_at` ~30s late on every row that did exist.
+3. **Abandonment is keyed to retrievability, not effort.** `40602` means the provider is
+   working. A poll count tuned for a three-second loop would abandon a healthy task
+   within an hour of a three-minute sweep. Terminal now means the result can no longer be
+   fetched (`PROVIDER_TASK_RETENTION_DAYS`, 30) or a terminal provider status.
+   `PROVIDER_TASK_MAX_POLLS` decides nothing and is kept only because the manifest prints it.
+4. **`advertiser_first` is unchanged in this branch.** All seven SERPs returned **zero
+   paid items and zero provider-supplied addresses**. That is real provider evidence: *no
+   ad was observed in this SERP* — not "this business does not advertise", and not "the
+   search failed". It also means the old address contamination did **not** come from
+   DataForSEO address fields. Query-strategy redesign is a separate issue.
+
+### The lesson worth keeping
+
+A recovery path must not depend on a *product* concept — a saved market — to rescue a
+*financial* one. The money was spent whether or not anybody saved the market afterwards,
+so the ledger, and only the ledger, decides what is still owed.
