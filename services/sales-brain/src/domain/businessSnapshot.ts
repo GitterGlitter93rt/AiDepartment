@@ -123,6 +123,11 @@ const CLAIM_LABELS: Record<string, string> = {
   site_title: 'Page title',
   site_local_business_schema: 'Local business markup',
   site_copyright_year: 'Footer copyright',
+  inbox_sales: 'Sales inbox',
+  inbox_service: 'Service inbox',
+  inbox_billing: 'Billing inbox',
+  inbox_careers: 'Careers inbox',
+  inbox_general: 'General inbox',
 };
 
 const OFFICIAL_ENTITY_KEYS = [

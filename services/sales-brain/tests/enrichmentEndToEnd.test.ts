@@ -114,6 +114,11 @@ test('research reads the site and records what it found', async () => {
   assert.ok(keys.has('route_careers'));
   // Who it links to.
   assert.ok(keys.has('social_facebook'));
+  // Which inbox is which: the fixture publishes service@, not sales@.
+  assert.ok(keys.has('inbox_service'),
+    'a service inbox was recorded as an undifferentiated email address');
+  assert.ok(!keys.has('inbox_sales'),
+    'an inbox the site does not publish was invented');
   // What the site itself is like.
   assert.ok(keys.has('site_mobile_viewport'));
 });

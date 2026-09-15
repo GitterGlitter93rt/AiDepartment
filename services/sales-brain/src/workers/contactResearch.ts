@@ -385,6 +385,36 @@ export async function runContactResearch(
       });
     }
 
+    // Which inbox is which.
+    //
+    // sales@ reaches somebody whose job is to answer us; service@ reaches a dispatch
+    // queue that will treat us as a customer with a broken water heater. Both are
+    // "an email address" to the endpoint model, and writing to the wrong one is a
+    // wasted first touch.
+    {
+      const { classifyRoleInbox } = await import('../resolver/companyProfile.js');
+      const seenInboxes = new Set<string>();
+      for (const endpoint of endpoints) {
+        if (endpoint.kind !== 'EMAIL') continue;
+        const inbox = classifyRoleInbox(endpoint.value);
+        if (!inbox || seenInboxes.has(inbox)) continue;
+        seenInboxes.add(inbox);
+        await recordEvidence(client, {
+          accountId, researchRunId,
+          category: 'contact_route',
+          claimKey: `inbox_${inbox}`,
+          claimText: `${endpoint.value} is the ${inbox} inbox.`,
+          normalizedValue: endpoint.value,
+          confidence: 'confirmed',
+          canStateAsFact: true,
+          sourceType: 'first_party',
+          sourceReference: endpoint.sourceReference,
+          expiresAt: new Date(Date.now() + 180 * 86_400_000),
+          precedenceRank: 2,
+        });
+      }
+    }
+
     // Technology, each with the marker that proves it. A rep reading "runs Google Ads
     // tags and call tracking, no booking widget" is reading a sales opening.
     for (const technology of technologies) {
