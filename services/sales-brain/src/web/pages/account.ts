@@ -236,6 +236,8 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </div>
   </div>
 
+  ${renderBestContact(detail)}
+
   ${renderBusinessSnapshot(detail)}
 
   ${discoveries.length > 0 ? html`
@@ -809,5 +811,37 @@ function renderBusinessSnapshot(detail: AccountDetail): RawHtml {
       means the company states it on its own site and nobody has checked it. Anything
       not listed is not known, which is not the same as no.
     </p>
+  </div>`;
+}
+
+/**
+ * Who to ask for, above the fold, with the role the record actually gives them.
+ *
+ * Two labels rather than one. VERIFIED ROLE is what a source established, in that
+ * source's words. LIKELY BEST CONTACT is our judgement about who to try first, and it
+ * says it is a judgement. A rep who asks for "the owner" when the record says
+ * "qualifying agent" has been misled by their own CRM, and this panel exists so that
+ * cannot happen.
+ */
+function renderBestContact(detail: AccountDetail): RawHtml {
+  const best = detail.bestContact;
+  if (!best || !best.personName) return raw('');
+
+  return html`<div class="section">
+    <h3>Who to ask for</h3>
+    <div class="callout">
+      <div><strong>${best.personName}</strong>
+        <span class="badge" style="margin-left:6px">${best.verifiedRole}</span>
+        ${best.isOwner
+          // Only ever printed when a source actually said owner.
+          ? html`<span class="badge badge-good" style="margin-left:4px">owner</span>`
+          : ''}
+        <span class="badge ${best.confidence === 'NAMED_AND_VERIFIED' ? 'badge-good' : ''}"
+              style="margin-left:4px">${best.confidence === 'NAMED_AND_VERIFIED'
+                ? 'verified role' : 'likely best contact'}</span>
+      </div>
+      <div class="small" style="margin-top:6px">${best.askFor}</div>
+      <div class="micro muted" style="margin-top:4px">${best.reason}</div>
+    </div>
   </div>`;
 }

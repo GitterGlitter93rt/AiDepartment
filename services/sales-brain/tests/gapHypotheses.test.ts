@@ -171,3 +171,89 @@ test('every gap hypothesis is phrased as questions, not conclusions', async () =
       `${entry.hypothesisId} cannot explain why it fired`);
   }
 });
+
+// ------------------------------------------------ trade-specific openings --
+
+/** An account in a given trade, with the site actually read. */
+async function accountInVertical(vertical: string): Promise<string> {
+  sequence += 1;
+  const { accountId } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: `Trade Co ${sequence}`,
+    website: `https://trade${sequence}.invalid`,
+    phone: `904-555-${String(7000 + sequence).slice(-4)}`,
+    city: 'Austin', state: 'TX', postalCode: '78701', verticalProfileId: vertical,
+  }, { discoverySource: 'market_miner:test' }));
+  await markEntityVerified(accountId);
+  await researchRan(accountId);
+  return accountId;
+}
+
+test('a roofer selling into storm demand with no intake is an opening', async () => {
+  const accountId = await accountInVertical('roofing');
+  await evidence(accountId, 'hail_repair_service');
+
+  const derived = await deriveGapHypotheses(accountId);
+  const found = derived.find((entry) => entry.hypothesisId === 'storm_demand_without_intake')!;
+  assert.ok(found, 'the clearest roofing opening was not produced');
+  assert.match(found.questions.join(' '), /week after a storm/i);
+});
+
+test('the same evidence on a law firm produces no storm hypothesis', async () => {
+  const accountId = await accountInVertical('law-firms');
+  await evidence(accountId, 'hail_repair_service');
+
+  const derived = await deriveGapHypotheses(accountId);
+  assert.ok(!derived.some((entry) => entry.hypothesisId === 'storm_demand_without_intake'),
+    'a law firm was told to capture storm-damage calls');
+});
+
+test('a law firm offering consultations with no booking is an opening', async () => {
+  const accountId = await accountInVertical('law-firms');
+  await evidence(accountId, 'online_quote_booking');
+
+  const derived = await deriveGapHypotheses(accountId);
+  assert.ok(derived.some((entry) => entry.hypothesisId === 'consultation_offer_without_intake'));
+});
+
+test('a scheduling tool answers the consultation gap', async () => {
+  const accountId = await accountInVertical('law-firms');
+  await evidence(accountId, 'online_quote_booking');
+  await evidence(accountId, 'tech_calendly');
+
+  const derived = await deriveGapHypotheses(accountId);
+  assert.ok(!derived.some((entry) =>
+    entry.hypothesisId === 'consultation_offer_without_intake'),
+  'a firm running Calendly was told nobody can book a consultation');
+});
+
+test('insurance work without a status portal is an opening for claim trades', async () => {
+  const accountId = await accountInVertical('collision-repair');
+  await evidence(accountId, 'insurance_claim_assistance');
+
+  const derived = await deriveGapHypotheses(accountId);
+  assert.ok(derived.some((entry) =>
+    entry.hypothesisId === 'insurance_work_without_status_updates'));
+});
+
+test('a maintenance plan with no portal is an opening for HVAC and plumbing', async () => {
+  const accountId = await accountInVertical('hvac');
+  await evidence(accountId, 'membership_plan_offered');
+
+  const derived = await deriveGapHypotheses(accountId);
+  assert.ok(derived.some((entry) => entry.hypothesisId === 'membership_plan_without_portal'));
+});
+
+test('trade rules never fire for a trade they were not written for', async () => {
+  const accountId = await accountInVertical('dental');
+  for (const key of ['hail_repair_service', 'insurance_claim_assistance',
+    'membership_plan_offered', 'online_quote_booking']) {
+    await evidence(accountId, key);
+  }
+  const derived = await deriveGapHypotheses(accountId);
+  const tradeSpecific = ['storm_demand_without_intake', 'insurance_work_without_status_updates',
+    'membership_plan_without_portal', 'consultation_offer_without_intake'];
+  for (const id of tradeSpecific) {
+    assert.ok(!derived.some((entry) => entry.hypothesisId === id),
+      `${id} fired for a trade it was not written for`);
+  }
+});

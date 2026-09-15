@@ -202,6 +202,12 @@ test('the account page shows a snapshot a rep can act on', async () => {
   assert.match(html, /Business snapshot/, 'the snapshot section did not render');
   assert.match(html, /Responsible Master Plumber/,
     'the RMP was recorded and never shown to the rep');
+  assert.match(html, /Who to ask for/,
+    'the page never says who to ask for');
+  // The RMP may be the only name we hold, and may therefore be suggested -- but the
+  // suggestion must carry the regulatory role, not an ownership claim.
+  assert.doesNotMatch(html, /badge-good">owner/,
+    'a regulatory designation was badged as ownership');
   assert.match(html, /Where we looked/,
     'the page did not say which sources were consulted');
   // The epistemic labels a rep depends on.

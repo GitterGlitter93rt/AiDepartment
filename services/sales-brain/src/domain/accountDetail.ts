@@ -175,6 +175,13 @@ export interface AccountDetail {
    * found nothing" are different sentences, which is the whole reason this is here.
    */
   sourceAttempts: import('./sourceAudit.js').SourceAttempt[];
+  /**
+   * Who to ask for, kept separate from what each record says they are.
+   *
+   * Null when the only people on file are ones a public record names for reasons
+   * unrelated to running the business.
+   */
+  bestContact: import('./bestContact.js').BestContact | null;
   timeline: TimelineEvent[];
   followUps: Record<string, any>[];
   suppressions: Record<string, any>[];
@@ -365,6 +372,46 @@ export async function getAccountDetail(
   const { sourceAttemptsFor } = await import('./sourceAudit.js');
   const sourceAttempts = await sourceAttemptsFor(accountId).catch(() => []);
 
+  // Computed from the contacts already loaded above -- no extra query, and no risk of
+  // the suggestion disagreeing with the list it was drawn from.
+  const { chooseBestContact } = await import('./bestContact.js');
+  const { relationshipFromTitle } = await import('../resolver/roles.js');
+
+  /**
+   * The stored relationship is the database's coarse vocabulary -- owner, officer,
+   * member_manager, registered_agent, license_qualifier, employee. The finer role is
+   * in the title the source printed, so that is preferred where it resolves, and the
+   * coarse value is the floor.
+   *
+   * `registered_agent` and `license_qualifier` must survive this translation intact:
+   * they are the two that must never be read as running the business.
+   */
+  const STORED_TO_RELATIONSHIP: Record<string, string> = {
+    owner: 'OWNER',
+    officer: 'OFFICER',
+    member_manager: 'MEMBER',
+    registered_agent: 'REGISTERED_AGENT',
+    license_qualifier: 'QUALIFIER',
+    employee: 'OTHER_BUSINESS_ROLE',
+    unknown: 'OTHER_BUSINESS_ROLE',
+  };
+
+  const bestContact = chooseBestContact(contacts.map((contact) => {
+    const stored = STORED_TO_RELATIONSHIP[contact.company_relationship]
+      ?? 'OTHER_BUSINESS_ROLE';
+    // A title only refines an unspecific stored role. It never overrides the two that
+    // exist to stop a public record being read as authority.
+    const refined = stored === 'OTHER_BUSINESS_ROLE' && contact.raw_title
+      ? relationshipFromTitle(contact.raw_title) ?? stored
+      : stored;
+    return {
+      personName: contact.full_name,
+      relationship: refined,
+      rawTitle: contact.raw_title,
+      fromFirstParty: contact.source_provider === 'COMPANY_FIRST_PARTY',
+    };
+  }));
+
   return {
     account,
     locations: locations.rows,
@@ -374,6 +421,7 @@ export async function getAccountDetail(
     evidence: evidence.rows,
     discoveries: discoveries.rows,
     sourceAttempts,
+    bestContact,
     timeline: timeline.rows,
     followUps: followUps.rows,
     suppressions: suppressions.rows,

@@ -34,6 +34,14 @@ interface GapRule {
   text: string;
   questions: string[];
   priority: number;
+  /**
+   * Verticals this applies to. Omitted means every trade.
+   *
+   * A trade-specific opening has to be trade-specific or it is noise: telling a law
+   * firm it should capture storm-damage calls is the kind of thing that ends a
+   * conversation rather than starting one.
+   */
+  verticals?: string[];
 }
 
 const GAP_RULES: GapRule[] = [
@@ -127,6 +135,73 @@ const GAP_RULES: GapRule[] = [
     ],
     priority: 25,
   },
+
+  // --- trade-specific openings -------------------------------------------------
+  {
+    id: 'storm_demand_without_intake',
+    storedCategory: 'speed_to_lead',
+    sourceCategory: 'surge_capacity',
+    requires: ['hail_repair_service'],
+    absent: ['route_booking'],
+    verticals: ['roofing', 'collision-repair', 'pdr-hail', 'restoration'],
+    text: 'They sell into storm demand, which arrives all at once and goes to whoever '
+      + 'answers first \u2014 and the only way in is a form somebody has to get back to.',
+    questions: [
+      'What happens to your phones the week after a storm?',
+      'How many of those calls do you think go unanswered?',
+      'Who follows up with the ones you could not get to?',
+    ],
+    priority: 8,
+  },
+  {
+    id: 'insurance_work_without_status_updates',
+    storedCategory: 'customer_communication',
+    sourceCategory: 'claims_communication',
+    requires: ['insurance_claim_assistance'],
+    absent: ['route_customer_portal'],
+    verticals: ['roofing', 'collision-repair', 'restoration', 'pdr-hail'],
+    text: 'They handle insurance claims, which run for weeks, and there is no portal '
+      + 'for a customer to check where theirs has got to \u2014 so the office fields '
+      + '"any update?" by phone.',
+    questions: [
+      'How often does someone ring just to ask where their claim is?',
+      'Who answers those calls, and what else were they doing?',
+    ],
+    priority: 18,
+  },
+  {
+    id: 'consultation_offer_without_intake',
+    storedCategory: 'intake',
+    sourceCategory: 'consultation_intake',
+    requires: ['online_quote_booking'],
+    absent: ['route_booking', 'tech_calendly', 'tech_cal_com', 'tech_acuity'],
+    verticals: ['law-firms'],
+    text: 'They offer a consultation and there is no way to book one \u2014 every '
+      + 'enquiry waits for somebody to call back, and the first firm to answer usually '
+      + 'keeps the client.',
+    questions: [
+      'How quickly does a new enquiry get a call back?',
+      'What happens to the ones that come in overnight or at the weekend?',
+      'Do you know how many never get through?',
+    ],
+    priority: 8,
+  },
+  {
+    id: 'membership_plan_without_portal',
+    storedCategory: 'repetitive_admin',
+    sourceCategory: 'membership_admin',
+    requires: ['membership_plan_offered'],
+    absent: ['route_customer_portal', 'route_payment_portal'],
+    verticals: ['hvac', 'plumbing'],
+    text: 'They sell a maintenance plan, which means recurring visits to schedule and '
+      + 'recurring payments to chase, and there is no portal for either.',
+    questions: [
+      'How do plan members book their seasonal visit?',
+      'Who keeps track of which members are due?',
+      'How much of that is somebody working through a list by hand?',
+    ],
+    priority: 22,
+  },
 ];
 
 /**
@@ -137,6 +212,11 @@ const GAP_RULES: GapRule[] = [
  * into a call armed with our own failure.
  */
 export async function deriveGapHypotheses(accountId: string): Promise<DerivedHypothesis[]> {
+  const { rows: accountRows } = await query<{ vertical: string | null }>(
+    'select primary_vertical_profile_id as vertical from accounts where account_id = $1',
+    [accountId]);
+  const vertical = (accountRows[0]?.vertical ?? '').toLowerCase();
+
   const { rows: runRows } = await query<{ pages: number }>(
     `select coalesce(max((adapter_results->>'pages_fetched')::int), 0) as pages
        from research_runs where account_id = $1`, [accountId]);
@@ -158,6 +238,8 @@ export async function deriveGapHypotheses(accountId: string): Promise<DerivedHyp
 
   const derived: DerivedHypothesis[] = [];
   for (const rule of GAP_RULES) {
+    // A trade-specific opening has to be trade-specific or it is noise.
+    if (rule.verticals && !rule.verticals.includes(vertical)) continue;
     const present = rule.requires.every((key) => evidenceByKey.has(key));
     if (!present) continue;
     const missing = rule.absent.every((key) => !evidenceByKey.has(key));
