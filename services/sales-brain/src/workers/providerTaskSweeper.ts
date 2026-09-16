@@ -6,7 +6,7 @@ import {
   PROVIDER_TASK_RETENTION_DAYS, type ProviderTaskRow,
 } from '../miner/providerTasks.js';
 import { persistPaidPlan, planHash, type PaidPlan } from '../miner/planPreview.js';
-import { enqueueConfirmedMarketResearch } from './enqueue.js';
+import { enqueueConfirmedMarketResearch, PROVIDER_COLLECTION_PRIORITY } from './enqueue.js';
 
 /**
  * Collects paid provider work that outlived the run which bought it.
@@ -175,10 +175,25 @@ async function queueCollection(
    * have had costs one indexed read and keeps the table proportional to the work.
    */
   const key = `market_mine:plan:${planHash(plan)}`;
+  /**
+   * Also corrects a collection queued before collection had its own priority.
+   *
+   * `least` only ever makes the job more urgent, never less, and the key identifies a
+   * plan this function built -- every search in it is COLLECT_EXISTING and chargeable
+   * false -- so an ordinary paid market run can never be matched here and can never be
+   * reprioritised. A job already RUNNING is left alone: its priority has already done
+   * whatever it was going to do.
+   */
   const { rows: active } = await query<{ job_id: string }>(
-    `select job_id from jobs
-      where idempotency_key = $1 and status in ('QUEUED','RUNNING') limit 1`, [key]);
+    `update jobs
+        set priority = least(priority, $2::int)
+      where idempotency_key = $1 and status = 'QUEUED'
+      returning job_id`, [key, PROVIDER_COLLECTION_PRIORITY]);
   if (active.length > 0) return 'ALREADY_QUEUED';
+  const { rows: running } = await query<{ job_id: string }>(
+    `select job_id from jobs
+      where idempotency_key = $1 and status = 'RUNNING' limit 1`, [key]);
+  if (running.length > 0) return 'ALREADY_QUEUED';
 
   // The plan is persisted and immediately confirmed. Two passes over the same task
   // build a byte-identical plan, so they hash identically, so the second joins the
