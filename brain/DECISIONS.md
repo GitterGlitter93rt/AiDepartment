@@ -669,3 +669,34 @@ produced 65 of the 66 legacy Roofing Accounts.** The other four roofing searches
 A recovery path must not depend on a *product* concept — a saved market — to rescue a
 *financial* one. The money was spent whether or not anybody saved the market afterwards,
 so the ledger, and only the ledger, decides what is still owed.
+
+## 2026-09-16 — Nine crawler "defects" that were one line of test harness
+
+The enrichment branch's broad suite failed nine tests in `worker.test.ts`: robots.txt
+compliance, crawl walls, login/anti-bot detection, contact research, stage recording.
+They looked exactly like product defects in the most safety-sensitive code on the
+branch, and they reproduced identically on the pre-integration SHA — which read as
+proof they predated the DataForSEO collector integration.
+
+They were neither. Two of them failed with `private_address` where they expected
+`login_required` and `anti_bot`, and that was the whole story: the crawler's SSRF
+guard was refusing the suite's own fixture servers on 127.0.0.1.
+
+`tests/setup.ts` set `RESEARCH_ALLOW_PRIVATE_ADDRESSES=1` **inside** its
+`if (!process.env.TEST_DB_CONFIGURED)` block. A runner that supplies its own
+`TEST_DB_CONFIGURED` -- which is exactly what the isolated-ephemeral-Postgres pattern
+does, and that pattern is now mandatory after a shared-instance outage -- skipped the
+allowance along with the database rewrite. Choosing a database and permitting loopback
+fixtures are unrelated decisions; they no longer share a condition.
+
+Confirmed by running the suite unchanged with only that variable exported: 11/11 pass,
+zero code edits. The fix moves the assignment out of the block. `fetcherSafety.test.ts`
+still deletes the variable and proves the guard refuses without it, so nothing was
+weakened.
+
+**The lesson worth keeping.** "It reproduces on the older commit" proves the failure is
+not caused by the newer commit. It does not prove the failure is in the product, and I
+reported it as pre-existing on that basis. Both runs shared my harness, so both
+reproduced my harness's bug. When a suite fails only under a new runner, suspect the
+runner before the code -- and when nine unrelated-looking tests fail together, look for
+the one shared precondition rather than nine root causes.

@@ -28,12 +28,26 @@ if (!process.env.TEST_DB_CONFIGURED) {
   process.env.DATABASE_URL = testUrl;
   process.env.SESSION_SECRET = values.get('SESSION_SECRET') ?? 'test-session-secret-value-only';
   process.env.TEST_DB_CONFIGURED = '1';
-  // The crawler refuses private and loopback addresses, which is what stops research
-  // reading a cloud metadata service or this product's own API. The suite stands up
-  // fixture HTTP servers on 127.0.0.1 to exercise the real fetcher against robots
-  // rules and login walls, so the guard is relaxed here and only here. No deployed
-  // environment sets this, and tests/fetcherSafety.test.ts turns it back off to prove
-  // the guard still refuses.
-  process.env.RESEARCH_ALLOW_PRIVATE_ADDRESSES = '1';
 }
+
+/**
+ * The crawler refuses private and loopback addresses, which is what stops research
+ * reading a cloud metadata service or this product's own API. The suite stands up
+ * fixture HTTP servers on 127.0.0.1 to exercise the real fetcher against robots
+ * rules and login walls, so the guard is relaxed here and only here. No deployed
+ * environment sets this, and tests/fetcherSafety.test.ts turns it back off to prove
+ * the guard still refuses.
+ *
+ * Deliberately outside the block above. It used to sit inside it, where it was set
+ * only when this file also chose the database -- so a runner that supplied its own
+ * `TEST_DB_CONFIGURED` (the isolated-Postgres pattern: an ephemeral server on its own
+ * Docker network, which is how these suites must run after a shared-instance outage)
+ * skipped the allowance and watched nine crawler tests fail with `private_address`.
+ * They read exactly like product defects in robots handling, login-wall detection and
+ * contact research, and cost a full investigation before the cause turned out to be
+ * the harness. Choosing the database and permitting loopback fixtures are unrelated
+ * decisions, so they no longer share a condition.
+ */
+process.env.RESEARCH_ALLOW_PRIVATE_ADDRESSES = '1';
+
 export {};
