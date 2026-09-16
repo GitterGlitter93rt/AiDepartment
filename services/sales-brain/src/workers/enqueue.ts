@@ -1,6 +1,7 @@
 import { query, withTransaction } from '../db/pool.js';
 import { normalizeGeography } from '../miner/geography.js';
 import { miningModeOrDefault } from '../miner/miningMode.js';
+import { numeric } from '../config.js';
 
 /**
  * Job enqueue helpers.
@@ -167,6 +168,47 @@ export type ConfirmedEnqueueResult =
  * `consumed_at` and then writing it in a separate statement is a read-then-write, and
  * the gap is exactly where a double-click fits.
  */
+/**
+ * Where collecting work we have already paid for sits in the queue.
+ *
+ * Ahead of `account_research` (50) and `contact_research` (40), and the reason is a
+ * measured production failure rather than a preference. Collection is queued as a
+ * `market_mine` job at 80, so a burst of newly discovered companies produced dozens of
+ * priority-50 research jobs that outranked it. Five collect-only jobs created by one
+ * sweeper pass at 19:37:51 started at 19:40, 19:47, 19:50, 19:52 and 19:54 -- the last
+ * waited 16m23s while the provider's answer, already bought, sat unread.
+ *
+ * It compounds: every collection ingests ~114 rows, each new company queues its own
+ * research at 50, and those outrank the collections still waiting. The more the system
+ * collects, the longer the rest of the collection waits.
+ *
+ * Safe to put first because the set is small and each job is short: one provider GET
+ * and an ingest, bounded by `DIRECT_CHECK_BATCH` per sweep. It cannot crowd out rep
+ * work for long, and everything downstream -- research, scoring, the rep seeing the
+ * company at all -- is blocked until it runs.
+ */
+export const PROVIDER_COLLECTION_PRIORITY = numeric('PROVIDER_COLLECTION_PRIORITY', 30, { min: 1 });
+
+/**
+ * True when every search in this plan collects a task already bought.
+ *
+ * Read from the stored plan inside the claiming transaction rather than accepted as an
+ * argument, so a caller cannot ask for collection priority on a plan that spends. A
+ * plan with any chargeable or BUY_NEW search is ordinary market work at 80.
+ */
+function isCollectOnlyPlan(plan: unknown): boolean {
+  const searches = (plan as { plan?: { searches?: unknown[] } })?.plan?.searches;
+  if (!Array.isArray(searches) || searches.length === 0) return false;
+  return searches.every((search) => {
+    const row = search as { executionDisposition?: unknown; chargeable?: unknown;
+      approvedProviderTaskId?: unknown };
+    return row.executionDisposition === 'COLLECT_EXISTING'
+      && row.chargeable === false
+      && typeof row.approvedProviderTaskId === 'string'
+      && row.approvedProviderTaskId.length > 0;
+  });
+}
+
 export async function enqueueConfirmedMarketResearch(input: {
   verticalProfileId: string | null;
   geographyType: string | null;
@@ -184,10 +226,10 @@ export async function enqueueConfirmedMarketResearch(input: {
   return withTransaction(async (client) => {
     // The claim. Exactly one caller can move `consumed_at` off null, so a second
     // confirmation of the same plan finds nothing to claim and is told so.
-    const claimed = await client.query<{ plan_id: string }>(
+    const claimed = await client.query<{ plan_id: string; plan: unknown }>(
       `update search_plan_previews set consumed_at = now()
         where plan_id = $1 and consumed_at is null
-        returning plan_id`, [input.confirmedPlan.planId]);
+        returning plan_id, plan`, [input.confirmedPlan.planId]);
     if (claimed.rows.length === 0) {
       return { ok: false as const, code: 'ALREADY_USED' as const,
         message: 'That research plan has already been submitted. Review a new plan to '
@@ -208,14 +250,19 @@ export async function enqueueConfirmedMarketResearch(input: {
       confirmed_plan_hash: input.confirmedPlan.planHash,
     };
 
+    // Set at creation, never patched afterwards: the worker can lease a job between an
+    // insert and a follow-up update, and a collection that was reprioritised too late
+    // is exactly the job that waited sixteen minutes.
+    const priority = isCollectOnlyPlan(claimed.rows[0]!.plan) ? PROVIDER_COLLECTION_PRIORITY : 80;
+
     const inserted = await client.query<{ job_id: string }>(
       `insert into jobs (job_type, idempotency_key, payload, requested_by, account_id,
                          market_id, priority)
-       values ('market_mine', $1, $2, $3, null, $4, 80)
+       values ('market_mine', $1, $2, $3, null, $4, $5)
        on conflict (idempotency_key) where idempotency_key is not null and status in ('QUEUED','RUNNING')
        do nothing
        returning job_id`,
-      [idempotencyKey, JSON.stringify(payload), input.requestedBy, input.marketId]);
+      [idempotencyKey, JSON.stringify(payload), input.requestedBy, input.marketId, priority]);
 
     // No row means an active job already carries this exact plan -- two identical
     // previews of an unchanged market hash the same, so this is the ordinary dedupe
