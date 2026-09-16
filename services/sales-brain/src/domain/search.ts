@@ -368,6 +368,16 @@ interface WhereBuild {
 }
 
 /** Columns the view renames. The count path reads the base table's own names. */
+/**
+ * Words a rep types that do not narrow which company they mean.
+ *
+ * Connectors, and the legal suffixes that are in our stored name about half the time
+ * and in what somebody types almost never.
+ */
+const SEARCH_STOPWORDS: ReadonlySet<string> = new Set([
+  'and', 'the', 'of', 'an', 'inc', 'llc', 'ltd', 'co', 'corp', 'company',
+]);
+
 const BASE_COLUMN: Record<string, string> = { company_name: 'canonical_name' };
 
 function buildWhere(
@@ -620,6 +630,38 @@ function buildWhere(
       `regexp_replace(lower(coalesce(canonical_domain,'')), '[^a-z0-9]+', '', 'g') `
         + `like ${squashedParam}`,
     ];
+
+    /**
+     * "Del Aire" and "Del-Air" are not the same string with different punctuation.
+     *
+     * Removing the punctuation gives "delaire" and "delair", which still do not match:
+     * this is a spelling the rep half-remembers, which is the normal case when
+     * somebody is looking up a company they are about to call. So each word of the
+     * query has to match some word of the name, and a word matches when either is a
+     * prefix of the other -- "air" and "aire", "heating" and "heating".
+     *
+     * Every word must match, so this narrows rather than widens: "Del Aire" finds
+     * Del-Air and does not find Bayside Cooling. The reverse direction needs a word of
+     * at least three letters, or a stray two-letter word in a company name would match
+     * almost any query beginning with those letters.
+     *
+     * Connectors and company suffixes are dropped, because a rep types "Heating and
+     * Air" for a company stored as "Heating & Air" and means the same company.
+     */
+    const tokens = raw.split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 2 && !SEARCH_STOPWORDS.has(token));
+    if (tokens.length > 0) {
+      const words = `regexp_split_to_table(regexp_replace(`
+        + `lower(coalesce(${name},'') || ' ' || coalesce(canonical_domain,'')), `
+        + `'[^a-z0-9]+', ' ', 'g'), ' ')`;
+      const perToken = tokens.map((token) => {
+        const prefixParam = push(`${token}%`);
+        const tokenParam = push(token);
+        return `exists (select 1 from ${words} as w where w <> '' `
+          + `and (w like ${prefixParam} or (length(w) >= 3 and ${tokenParam} like w || '%')))`;
+      });
+      parts.push(`(${perToken.join(' and ')})`);
+    }
 
     if (digits.length >= 7) {
       const digitsParam = push(`%${digits}%`);
