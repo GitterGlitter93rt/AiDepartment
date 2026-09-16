@@ -272,12 +272,45 @@ export async function getAccountDetail(
               line_type, human_manual_call, autonomous_ai_voice, eligibility_reason_codes,
               next_human_eligible_at
          from contact_endpoints where account_id = $1
+        /*
+         * What a rep should try first, which the role alone does not decide.
+         *
+         * The order read the role and nothing else, so a DIRECT_BUSINESS_LINE that is
+         * disconnected sorted above a confirmed main line, and a suppressed endpoint
+         * sat in the middle of the list rather than at the end. The top row of this
+         * list is what a rep dials, so an ordering that ignores whether the number
+         * still works is an ordering that hands them a dead line first.
+         *
+         * Usability outranks role, then role, then how well the value is evidenced.
+         * CALL_TRACKING_NUMBER is ranked below the ordinary business lines on
+         * purpose: it is a campaign's number, it can stop pointing at the company the
+         * moment the campaign ends, and calling it tells the advertiser we called.
+         */
         order by
+          -- 1. Anything we should not be using at all goes last, in either channel.
+          case when is_suppressed or not is_active then 1 else 0 end,
+          case quality_state
+            when 'WRONG_NUMBER' then 1 when 'DISCONNECTED' then 1
+            when 'REASSIGNED_NUMBER_RISK' then 1 when 'SUPPRESSED' then 1
+            when 'HARD_BOUNCE' then 1 when 'STALE' then 1
+            else 0 end,
+          -- 2. Then the role, which is what kind of endpoint this is.
           case endpoint_role
             when 'DIRECT_BUSINESS_LINE' then 1 when 'EXTENSION' then 2
             when 'MOBILE_ASSERTED_BUSINESS' then 3 when 'MAIN_BUSINESS_LINE' then 4
+            when 'LOCATION_BUSINESS_LINE' then 5 when 'TOLL_FREE_BUSINESS' then 6
+            when 'MOBILE_UNKNOWN_USE' then 7 when 'CALL_TRACKING_NUMBER' then 8
             when 'DIRECT_PERSON_EMAIL' then 1 when 'ROLE_EMAIL' then 5
-            else 6 end,
+            when 'LOCATION_EMAIL' then 6 when 'GENERAL_BUSINESS_EMAIL' then 7
+            else 9 end,
+          -- 3. Then how well we know it, so a confirmed value beats a guessed one.
+          case quality_state
+            when 'DIRECT_BUSINESS_CONFIRMED' then 1 when 'CURRENT_BUSINESS_CONFIRMED' then 2
+            when 'YAD_CONFIRMED_DELIVERABLE' then 1 when 'PROVIDER_VERIFIED' then 2
+            when 'PROVIDER_ASSERTED_CURRENT' then 3 when 'PUBLIC_OBSERVED_CURRENT' then 3
+            when 'DOMAIN_VALID_UNVERIFIED' then 4 when 'PUBLIC_OBSERVED_UNVERIFIED' then 4
+            when 'GUESSED_UNVERIFIED' then 6
+            else 5 end,
           created_at`,
       [accountId],
     ),

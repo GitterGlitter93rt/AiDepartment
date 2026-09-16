@@ -580,10 +580,60 @@ function buildWhere(
     default: break;
   }
 
+  /**
+   * Finding a company you already know the name of.
+   *
+   * The box matched `like '%term%'` against the name and the domain, so it could only
+   * find a company somebody spelled exactly as we stored it. "Del Aire" does not
+   * match "Del-Air Heating & Air Conditioning" and "Del-Air" does not match "Del Aire
+   * Plumbing": one hyphen, and a rep looking up a company they are about to call is
+   * told we do not have it. They then create it again, or conclude the market is
+   * empty.
+   *
+   * So the comparison is made on both sides with the punctuation removed, which costs
+   * one `regexp_replace` over a few hundred rows and makes spacing, hyphens,
+   * ampersands and periods stop mattering. Substring matching is kept as well, so a
+   * partial name still works.
+   *
+   * A phone number and an email address are also how a rep identifies a company --
+   * from a missed call, or a reply -- and neither was searchable at all. A term
+   * carrying at least seven digits is looked up as a phone, compared digits-only so
+   * "(407) 555-0150", "407-555-0150" and "+14075550150" are one number. A term
+   * containing "@" is looked up as an email.
+   */
   if (request.text?.trim()) {
-    const term = `%${request.text.trim().toLowerCase()}%`;
-    clauses.push(`(lower(${column('company_name')}) like ${push(term)} `
-      + `or lower(coalesce(canonical_domain,'')) like $${values.length})`);
+    const raw = request.text.trim().toLowerCase();
+    const term = `%${raw}%`;
+    const squashed = `%${raw.replace(/[^a-z0-9]+/g, '')}%`;
+    const digits = raw.replace(/\D/g, '');
+    // The row this subquery correlates to, which differs between the two read paths:
+    // the fast count reads `accounts a` directly and everything else reads the view.
+    const outerId = target === 'accounts' ? 'a.account_id' : 'prospect_inventory.account_id';
+    const name = column('company_name');
+    const termParam = push(term);
+    const squashedParam = push(squashed);
+
+    const parts = [
+      `lower(${name}) like ${termParam}`,
+      `regexp_replace(lower(${name}), '[^a-z0-9]+', '', 'g') like ${squashedParam}`,
+      `lower(coalesce(canonical_domain,'')) like ${termParam}`,
+      `regexp_replace(lower(coalesce(canonical_domain,'')), '[^a-z0-9]+', '', 'g') `
+        + `like ${squashedParam}`,
+    ];
+
+    if (digits.length >= 7) {
+      const digitsParam = push(`%${digits}%`);
+      parts.push(`exists (select 1 from contact_endpoints ep `
+        + `where ep.account_id = ${outerId} and ep.endpoint_type = 'PHONE' `
+        + `and regexp_replace(ep.normalized_value, '[^0-9]', '', 'g') like ${digitsParam})`);
+    }
+    if (raw.includes('@')) {
+      parts.push(`exists (select 1 from contact_endpoints ep `
+        + `where ep.account_id = ${outerId} and ep.endpoint_type = 'EMAIL' `
+        + `and lower(ep.normalized_value) like ${termParam})`);
+    }
+
+    clauses.push(`(${parts.join(' or ')})`);
   }
 
   return { clauses, values, accountOnly };
