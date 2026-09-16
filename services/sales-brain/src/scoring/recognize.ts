@@ -174,8 +174,27 @@ const ACQUISITION_LEAD_TYPES = new Set([
 export async function recognizeSignals(accountId: string): Promise<ScoreSignals> {
   const { rows: accountRows } = await query<{ primary_vertical_profile_id: string | null }>(
     'select primary_vertical_profile_id from accounts where account_id = $1', [accountId]);
-  const rules = await signalRulesFor(accountRows[0]?.primary_vertical_profile_id ?? null);
-  const verticalProfileId = accountRows[0]?.primary_vertical_profile_id ?? null;
+
+  /**
+   * Which rules to read, which is a different question from what the company is.
+   *
+   * Discovery no longer assigns a trade on the strength of a search, so a company found
+   * organically arrives here with `primary_vertical_profile_id` null and would be scored
+   * against no rules at all -- silently, as a zero rather than an error. The trade we
+   * were *researching* is still the right lens to score through: it decides which
+   * questions are worth asking about this company, not what the company is. The claim
+   * about the business stays unmade until evidence supports it.
+   */
+  let verticalProfileId = accountRows[0]?.primary_vertical_profile_id ?? null;
+  if (!verticalProfileId) {
+    const { rows: candidate } = await query<{ vertical_profile_id: string | null }>(
+      `select j.payload->>'vertical_profile_id' as vertical_profile_id
+         from search_observations o join jobs j on j.job_id = o.job_id
+        where o.account_id = $1 and j.payload->>'vertical_profile_id' is not null
+        order by o.observed_at asc limit 1`, [accountId]);
+    verticalProfileId = candidate[0]?.vertical_profile_id ?? null;
+  }
+  const rules = await signalRulesFor(verticalProfileId);
   // No early return on an empty claim-key map: four of the eleven rules are read
   // from the profile's business model rather than from its signal list, and a
   // vertical can have the second without the first.

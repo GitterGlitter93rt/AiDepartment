@@ -25,14 +25,24 @@
  *   - `organic`: a ranked page, and nothing more. 166 Accounts came this way, U-Haul
  *     among them. Ranking is not membership.
  *
- * So discovery supports a vertical for a local business listing, and for an
- * advertisement the company paid to place against the trade's own keywords -- Google's
- * opinion about a page is not evidence, but a company spending money to reach that
- * trade's customers is the company's own assertion. An organic result is a candidate:
- * real company or not, in the trade or not, both still open. The company's own website
- * settles it later -- see `firstPartyVerticalRelevance` -- which is why an unsupported
- * vertical is left unset rather than rejected. Unset is recoverable; wrong is what a
- * rep sees.
+ * So discovery supports a vertical for a local business listing, and for a Local
+ * Services Ad, which Google category-verifies before it runs. An ordinary paid text ad
+ * is a third thing, and the distinction is the point: buying "HVAC contractor Orlando"
+ * proves commercial intent toward that trade's customers, which manufacturers,
+ * equipment renters, lead sellers, home warranty companies, marketplaces and retailers
+ * all have without being contractors. Advertising relevance and business classification
+ * are separate dimensions, so paid search corroborates a classification and never makes
+ * one alone.
+ *
+ * None of this weakens the advertiser-first strategy. A paid sighting is still written
+ * as `active_google_search_ad` evidence by the miner, and still earns its Module 4C
+ * points, because what a company advertises for is a real fact about it -- just not
+ * this fact. The two questions are answered from the same observation and kept apart.
+ *
+ * An organic result is a candidate: real company or not, in the trade or not, both
+ * still open. The company's own website settles it later -- see
+ * `firstPartyVerticalRelevance` -- which is why an unsupported vertical is left unset
+ * rather than rejected. Unset is recoverable; wrong is what a rep sees.
  */
 
 /** Whether the evidence to hand supports the trade, or does not yet. */
@@ -49,19 +59,26 @@ const BUSINESS_LISTING_RESULT_TYPES: ReadonlySet<string> = new Set([
   // A local/maps listing: returned because the business is categorised that way.
   'local_result', 'local_pack', 'maps_search', 'google_business_listing', 'maps_local',
   /**
-   * And an advertisement the company paid to place against the trade's own keywords.
+   * And a Local Services Ad, which Google category-verifies before it runs.
    *
-   * An organic ranking is Google's opinion about a page. A paid placement is the
-   * company spending its own money to be shown to people searching for that trade,
-   * which is the company asserting it serves them -- and a Local Services Ad is
-   * category-verified by Google before it runs at all. This is the signal the
-   * advertiser-first strategy is built on, so refusing it here would have made the
-   * largest scoring input in that strategy unable to fire.
-   *
-   * Shopping and other product placements are deliberately absent: a listing for an
-   * air conditioning unit is a product for sale, not a contractor.
+   * An LSA advertiser has been checked as a provider of that service, so the listing is
+   * a statement about the business. An ordinary paid text ad is not: buying
+   * "HVAC contractor Orlando" proves commercial intent toward that trade's customers,
+   * which manufacturers, equipment renters, lead sellers, home warranty companies,
+   * marketplaces and retailers all have without being contractors. Paid search is
+   * therefore corroborating evidence, handled below, never a standalone classification.
    */
-  'paid_search', 'paid_search_text', 'local_services_ad',
+  'local_services_ad',
+]);
+
+/**
+ * Placements that show intent toward the trade without establishing membership of it.
+ *
+ * Kept separate so the distinction is visible rather than implied: this is the line
+ * between "wants that trade's customers" and "is in that trade".
+ */
+const COMMERCIAL_INTENT_RESULT_TYPES: ReadonlySet<string> = new Set([
+  'paid_search', 'paid_search_text',
 ]);
 
 /**
@@ -74,12 +91,20 @@ export function discoveryVerticalRelevance(input: {
   resultType?: string | null;
   providerCategory?: string | null;
   verticalTerms: readonly string[];
+  /** Independent trade evidence, e.g. landing-page or official-site services. */
+  corroborated?: boolean;
 }): VerticalRelevance {
   const category = (input.providerCategory ?? '').toLowerCase().trim();
   if (category && matchesAnyTerm(category, input.verticalTerms)) return 'SUPPORTED';
 
   const resultType = (input.resultType ?? '').toLowerCase().trim();
   if (BUSINESS_LISTING_RESULT_TYPES.has(resultType)) return 'SUPPORTED';
+
+  // A paid text ad corroborates, and corroboration needs something to corroborate. On
+  // its own it establishes commercial intent toward the trade, not membership of it.
+  if (COMMERCIAL_INTENT_RESULT_TYPES.has(resultType) && input.corroborated === true) {
+    return 'SUPPORTED';
+  }
 
   // An organic hit, a directory page, an article, a product listing. Each says a page
   // was returned; none says the company works in this trade.

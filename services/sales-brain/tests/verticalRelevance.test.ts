@@ -35,8 +35,7 @@ test('an organic ranking supports nothing on its own', () => {
     discoveryVerticalRelevance({ resultType: 'organic', providerCategory: null, verticalTerms: HVAC }),
     'INSUFFICIENT');
   // Nor does a directory page, an informational block, or anything else that describes
-  // a page rather than a business. A paid placement is deliberately not in this list:
-  // the company bought that keyword, which is its own assertion about the trade.
+  // a page rather than a business.
   for (const resultType of ['organic', '', 'people_also_ask', 'related_searches']) {
     assert.equal(
       discoveryVerticalRelevance({ resultType, providerCategory: null, verticalTerms: HVAC }),
@@ -44,13 +43,41 @@ test('an organic ranking supports nothing on its own', () => {
   }
 });
 
-test('a paid placement against the trade is the company asserting the trade', () => {
-  // Bought traffic, not a ranking. This is what the advertiser-first strategy runs on.
-  for (const resultType of ['paid_search', 'paid_search_text', 'local_services_ad']) {
+test('a category-verified Local Services Ad is a statement about the business', () => {
+  // Google checks an LSA advertiser is a provider of that service before it runs, so
+  // the listing carries a verification somebody else performed.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_services_ad', providerCategory: null, verticalTerms: HVAC,
+    }), 'SUPPORTED');
+});
+
+test('buying the trade keyword is commercial intent, not membership of the trade', () => {
+  // Buying "HVAC contractor Orlando" proves a company wants that trade's customers.
+  // Manufacturers, equipment renters, lead sellers, home warranty companies,
+  // marketplaces and retailers all want them without being contractors -- and it is a
+  // truck rental company appearing under HVAC that this release exists to stop.
+  for (const resultType of ['paid_search', 'paid_search_text']) {
     assert.equal(
       discoveryVerticalRelevance({ resultType, providerCategory: null, verticalTerms: HVAC }),
-      'SUPPORTED', `${resultType} was not treated as the company's own assertion`);
+      'INSUFFICIENT', `${resultType} classified a business on its own`);
   }
+
+  // It is real evidence, though, so it corroborates: with independent trade evidence
+  // it carries the classification that neither would carry by itself.
+  for (const resultType of ['paid_search', 'paid_search_text']) {
+    assert.equal(
+      discoveryVerticalRelevance({
+        resultType, providerCategory: null, verticalTerms: HVAC, corroborated: true,
+      }), 'SUPPORTED', `${resultType} was ignored even when corroborated`);
+  }
+
+  // Corroboration is not a bypass: it cannot promote a result type that says nothing.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: null, verticalTerms: HVAC, corroborated: true,
+    }), 'INSUFFICIENT', 'corroboration promoted a bare organic ranking');
+
   // A product listing is a thing for sale, not a contractor.
   for (const resultType of ['shopping_or_irrelevant_paid', 'paid_local']) {
     assert.equal(
