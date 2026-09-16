@@ -30,10 +30,31 @@ export function adBadges(row: {
   if (row.google_paid) badges.push(html`<span class="badge badge-ad">Google</span>`);
   if (row.google_lsa) badges.push(html`<span class="badge badge-ad">LSA</span>`);
   if (row.meta_paid) badges.push(html`<span class="badge badge-ad">Meta</span>`);
-  // No badge at all when nothing is observed. Absence of evidence is not evidence
-  // that they do not advertise, so nothing is rendered rather than a "None" chip.
-  if (badges.length === 0) return html`<span class="muted micro">—</span>`;
-  return html`${badges}`;
+  if (badges.length > 0) return html`${badges}`;
+
+  /**
+   * A dash is read as "no", and it was standing for two different answers.
+   *
+   * Absence of evidence is not evidence of absence, and the column rendered both as
+   * the same grey dash: the company nobody has ever looked at, and the company we
+   * hold current evidence about that shows no advertising. A rep planning a call
+   * needs those apart -- the first is a gap in our work, the second is a fact about
+   * the prospect -- and advertiser-first mining makes the difference the whole basis
+   * of who to call first.
+   *
+   * The two are already distinguishable in the read model and nothing read it.
+   * `prospect_inventory` builds these with `bool_or` over the current, uncontradicted
+   * evidence for the Account, and `bool_or` over no rows at all is null. So null is
+   * "nothing on record" and false is "we hold evidence, and none of it says they
+   * advertise". Expired ad evidence is filtered out of that aggregate, so it reads as
+   * nothing on record -- which is the honest answer, and the account drawer carries
+   * the separate warning not to speak about expired evidence in the present tense.
+   */
+  const checked = [row.google_paid, row.google_lsa, row.meta_paid]
+    .some((value) => value === false || value === true);
+  return checked
+    ? html`<span class="muted micro" title="We hold current evidence for this company and none of it shows paid advertising.">None seen</span>`
+    : html`<span class="muted micro" title="Nothing has looked for advertising here yet, or what we had has expired. This is not a finding that they do not advertise.">Not checked</span>`;
 }
 
 const CHANNEL_BADGES: Record<string, { label: string; cls: string }> = {
