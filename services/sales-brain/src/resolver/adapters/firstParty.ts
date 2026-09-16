@@ -428,15 +428,40 @@ export async function researchFirstParty(
 
     const response = await politeFetch(url);
     if (!response.ok) {
-      if (response.blockedReason) {
-        result.pagesBlocked.push({ url, reason: response.blockedReason });
-        // A wall ends the crawl for this host. We do not work around it.
-        if (response.blockedReason === 'login_required' || response.blockedReason === 'anti_bot') {
-          result.notes.push(
-            `Stopped crawling ${origin}: the site returned a ${response.blockedReason.replace('_', ' ')} response.`,
-          );
-          break;
-        }
+      /**
+       * Every unread page is recorded, not only the ones we declined to read.
+       *
+       * This used to record a page only when `blockedReason` was set, so a transport
+       * failure -- a TLS handshake we cannot negotiate, a host that does not resolve,
+       * a timeout -- fell through to `continue` and left no trace. A production
+       * company whose site refuses modern TLS therefore produced a research run with
+       * zero pages fetched, zero blocked and no notes, which is indistinguishable
+       * from a crawl that had nothing to do, and the rep was told the company had no
+       * usable contact rather than that we could not reach it.
+       */
+      const reason = response.blockedReason ?? response.failureReason ?? 'fetch_error';
+      result.pagesBlocked.push({ url, reason });
+
+      // A wall ends the crawl for this host. We do not work around it.
+      if (response.blockedReason === 'login_required' || response.blockedReason === 'anti_bot') {
+        result.notes.push(
+          `Stopped crawling ${origin}: the site returned a ${response.blockedReason.replace('_', ' ')} response.`,
+        );
+        break;
+      }
+      // So does a failure of the connection itself. Re-trying every candidate path
+      // against a host we cannot reach is a dozen identical failures, and the first
+      // one already told us the answer.
+      //
+      // `http_error` is deliberately excluded: a 404 on /about says that page is not
+      // there, not that the site is unreachable, and the next candidate path is still
+      // worth trying. Everything else is a failure of the connection to the host.
+      if (response.failureReason && response.failureReason !== 'http_error') {
+        result.notes.push(
+          `Could not reach ${origin}: ${response.failureReason.replace('_', ' ')}. `
+          + 'The site was not read, which is not the same as the site having nothing on it.',
+        );
+        break;
       }
       continue;
     }

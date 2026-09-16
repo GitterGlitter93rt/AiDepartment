@@ -17,6 +17,7 @@ import { parseOperatorDateTime } from '../domain/time.js';
 import { config } from '../config.js';
 import { withTransaction } from '../db/pool.js';
 import { marketCards, navCountsFor } from './queries.js';
+import { geographyInput } from '../miner/geography.js';
 
 /**
  * JSON API.
@@ -366,7 +367,10 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     const planRequest = {
       verticalProfileId: request.body?.verticalProfileId ?? null,
       geographyType: request.body?.geography?.type ?? null,
-      geographyValue: request.body?.geography?.value ?? null,
+      // Rejoined, not taken raw. `value` is the city alone for a city geography, so
+      // forwarding it dropped the state and the preview refused a location the rep had
+      // already given in full.
+      geographyValue: geographyInput(request.body?.geography) ?? null,
       marketId: marketId || null,
       miningMode: request.body?.miningMode ?? null,
       // A budget is a number of chargeable searches, so it is bounded here as well as

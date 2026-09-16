@@ -86,10 +86,35 @@ export async function computeCompleteness(accountId: string): Promise<Completene
        from accounts where account_id = $1`, [accountId]);
   const state = rows[0];
 
+  /**
+   * Whether the last run actually read anything.
+   *
+   * `answered` counts "we looked and it is not there" as knowledge, which is right --
+   * but only when we looked. A run that reached the company's site and could not fetch
+   * it never looked at all, and in production every one of 153 Accounts came out GOOD,
+   * including companies whose website refused our TLS and whose research therefore
+   * read zero pages. A rep was told a company was well researched on the strength of
+   * questions nobody had asked.
+   *
+   * So a run that acquired no readable source cannot report a label that means "we
+   * know this company". It is capped rather than recomputed, because the facts
+   * themselves are what is wrong and fixing their state belongs upstream; capping at
+   * least stops the number claiming knowledge it does not have.
+   */
+  const { rows: lastRun } = await query<{ fetched: number; blocked: number }>(
+    `select coalesce((adapter_results->>'pages_fetched')::int, 0) as fetched,
+            coalesce((adapter_results->>'pages_blocked')::int, 0) as blocked
+       from research_runs
+      where account_id = $1 and completed_at is not null
+      order by completed_at desc limit 1`, [accountId]);
+  const run = lastRun[0];
+  const sourceUnavailable = Boolean(run && run.fetched === 0 && run.blocked > 0);
+
   // Stale wins over everything: research that has aged out is not research a rep can
   // rely on, whatever it once covered.
   const label: CompletenessLabel = state?.stale ? 'STALE'
     : !state?.researched ? 'THIN'
+    : sourceUnavailable ? 'THIN'
     : score >= 90 ? 'COMPLETE'
     : score >= 65 ? 'GOOD'
     : score >= 30 ? 'PARTIAL'

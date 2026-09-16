@@ -296,7 +296,11 @@ export async function upsertAccount(
   if (input.email) {
     const normalized = normalizeEmail(input.email);
     if (normalized) {
-      const emailRole = classifyEmail(normalized);
+      // `contactName` is the named person this row arrived with, if any. Without one
+      // there is no evidence tying the mailbox to a human, whatever it is spelled like.
+      const emailRole = classifyEmail(normalized, {
+        attributedToPersonName: input.contactName ?? null,
+      });
       await upsertEndpoint(client, {
         accountId,
         // Only attach a personal-looking address to a named contact; a role or general

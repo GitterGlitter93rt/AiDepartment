@@ -104,18 +104,65 @@ const ROLE_MAILBOXES = new Set([
   'noreply', 'no-reply', 'customerservice', 'frontdesk', 'reception', 'intake', 'dispatch',
 ]);
 
+/**
+ * Words that name a function rather than a person.
+ *
+ * Matched as components of the local part, so `credit_department`,
+ * `investor_relations`, `customer_care` and `trucksales` are all caught without
+ * listing any of them. It is a convenience, not the safety mechanism -- the safety
+ * mechanism is that a person now requires evidence, so a department word nobody
+ * thought of still cannot become a named human.
+ */
+const ROLE_TOKENS = [
+  'sales', 'support', 'service', 'billing', 'accounts', 'accounting', 'invoice',
+  'admin', 'office', 'reception', 'frontdesk', 'dispatch', 'scheduling', 'booking',
+  'careers', 'jobs', 'recruit', 'hr', 'payroll', 'legal', 'compliance', 'privacy',
+  'security', 'press', 'media', 'marketing', 'publicrelations', 'relations',
+  'investor', 'donations', 'charity', 'sponsorship', 'partners', 'partnership',
+  'wholesale', 'retail', 'orders', 'shipping', 'returns', 'warranty', 'claims',
+  'department', 'team', 'group', 'desk', 'care', 'customer', 'client', 'help',
+  'inquiries', 'enquiries', 'feedback', 'complaints', 'tickets', 'events',
+  'publications', 'newsletter', 'subscribe', 'unsubscribe', 'noreply', 'donotreply',
+  'webmaster', 'postmaster', 'abuse', 'hostmaster', 'recovery', 'equipment',
+  'leasing', 'rental', 'reservations', 'training', 'education', 'community',
+];
+
 export type EmailRoleClass = 'DIRECT_PERSON_EMAIL' | 'ROLE_EMAIL' | 'GENERAL_BUSINESS_EMAIL' | 'UNKNOWN_EMAIL_TYPE';
 
-export function classifyEmail(normalized: string): EmailRoleClass {
-  const local = normalized.split('@')[0] ?? '';
+/**
+ * What kind of mailbox this is, and never a person on the strength of its spelling.
+ *
+ * This used to promote any local part shaped like a word or two -- `/^[a-z]+([._-][a-z]+)?$/`
+ * -- to `DIRECT_PERSON_EMAIL`, which the drawer renders as "Personal work email". Its
+ * own comment said identity still needed separate evidence, and then it returned the
+ * person class anyway. In production that made `donations@`, `propane@`, `influencer@`,
+ * `equipmentrecovery@`, `credit_department@`, `investor_relations@` and
+ * `customer_care@` all read to a rep as somebody's personal work address. A mailbox on
+ * a company domain is a company-associated address; it is not a named human.
+ *
+ * So the person class now requires `attributedToPersonName` -- the crawler sets it when
+ * schema.org or a page attributes the address to a named individual. Shape can still
+ * *describe* a mailbox, but it can no longer promote one. Anything unmatched and
+ * unattributed lands in `UNKNOWN_EMAIL_TYPE`, which is the honest "some other business
+ * mailbox" bucket rather than a claim about a person.
+ */
+export function classifyEmail(
+  normalized: string,
+  evidence: { attributedToPersonName?: string | null } = {},
+): EmailRoleClass {
+  const local = (normalized.split('@')[0] ?? '').toLowerCase();
   const bare = local.replace(/[._-]/g, '');
   if (bare === 'info' || bare === 'contact' || bare === 'hello' || bare === 'mail') {
     return 'GENERAL_BUSINESS_EMAIL';
   }
   if (ROLE_MAILBOXES.has(bare)) return 'ROLE_EMAIL';
-  // A local part shaped like a person ("john", "john.smith", "jsmith") reads as personal,
-  // but that is only a shape — identity still needs separate evidence.
-  if (/^[a-z]+([._-][a-z]+)?$/.test(local) && local.length >= 2) return 'DIRECT_PERSON_EMAIL';
+  if (ROLE_TOKENS.some((token) => bare.includes(token))) return 'ROLE_EMAIL';
+
+  // Person-shaped AND attributed to a person. Both, or neither.
+  const person = (evidence.attributedToPersonName ?? '').trim();
+  if (person && /^[a-z]+([._-][a-z]+)?$/.test(local) && local.length >= 2) {
+    return 'DIRECT_PERSON_EMAIL';
+  }
   return 'UNKNOWN_EMAIL_TYPE';
 }
 

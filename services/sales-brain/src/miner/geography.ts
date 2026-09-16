@@ -214,6 +214,35 @@ export function classifyGeography(where: string): GeographyResult {
  * needs to be told which Jacksonville. So the portal's inventory search accepts one,
  * and the discovery request is where the state becomes required.
  */
+/**
+ * The location string a classified geography came from, so it can be re-read.
+ *
+ * A classified city keeps its parts apart on purpose -- `value` is the city alone and
+ * `state` is beside it -- because the inventory filter compares the two columns
+ * separately. Anything that hands the geography back to `normalizeGeography`, which
+ * reads one string, therefore has to put them together again.
+ *
+ * Nothing did. `/api/mining/plan` forwarded `geography.value` and dropped
+ * `geography.state`, so a rep who typed "Orlando, FL" saw "Orlando, FL" on the page --
+ * rendered from `display` -- and then got "Which Orlando? Add the state" the moment
+ * they pressed Research more, because the preview had been handed the word "Orlando"
+ * on its own. The parser was right every time; the caller had thrown half the answer
+ * away.
+ *
+ * One function so there is one place that knows how the parts rejoin.
+ */
+export function geographyInput(
+  geography: { type?: string | null; value?: string | null; state?: string | null } | null | undefined,
+): string | null {
+  const value = tidy(String(geography?.value ?? ''));
+  if (!value) return null;
+  const state = tidy(String(geography?.state ?? ''));
+  // Only a city needs its state rejoined: a ZIP carries no state, and a state's value
+  // is already the code.
+  if (geography?.type === 'city' && state && !value.includes(',')) return `${value}, ${state}`;
+  return value;
+}
+
 export function classifyGeographyForInventory(where: string): GeographyResult {
   const strict = classifyGeography(where);
   if (strict.ok) return strict;

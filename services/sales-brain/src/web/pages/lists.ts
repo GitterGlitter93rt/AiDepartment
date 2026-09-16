@@ -90,15 +90,132 @@ const MARKET_STATUS_TONE: Record<string, string> = {
   ACTIVE: 'badge-good', SATURATED: '', REFRESHING: 'badge-warn', PAUSED: 'badge-warn',
 };
 
+export interface InventoryMarketCard {
+  vertical_profile_id: string | null;
+  vertical_display: string | null;
+  geography_type: string | null;
+  geography_value: string | null;
+  /** Whether these records may be claimed and called at all. */
+  workable: boolean;
+  /** Whether discovery recorded which market these came from. */
+  provenance_recorded: boolean;
+  entity_status: string | null;
+  prospects: number;
+  unclaimed: number;
+  claimed: number;
+  researched: number;
+  phone_and_email: number;
+  phone_only: number;
+  email_only: number;
+  advertisers: number;
+  last_discovered_at: Date | null;
+  last_researched_at: Date | null;
+}
+
 export function renderMarketsPage(input: {
   user: SessionUser; counts: NavCounts; markets: MarketCard[]; canManage: boolean;
+  inventory: InventoryMarketCard[];
 }): string {
-  const { user, counts, markets, canManage } = input;
+  const { user, counts, markets, canManage, inventory } = input;
 
-  const body = markets.length === 0
+  /**
+   * Two different questions, which the old page answered as one.
+   *
+   * "Which markets replenish themselves" is `saved_markets`, and with none configured
+   * the honest answer is none. "What can a rep work today" is the inventory that
+   * discovery already produced, and answering that with "No saved markets yet" is how
+   * a rep with eighty-seven researched companies behind the page concluded there were
+   * none.
+   */
+  const workable = inventory.filter((row) => row.workable);
+  const legacy = inventory.filter((row) => !row.workable);
+  const workableTotal = workable.reduce((sum, row) => sum + row.prospects, 0);
+  const legacyTotal = legacy.reduce((sum, row) => sum + row.prospects, 0);
+
+  const geographyLabel = (row: InventoryMarketCard): string => {
+    if (!row.provenance_recorded || !row.geography_value) return 'Discovery market not recorded';
+    return row.geography_type === 'zip_zcta' ? `ZIP · ${row.geography_value}`
+      : row.geography_type === 'city' ? `City · ${row.geography_value}`
+      : row.geography_type === 'state' ? `State · ${row.geography_value}`
+      : `${row.geography_value}`;
+  };
+
+  const inventoryBody = inventory.length === 0
+    ? emptyState(
+        'No inventory yet',
+        'Nothing has been discovered yet. A manager can research a market to build the first inventory.',
+      )
+    : html`
+      <div class="row micro muted" style="gap:14px;margin-bottom:10px">
+        <span><strong>${workableTotal}</strong> workable prospect(s)</span>
+        ${legacyTotal > 0 ? html`<span><strong>${legacyTotal}</strong> legacy record(s), not workable</span>` : ''}
+      </div>
+      <div class="grid grid-market">
+        ${workable.map((row) => html`
+        <div class="card card-pad">
+          <div class="row" style="justify-content:space-between;align-items:flex-start">
+            <div>
+              <h3>${row.vertical_display ?? row.vertical_profile_id ?? 'All industries'}</h3>
+              <div class="muted small">${geographyLabel(row)}</div>
+            </div>
+            <span class="badge">${row.prospects} prospect${row.prospects === 1 ? '' : 's'}</span>
+          </div>
+
+          <div class="grid" style="grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0">
+            <div>
+              <div class="kpi-label">Unclaimed</div>
+              <div style="font-weight:700;font-size:1.15rem;color:var(--electric-blue)">${row.unclaimed}</div>
+            </div>
+            <div>
+              <div class="kpi-label">Researched</div>
+              <div style="font-weight:700;font-size:1.15rem">${row.researched}</div>
+            </div>
+          </div>
+
+          <div class="row micro muted" style="gap:10px;flex-wrap:wrap">
+            <span>${row.phone_and_email} phone + email</span>
+            ${row.phone_only > 0 ? html`<span>${row.phone_only} phone only</span>` : ''}
+            ${row.email_only > 0 ? html`<span>${row.email_only} email only</span>` : ''}
+            ${/* Only positive evidence is ever counted. Silence here means nobody
+                  checked, which is not the same as nobody advertising. */
+              row.advertisers > 0 ? html`<span>${row.advertisers} with ad evidence</span>` : ''}
+          </div>
+          <div class="micro muted" style="margin-top:6px">
+            ${row.last_discovered_at ? `Discovered ${relativeTime(row.last_discovered_at)}` : 'Discovery time unknown'}
+          </div>
+
+          <div class="row" style="margin-top:14px;gap:8px">
+            <a class="btn btn-primary btn-sm"
+               href="/find?vertical=${encodeURIComponent(row.vertical_profile_id ?? '')}&where=${encodeURIComponent(row.geography_value ?? '')}">
+              Browse prospects
+            </a>
+          </div>
+        </div>`)}
+
+        ${legacy.map((row) => html`
+        <div class="card card-pad" style="opacity:.85;border-style:dashed">
+          <div class="row" style="justify-content:space-between;align-items:flex-start">
+            <div>
+              <h3>${row.vertical_display ?? row.vertical_profile_id ?? 'All industries'}</h3>
+              <div class="muted small">Legacy inventory — discovery market not recorded</div>
+            </div>
+            <span class="badge">${row.prospects} record${row.prospects === 1 ? '' : 's'}</span>
+          </div>
+          <p class="micro muted" style="margin:12px 0 0">
+            These predate entity verification, so nothing has confirmed each one names a
+            company rather than a page about one, and discovery did not record which
+            market they came from. They cannot be claimed or called until they are
+            verified, and their location is genuinely unknown — not assumed from any
+            later search.
+          </p>
+        </div>`)}
+      </div>`;
+
+  const savedBody = markets.length === 0
     ? emptyState(
         'No saved markets yet',
-        'Saved markets are the inventories the EdgeXpert keeps replenished. A manager can create the first one.',
+        'Saved markets are the ones the EdgeXpert keeps replenished on a schedule. '
+        + 'Inventory above does not need one — a saved market only adds automatic refresh.',
       )
     : html`<div class="grid grid-market">
         ${markets.map((market) => html`
@@ -143,8 +260,19 @@ export function renderMarketsPage(input: {
 
   return renderPage({
     title: 'Markets',
-    subtitle: 'Inventories the EdgeXpert keeps researched and replenished.',
-    user, currentPath: '/markets', counts, body: html`${body}`,
+    subtitle: 'Inventory a rep can work today, and the markets kept replenished on a schedule.',
+    user, currentPath: '/markets', counts,
+    body: html`
+      <h2 style="margin:0 0 4px">Available inventory</h2>
+      <p class="muted small" style="margin:0 0 14px">
+        Markets where prospects already exist. No saved market is required.
+      </p>
+      ${inventoryBody}
+      <h2 style="margin:28px 0 4px">Saved / monitored markets</h2>
+      <p class="muted small" style="margin:0 0 14px">
+        Markets deliberately configured to replenish themselves.
+      </p>
+      ${savedBody}`,
   });
 }
 

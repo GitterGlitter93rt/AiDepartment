@@ -1626,6 +1626,20 @@ async function ingestDiscoveries(
   const { negativeTermsFor, matchesNegativeTerm } = await import('../miner/searchTaxonomy.js');
   const verticalProfileId = (job.payload['vertical_profile_id'] as string | null) ?? null;
   const negativeTerms = verticalProfileId ? await negativeTermsFor(verticalProfileId) : [];
+  /**
+   * The words this trade uses about itself, for deciding whether a result is in it.
+   *
+   * The same list the planner searches with, which is the point: a business in the
+   * trade publishes the language the trade is searched by. Read once per run rather
+   * than per business.
+   */
+  const { searchQueriesFor: readQueries } = await import('../miner/searchTaxonomy.js');
+  const { discoveryVerticalRelevance } = await import('../discovery/verticalRelevance.js');
+  const verticalTerms = verticalProfileId
+    ? (await readQueries(verticalProfileId))
+        .filter((entry) => entry.purpose === 'ENTITY_DISCOVERY')
+        .map((entry) => entry.query)
+    : [];
 
   // Every identity this search resolved, kept whether or not it became anything.
   //
@@ -1787,7 +1801,29 @@ async function ingestDiscoveries(
           state: business.state ?? null,
           postalCode: business.postalCode ?? null,
           addressLine1: business.observedBusinessAddress ?? null,
-          verticalProfileId: (job.payload['vertical_profile_id'] as string | null) ?? null,
+          /**
+           * The trade, only when something about the business says so.
+           *
+           * This was `job.payload.vertical_profile_id` -- the vertical we searched --
+           * written onto the company as though ranking for a query proved membership of
+           * a trade. It does not, and production showed a rep a truck rental company
+           * under HVAC because of it: an organic result at position 51 for
+           * "HVAC contractor 33127", no provider category, stamped `hvac` and verified.
+           *
+           * Left unset rather than rejected when discovery cannot support it. The
+           * company may well be real and may well be in the trade; a SERP ranking just
+           * has not shown it. `upsertAccount` fills this column only when it is empty,
+           * so the company's own website can settle it later without fighting a wrong
+           * answer written here first. Unset is recoverable. Wrong is what the rep sees.
+           *
+           * What was searched is not lost: `search_observations` keeps the query, the
+           * position and the result type for every observation.
+           */
+          verticalProfileId: discoveryVerticalRelevance({
+            resultType: business.resultType ?? null,
+            providerCategory: null,
+            verticalTerms,
+          }) === 'SUPPORTED' ? verticalProfileId : null,
           sourceIdentity: business.providerNativeId
             ? {
                 provider: providerName, entityType: 'business',

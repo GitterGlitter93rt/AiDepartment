@@ -244,6 +244,45 @@ export async function runContactResearch(
     })
     : [];
 
+  /**
+   * A company discovered by an organic result earns its trade from its own website.
+   *
+   * Discovery no longer stamps the searched vertical onto a company that merely ranked
+   * for it, so an organic-discovered Account arrives here with no trade at all. That is
+   * the recoverable half of the fix: the candidate trade is still known -- it is the
+   * vertical the run that found it was searching -- and the company's own pages are the
+   * evidence the SERP never was.
+   *
+   * Only ever fills an empty column. A trade already established by a local business
+   * listing is not second-guessed by a keyword count, and a trade a person set is not
+   * overwritten by this at all.
+   */
+  if (!account.primary_vertical_profile_id && pageText.length > 0) {
+    const { rows: candidate } = await query<{ vertical_profile_id: string | null }>(
+      `select j.payload->>'vertical_profile_id' as vertical_profile_id
+         from search_observations o
+         join jobs j on j.job_id = o.job_id
+        where o.account_id = $1 and j.payload->>'vertical_profile_id' is not null
+        order by o.observed_at asc limit 1`, [accountId]);
+    const candidateVertical = candidate[0]?.vertical_profile_id ?? null;
+    if (candidateVertical) {
+      const { searchQueriesFor } = await import('../miner/searchTaxonomy.js');
+      const { firstPartyVerticalRelevance } = await import('../discovery/verticalRelevance.js');
+      const terms = (await searchQueriesFor(candidateVertical))
+        .filter((entry) => entry.purpose === 'ENTITY_DISCOVERY')
+        .map((entry) => entry.query);
+      const supported = firstPartyVerticalRelevance({
+        pageText: pageText.map((page) => page.text), verticalTerms: terms,
+      }) === 'SUPPORTED';
+      if (supported) {
+        await query(
+          `update accounts set primary_vertical_profile_id = $2
+            where account_id = $1 and primary_vertical_profile_id is null`,
+          [accountId, candidateVertical]);
+      }
+    }
+  }
+
   await withTransaction(async (client) => {
     await persistResolution(client, accountId, resolution, researchRunId);
 

@@ -1,6 +1,6 @@
 import { query } from '../db/pool.js';
 import type { NavCounts } from '../web/layout.js';
-import type { MarketCard, FollowUpRow, TeamRow } from '../web/pages/lists.js';
+import type { MarketCard, InventoryMarketCard, FollowUpRow, TeamRow } from '../web/pages/lists.js';
 
 /** Read queries the portal pages need but that are not inventory search. */
 
@@ -199,4 +199,66 @@ export async function topMarketsFor(limit = 4) {
     [limit],
   );
   return rows as any[];
+}
+
+/**
+ * Markets that actually hold inventory, whether or not anybody saved them.
+ *
+ * `marketCards()` above reads `saved_markets`, which is the right source for the
+ * question it answers -- which markets are configured to replenish themselves. It is
+ * the wrong source for "what can a rep work today", and production made the
+ * difference obvious: zero saved markets, eighty-seven discovered Accounts, and a
+ * Markets page that said "No saved markets yet" to a rep whose whole job is the
+ * inventory sitting behind it.
+ *
+ * Derived from Account provenance, which is durable and already written by discovery.
+ * Nothing here creates a market, saves one, enables refresh or touches a provider: it
+ * is a grouping of rows that already exist.
+ *
+ * Two facts are kept apart on purpose, because collapsing them is how a rep ends up
+ * clicking through to a company they are not allowed to touch:
+ *
+ *   - `workable` is `workableEntitySql`, the same gate claiming uses. A card whose
+ *     records cannot be claimed says so instead of offering a browse button that
+ *     leads to a refusal.
+ *   - `provenance_recorded` is whether discovery wrote down which market this came
+ *     from. The legacy rows predate that, and their geography is genuinely unknown --
+ *     not 32095, not St. Augustine. The card says the market was not recorded rather
+ *     than inventing one.
+ */
+
+export async function inventoryMarketCards(): Promise<InventoryMarketCard[]> {
+  const { workableEntitySql } = await import('../domain/entityStatus.js');
+  const workable = workableEntitySql('a');
+  const { rows } = await query<InventoryMarketCard>(
+    `select a.primary_vertical_profile_id as vertical_profile_id,
+            v.display_name as vertical_display,
+            a.discovered_for_geography_type as geography_type,
+            a.discovered_for_geography as geography_value,
+            ${workable} as workable,
+            (a.discovered_for_geography is not null) as provenance_recorded,
+            a.entity_status,
+            count(*)::int as prospects,
+            count(*) filter (where pi.current_owner_user_id is null)::int as unclaimed,
+            count(*) filter (where pi.current_owner_user_id is not null)::int as claimed,
+            count(*) filter (where pi.last_researched_at is not null)::int as researched,
+            count(*) filter (where pi.contactability_summary = 'PHONE_AND_EMAIL')::int as phone_and_email,
+            count(*) filter (where pi.phone_count > 0 and pi.email_count = 0)::int as phone_only,
+            count(*) filter (where pi.email_count > 0 and pi.phone_count = 0)::int as email_only,
+            -- Positive ad evidence only. A null or false is "not checked", never "does
+            -- not advertise", so it is not counted here as an absence of anything.
+            count(*) filter (where coalesce(pi.google_paid, false)
+                                or coalesce(pi.google_lsa, false)
+                                or coalesce(pi.meta_paid, false))::int as advertisers,
+            max(a.created_at) as last_discovered_at,
+            max(pi.last_researched_at) as last_researched_at
+       from accounts a
+       join prospect_inventory pi on pi.account_id = a.account_id
+       left join vertical_profiles v on v.vertical_profile_id = a.primary_vertical_profile_id
+      where not a.is_suppressed and a.merged_into_account_id is null
+      group by a.primary_vertical_profile_id, v.display_name, a.discovered_for_geography_type,
+               a.discovered_for_geography, a.entity_status, ${workable}
+      order by ${workable} desc, count(*) desc`,
+  );
+  return rows;
 }

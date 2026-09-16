@@ -30,6 +30,49 @@ export interface FetchResult {
   body: string;
   /** Set when we declined to fetch rather than failing to. */
   blockedReason?: 'robots_disallow' | 'login_required' | 'anti_bot' | 'not_html' | 'too_large';
+  /**
+   * Set when we tried to fetch and could not. Deliberately separate from
+   * `blockedReason`: "we chose not to read this" and "we could not read this" lead to
+   * different things to tell a rep, and collapsing them is how a company whose TLS we
+   * cannot negotiate became indistinguishable from a company with nothing on its site.
+   *
+   * The catch below used to discard the error entirely and return a bare `ok: false`
+   * with no reason at all, so the caller had nothing to record and the failure left no
+   * trace anywhere -- a research run that reached a site it could not fetch reported
+   * zero pages fetched, zero blocked and no notes, which reads exactly like a no-op.
+   */
+  failureReason?: FetchFailureReason;
+}
+
+export type FetchFailureReason =
+  | 'tls_error' | 'dns_error' | 'timeout' | 'connection_refused'
+  | 'http_error' | 'fetch_error';
+
+/**
+ * What went wrong, from whatever the runtime threw.
+ *
+ * Node reports these as nested causes with `code` set, so the cause chain is walked
+ * rather than only the outer error. An unrecognised failure stays `fetch_error`: a
+ * wrong specific category would be worse than an honest general one.
+ */
+export function classifyFetchFailure(error: unknown): FetchFailureReason {
+  const codes: string[] = [];
+  const names: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth += 1) {
+    const err = current as { code?: unknown; name?: unknown; message?: unknown; cause?: unknown };
+    if (typeof err.code === 'string') codes.push(err.code);
+    if (typeof err.name === 'string') names.push(err.name);
+    if (typeof err.message === 'string') names.push(err.message);
+    current = err.cause;
+  }
+  const blob = `${codes.join(' ')} ${names.join(' ')}`.toUpperCase();
+
+  if (/ERR_TLS|CERT_|SSL|EPROTO|HANDSHAKE|ERR_SSL/.test(blob)) return 'tls_error';
+  if (/ENOTFOUND|EAI_AGAIN|DNS/.test(blob)) return 'dns_error';
+  if (/ABORT|ETIMEDOUT|TIMEOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT/.test(blob)) return 'timeout';
+  if (/ECONNREFUSED|ECONNRESET/.test(blob)) return 'connection_refused';
+  return 'fetch_error';
 }
 
 interface RobotsRules {
@@ -185,9 +228,13 @@ export async function politeFetch(url: string): Promise<FetchResult> {
     return {
       ok: response.ok, status: response.status, url,
       finalUrl: response.url || url, contentType, body,
+      ...(response.ok ? {} : { failureReason: 'http_error' as const }),
     };
-  } catch {
-    return { ok: false, status: 0, url, finalUrl: url, contentType: '', body: '' };
+  } catch (error) {
+    return {
+      ok: false, status: 0, url, finalUrl: url, contentType: '', body: '',
+      failureReason: classifyFetchFailure(error),
+    };
   }
 }
 

@@ -38,8 +38,22 @@ test('email normalization and role classification keep info@ away from people', 
   assert.equal(classifyEmail('info@abcair.com'), 'GENERAL_BUSINESS_EMAIL');
   assert.equal(classifyEmail('sales@abcair.com'), 'ROLE_EMAIL');
   assert.equal(classifyEmail('front.desk@abcair.com'), 'ROLE_EMAIL');
-  assert.equal(classifyEmail('john.smith@abcair.com'), 'DIRECT_PERSON_EMAIL');
-  assert.equal(classifyEmail('john@abcair.com'), 'DIRECT_PERSON_EMAIL');
+  /**
+   * Shape describes a mailbox; it does not identify a person.
+   *
+   * These two lines used to expect the person class from spelling alone, which is the
+   * behaviour that showed a rep `donations@`, `propane@` and `credit_department@` as
+   * somebody's "Personal work email". A person now needs the attribution the crawler
+   * records when an address is published beside a named individual.
+   */
+  assert.equal(classifyEmail('john.smith@abcair.com'), 'UNKNOWN_EMAIL_TYPE');
+  assert.equal(classifyEmail('john@abcair.com'), 'UNKNOWN_EMAIL_TYPE');
+  assert.equal(
+    classifyEmail('john.smith@abcair.com', { attributedToPersonName: 'John Smith' }),
+    'DIRECT_PERSON_EMAIL');
+  assert.equal(
+    classifyEmail('john@abcair.com', { attributedToPersonName: 'John Smith' }),
+    'DIRECT_PERSON_EMAIL');
 });
 
 test('hostnames normalize to a comparable identity', () => {

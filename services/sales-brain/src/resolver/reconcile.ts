@@ -361,7 +361,11 @@ function buildEmailPath(
   observation: EndpointObservation, normalized: string,
   belongsToPrimary: boolean, primary: DecisionMakerIdentity | null,
 ): ContactPath {
-  const emailClass = classifyEmail(normalized);
+  // The crawler records who an address was published beside; that attribution, not the
+  // spelling of the mailbox, is what makes it a person's address.
+  const emailClass = classifyEmail(normalized, {
+    attributedToPersonName: observation.attributedToPersonName ?? null,
+  });
   const guessed = observation.sourceClass === 'DERIVED_PATTERN';
 
   const relationshipToPerson: EndpointRelationship = guessed

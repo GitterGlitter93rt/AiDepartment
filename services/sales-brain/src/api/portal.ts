@@ -18,7 +18,7 @@ import {
   renderFollowUpsPage, renderMarketsPage, renderMyProspectsPage, renderRepBookPage, renderTeamPage,
 } from '../web/pages/lists.js';
 import {
-  activeReps, dueFollowUpsFor, findUser, followUpsFor, marketCards, marketOptions, navCountsFor,
+  activeReps, dueFollowUpsFor, findUser, followUpsFor, inventoryMarketCards, marketCards, marketOptions, navCountsFor,
   overviewKpis, recentlyClaimedFor, teamRows, topMarketsFor, STALE_CLAIM_THRESHOLD_DAYS,
 } from './queries.js';
 import {
@@ -192,9 +192,12 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
   app.get('/markets', async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const [counts, markets] = await Promise.all([navCountsFull(user.userId, user.role), marketCards()]);
+    const [counts, markets, inventory] = await Promise.all([
+      navCountsFull(user.userId, user.role), marketCards(), inventoryMarketCards(),
+    ]);
     return reply.type('text/html').send(renderMarketsPage({
-      user, counts, markets, canManage: isManager(user.role) || user.role === 'RESEARCH_OPS',
+      user, counts, markets, inventory,
+      canManage: isManager(user.role) || user.role === 'RESEARCH_OPS',
     }));
   });
 
