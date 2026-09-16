@@ -3,7 +3,7 @@ import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
 import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
 import type { EntityCandidate } from '../discovery/resolve.js';
-import { registrableDomain } from '../discovery/sourceClass.js';
+import { mayPromote, registrableDomain } from '../discovery/sourceClass.js';
 import type { QueryPurpose, CoverageRole } from '../miner/searchTaxonomy.js';
 import { miningModeOrDefault } from '../miner/miningMode.js';
 import type pg from 'pg';
@@ -1666,6 +1666,23 @@ async function ingestDiscoveries(
     if (candidate.status === 'NEEDS_REVIEW') counts.entitiesNeedingReview += 1;
   }
 
+  /**
+   * What each identity was judged to be, so promotion can read the judgement.
+   *
+   * The classification was computed, written to `discovery_candidates` and then not
+   * consulted: promotion asked `isUsableBusiness`, which is a name plus a domain or a
+   * phone. `sourceClass.ts` opens by naming that exact failure -- "the old pipeline
+   * asked only whether a row had a domain or a phone, which every one of those has,
+   * and so every one of them became a company a rep was asked to call". A Yelp search
+   * page, a News4Jax article and a manufacturer's dealer locator all have a name, a
+   * domain and a phone. The classifier that can tell them apart was already here.
+   *
+   * Keyed exactly as `resolve.ts` keys it -- registrable domain, else the phone -- so
+   * the two sides agree on what one identity is.
+   */
+  const candidateByIdentity = new Map<string, EntityCandidate>();
+  for (const candidate of candidates) candidateByIdentity.set(candidate.identity, candidate);
+
   // The rows themselves, all of them, before anything is promoted.
   //
   // An observation used to be written inside the promotion loop, one per created
@@ -1714,6 +1731,38 @@ async function ingestDiscoveries(
 
   for (const business of businesses) {
     if (!isUsableBusiness(business)) { counts.rejected += 1; continue; }
+
+    const businessIdentity =
+      registrableDomain(business.website ?? null) ?? (business.phone?.trim() || '');
+    const candidate = candidateByIdentity.get(businessIdentity) ?? null;
+
+    /**
+     * A thing that lists companies is not a company.
+     *
+     * Only `BUSINESS_LISTING` and `OFFICIAL_SITE` may become an Account. A directory,
+     * a marketplace, a publisher, a listicle, a social profile, a video, a forum and a
+     * manufacturer's "find a contractor near you" are all real pages about this trade,
+     * and none of them is a business in it. `UNKNOWN` is refused too: nothing matched,
+     * which is a reason to leave it for a human, not to hand it to a rep.
+     *
+     * Absent a candidate row nothing is refused. Callers that predate the classifier
+     * -- a listings ingest, a test -- pass no candidates at all, and a gate that fired
+     * on a missing judgement would refuse every one of their rows rather than none.
+     */
+    if (candidate && (candidate.status === 'REJECTED' || !mayPromote(candidate.sourceClass))) {
+      counts.rejected += 1;
+      counts.entitiesRejected += candidate.status === 'REJECTED' ? 0 : 1;
+      await query(
+        `update discovery_candidates
+            set entity_status = case when entity_status = 'REJECTED' then entity_status
+                                     else 'NEEDS_REVIEW' end,
+                reasons = reasons || $3::text[]
+          where job_id = $1 and identity = $2 and account_id is null`,
+        [job.job_id, businessIdentity,
+         [`classified as ${candidate.sourceClass}, which is a page about businesses `
+          + 'rather than a business, so nothing was created from it']]);
+      continue;
+    }
 
     const excluded = negativeTerms.length > 0
       ? matchesNegativeTerm(business.name, business.website ?? null, negativeTerms)
@@ -1781,7 +1830,22 @@ async function ingestDiscoveries(
       const result = await upsertAccount(
         client,
         {
-          canonicalName: business.name,
+          /**
+           * The company's name, not the page's headline.
+           *
+           * `business.name` is whatever the provider put in the title, so a rep's list
+           * read "Southern Air | AC Repair & Installation | Orlando FL" -- a page
+           * title with separators, service keywords and a city, which is SEO copy
+           * about a company rather than the name of one. `resolve.ts` already works
+           * out a defensible name and records how it got there: a provider's own
+           * entity listing, the company's own site title, or the domain. It refuses
+           * paid ad copy outright, because "Same-Day AC Repair -- 24/7" is a campaign.
+           *
+           * That name existed on the candidate row all along and the Account was still
+           * built from the raw title. Preferring it here is the whole fix; the
+           * fallback keeps callers that pass no candidates working as before.
+           */
+          canonicalName: candidate?.resolvedName ?? business.name,
           website: business.website ?? null,
           phone: business.phone ?? null,
           // Only what was actually observed.
