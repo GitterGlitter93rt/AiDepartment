@@ -91,11 +91,23 @@ export function discoveryVerticalRelevance(input: {
   resultType?: string | null;
   providerCategory?: string | null;
   verticalTerms: readonly string[];
+  /**
+   * The resolver found a provider entity listing for this identity in this search.
+   *
+   * The same evidence `local_result` is, but read from the identity rather than from
+   * whichever single row a projection happened to pick. A company that appears as
+   * both a paid ad and a local listing was being judged on the ad alone, because the
+   * ad is the row the projection keeps -- and advertiser-first mining means that is
+   * the common case, not the corner case.
+   */
+  providerListing?: boolean;
   /** Independent trade evidence, e.g. landing-page or official-site services. */
   corroborated?: boolean;
 }): VerticalRelevance {
   const category = (input.providerCategory ?? '').toLowerCase().trim();
   if (category && matchesAnyTerm(category, input.verticalTerms)) return 'SUPPORTED';
+
+  if (input.providerListing === true) return 'SUPPORTED';
 
   const resultType = (input.resultType ?? '').toLowerCase().trim();
   if (BUSINESS_LISTING_RESULT_TYPES.has(resultType)) return 'SUPPORTED';
@@ -112,34 +124,152 @@ export function discoveryVerticalRelevance(input: {
 }
 
 /**
- * What the company's own website supports.
+ * Generic words that appear in every trade's language and name none of them.
+ *
+ * "Roofing contractor" is distinctive because of "roofing". Keeping "contractor"
+ * would make a general contractor's page evidence of roofing, plumbing and HVAC at
+ * once, which is the failure this module exists to prevent, arrived at from the
+ * opposite direction.
+ */
+const GENERIC_TRADE_WORDS: ReadonlySet<string> = new Set([
+  'contractor', 'contractors', 'service', 'services', 'repair', 'repairs', 'company',
+  'near', 'best', 'local', 'install', 'installation', 'replacement', 'commercial',
+  'residential', 'emergency', 'quote', 'estimate', 'free', 'call', 'same',
+]);
+
+/**
+ * The words that actually name this trade, taken from what the profile declares.
+ *
+ * "HVAC contractor", "heating and cooling", "air conditioning contractor" yield
+ * hvac, heating, cooling, conditioning.
+ */
+function distinctiveTradeWords(terms: readonly string[]): string[] {
+  const words = new Set<string>();
+  for (const term of terms) {
+    for (const word of term.toLowerCase().split(/[^a-z0-9]+/)) {
+      if (word.length >= 4 && !GENERIC_TRADE_WORDS.has(word)) words.add(word);
+    }
+  }
+  return [...words];
+}
+
+/**
+ * The root a trade's words share, for reading a domain.
+ *
+ * "roofer" and "roofing" are both "roof", which is what a company puts in its domain:
+ * coastalroof, delair, firstcoastroof. A domain is written to be typed, so it
+ * compresses, and comparing it against the full word finds nothing.
+ */
+function tradeWordStems(words: readonly string[]): string[] {
+  const stems = new Set<string>();
+  for (const word of words) {
+    let stem = word;
+    for (const suffix of ['ing', 'ers', 'er', 's']) {
+      if (stem.endsWith(suffix) && stem.length - suffix.length >= 4) {
+        stem = stem.slice(0, -suffix.length);
+        break;
+      }
+    }
+    stems.add(stem);
+  }
+  return [...stems];
+}
+
+/**
+ * What the company's own website supports, weighed rather than counted.
  *
  * The vertical profile already declares the words a business in that trade uses about
  * itself -- `search_taxonomy.core_queries` holds "HVAC contractor", "heating and
  * cooling", "air conditioning contractor" -- so the terms we search with are the terms
- * a genuine member of the trade publishes. That is not a coincidence to exploit
- * loosely: it is checked against the company's own pages, not against a SERP snippet
- * somebody else wrote about them.
+ * a genuine member of the trade publishes. That is checked against the company's own
+ * pages, not against a SERP snippet somebody else wrote about them.
  *
- * Deliberately requires more than one mention. A moving company's site can say "air
- * conditioning" once, about a truck. A plumber's site can mention heating in passing.
- * Two distinct declared terms is a weak bar but a real one, and it is the difference
- * between a page that is about the trade and a page that mentions it.
+ * This used to demand two distinct declared terms, always, and that bar is wrong in
+ * both directions at once. "No Catch Roofing", whose whole site is its name, is
+ * plainly a roofing company and failed it. A moving company whose site says "air
+ * conditioning" once, about a truck cab, would pass it the moment a second HVAC phrase
+ * appeared anywhere on the page.
+ *
+ * So the evidence is weighted by where it appears, because that is what actually
+ * distinguishes the two:
+ *
+ *   - the company's own name naming the trade is worth the whole bar on its own. A
+ *     business called "X Roofing" is telling you what it does, and no moving company
+ *     is called "U-Haul Air Conditioning".
+ *   - each distinct declared term published on the site is worth half of it, so two
+ *     of them still carry a company whose name says nothing, and one of them -- a
+ *     passing mention -- carries nothing.
+ *
+ * Deliberately not a score anybody has to interpret: two ways to reach the same bar,
+ * each of which can be stated in a sentence to whoever asks why a company was called
+ * a roofer.
  */
 export function firstPartyVerticalRelevance(input: {
   pageText: readonly string[];
   verticalTerms: readonly string[];
+  /** What we call this company. Its own name is evidence about its own trade. */
+  companyName?: string | null;
   minimumDistinctTerms?: number;
 }): VerticalRelevance {
   const haystack = input.pageText.join(' \n ').toLowerCase();
+  const name = (input.companyName ?? '').toLowerCase();
+  if (!haystack.trim() && !name.trim()) return 'INSUFFICIENT';
+
+  // A page we could not read is not evidence, whatever the company is called: the
+  // name alone would promote every unreachable site in the trade's search results.
   if (!haystack.trim()) return 'INSUFFICIENT';
 
+  const REQUIRED = 2;
+  let weight = 0;
+  const words = distinctiveTradeWords(input.verticalTerms);
+
+  // The company calling itself a roofer, which is the strongest single thing a site
+  // can say about its own trade.
+  const nameSaysTheTrade = name
+    ? matchesAnyTerm(name, input.verticalTerms) || words.some((word) => name.includes(word))
+    : false;
+  if (nameSaysTheTrade) weight += REQUIRED;
+
+  /*
+   * A domain saying it, which is the same claim compressed: coastalroof, delair,
+   * firstcoastroof. Weaker on its own, because a stem is short enough to turn up by
+   * accident -- "cool" is in "Coolidge" -- so it is worth half the bar and needs the
+   * site to agree with it. It is never enough by itself.
+   */
+  const nameHintsTheTrade = !nameSaysTheTrade && name
+    ? tradeWordStems(words).some((stem) => name.includes(stem))
+    : false;
+  if (nameHintsTheTrade) weight += 1;
+
+  // Declared phrases the site publishes verbatim: "roofing contractor", "heating and
+  // cooling". The strongest page evidence, because it is the trade's own language.
   const matched = new Set<string>();
   for (const term of input.verticalTerms) {
     const needle = term.toLowerCase().trim();
     if (needle.length >= 4 && haystack.includes(needle)) matched.add(needle);
   }
-  return matched.size >= (input.minimumDistinctTerms ?? 2) ? 'SUPPORTED' : 'INSUFFICIENT';
+  weight += matched.size;
+
+  /*
+   * And the trade's distinctive words alone, because the declared terms are search
+   * phrases and a company writes prose. Roofing declares "roofer", "roofing company"
+   * and "roofing contractor"; a roofer's own page says "Residential roofing since
+   * 1998" and matches none of them verbatim while plainly being a roofer.
+   *
+   * Worth half the bar, so one of them is a mention and two are a subject. This is
+   * what keeps a moving company out: its site says "air conditioning" once, about a
+   * truck cab, and one mention does not reach the bar from anywhere.
+   */
+  const matchedWords = new Set<string>();
+  for (const word of words) if (haystack.includes(word)) matchedWords.add(word);
+  weight += matchedWords.size;
+
+  // An explicit override stays exact, for callers that mean a specific bar.
+  if (input.minimumDistinctTerms !== undefined) {
+    return matched.size >= input.minimumDistinctTerms ? 'SUPPORTED' : 'INSUFFICIENT';
+  }
+
+  return weight >= REQUIRED ? 'SUPPORTED' : 'INSUFFICIENT';
 }
 
 /** Whether a phrase contains any of the trade's declared terms. */

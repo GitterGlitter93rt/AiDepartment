@@ -1883,10 +1883,22 @@ async function ingestDiscoveries(
            * What was searched is not lost: `search_observations` keeps the query, the
            * position and the result type for every observation.
            */
+          /**
+           * Judged on everything the provider said about this company, not one row.
+           *
+           * `business.resultType` is the row the projection kept, and for an
+           * advertiser that is the ad -- so deciding the trade from it alone judged
+           * every advertiser on the weakest evidence we held about them, and dropped
+           * the trade for companies whose local listing was sitting in the same
+           * response. That is the whole output of advertiser-first mining. The
+           * resolver has already ranked the identity's rows and put the listing
+           * first, so its classification is what decides.
+           */
           verticalProfileId: discoveryVerticalRelevance({
             resultType: business.resultType ?? null,
             providerCategory: null,
             verticalTerms,
+            providerListing: candidate?.sourceClass === 'BUSINESS_LISTING',
           }) === 'SUPPORTED' ? verticalProfileId : null,
           sourceIdentity: business.providerNativeId
             ? {

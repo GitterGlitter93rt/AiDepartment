@@ -158,3 +158,37 @@ test('the search keyword alone never establishes the trade', () => {
     verticalTerms: HVAC,
   }), 'INSUFFICIENT');
 });
+
+test('an advertiser with a local listing is judged on the listing, not the ad', () => {
+  // The production shape of advertiser-first mining: the company appears as a paid ad
+  // and as a local listing in the same response, and the projection keeps the ad. Left
+  // to the ad alone, every advertiser we find loses its trade -- which is the entire
+  // output of the strategy.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'paid_search_text', providerCategory: null, verticalTerms: HVAC,
+      providerListing: true,
+    }), 'SUPPORTED', 'an advertiser with a local listing lost its trade');
+
+  // And a listing still decides it when the kept row says nothing either way.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: null, verticalTerms: HVAC,
+      providerListing: true,
+    }), 'SUPPORTED');
+});
+
+test('no listing means the ad is still not a classification', () => {
+  // The rule the correction is for: without a listing behind it, a bought keyword is
+  // commercial intent and nothing more.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'paid_search_text', providerCategory: null, verticalTerms: HVAC,
+      providerListing: false,
+    }), 'INSUFFICIENT');
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: null, verticalTerms: HVAC,
+      providerListing: false,
+    }), 'INSUFFICIENT');
+});

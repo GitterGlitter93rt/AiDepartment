@@ -273,6 +273,10 @@ export async function runContactResearch(
         .map((entry) => entry.query);
       const supported = firstPartyVerticalRelevance({
         pageText: pageText.map((page) => page.text), verticalTerms: terms,
+        // The company's own name is evidence about its own trade, and it is the
+        // difference between "No Catch Roofing", whose whole site is its name, and a
+        // moving company that mentions air conditioning once about a truck cab.
+        companyName: account.canonical_name,
       }) === 'SUPPORTED';
       if (supported) {
         await query(
