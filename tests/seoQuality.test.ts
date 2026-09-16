@@ -257,7 +257,14 @@ describe('Favicon / search appearance', () => {
 
 describe('Structured data sanity', () => {
   test('schema is valid JSON-LD with only truthful types', () => {
-    const allowed = new Set(['Organization', 'WebSite', 'Article', 'BreadcrumbList', 'WebPage']);
+    // 'Service' added in Sprint 17 for the /locations/ pages. It is the
+    // honest type for "this service is offered in this area": it carries
+    // areaServed and a provider Organization, and asserts nothing about
+    // a physical presence. LocalBusiness and PostalAddress remain
+    // disallowed by omission, which is the point — see
+    // tests/sprint17LocalAuthority.test.ts, which additionally fails the
+    // build if either ever appears.
+    const allowed = new Set(['Organization', 'WebSite', 'Article', 'BreadcrumbList', 'WebPage', 'Service']);
     for (const p of pages) {
       for (const block of [...p.doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => m[1])) {
         let parsed: any;

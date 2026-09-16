@@ -1,6 +1,7 @@
 ---
 import Container from './Container.astro';
 import { FOOTER_LINKS } from '../lib/site';
+import { FOOTER_MARKETS } from '../lib/locations';
 import { BRAND_NAME, LEGAL_ENTITY, LEGAL_RELATIONSHIP } from '../lib/businessIdentity';
 
 const year = new Date().getFullYear();
@@ -52,6 +53,23 @@ const year = new Date().getFullYear();
         </ul>
       </nav>
     </div>
+
+    {/*
+      Florida markets — one compact row, not a keyword block. Seven
+      links, each to a page with genuinely distinct content behind it.
+      If this list ever needs its own column or starts repeating
+      "AI consulting <city>" as anchor text, that is the point at which
+      it has become the thing docs/05-seo/local-seo.md forbids.
+    */}
+    <nav class="footer-markets" aria-label="Florida markets">
+      <span class="markets-label">Florida markets</span>
+      <ul>
+        {FOOTER_MARKETS.map((market) => (
+          <li><a href={market.href}>{market.label}</a></li>
+        ))}
+        <li><a href="/locations/" class="markets-all">All locations &rarr;</a></li>
+      </ul>
+    </nav>
 
     <div class="footer-bottom">
       <p class="copyright">&copy; {year} {BRAND_NAME} / {LEGAL_ENTITY}. All rights reserved.</p>
@@ -131,6 +149,47 @@ const year = new Date().getFullYear();
 
   .footer-grid a:hover {
     color: var(--color-pure-white);
+  }
+
+  /* No border-top here: .footer-grid above already ends in a
+     border-bottom, and adding one would render two rules separated by a
+     gap. This row sits inside that existing divider. */
+  .footer-markets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 14px;
+    margin-top: 20px;
+  }
+
+  .footer-markets .markets-label {
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-dark-muted-text);
+  }
+
+  .footer-markets ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    list-style: none;
+  }
+
+  .footer-markets a {
+    font-size: 0.82rem;
+    color: var(--color-dark-muted-text);
+  }
+
+  .footer-markets a:hover {
+    color: var(--color-signal-cyan);
+  }
+
+  .footer-markets .markets-all {
+    font-weight: 700;
+    color: var(--color-signal-cyan);
   }
 
   .footer-bottom {

@@ -1,0 +1,134 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Icon from './Icon.astro';
+import { HOME_REGION, MARKETS, locationPath } from '../lib/locations';
+
+// A small band establishing where the company actually is, without
+// turning a national homepage into a local landing page.
+//
+// HOME_REGION is "Northeast Florida" rather than a city: the one
+// verified address in src/lib/businessIdentity.ts carries a
+// Jacksonville mailing city on a St. Johns County road, and nothing in
+// the repository supports naming St. Augustine as the company's base.
+// No street address appears here, and nothing on this site claims an
+// office in any of the linked markets — see src/lib/locations.ts.
+---
+
+<Section tone="light" class="loc-teaser">
+  <Container wide>
+    <div class="loc-inner">
+      <div class="loc-copy">
+        <span class="loc-flag"><Icon name="map-pin" size={16} /> Florida-Based</span>
+        <h2 class="loc-h2">Florida-Based. Built for Businesses Everywhere.</h2>
+        <p class="loc-support">
+          Based in {HOME_REGION}, Your AI Department works with companies across Florida and
+          nationwide — with engagements designed to work effectively in person or remotely.
+        </p>
+      </div>
+
+      <div class="loc-markets">
+        <p class="loc-markets-label">Florida markets</p>
+        <ul class="loc-market-list">
+          {MARKETS.map((market) => (
+            <li><a href={locationPath(market.slug)}>{market.name}</a></li>
+          ))}
+        </ul>
+        <a class="loc-cta" href="/locations/">View Locations &rarr;</a>
+      </div>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  .loc-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+
+  @media (min-width: 900px) {
+    .loc-inner {
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+    }
+  }
+
+  .loc-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-electric-blue);
+    margin-bottom: 12px;
+  }
+
+  .loc-h2 {
+    font-size: var(--fs-h3);
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+
+  .loc-support {
+    color: var(--color-slate-gray);
+    font-size: 0.98rem;
+    line-height: 1.65;
+    max-width: 52ch;
+  }
+
+  .loc-markets {
+    background-color: var(--color-pure-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 24px 24px 20px;
+  }
+
+  .loc-markets-label {
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-slate-gray);
+    margin-bottom: 12px;
+  }
+
+  .loc-market-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin-bottom: 18px;
+  }
+
+  .loc-market-list a {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border-light);
+    border-radius: 999px;
+    background-color: var(--color-cloud-white);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-near-black);
+  }
+
+  .loc-market-list a:hover {
+    border-color: var(--color-electric-blue);
+    color: var(--color-electric-blue);
+  }
+
+  .loc-cta {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--color-electric-blue);
+  }
+
+  .loc-cta:hover {
+    text-decoration: underline;
+  }
+</style>

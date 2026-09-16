@@ -2,9 +2,11 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Hero from '../components/Hero.astro';
 import OutcomeStrip from '../components/OutcomeStrip.astro';
+import ProofSection from '../components/ProofSection.astro';
 import BusinessSection from '../components/BusinessSection.astro';
 import MethodSection from '../components/MethodSection.astro';
 import IndustriesSection from '../components/IndustriesSection.astro';
+import LocationTeaser from '../components/LocationTeaser.astro';
 import ManagedSection from '../components/ManagedSection.astro';
 import PaidAuditCTA from '../components/PaidAuditCTA.astro';
 import FinalCTA from '../components/FinalCTA.astro';
@@ -22,9 +24,22 @@ import FinalCTA from '../components/FinalCTA.astro';
 >
   <Hero />
   <OutcomeStrip />
+  {/*
+    Proof sits high — directly after the outcome promises and before the
+    business-first argument — because the page previously asserted
+    capability and never evidenced it. These are example system types,
+    not customer case studies: no approved public case studies or named
+    customers exist in the repository. See the note in ProofSection.astro.
+  */}
+  <ProofSection />
   <BusinessSection />
   <MethodSection />
   <IndustriesSection />
+  {/*
+    Geography follows industries — who we serve, then where — and stays a
+    small band so the national positioning above it still dominates.
+  */}
+  <LocationTeaser />
   <ManagedSection />
   {/*
     Secondary/premium path to the $495 Comprehensive AI Business Audit —

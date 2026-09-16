@@ -1,0 +1,254 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import ProcessSteps from '../../../components/interior/ProcessSteps.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// St. Augustine's spine is the owner-operator: a business small enough
+// that the owner IS the operations department, inside an economy with
+// pronounced visitor-driven seasonality. That combination — capacity
+// that cannot flex and demand that swings — is unique to this page.
+// Growth and scale belong to the St. Johns County page; metro sprawl
+// belongs to Jacksonville.
+
+const description =
+  'AI consulting and automation for St. Augustine businesses: answering the calls you miss, following up on quotes and recovering admin hours, without a hire.';
+
+const path = '/locations/st-augustine-fl/';
+
+const opportunities = [
+  { icon: 'phone-call', title: 'Enquiry Overflow Cover', description: 'Answering the calls that arrive while you are with a customer, on a roof, or serving a full dining room.' },
+  { icon: 'calendar-clock', title: 'Booking & Reminders', description: 'Appointment and reservation confirmations, reminders and reschedules handled without a dedicated front desk.' },
+  { icon: 'repeat', title: 'Quote Follow-Up', description: 'Consistent follow-up on estimates for home services, trades and event work, on a cadence that suits a long decision.' },
+  { icon: 'message-square', title: 'Review & Reputation Workflow', description: 'Asking every satisfied customer for a review as part of job completion, rather than when someone remembers.' },
+  { icon: 'file-text', title: 'Admin Time Recovery', description: 'Invoices, intake forms, scheduling messages and supplier paperwork that quietly consume evenings.' },
+  { icon: 'map-pin', title: 'Local Search Visibility', description: 'Being findable and unambiguous in Google and AI-assisted search for the services you actually offer.' },
+];
+
+const startSteps = [
+  { icon: 'clock', title: 'Look at one week honestly', description: 'Where did the hours go, which enquiries never got a reply, and what did you do after closing that a system could have done?' },
+  { icon: 'file-search', title: 'Pick the leak, not the tool', description: 'Usually it is unanswered calls, quotes that went quiet, or admin done at 9pm. One of those is costing more than the others.' },
+  { icon: 'hammer', title: 'Fix that one thing properly', description: 'A working intake and follow-up loop beats six half-configured tools. Prove it for a season before expanding.' },
+  { icon: 'trending-up', title: 'Then decide what is next', description: 'With one system running and measured, the second decision is much easier — and may be that nothing more is needed yet.' },
+];
+
+const faqs = [
+  { question: 'We are a small business. Is this only for larger companies?', answer: 'No, but the shape of the work is different. A twelve-person company does not need an AI transformation programme — it usually needs one or two specific things to stop leaking. Answering the phone reliably and following up on quotes are the two that pay for themselves most often. We would rather build one thing that works than sell a programme you do not need.' },
+  { question: 'Our busy season and our quiet season are completely different. Does that matter?', answer: 'It matters a great deal, and it is the main reason generic advice fails here. Capacity that is correct in February is overwhelmed in March. Automation is useful precisely because it absorbs a demand spike without a hiring decision — but the rules have to be set for both states, including what happens when you genuinely cannot take more work that week.' },
+  { question: 'Will customers know they are talking to an AI?', answer: 'They should, and we build it that way. An automated assistant should identify itself and offer a person whenever someone asks. In a town where much of the business comes from repeat customers and word of mouth, a system that tries to pass as human is a reputational risk that is not worth the small gain.' },
+  { question: 'We run on paper and a shared calendar. Are we too far behind?', answer: 'No, though the honest first step may be a better basic system rather than AI. Adding an automated layer on top of a shared calendar and a notebook tends to produce confident automation acting on incomplete information. Getting the foundation right first is usually cheaper and always more durable.' },
+  { question: 'Do you work with St. Augustine businesses in person?', answer: 'Yes. Your AI Department is based in Northeast Florida, which puts St. Augustine well within reach for discovery and strategy sessions on site. From there, implementation and ongoing support run remotely — which suits a business where the owner cannot spare a morning for a meeting that did not need to happen in person.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting St. Augustine FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'St. Augustine', areaType: 'City', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'St. Augustine', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="St. Augustine, Florida"
+    headline="AI Consulting & Automation for St. Augustine Businesses"
+    support="Most St. Augustine businesses are not short of demand. They are short of hours. Your AI Department helps owner-operated companies here put practical systems around the parts of the day that do not need an owner — the calls that come in during service, the quotes that go quiet, the admin that waits until evening."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="A Visitor Economy With a Resident Economy Underneath It"
+      />
+      <p class="prose-p">Heritage tourism is the visible half of St. Augustine's economy: lodging, restaurants, tours, attractions, event and wedding businesses, retail on and around the historic district. That half runs on visitor volume, and it moves with the season, the weather and the calendar.</p>
+      <p class="prose-p">The less visible half is the one that serves the people who live here — home services, trades, construction and remodeling, real estate, healthcare practices, professional services and the local suppliers behind them. Many of these are owner-operated or family-run, with a handful of employees and no dedicated administrative function at all.</p>
+      <p class="prose-p">Both halves share one constraint, which is what this page is really about.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="The Owner Is Also the Operations Department"
+        support="In a business of this size, the person who answers the phone is usually the person doing the work. That means enquiries arrive precisely when nobody can take them — mid-service, mid-job, mid-shift — and the follow-up that would have won the work happens late or not at all. It is not a discipline problem. It is a capacity problem with no obvious hire attached, because a full-time admin person is a real cost and the demand is uneven."
+        tone="dark"
+      />
+      <p class="prose-p-dark">Seasonality sharpens it. Capacity sized for the quiet months is overwhelmed in the busy ones, and the busy ones are exactly when a missed call is most expensive.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="Practical Starting Points for a Small Team"
+        support="Deliberately modest. These are the things that recover hours and opportunities without a platform migration."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="How to Start"
+        heading="One Leak at a Time"
+        support="For a business this size, sequencing matters more than ambition."
+      />
+      <ProcessSteps steps={startSteps} />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="What Stays Human"
+        heading="The Relationship Is the Business"
+      />
+      <p class="prose-p">In a town where a meaningful share of work comes from repeat customers, referrals and reputation, automation has a narrower job than it does in a large anonymous market. It should answer, capture, remind and follow up. It should not quote a price, negotiate, diagnose a problem it cannot see, handle a complaint, or pretend to be you. Those conversations are the reason customers came back in the first place — see <a href="/resources/what-business-processes-should-not-be-automated/">what business processes should not be automated</a>.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Industries We See Most Here"
+        heading="Where This Work Tends to Land in St. Augustine"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/industries/home-services/">Home Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/construction/">Construction</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/real-estate/">Real Estate</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/healthcare/">Healthcare</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/roofing/">Roofing</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/landscaping-outdoor-living/">Landscaping &amp; Outdoor Living</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="Access Without a Hire"
+        support="A business with eight employees cannot justify an internal AI function, and a single freelancer who builds one automation and leaves creates a dependency nobody can maintain. The external department model gives you strategy, implementation and ongoing support as one relationship, sized to what you actually need."
+      />
+      <p class="prose-p">Start with <a href="/ai-consulting/">AI Consulting</a> if the question is what to do, <a href="/ai-implementation/">AI Implementation</a> if you already know, or the <a href="/managed-ai-department/">Managed AI Department</a> if you would rather it be run for you. The <a href="/ai-department-method/">AI Department Method</a> sets out how engagements run.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading eyebrow="Fit" heading="Who This Tends to Work For" />
+      <WhoItsFor
+        fitHeading="A strong fit for St. Augustine businesses that:"
+        fitItems={[
+          'Are owner-operated with a small team and no dedicated admin function',
+          'Miss calls or enquiries during service, jobs or busy season',
+          'Send quotes or proposals that often go unanswered',
+          'Have pronounced seasonal swings in demand',
+          'Depend on reviews and repeat customers',
+        ]}
+        notFitHeading="Probably not yet if:"
+        notFitItems={[
+          'Customer records still live only on paper or in one person’s memory',
+          'Enquiry volume is genuinely manageable as-is',
+          'You want a tool to buy rather than a process to fix',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="St. Augustine FAQ" heading="Common Questions From Owners Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Nearby"
+        heading="Also in Northeast Florida"
+        tone="dark"
+      />
+      <p class="prose-p-dark">If you are growing across the wider county, see <a href="/locations/st-johns-county-fl/">St. Johns County</a>. For the larger metro, see <a href="/locations/jacksonville-fl/">Jacksonville</a>. Or view <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Find the One Thing Worth Fixing First"
+    support="Take the free AI Department Assessment, or book a strategy call and talk it through directly."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>

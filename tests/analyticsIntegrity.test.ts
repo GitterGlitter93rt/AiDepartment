@@ -448,11 +448,12 @@ describe('Developer traffic is marked, not hidden', () => {
 // ============================================================
 
 describe('Sprints 13 and 14 are intact', () => {
-  // 119 at Sprint 15; Sprint 16 added exactly three indexable resources.
-  // The count stays pinned so an accidental route still fails here.
-  test('sitemap is 122, /go/ noindex and excluded, .htaccess present', () => {
+  // 119 at Sprint 15, +3 resources in Sprint 16, +8 location routes in
+  // Sprint 17. The count stays pinned so an accidental route still fails
+  // here rather than leaking into the sitemap.
+  test('sitemap is 130, /go/ noindex and excluded, .htaccess present', () => {
     const sitemap = read('public/sitemap.xml');
-    assert.equal([...sitemap.matchAll(/<loc>/g)].length, 122);
+    assert.equal([...sitemap.matchAll(/<loc>/g)].length, 130);
     for (const r of ['go/law-firms', 'go/roofing']) {
       assert.match(readFileSync(join(DIST, r, 'index.html'), 'utf8'), /<meta name="robots" content="noindex, follow">/);
       assert.equal(sitemap.includes(r), false);

@@ -1,0 +1,254 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// Fort Lauderdale's spine is quoted, scheduled project work: estimate
+// pipelines, scheduling against constrained capacity, and a seasonal
+// calendar (boat show and season) that concentrates demand. The marine
+// cluster is the distinguishing local fact and is treated as a real
+// industry with real workflow characteristics, not as scenery.
+//
+// Miami owns cross-border/time-zone/document-cycle. This page owns
+// estimate-and-schedule. They must not converge.
+
+const description =
+  'AI consulting and automation for Fort Lauderdale businesses: estimate follow-up, scheduling against real capacity, intake and quote-to-revenue reporting.';
+
+const path = '/locations/fort-lauderdale-fl/';
+
+const opportunities = [
+  { icon: 'repeat', title: 'Estimate & Quote Follow-Up', description: 'Every open quote visible by value, age and owner — and followed up on a cadence suited to the size of the job.' },
+  { icon: 'calendar-clock', title: 'Scheduling Against Real Capacity', description: 'Booking work against the bay, berth, crew or truck that is actually free, including the buffer the job really needs.' },
+  { icon: 'phone-call', title: 'Intake That Captures the Job', description: 'Enough detail at first contact — vessel, system, location, urgency — that the estimator is not starting from scratch.' },
+  { icon: 'message-square', title: 'Status Communication', description: 'Proactive updates on work in progress, driven by the actual job record rather than a customer chasing for news.' },
+  { icon: 'database', title: 'Job History on One Record', description: 'Previous work, prior quotes and recurring service consolidated where the next person can see it.' },
+  { icon: 'bar-chart-3', title: 'Quote-to-Revenue Reporting', description: 'Which sources produce quoted work, which quoted work converts, and what it is actually worth.' },
+];
+
+const quoteGroups = [
+  { label: 'Enquiry', steps: [{ text: 'Call / Referral', icon: 'phone' }] },
+  { label: 'Scoping', steps: [{ text: 'Site or Vessel Visit', icon: 'wrench' }, { text: 'Estimate Issued', icon: 'clipboard-list' }] },
+  { label: 'The Gap', steps: [{ text: 'Follow-Up Cadence', icon: 'repeat' }, { text: 'Owned Task', icon: 'user-check' }] },
+  { label: 'Scheduling', steps: [{ text: 'Capacity Check', icon: 'calendar' }, { text: 'Booked', icon: 'check-circle-2' }] },
+  { label: 'Measurement', steps: [{ text: 'Converted Value', icon: 'bar-chart-3' }] },
+];
+
+const faqs = [
+  { question: 'We are a marine service business. Is any of this built for how we actually work?', answer: 'The workflow shape fits well, though the vocabulary differs. Yard and marine service work is quoted, scheduled against constrained capacity, frequently rescheduled around weather and vessel movement, and dependent on parts availability — which is structurally similar to high-value trade work, with tighter capacity constraints. The useful areas are estimate follow-up, capacity-aware scheduling and status communication, and what connects to your existing yard or service software is established during discovery.' },
+  { question: 'Our busy season is brutal and the rest of the year is not. How does that change things?', answer: 'It changes what you optimize for. In season, the constraint is capacity and the priority is triage — booking the right work, communicating realistic timelines and not losing quotes in the noise. Out of season, the priority is the pipeline: working the estimates that did not convert and the customers due for recurring service. A system that only serves the busy months is half a system.' },
+  { question: 'We operate several locations across Broward. Can one system cover them?', answer: 'Yes, and the useful structure is one standard with location-aware routing. Intake, qualification and follow-up should be identical everywhere; assignment, capacity and reporting should know which location is involved. That also makes it possible to compare locations honestly, which is usually the first thing an owner wants and cannot currently get.' },
+  { question: 'Most of our work comes from referrals and repeat customers. Is automation going to damage that?', answer: 'It can, if it is pointed at the wrong things. Automating the relationship — the quoting conversation, the negotiation, the apology when a job runs late — would damage it. Automating the administration around the relationship generally strengthens it, because the customer gets a reply, a reminder and a status update they would otherwise have had to chase. The boundary matters more than the technology.' },
+  { question: 'Are you working with us on site or remotely?', answer: 'We serve businesses throughout Fort Lauderdale and Broward County. Most implementation and ongoing work is handled remotely, with travel or in-person sessions arranged when they materially improve the engagement — walking a yard or a job site during discovery is often one of those times, because it changes what we understand about your capacity constraints.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting Fort Lauderdale FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'Fort Lauderdale', areaType: 'City', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'Fort Lauderdale', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="Fort Lauderdale, Florida"
+    headline="AI Consulting & Automation for Fort Lauderdale Businesses"
+    support="A great deal of Fort Lauderdale's economy runs on quoted, scheduled work — a vessel in a yard, a crew on a property, a project with a start date and a capacity limit. Your AI Department helps Broward businesses stop losing quoted work to silence, and schedule what they win against the capacity they actually have."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="Broward Runs on Trades, Projects and the Water"
+      />
+      <p class="prose-p">Fort Lauderdale's marine industry is the market's most distinctive feature and a genuinely large employer: shipyards and boatyards, marinas, refit and repair operations, brokerage, marine systems and electronics specialists, parts and supply, and the professional services that surround vessel ownership. Greater Fort Lauderdale is widely described as the yachting capital of the world, and the calendar around the annual boat show shapes a real portion of the year's workload.</p>
+      <p class="prose-p">Around it sits a dense Broward County business base with a similar operating rhythm: construction and the trades, home services, property maintenance, real estate, hospitality, healthcare practices, logistics operations near Port Everglades and the airport, and a large population of multi-location service companies.</p>
+      <p class="prose-p">What most of them have in common is that revenue starts with a quote and depends on a schedule.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="The Quote Goes Out, and Then Nothing Happens"
+        support="In a quoted-work business, the estimate is not the end of the sale — it is the start of a decision period the seller usually abandons. The person who scoped the job is the person doing the next job, so follow-up competes with delivery and loses. The result is a growing pile of quoted work that was never accepted, never declined, and never counted: invisible in the pipeline, absent from the forecast, and frequently worth more than the month's new leads."
+        tone="dark"
+      />
+      <p class="prose-p-dark">The second half is scheduling. Winning the work is only useful if it can be booked against real capacity, with realistic timelines — and in season, that constraint bites hard.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Example System"
+        heading="Where Quoted Work Actually Leaks"
+        support="A conceptual pattern. The middle group is the one most businesses do not have at all."
+      />
+      <GroupedFlow groups={quoteGroups} tone="light" />
+      <p class="prose-p flow-note">The general version of this workflow, across trades, is set out in <a href="/resources/how-home-service-companies-can-automate-estimate-follow-up/">unsold estimate follow-up automation</a> — segmentation, ownership, cadence, and closing quotes out to a definite status instead of letting them age.</p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="Opportunities That Fit Quoted, Scheduled Work"
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="What Stays Human"
+        heading="Pricing and Scope Are Not Automation Problems"
+      />
+      <p class="prose-p">Everything above is administrative. Scoping a refit, diagnosing a fault, pricing a job, negotiating a change order, deciding whether a vessel or a building is safe, and handling a customer who is unhappy about a delay all stay with the people who carry the responsibility for them. Automation's job in this market is to make sure the quote is followed up, the schedule is honest and the customer is told what is happening — not to make a commercial or technical judgment on your behalf.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Industries We See Most Here" heading="Where This Work Tends to Land in Broward County" tone="dark" />
+      <p class="cross-links">
+        <a href="/industries/home-services/">Home Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/construction/">Construction</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/property-management/">Property Management</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/real-estate/">Real Estate</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/logistics-transportation/">Logistics &amp; Transportation</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/hvac/">HVAC</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="Built, Connected and Maintained — Not Just Installed"
+        support="Quoted-work businesses are usually sold point tools: a scheduling app, a quoting tool, a CRM nobody finished configuring. The gap is that none of them talk to each other, and no one owns the result. The external department model covers the strategy, the build, the integration, the reporting and the ongoing improvement as one relationship."
+      />
+      <p class="prose-p">Usual starting points: <a href="/ai-growth-systems/">AI Growth Systems</a> when the leak is lead response and follow-up, <a href="/ai-implementation/">AI Implementation</a> when specific workflows need building, <a href="/crm-setup-automation/">CRM Setup &amp; Automation</a> when the system of record is the real problem, and the <a href="/managed-ai-department/">Managed AI Department</a> to run it.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading eyebrow="Fit" heading="Who This Tends to Work For" />
+      <WhoItsFor
+        fitHeading="A strong fit for Fort Lauderdale businesses that:"
+        fitItems={[
+          'Quote work that is often never accepted or formally declined',
+          'Schedule against constrained capacity — bays, berths, crews or trucks',
+          'Have a pronounced busy season and a slower remainder',
+          'Operate more than one location across Broward',
+          'Cannot currently report on quote-to-revenue conversion',
+        ]}
+        notFitHeading="Probably not yet if:"
+        notFitItems={[
+          'Quotes are not recorded anywhere consistent',
+          'Every job is bespoke enough that no repeatable process exists',
+          'You want pricing or scoping automated — that stays human',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="Fort Lauderdale FAQ" heading="Common Questions From Operators Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Nearby" heading="Also in South Florida" tone="dark" />
+      <p class="prose-p-dark">For cross-border, referral-driven and document-heavy operations, see <a href="/locations/miami-fl/">Miami</a>. Or view <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Stop Losing Quoted Work to Silence"
+    support="Take the free AI Department Assessment, or book a strategy call to look at your estimate pipeline and scheduling."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .flow-note {
+    margin-top: 28px;
+    margin-bottom: 0;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>

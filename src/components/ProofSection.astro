@@ -1,0 +1,246 @@
+---
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+
+// ---------------------------------------------------------------------
+// WHY THIS SECTION IS WORDED THE WAY IT IS
+// ---------------------------------------------------------------------
+//
+// The homepage explained what the company can do and never showed that
+// it builds things. This section closes that gap — but it is explicitly
+// NOT a case-study section, because the repository contains no approved
+// public case studies, no named customers and no verified performance
+// figures. docs/02-website/about.md still lists the founder biography
+// and headquarters as "[TO BE PROVIDED]", and docs/02-website/
+// case-studies.md is explicit that fictional case studies are not to be
+// created.
+//
+// So these are system TYPES, presented as examples of capability. Every
+// capability named below is one this site already sells on a dedicated
+// page — the hrefs are the proof of that, and each card links to the
+// page that substantiates it. The outcome line describes what the system
+// is for, in operational terms, never a quantified result.
+//
+// The public copy states this positively ("examples of the practical
+// systems we design and build") rather than by disclaimer. A prospect
+// should not be reading about what we do not have; the constraint is
+// real, but it belongs here, not on the page.
+//
+// The rule for anyone editing this file: if a sentence here would need
+// a customer's permission or a number to be true, it does not belong.
+// tests/sprint17LocalAuthority.test.ts asserts the absence of
+// percentages, currency figures and testimonial framing in this
+// section.
+
+const systems = [
+  {
+    icon: 'phone-call',
+    problem: 'Inbound leads and calls go unanswered at the worst times',
+    system: 'AI phone and SMS intake wired into the CRM, with missed-call recovery and routing rules the business defines',
+    outcome: 'Enquiries get answered consistently, including after hours, and reach an owner instead of a voicemail box',
+    href: '/ai-agent-development/',
+    linkLabel: 'AI Agent Development',
+  },
+  {
+    icon: 'repeat',
+    problem: 'Quoted work goes quiet and nobody follows up',
+    system: 'Estimate and proposal follow-up automation with segmentation, owned tasks and defined cadence',
+    outcome: 'Open estimates stay visible and get closed out to a real status instead of ageing silently',
+    href: '/ai-growth-systems/',
+    linkLabel: 'AI Growth Systems',
+  },
+  {
+    icon: 'database',
+    problem: 'Conversations happen in one system and the customer record lives in another',
+    system: 'CRM integration with identity matching, structured summaries, field mapping and human handoff',
+    outcome: 'The next person to speak to the customer can see what was already said',
+    href: '/ai-crm-integration/',
+    linkLabel: 'AI CRM Integration',
+  },
+  {
+    icon: 'bar-chart-3',
+    problem: 'Marketing spend and closed revenue cannot be connected',
+    system: 'Attribution and reporting across campaigns, calls, forms, CRM records and completed jobs',
+    outcome: 'Leadership can see which marketing produced which revenue, rather than which produced clicks',
+    href: '/conversion-tracking-analytics/',
+    linkLabel: 'Conversion Tracking & Analytics',
+  },
+  {
+    icon: 'file-text',
+    problem: 'Skilled people spend hours on repetitive document and data work',
+    system: 'Document processing and workflow automation, with review steps where accuracy matters',
+    outcome: 'Capacity goes back to the work that actually needs a person',
+    href: '/ai-implementation/',
+    linkLabel: 'AI Implementation',
+  },
+  {
+    icon: 'book-open',
+    problem: 'What the company knows lives in a few people’s heads',
+    system: 'Internal AI assistants built on the company’s own documented processes and materials',
+    outcome: 'Staff can find an answer without interrupting the person who knows it',
+    href: '/ai-consulting/',
+    linkLabel: 'AI Consulting',
+  },
+];
+---
+
+<Section tone="white" id="systems-we-build" class="proof-section">
+  <Container wide>
+    <div class="proof-head">
+      <span class="eyebrow proof-eyebrow">What We Actually Build</span>
+      <h2 class="proof-h2">Real Systems. Real Business Problems.</h2>
+      <p class="proof-support">
+        Your AI Department is an implementation company, not only an advisory one. These are
+        examples of the practical systems we design and build around real business problems.
+      </p>
+    </div>
+
+    <ul class="proof-grid">
+      {systems.map((item) => (
+        <li class="proof-card">
+          <span class="proof-icon"><Icon name={item.icon} size={20} /></span>
+
+          <p class="proof-label">Problem</p>
+          <p class="proof-problem">{item.problem}</p>
+
+          <p class="proof-label">System</p>
+          <p class="proof-text">{item.system}</p>
+
+          <p class="proof-label">Business Outcome</p>
+          <p class="proof-text">{item.outcome}</p>
+
+          <a class="proof-link" href={item.href}>{item.linkLabel} &rarr;</a>
+        </li>
+      ))}
+    </ul>
+
+    <div class="proof-foot">
+      <p class="proof-note">
+        We start with the business problem, not the technology. Sometimes the highest-return
+        answer is a custom build; sometimes it is a configuration change or a better process.
+        You get our honest recommendation either way.
+      </p>
+      <Button href="/ai-implementation/" variant="primary" size="large">See How Implementation Works</Button>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  .proof-head {
+    max-width: 720px;
+    margin-inline: auto;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .proof-eyebrow {
+    color: var(--color-electric-blue);
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+
+  .proof-h2 {
+    font-size: var(--fs-h2);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+
+  .proof-support {
+    color: var(--color-slate-gray);
+    font-size: 1.02rem;
+    line-height: 1.65;
+  }
+
+  .proof-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  @media (min-width: 640px) {
+    .proof-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1040px) {
+    .proof-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .proof-card {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-cloud-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-panel);
+    padding: 26px 24px;
+  }
+
+  .proof-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background-color: rgba(37, 99, 235, 0.08);
+    color: var(--color-electric-blue);
+    margin-bottom: 18px;
+  }
+
+  /* The three-part label is the whole point of the card: it forces each
+     example to name a business problem before it names a technology. */
+  .proof-label {
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-electric-blue);
+    margin-bottom: 5px;
+  }
+
+  .proof-problem,
+  .proof-text {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--color-slate-gray);
+    margin-bottom: 16px;
+  }
+
+  .proof-problem {
+    color: var(--color-near-black);
+    font-weight: 600;
+  }
+
+  .proof-link {
+    margin-top: auto;
+    padding-top: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-electric-blue);
+  }
+
+  .proof-link:hover {
+    text-decoration: underline;
+  }
+
+  .proof-foot {
+    margin-top: 40px;
+    text-align: center;
+  }
+
+  .proof-note {
+    max-width: 620px;
+    margin-inline: auto;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--color-slate-gray);
+  }
+</style>

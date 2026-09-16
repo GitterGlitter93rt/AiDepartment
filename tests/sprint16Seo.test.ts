@@ -125,10 +125,10 @@ describe('Sprint 16 routes build, are indexable, and are discoverable', () => {
     });
   }
 
-  test('all three are listed in the sitemap, which is now pinned at 122', () => {
+  test('all three are listed in the sitemap, which is now pinned at 130', () => {
     const urls = [...read('public/sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    assert.equal(urls.length, 122, 'sitemap count changed unexpectedly');
-    assert.equal(new Set(urls).size, 122, 'duplicate sitemap entries');
+    assert.equal(urls.length, 130, 'sitemap count changed unexpectedly');
+    assert.equal(new Set(urls).size, 130, 'duplicate sitemap entries');
     for (const route of NEW_ROUTES) {
       assert.ok(urls.includes(SITE.domain + route), `${route} missing from sitemap`);
     }

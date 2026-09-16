@@ -331,10 +331,10 @@ describe('Sprint 13 state is untouched', () => {
   // matters is unchanged: the count is pinned, duplicates are rejected,
   // and every listed URL must build and be indexable — so an accidental
   // route still fails here rather than leaking into the sitemap.
-  test('the sitemap is pinned at 122 URLs — 119 from Sprint 14 plus Sprint 16 three', () => {
+  test('the sitemap is pinned at 130 URLs — 122 after Sprint 16 plus Sprint 17 eight', () => {
     const urls = [...read('public/sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    assert.equal(urls.length, 122);
-    assert.equal(new Set(urls).size, 122, 'duplicate sitemap entries');
+    assert.equal(urls.length, 130);
+    assert.equal(new Set(urls).size, 130, 'duplicate sitemap entries');
     // Everything listed must build and be indexable.
     for (const u of urls) {
       const route = u.slice(SITE.domain.length);

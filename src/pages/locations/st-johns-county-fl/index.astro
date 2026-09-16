@@ -1,0 +1,251 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BreadcrumbSchema from '../../../components/BreadcrumbSchema.astro';
+import Section from '../../../components/Section.astro';
+import Container from '../../../components/Container.astro';
+import InteriorHero from '../../../components/interior/InteriorHero.astro';
+import SectionHeading from '../../../components/interior/SectionHeading.astro';
+import CapabilityGrid from '../../../components/interior/CapabilityGrid.astro';
+import GroupedFlow from '../../../components/interior/GroupedFlow.astro';
+import WhoItsFor from '../../../components/interior/WhoItsFor.astro';
+import FAQSection from '../../../components/interior/FAQSection.astro';
+import CTABand from '../../../components/interior/CTABand.astro';
+import { PRIMARY_CTA, SECONDARY_CTA, SITE } from '../../../lib/site';
+import { locationServiceSchema } from '../../../lib/locations';
+
+// St. Johns County's spine is growth economics: revenue climbing faster
+// than process maturity, and the default response being another admin
+// hire. The page is about scaling operations without scaling
+// administrative overhead at the same rate. It must NOT repeat St.
+// Augustine's owner-operator/seasonality argument — these companies have
+// already outgrown that stage.
+
+const description =
+  'AI consulting and automation for St. Johns County businesses: add capacity as you grow without adding administrative overhead at the same rate.';
+
+const path = '/locations/st-johns-county-fl/';
+
+const opportunities = [
+  { icon: 'clipboard-list', title: 'Intake That Scales', description: 'One standard for capturing a job or enquiry, so the tenth employee collects what the second one did.' },
+  { icon: 'users-round', title: 'Multi-Crew Scheduling', description: 'Assignment and confirmation across several crews without a scheduler holding it all in their head.' },
+  { icon: 'repeat', title: 'Estimate Pipeline Control', description: 'Visibility of every open quote — value, age and owner — so growth does not bury the pipeline.' },
+  { icon: 'database', title: 'CRM That Matches How You Sell', description: 'Pipeline stages, fields and automation configured for the business you are now, not the one you were three years ago.' },
+  { icon: 'file-text', title: 'Back-Office Load', description: 'Permits, change orders, supplier documents, invoices and compliance paperwork that grow linearly with job count.' },
+  { icon: 'bar-chart-3', title: 'Numbers You Can Act On', description: 'Job-level and channel-level reporting, so a growth decision is made on data rather than instinct.' },
+];
+
+const overheadGroups = [
+  { label: 'Growth', steps: [{ text: 'More Jobs', icon: 'trending-up' }] },
+  { label: 'Default Response', steps: [{ text: 'More Admin Hours', icon: 'clock' }, { text: 'Another Hire', icon: 'users' }] },
+  { label: 'Alternative', steps: [{ text: 'Standardize Process', icon: 'clipboard-list' }, { text: 'Automate the Repeatable', icon: 'workflow' }] },
+  { label: 'Result', steps: [{ text: 'Capacity Without Proportional Overhead', icon: 'check-circle-2' }] },
+];
+
+const faqs = [
+  { question: 'We are growing fast. Should we fix process first or automate now?', answer: 'Process first, almost always — but not for as long as people assume. Automating a broken process makes the mess faster and harder to see. The practical sequence is to standardize the two or three workflows that carry the most volume, then automate those specifically, rather than pausing everything for a six-month process project while the growth continues.' },
+  { question: 'Our next hire was going to be an office administrator. Is this instead of that?', answer: 'Sometimes it replaces the hire, sometimes it changes it. If the role is mostly repeatable coordination — confirmations, reminders, chasing quotes, moving data between systems — a good chunk of it is automatable and the hire can be deferred or redefined. If the role is judgment, customer relationships and exception handling, you should still make the hire. The useful exercise is separating the two before you write the job description.' },
+  { question: 'We have crews across the county and into Duval. Does that complicate things?', answer: 'It adds routing rules rather than complexity of kind. Territory boundaries, drive time and crew capacity become explicit rules instead of a scheduler’s working memory — which also means the process survives that scheduler taking a holiday.' },
+  { question: 'A lot of our work comes from builders and developers rather than homeowners. Does that change the approach?', answer: 'Yes, meaningfully. Business-to-business work in new construction runs on longer relationships, scheduled phases, change orders and payment terms rather than fast consumer lead response. The emphasis shifts from speed-to-lead toward coordination, document handling and keeping commitments visible across a long project.' },
+  { question: 'Do you work with St. Johns County businesses in person?', answer: 'Yes — this is effectively our home market. Your AI Department is based in Northeast Florida, so discovery, strategy and review sessions here are straightforward to arrange in person. Implementation, reporting and optimization are built to run remotely, which is what lets a project keep pace between meetings.' },
+];
+---
+
+<BaseLayout
+  title="AI Consulting St. Johns County FL | Your AI Department"
+  description={description}
+  path={path}
+>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify(locationServiceSchema({ areaName: 'St. Johns County', areaType: 'AdministrativeArea', path, description }))}
+    is:inline
+  />
+  <BreadcrumbSchema
+    crumbs={[
+      { name: 'Home', item: SITE.domain },
+      { name: 'Locations', item: `${SITE.domain}/locations/` },
+      { name: 'St. Johns County', item: `${SITE.domain}${path}` },
+    ]}
+  />
+
+  <InteriorHero
+    eyebrow="St. Johns County, Florida"
+    headline="AI Consulting & Automation for St. Johns County Businesses"
+    support="St. Johns County has spent years as one of Florida's fastest-growing counties, and the businesses serving that growth have grown with it. The problem most of them now have is not finding work. It is that the administrative weight of the work has grown just as fast. Your AI Department helps companies here add capacity without adding overhead at the same rate."
+    primaryCta={PRIMARY_CTA}
+    secondaryCta={SECONDARY_CTA}
+  />
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="The Local Business Mix"
+        heading="Businesses Built Around Sustained Residential Growth"
+      />
+      <p class="prose-p">Steady in-migration and a long run of master-planned community development along the CR 210 corridor, Nocatee, World Golf Village and Silverleaf have produced a distinctive commercial base: residential construction and the full chain of trades behind it, home services with recurring and replacement demand, real estate and title, healthcare practices opening to serve new rooftops, and professional services — accounting, legal, insurance, financial advice — following the households.</p>
+      <p class="prose-p">Alongside the residential story, commercial and light-industrial capacity has been expanding too, which brings a second category: companies with business customers, longer contracts and more formal procurement than a consumer-facing trade deals with.</p>
+      <p class="prose-p">What unites them is a growth curve, and a specific problem that comes with it.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="The Structural Problem"
+        heading="Revenue Grew. Process Did Not."
+        support="Most companies here are running an operating model designed when they were a third of the size. It worked because a few people held the details and covered the gaps. At current volume those same people are the constraint, the exceptions have multiplied, and the default answer to every new pressure point is another administrative hire — which raises fixed cost permanently in exchange for absorbing a problem that was never redesigned."
+        tone="dark"
+      />
+      <p class="prose-p-dark">The alternative is not headcount-free growth. It is deciding which parts of the load are genuinely repeatable, automating those properly, and hiring for the judgment work that is left.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container wide>
+      <SectionHeading
+        eyebrow="The Choice"
+        heading="Two Ways to Absorb Growth"
+        support="A conceptual pattern. Which path fits depends on where your load is actually accumulating."
+      />
+      <GroupedFlow groups={overheadGroups} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container wide>
+      <SectionHeading
+        eyebrow="Where Automation Realistically Helps"
+        heading="What Tends to Be Worth Building Here"
+        support="Weighted toward companies in the awkward middle — too big for informal process, too small for enterprise systems."
+      />
+      <CapabilityGrid items={opportunities} columns={3} tone="light" />
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading
+        eyebrow="Sequencing"
+        heading="The Order That Usually Works"
+      />
+      <p class="prose-p">Standardize before automating, and automate the highest-volume workflow first. In practice that means getting the <a href="/crm-setup-automation/">CRM configured around how you actually sell</a> before connecting anything to it, because automation built on stages and fields that no longer describe the business produces confident, wrong data. Once the foundation is right, <a href="/ai-crm-integration/">connecting AI to that CRM</a> is a much smaller project — and the reasoning behind that order is set out in <a href="/resources/how-to-integrate-an-ai-chatbot-with-a-crm/">how to integrate an AI chatbot with your CRM</a>.</p>
+      <p class="prose-p">For companies whose biggest leak is quoted work going quiet, the faster win is usually <a href="/resources/how-home-service-companies-can-automate-estimate-follow-up/">unsold estimate follow-up</a>, which requires far less integration to be useful.</p>
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading
+        eyebrow="Industries We See Most Here"
+        heading="Where This Work Tends to Land in St. Johns County"
+        tone="dark"
+      />
+      <p class="cross-links">
+        <a href="/industries/construction/">Construction</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/home-services/">Home Services</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/hvac/">HVAC</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/plumbing/">Plumbing</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/electrical-contractors/">Electrical Contractors</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/real-estate/">Real Estate</a>&nbsp;&bull;&nbsp;
+        <a href="/industries/professional-services/">Professional Services</a>
+      </p>
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading
+        eyebrow="Why an External AI Department"
+        heading="The Capability Without the Fixed Cost"
+        support="A growing county business is exactly the profile that cannot justify an internal AI function and cannot afford to get the decision wrong. The external department model gives you strategy, implementation, CRM and marketing systems, reporting and training as one coordinated relationship — scaled up during a build and down afterwards."
+      />
+      <p class="prose-p">Typical entry points: <a href="/ai-consulting/">AI Consulting</a> to decide what is worth doing, <a href="/ai-implementation/">AI Implementation</a> to build it, or the <a href="/managed-ai-department/">Managed AI Department</a> to have it run and improved continuously.</p>
+    </Container>
+  </Section>
+
+  <Section tone="white">
+    <Container>
+      <SectionHeading eyebrow="Fit" heading="Who This Tends to Work For" />
+      <WhoItsFor
+        fitHeading="A strong fit for St. Johns County businesses that:"
+        fitItems={[
+          'Have grown significantly in the last few years',
+          'Run multiple crews, technicians or fee earners',
+          'Are considering another administrative or coordination hire',
+          'Have a CRM or job-management system nobody fully trusts',
+          'Quote enough work that open estimates are hard to see',
+        ]}
+        notFitHeading="Probably not yet if:"
+        notFitItems={[
+          'The business is still small enough for one person to hold the detail',
+          'Core processes change week to week and have not settled',
+          'There is no system of record to build on yet',
+        ]}
+      />
+    </Container>
+  </Section>
+
+  <Section tone="light">
+    <Container>
+      <SectionHeading eyebrow="St. Johns County FAQ" heading="Common Questions From Growing Businesses Here" />
+      <FAQSection items={faqs} />
+    </Container>
+  </Section>
+
+  <Section tone="dark">
+    <Container>
+      <SectionHeading eyebrow="Nearby" heading="Also in Northeast Florida" tone="dark" />
+      <p class="prose-p-dark">For the historic-district and owner-operated side of the county, see <a href="/locations/st-augustine-fl/">St. Augustine</a>. For the wider metro, see <a href="/locations/jacksonville-fl/">Jacksonville</a>. Or view <a href="/locations/">all Florida locations</a>.</p>
+    </Container>
+  </Section>
+
+  <CTABand
+    icon="clipboard-check"
+    heading="Add Capacity Without Adding Overhead"
+    support="Take the free AI Department Assessment, or book a strategy call to work through where the load is actually accumulating."
+    primaryCta={PRIMARY_CTA}
+    microcopy="Free • 3-4 Minutes • No Commitment"
+  />
+</BaseLayout>
+
+<style>
+  .prose-p {
+    color: var(--color-slate-gray);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 760px;
+    margin-inline: auto;
+    margin-bottom: 18px;
+  }
+
+  .prose-p a {
+    color: var(--color-electric-blue);
+    font-weight: 600;
+  }
+
+  .prose-p-dark {
+    color: var(--color-dark-muted-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 640px;
+    margin-inline: auto;
+    margin-top: -16px;
+    text-align: center;
+  }
+
+  .prose-p-dark a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+
+  .cross-links {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .cross-links a {
+    color: var(--color-signal-cyan);
+    font-weight: 600;
+  }
+</style>
