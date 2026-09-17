@@ -1,3 +1,4 @@
+import { normalizeState } from '../domain/normalize.js';
 /**
  * Where a company is, taken only from what the company published.
  *
@@ -128,7 +129,12 @@ export function addressesFromJsonLd(
       kind: isMailDrop(street) ? 'MAILING' : 'PHYSICAL',
       basis: 'SCHEMA_ORG_POSTAL_ADDRESS',
       streetAddress: street,
-      locality, region, postalCode: postal,
+      locality,
+      // "Florida" and "FL" are one state. A company publishes its office twice on one
+      // site -- once in its schema.org block spelled out, once abbreviated in the
+      // footer -- and keying on the raw spelling made one office two locations.
+      region: normalizeState(region) ?? region,
+      postalCode: postal,
       countryCode: country.length <= 3 ? country.toUpperCase() : 'US',
       rawText: [street, locality, region, postal].filter(Boolean).join(', '),
       sourceReference, observedAt: now,
@@ -381,7 +387,8 @@ const STREET_WORD_FORMS: Record<string, string> = {
 };
 
 /** Segments that say where inside a building, which does not make it another place. */
-const UNIT_SEGMENT = /\b(?:#|suite|ste|unit|apt|apartment|bldg|building|floor|fl|room|rm)\b.*$/;
+const UNIT_SEGMENT =
+  /(?:\s#\s?[A-Za-z0-9-]+|\b(?:suite|ste|unit|apt|apartment|bldg|building|floor|room|rm)\b.*)$/i;
 
 function normalizeStreet(value: string): string {
   const withoutUnit = value.toLowerCase()

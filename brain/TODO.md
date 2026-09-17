@@ -71,7 +71,20 @@ A task should appear in only one status section. Dependencies may be referenced 
   location with no street; `npm run check` clean. Migration 053 adds provenance columns
   and a `not valid` check. The preview now reports the 66 legacy ZIP-only rows as
   `LOCATION_WITHOUT_PROVENANCE` — exactly the known 66 — and changes none of them.
-- [ ] **SB-V2-4 — Public official source graph.** Florida DBPR and Sunbiz where
+- [x] **SB-V2-4 — Public official source graph, architecture in place.** Reused from
+  `feature/sales-brain-rep-enrichment` unchanged: `sources/types.ts` (six-outcome
+  MatchStatus), `sources/match.ts` (no identity on a name alone), and the Florida DBPR
+  and Sunbiz parsers. New in V2: `account_relationships` with a two-signal check
+  constraint, the extended person-role vocabulary, and `sources/relationships.ts` where
+  every promotion is refused — qualifier is not owner, agent is not owner, a related
+  business's phone is `RELATED_BUSINESS_PHONE` and not a current line. **Gate verified:**
+  12 targeted tests including the Sunbright pattern end to end (two Accounts, never
+  merged, one link, no owner, no direct phone), `npm run check` and `npm run build`
+  clean, migration history and schema coverage green on a recreated test database.
+  Nothing ported makes a network request; Stages B and C stay disabled. **Still open
+  under this heading:** live adapters, snapshot lifecycle and the governance runner —
+  and Texas sources are out of scope until a Texas market exists.
+- [ ] ~~SB-V2-4 — Public official source graph.~~ Florida DBPR and Sunbiz where
   accessible and governed; Texas Comptroller official API once legitimately keyed, TDLR,
   TSBPE snapshots. No CAPTCHA bypass, no robots circumvention, no SOSDirect paid
   automation without separate authorization. Relationship roles stay distinct:

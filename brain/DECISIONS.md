@@ -992,3 +992,68 @@ somebody says where each one came from.
 account for itself", which is the answer the column would give anyway. A read-only tool
 whose whole purpose is asking production what it contains cannot require the schema of
 the branch asking.
+
+---
+
+## SB-V2-4 — the official-source relationship graph (2026-09-17)
+
+### What was reused, and what was left behind
+
+`feature/sales-brain-rep-enrichment` already holds a source framework that was built and
+qualified against sanitized fixtures of the real registry pages. Four files came across
+**unchanged**, each carrying a note saying where it came from:
+
+- `src/sources/types.ts` — the six-outcome `MatchStatus`. Worth taking whole because
+  "the state does not license this trade" and "we searched and found nothing" both
+  produce no licence and mean opposite things to a rep.
+- `src/sources/match.ts` — "no identity on a name alone", which is the V2 invariant
+  already written down, implemented and tested.
+- `src/sources/adapters/flDbpr.ts`, `flSunbiz.ts` — the parsing and mapping halves.
+
+Left behind deliberately: the Texas adapters (no Texas market exists), the snapshot
+lifecycle, the governance runner and the live lookup paths. Stage B and Stage C stay
+disabled and **nothing ported makes a network request**.
+
+**A numbering hazard found on the way:** that branch also has a migration numbered 053
+(`053_official_source_snapshots.sql`) and V2's is `053_location_provenance.sql`. The
+filenames differ so both can apply, but anybody porting the snapshot work later must
+renumber it. The shared test database had the other branch's table left in it, which is
+what made `migrationHistory` report schema drift until the database was recreated.
+
+### What did not exist anywhere, and is new
+
+**A company-to-company relationship.** The schema could say two rows are the same company
+(`account_merges`) and could say nothing about two companies that are genuinely separate
+and share a person, an address, a licence or a phone. That is precisely the design case:
+
+> A Florida HVAC company holds a certified air-conditioning licence; the public record
+> names the person who qualifies it. A public contractor profile lists that same person,
+> at that same address, for a second company, with a phone number.
+
+Four wrong conclusions are available from those facts, and `account_relationships` exists
+to make all four unavailable:
+
+| tempting conclusion | what is recorded instead |
+|---|---|
+| the two companies are one | two Accounts, one `RELATED_BUSINESS` row between them |
+| the qualifier owns either | `QUALIFIER`, with "a regulatory role, not evidence of ownership" |
+| the other company's phone reaches this one | `RELATED_BUSINESS_PHONE` and "verify it is current" |
+| a shared address links them | refused: one signal is a building with many tenants |
+
+**Two signals minimum, enforced in the database.** `basis` names what agreed, joined by
+`+`, and a check constraint requires the separator — so a row that cannot say what agreed
+cannot be written, whatever the caller believes. A shared licence number or a shared legal
+entity identifies one entity and stands alone; a shared address or a shared person's name
+never does.
+
+**Person roles extended rather than collapsed.** `founder`, `authorized_member`,
+`responsible_master_licensee`, `license_holder` and `related_business_contact` join the
+existing eight. An authorised member of an LLC, a founder and a responsible master
+licensee are three different claims, and folding them into `officer` loses exactly the
+distinction a rep needs when deciding who to ask for.
+
+**`ownershipEstablished` is one function with one list.** QUALIFIER, LICENSE_HOLDER,
+REGISTERED_AGENT, OFFICER and MEMBER never establish ownership. The list lives beside the
+rule rather than at the call sites, because the call sites are where it gets forgotten: a
+qualifier on a licence and an agent on a filing both read like "the person in charge" to
+anybody who has not been told otherwise.

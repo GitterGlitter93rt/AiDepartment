@@ -210,6 +210,25 @@ test('one office written two ways is one location', () => {
   assert.equal(addresses[0]!.locality, 'St. Petersburg');
 });
 
+test('one office in two spellings of its state is one location', () => {
+  // Live on an Orlando company's site: the schema.org block writes "Florida" and the
+  // page writes "FL". Keying on the spelling put the same office on the page twice.
+  const { addresses } = extractAddresses([{
+    url: 'https://example.invalid/',
+    jsonLd: [{
+      '@type': 'LocalBusiness', name: 'Degree Seventy One',
+      address: {
+        '@type': 'PostalAddress', streetAddress: '2729 Maitland Crossing Way #308',
+        addressLocality: 'Orlando', addressRegion: 'Florida', postalCode: '32810',
+      },
+    }],
+    text: 'Office: 2729 Maitland Crossing Way #308, Orlando, FL 32810',
+  }], NOW);
+
+  assert.equal(addresses.length, 1);
+  assert.equal(addresses[0]!.region, 'FL');
+});
+
 test('a directional is normalized and never dropped', () => {
   // "100 Main St N" and "100 Main St S" are two places. A key that ignored the letter
   // in the name of tidiness would merge two companies' neighbours into one location.
