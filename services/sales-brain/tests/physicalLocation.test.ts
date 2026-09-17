@@ -110,6 +110,38 @@ test('a street address in contact-page text is read with its own basis', () => {
   assert.equal(addresses[0]!.postalCode, '32822');
 });
 
+test('the addresses real company sites actually publish', () => {
+  // Every line here is live on a site in production inventory, and each one broke the
+  // first parser. Reading forwards from the house number let the street swallow the
+  // "St." that begins a city name, and left no room for a unit between the street and
+  // the town, so two of these produced a wrong answer and one produced nothing.
+  const cases: [string, string, string][] = [
+    ['3100 39th Ave N St. Petersburg, FL 33714', '3100 39th Ave N', 'St. Petersburg'],
+    ['1579 Delaware Ave NE St. Petersburg, FL 33703', '1579 Delaware Ave NE', 'St. Petersburg'],
+    ['1700 4th St S, Unit C, St. Petersburg, FL 33701', '1700 4th St S', 'St. Petersburg'],
+    ['3865 Tyrone Blvd Saint Petersburg, FL 33710', '3865 Tyrone Blvd', 'Saint Petersburg'],
+  ];
+  for (const [line, street, city] of cases) {
+    const found = addressesFromText(line, PAGE, NOW);
+    assert.equal(found.length, 1, `no address read from: ${line}`);
+    assert.equal(found[0]!.streetAddress, street, `wrong street from: ${line}`);
+    assert.equal(found[0]!.locality, city, `wrong city from: ${line}`);
+  }
+
+  // And the street word that is also the start of a city name stays on the street.
+  const court = addressesFromText('100 Court St, Orlando, FL 32801', PAGE, NOW);
+  assert.equal(court[0]!.streetAddress, '100 Court St');
+  assert.equal(court[0]!.locality, 'Orlando');
+});
+
+test('an address in the middle of a sentence is still an address', () => {
+  // The service-area rule reads the sentence the address is in, not the one before it.
+  const found = addressesFromText(
+    'Serving all of Florida. Visit us at 100 Main St, Orlando, FL 32801', PAGE, NOW);
+  assert.equal(found.length, 1);
+  assert.equal(found[0]!.streetAddress, '100 Main St');
+});
+
 test('service-area wording with a ZIP in it is not an address', () => {
   for (const line of [
     'Proudly serving Winter Park, FL 32789 and the surrounding area',
@@ -156,6 +188,37 @@ test('the same office on four pages is one location', () => {
   // The structured claim wins: both are the company's own words and one of them was
   // written to be read by a machine.
   assert.equal(addresses[0]!.basis, 'SCHEMA_ORG_POSTAL_ADDRESS');
+});
+
+test('one office written two ways is one location', () => {
+  // Both lines are live on a St Petersburg company's site: the schema.org block spells
+  // it out, and the page text abbreviates it and names the unit. Keying on the raw text
+  // put the same office on the rep's page twice.
+  const { addresses } = extractAddresses([{
+    url: 'https://example.invalid/contact',
+    jsonLd: [{
+      '@type': 'HVACBusiness', name: 'The Service Pros',
+      address: {
+        '@type': 'PostalAddress', streetAddress: '1700 4th Street South',
+        addressLocality: 'St. Petersburg', addressRegion: 'FL', postalCode: '33701-5811',
+      },
+    }],
+    text: 'Visit us at 1700 4th St S, Unit C, St. Petersburg, FL 33701',
+  }], NOW);
+
+  assert.equal(addresses.length, 1, 'one office was recorded as two places');
+  assert.equal(addresses[0]!.locality, 'St. Petersburg');
+});
+
+test('a directional is normalized and never dropped', () => {
+  // "100 Main St N" and "100 Main St S" are two places. A key that ignored the letter
+  // in the name of tidiness would merge two companies' neighbours into one location.
+  const { addresses } = extractAddresses([{
+    url: 'https://example.invalid/locations',
+    text: 'North shop: 100 Main St N, Orlando, FL 32801. '
+      + 'Our second yard: 100 Main St S, Orlando, FL 32801.',
+  }], NOW);
+  assert.equal(addresses.length, 2);
 });
 
 test('two branches published as two addresses stay two locations', () => {

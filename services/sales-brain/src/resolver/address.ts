@@ -82,30 +82,12 @@ const STREET_SUFFIX = '(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|L
   + 'Loop|Sq|Square|Row|Run|Pike|Path|Plaza|Expy|Expressway|Byp|Bypass|Aly|Alley)';
 
 /**
- * A street address in running text.
- *
- * Requires a number, a street name with a recognised suffix, a city, a state and a
- * ZIP. Every one of those is load-bearing: dropping the ZIP matches "Serving Winter
- * Park, FL", dropping the suffix matches a phone number and a date, and dropping the
- * number matches the name of a road in a sentence about driving to one.
- */
-const TEXT_ADDRESS = new RegExp(
-  String.raw`\b(\d{1,6}(?:-\d{1,6})?\s+(?:[A-Z0-9][A-Za-z0-9'.\-]*\s+){0,5}${STREET_SUFFIX}\b\.?`
-  + String.raw`(?:\s*(?:#|Suite|Ste\.?|Unit|Apt\.?|Bldg\.?|Building|Floor|Fl\.?)\s*[A-Za-z0-9\-]+)?)`
-  + String.raw`\s*,?\s*([A-Z][A-Za-z.'\- ]{1,28}?)\s*,\s*(${US_STATE})\s+(\d{5})(?:-\d{4})?\b`,
-  'g');
-
-const PO_BOX_ADDRESS = new RegExp(
-  String.raw`\b(P\.?\s*O\.?\s*Box\s+\d{1,7})\s*,?\s*([A-Z][A-Za-z.'\- ]{1,28}?)\s*,\s*(${US_STATE})\s+(\d{5})(?:-\d{4})?\b`,
-  'gi');
-
-/**
  * Wording that means "we will come to you", which is never an address.
  *
- * Checked against the text immediately before a candidate, because the sentence that
- * contains a place name is what says whether the company is *in* it. "Proudly serving
- * Winter Park, FL 32789" is a service area with a ZIP in it, and it is exactly what a
- * looser matcher turns into a head office.
+ * Checked against the text immediately before a candidate, because the sentence a place
+ * name sits in is what says whether the company is *in* it. "Proudly serving Winter
+ * Park, FL 32789" is a service area with a ZIP in it, and it is exactly what a looser
+ * matcher turns into a head office.
  */
 const SERVICE_AREA_LEAD = new RegExp(
   String.raw`\b(serv(?:ing|ice|es)|we\s+come\s+to\s+you|areas?\s+we\s+serve|coverage\s+area`
@@ -117,9 +99,9 @@ const LEAD_WINDOW = 90;
 /**
  * Structured addresses from JSON-LD, and the service areas beside them.
  *
- * `areaServed` is read on purpose rather than ignored: the two claims live next to
- * each other in the same node, and the way they get confused is one of them being
- * invisible. Reading both is how a service area stays a service area.
+ * `areaServed` is read on purpose rather than ignored: the two claims live next to each
+ * other in the same node, and the way they get confused is one of them being invisible.
+ * Reading both is how a service area stays a service area.
  */
 export function addressesFromJsonLd(
   blocks: unknown[], sourceReference: string, now: Date = new Date(),
@@ -193,49 +175,241 @@ export function addressesFromJsonLd(
   return { addresses, serviceAreas };
 }
 
+/**
+ * A street address in running text, found from its end.
+ *
+ * Anchored on ", ST 12345" and read backwards, because reading forwards from the house
+ * number is what produced these against real company sites already in inventory:
+ *
+ *   "3100 39th Ave N St. Petersburg, FL 33714"
+ *      → street "3100 39th Ave N St.", city "Petersburg"
+ *   "1700 4th St S, Unit C, St. Petersburg, FL 33701"
+ *      → nothing at all
+ *
+ * A greedy scan to the last street suffix eats the "St." that begins a city name, and a
+ * pattern with no room for a unit segment between the street and the city drops the
+ * address entirely. Every part of the address is still required: the number, a street
+ * word, a city, a state and a ZIP.
+ */
+const STATE_ZIP_TAIL = new RegExp(String.raw`,\s*(${US_STATE})\s+(\d{5})(?:-\d{4})?\b`, 'g');
+
+/** How far back from the state and ZIP an address may begin. */
+const TAIL_WINDOW = 140;
+
+const DIRECTIONAL = /^(?:N|S|E|W|NE|NW|SE|SW)$/i;
+const SUFFIX_WORD = new RegExp(`^${STREET_SUFFIX}\\.?$`, 'i');
+/**
+ * Words that mean "inside the building".
+ *
+ * `fl` for floor is deliberately absent. Every Florida address ends "FL 32801", and a
+ * segment reading "FL 32801. Our second yard: 100 Main St S" was being skipped as a
+ * floor number, which lost the second of two branches published in one sentence. A
+ * collision between a state and an abbreviation is settled in favour of the state.
+ */
+const UNIT_WORD = /^(?:#|suite|ste|unit|apt|apartment|bldg|building|floor|room)\b/i;
+
+/** A segment saying where inside a building, which is not a separate place. */
+function isUnitSegment(segment: string): boolean {
+  return UNIT_WORD.test(segment.trim());
+}
+
+/**
+ * Whether what is left over reads like the name of a town.
+ *
+ * One to four words, no digits, starting with a capital, and never a bare street word
+ * or a direction: the "St" left over from "100 Court St" is the end of the street, not
+ * a city called St.
+ */
+function looksLikeCity(value: string): boolean {
+  const trimmed = value.trim().replace(/^[-–—]\s*/, '');
+  if (!trimmed || /\d/.test(trimmed)) return false;
+  const words = trimmed.split(/\s+/);
+  if (words.length > 4) return false;
+  if (!/^[A-Z]/.test(trimmed)) return false;
+  if (words.length === 1 && (SUFFIX_WORD.test(words[0]!) || DIRECTIONAL.test(words[0]!))) {
+    return false;
+  }
+  return /^[A-Za-z.'\- ]+$/.test(trimmed);
+}
+
+/**
+ * Splits "3100 39th Ave N St. Petersburg" into its street and its city.
+ *
+ * Walks the street words from the first, and takes the earliest split whose leftover
+ * reads like a town. "100 Court St" has no such leftover at "Court", so it keeps going
+ * and ends with the whole segment as the street and the city still to come.
+ */
+function splitStreetAndCity(segment: string): { street: string; city: string | null } | null {
+  const words = segment.trim().split(/\s+/);
+
+  // The house number is rarely the first word of the segment: "Visit us at 100 Main
+  // St", "North shop: 100 Main St N". Each number is tried, latest first, because the
+  // one nearest the city is the one the address starts at.
+  const starts: number[] = [];
+  for (let i = 0; i < words.length; i += 1) {
+    if (/^\d{1,6}(?:-\d{1,6})?$/.test(words[i]!)) starts.push(i);
+  }
+
+  for (const start of starts.reverse()) {
+    for (let i = start + 1; i < words.length; i += 1) {
+      if (!SUFFIX_WORD.test(words[i]!)) continue;
+      // A direction immediately after the street word belongs to the street: "4th St S".
+      const end = i + 1 < words.length && DIRECTIONAL.test(words[i + 1]!) ? i + 2 : i + 1;
+      const street = words.slice(start, end).join(' ');
+      const rest = words.slice(end).join(' ').trim();
+      if (!rest) return { street, city: null };
+      // "4820 Distribution Ct Unit 6": the unit is part of this segment and the city
+      // is still to come. It is kept on the street line because a rep parking outside
+      // needs it, and the dedupe key ignores it because it is the same building.
+      if (isUnitSegment(rest)) return { street: `${street} ${rest}`, city: null };
+      if (looksLikeCity(rest)) return { street, city: rest };
+    }
+  }
+  return null;
+}
+
 /** Street addresses in the readable text of a page the company publishes. */
 export function addressesFromText(
   text: string, sourceReference: string, now: Date = new Date(),
 ): AddressObservation[] {
   if (!text) return [];
   const found: AddressObservation[] = [];
+  STATE_ZIP_TAIL.lastIndex = 0;
 
-  const collect = (
-    pattern: RegExp, kind: (street: string) => AddressKind,
-  ): void => {
-    pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-      const [whole, street, locality, region, postal] = match;
-      const lead = text.slice(Math.max(0, match.index - LEAD_WINDOW), match.index);
-      // "Proudly serving Winter Park, FL 32789" is a service area with a ZIP in it.
-      if (SERVICE_AREA_LEAD.test(lead)) continue;
-      found.push({
-        kind: kind(street!),
-        basis: 'PAGE_TEXT',
-        streetAddress: street!.trim().replace(/\s+/g, ' '),
-        locality: locality!.trim(),
-        region: region!.toUpperCase(),
-        postalCode: postal!,
-        countryCode: 'US',
-        rawText: whole.trim().replace(/\s+/g, ' '),
-        sourceReference, observedAt: now,
-      });
+  let tail: RegExpExecArray | null;
+  while ((tail = STATE_ZIP_TAIL.exec(text)) !== null) {
+    const region = tail[1]!.toUpperCase();
+    const postalCode = tail[2]!;
+    const windowStart = Math.max(0, tail.index - TAIL_WINDOW);
+    const before = text.slice(windowStart, tail.index);
+    // Commas and line breaks only. Splitting on sentence ends as well is the obvious
+    // next step and it is wrong: "St. Petersburg" is a city with a full stop in the
+    // middle of it, and cutting there turns the city into the end of the street.
+    const segments = before.split(/[,\n]/).map((part) => part.trim()).filter(Boolean);
+    if (segments.length === 0) continue;
+
+    let street: string | null = null;
+    let city: string | null = null;
+    let kind: AddressKind = 'PHYSICAL';
+
+    const last = segments[segments.length - 1]!;
+    const parsedLast = splitStreetAndCity(last);
+    if (parsedLast?.city) {
+      street = parsedLast.street;
+      city = parsedLast.city;
+    } else if (looksLikeCity(last)) {
+      city = last;
+      // Walk back past unit segments to the segment that holds the street.
+      for (let i = segments.length - 2; i >= 0; i -= 1) {
+        const segment = segments[i]!;
+        if (isUnitSegment(segment)) continue;
+        if (isMailDrop(segment)) { street = segment.trim(); kind = 'MAILING'; break; }
+        const parsed = splitStreetAndCity(segment);
+        if (parsed) {
+          street = parsed.street;
+          if (parsed.city) city = parsed.city;
+        }
+        break;
+      }
     }
-  };
 
-  collect(TEXT_ADDRESS, (street) => (isMailDrop(street) ? 'MAILING' : 'PHYSICAL'));
-  collect(PO_BOX_ADDRESS, () => 'MAILING');
-  return found;
+    if (!street || !city) continue;
+    if (kind === 'PHYSICAL' && isMailDrop(street)) kind = 'MAILING';
+
+    // The sentence a place name sits in is what says whether the company is in it, so
+    // the check stops at the previous full stop: "Serving all of Florida. Visit us at
+    // 100 Main St, Orlando, FL 32801" is an address, and the first sentence is not
+    // about it.
+    const streetIndex = text.lastIndexOf(street, tail.index);
+    const leadFrom = Math.max(0, streetIndex - LEAD_WINDOW);
+    const rawLead = text.slice(leadFrom, streetIndex);
+    const sentenceBreak = rawLead.lastIndexOf('. ');
+    const lead = sentenceBreak >= 0 ? rawLead.slice(sentenceBreak + 1) : rawLead;
+    if (SERVICE_AREA_LEAD.test(lead)) continue;
+
+    found.push({
+      kind, basis: 'PAGE_TEXT',
+      streetAddress: street.replace(/\s+/g, ' ').trim(),
+      locality: city, region, postalCode, countryCode: 'US',
+      rawText: text.slice(streetIndex >= 0 ? streetIndex : windowStart,
+        tail.index + tail[0].length).replace(/\s+/g, ' ').trim(),
+      sourceReference, observedAt: now,
+    });
+  }
+
+  // A PO box reads "PO Box 1182, Sanford, FL 32772": the box is its own segment with
+  // the city after it, so it is matched in its own right rather than bent into the
+  // shape of a street.
+  const poBox = new RegExp(
+    String.raw`\b(P\.?\s*O\.?\s*Box\s+\d{1,7})\s*,\s*([A-Z][A-Za-z.'\- ]{1,28}?)\s*,\s*(${US_STATE})\s+(\d{5})(?:-\d{4})?\b`,
+    'gi');
+  let box: RegExpExecArray | null;
+  while ((box = poBox.exec(text)) !== null) {
+    found.push({
+      kind: 'MAILING', basis: 'PAGE_TEXT',
+      streetAddress: box[1]!.replace(/\s+/g, ' ').trim(),
+      locality: box[2]!.trim(), region: box[3]!.toUpperCase(), postalCode: box[4]!,
+      countryCode: 'US',
+      rawText: box[0]!.replace(/\s+/g, ' ').trim(),
+      sourceReference, observedAt: now,
+    });
+  }
+
+  // A PO box reached by both passes is one mail drop, not two.
+  const unique = new Map<string, AddressObservation>();
+  for (const address of found) {
+    const key = addressKey(address);
+    if (!unique.has(key)) unique.set(key, address);
+  }
+  return [...unique.values()];
+}
+/**
+ * The words a street can be written in two ways, mapped to one.
+ *
+ * Found against real sites rather than reasoned about: a St Petersburg company
+ * publishes "1700 4th Street South, St. Petersburg, FL, 33701-5811" in its schema.org
+ * block and "1700 4th St S, Unit C" three lines further down. Both are its office, and
+ * keying on the raw text made one office two locations on the rep's page.
+ */
+const STREET_WORD_FORMS: Record<string, string> = {
+  street: 'st', avenue: 'ave', boulevard: 'blvd', road: 'rd', drive: 'dr',
+  lane: 'ln', court: 'ct', circle: 'cir', place: 'pl', parkway: 'pkwy',
+  highway: 'hwy', terrace: 'ter', trail: 'trl', square: 'sq', expressway: 'expy',
+  bypass: 'byp', alley: 'aly', building: 'bldg', floor: 'fl',
+  north: 'n', south: 's', east: 'e', west: 'w',
+  northeast: 'ne', northwest: 'nw', southeast: 'se', southwest: 'sw',
+};
+
+/** Segments that say where inside a building, which does not make it another place. */
+const UNIT_SEGMENT = /\b(?:#|suite|ste|unit|apt|apartment|bldg|building|floor|fl|room|rm)\b.*$/;
+
+function normalizeStreet(value: string): string {
+  const withoutUnit = value.toLowerCase()
+    .replace(/[.,]/g, ' ')
+    .replace(UNIT_SEGMENT, ' ');
+  return withoutUnit
+    .split(/\s+/)
+    .map((word) => STREET_WORD_FORMS[word] ?? word)
+    .filter(Boolean)
+    .join(' ')
+    .replace(/[^a-z0-9 ]+/g, '')
+    .trim();
 }
 
-/** One key per address, so the same office on four pages is one location. */
+/**
+ * One key per address, so the same office on four pages is one location.
+ *
+ * A directional is normalized and never dropped: "100 Main St N" and "100 Main St S"
+ * are two different places, and a key that ignored the letter would merge them. A unit
+ * is dropped, because a company at Unit C of a building is at that building, and a ZIP
+ * is cut to five, because +4 is the same place at more precision.
+ */
 export function addressKey(address: AddressObservation): string {
   return [
-    address.streetAddress.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(),
-    (address.locality ?? '').toLowerCase().trim(),
+    normalizeStreet(address.streetAddress),
+    (address.locality ?? '').toLowerCase().replace(/[^a-z ]+/g, '').trim(),
     (address.region ?? '').toLowerCase().trim(),
-    (address.postalCode ?? '').trim(),
+    (address.postalCode ?? '').trim().slice(0, 5),
   ].join('|');
 }
 
@@ -260,7 +434,12 @@ export function extractAddresses(
       const structured = addressesFromJsonLd(page.jsonLd, page.url, now);
       for (const address of structured.addresses) {
         const key = addressKey(address);
-        if (!byKey.has(key)) byKey.set(key, address);
+        const existing = byKey.get(key);
+        // Two spellings of one office: keep the one that says more. A line naming the
+        // unit is the same place described more precisely, not a second place.
+        if (!existing || address.streetAddress.length > existing.streetAddress.length) {
+          byKey.set(key, address);
+        }
       }
       for (const area of structured.serviceAreas) {
         const key = area.areaText.toLowerCase();
