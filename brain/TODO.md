@@ -31,6 +31,17 @@ A task should appear in only one status section. Dependencies may be referenced 
 Nothing is deployed: production still runs V1 at `3e4a282`, `outboundDialEnabled` is
 false, no paid search has been bought and no historical record has been rewritten.
 
+**RELEASE BLOCKER, fixed 2026-09-17 before deploy:** Research Health was labelling live
+company websites "Broken Website" on the strength of one failed fetch by our own crawler.
+Three defects behind it — a captcha word in a script manifest discarding a 634 KB page, a
+403 classified as a login wall, and runs that recorded no reason at all. Fixed, with a
+hard guard so that a site we could not read can never cost an Account its trade, its name,
+its status or its place in inventory. See brain/DECISIONS.md DEC-024…DEC-027.
+
+**Follow-up not done tonight:** a `www`/apex fallback in the crawler, for sites that only
+serve `www`. It would not have helped the case that motivated it, and it is new crawl
+behaviour that could not be qualified against the real estate tonight.
+
 **Authorized 2026-09-17 (Michael, before going offline):** V2 deployment after its
 qualification gates pass, re-research of the entire historical Account estate, and
 high-confidence historical remediation. Recorded in full in

@@ -189,9 +189,24 @@ function detectWall(status: number, body: string): FetchResult['blockedReason'] 
       .test(sample)
     || /(please )?verify (that )?you are (a )?human|complete the security check|enable javascript and cookies to continue|are you a robot\?/
       .test(sample);
+
+  /**
+   * A challenge that arrives as a redirect rather than as a page.
+   *
+   * airworthac.com answers `202 Accepted` with 167 bytes: a meta refresh to
+   * `/.well-known/sgcaptcha/`. Status says yes, content-type says HTML, and there is no
+   * site in it -- so without this the run records a successful read of nothing, which is
+   * a third wrong answer after "login wall" and "broken website". Matched on the shape,
+   * not on the vendor: any tiny document whose whole body is a refresh to a challenge
+   * path is a challenge.
+   */
+  const interstitial = body.length < 4_000
+    && /<meta[^>]+http-equiv=["']?refresh/i.test(sample)
+    && /captcha|challenge|\/cdn-cgi\/|bot-?check|human-?verif/i.test(sample);
+
   // A challenge page is a page about the challenge. A quarter of a megabyte of a
   // company's own site is not one, whatever string appears in its bundler output.
-  return challenge && body.length < 120_000 ? 'anti_bot' : undefined;
+  return (challenge && body.length < 120_000) || interstitial ? 'anti_bot' : undefined;
 }
 
 export async function politeFetch(url: string): Promise<FetchResult> {

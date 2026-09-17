@@ -1217,3 +1217,38 @@ mailing address are not physical locations.
 
 **Raw evidence survives remediation.** Suppression, rejection and reclassification are the
 instruments; deleting the observation that produced a record is not.
+
+---
+
+## 2026-09-17 — A fetch failure is not a broken website (DEC-024 … DEC-027)
+
+Michael opened three Accounts that Research Health was labelling **Broken Website** and
+found three live HVAC businesses. The label was one defect; three more were behind it.
+
+| ID | Decision |
+|---|---|
+| DEC-024 | **Sales Brain failing to read a website is a fact about Sales Brain.** TLS errors, DNS errors, timeouts, refused connections, WAF and bot blocks, HTTP errors, protocol mismatches and robots disallows are all source-access states. None of them is evidence that a website is broken, that a company is junk, that a trade is unsupported, or that a record should be suppressed. A true dead-site state requires strong, repeated, terminal evidence, and nothing in the product asserts one today. |
+| DEC-025 | **A research run records what happened to the source.** `source_state` — READ, REFUSED, UNREACHABLE, HTTP_ERROR, DISALLOWED, NO_WEBSITE — plus the per-page reasons behind it. "Zero pages fetched" alone is not a diagnosis, and for the 94 production runs that carry only that number, the honest reading is "we do not know why", which behaves like a refusal and never like an empty site. |
+| DEC-026 | **The remediation hard guard.** An Account whose site could not be read is exempt from every negative instrument: no suppression, no trade removal, no name replacement, no legacy rejection, no endpoint reclassification. It goes to review instead. The guard sits before the instruments rather than inside each one, so an instrument added later inherits it. An Account with no website at all is not shielded — nothing failed there. |
+| DEC-027 | **We do not get around a wall.** 401 is a login wall, 403 is a refusal, 429 and challenge pages are bot protection, and a meta refresh to a challenge path is a challenge whatever status it carries. All of them stop the crawl. TLS validation is not weakened and no protection is bypassed to make a state disappear. |
+
+### What the audit actually found
+
+- **energyair.com** answers **HTTP 200 with 634 KB** of its own content, titled *"Energy Air
+  - Trusted HVAC & Commercial AC Services in Florida"*. The crawler discarded it because
+  the word `captcha` appears at byte 3634 — inside a **script manifest** listing the
+  modules a site platform loads. Any site whose bundler ships a captcha module was being
+  thrown away and reported as broken.
+- **airmotionshvac.com** and **airworthac.com** answer **403**, which the fetcher called
+  `login_required`. A WAF refusing a crawler is not a login wall.
+- **airworthac.com** is also host-asymmetric: the apex answers 403 while `www` answers
+  **202 Accepted** with 167 bytes — a meta refresh to `/.well-known/sgcaptcha/`. Status
+  said yes and there was no site in it, so a naive fix would have recorded a successful
+  read of nothing. That is now detected on its shape, not on the vendor's name.
+
+### Deliberately not done
+
+A `www`/apex fallback in the crawler would help sites that only serve `www`. It would not
+have helped the case that motivated it — both Air Worth hosts challenge — and new crawl
+behaviour that cannot be qualified against the real estate tonight is not worth shipping
+in a release. Recorded as follow-up rather than added at four in the morning.

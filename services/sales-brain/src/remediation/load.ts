@@ -126,7 +126,9 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
   const { rows: research } = await query<{
     account_id: string; status: string | null; completed_at: string | null;
     pages_fetched: number | null; pages_blocked: number | null;
+    source_state: string | null;
   }>(`select distinct on (account_id) account_id, status, completed_at::text,
+             adapter_results->>'source_state' as source_state,
              (adapter_results->>'pages_fetched')::int as pages_fetched,
              (adapter_results->>'pages_blocked')::int as pages_blocked
         from research_runs where account_id = any($1::uuid[])
@@ -225,7 +227,8 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
       locationClaims: locationClaimsBy.get(account.account_id)
         ?? { total: 0, withStreet: 0, withBasis: 0 },
       latestResearch: run
-        ? { status: run.status, pagesFetched: run.pages_fetched, pagesBlocked: run.pages_blocked,
+        ? { status: run.status, sourceState: run.source_state,
+            pagesFetched: run.pages_fetched, pagesBlocked: run.pages_blocked,
             completedAt: run.completed_at }
         : null,
       humanActivity: {

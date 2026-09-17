@@ -63,6 +63,42 @@ export interface ApplyPlan {
   accountsExamined: number;
 }
 
+
+/**
+ * The hard guard: a source we could not read is not evidence against a company.
+ *
+ * Michael opened three Accounts that Research Health called "Broken Website" and found
+ * three live HVAC businesses. Every one of them would have arrived at this code with a
+ * research run that read nothing, and every negative instrument here would have had a
+ * plausible-looking case to act on. None of those cases is evidence.
+ *
+ * So an Account whose site we could not read is exempt from every negative action --
+ * suppression, trade removal, name replacement, legacy rejection -- and goes to review
+ * instead. Not because the company is proven good, but because nothing was proven at
+ * all, and unknown is not a reason to take something away from a rep.
+ *
+ * `NO_WEBSITE` is deliberately not in the list. Nothing failed there: an article
+ * headline with no domain of its own has no site to read, and that absence is a fact
+ * about the record rather than a failure of ours.
+ *
+ * A run written before the source state existed reports null, and null is treated as
+ * unreadable. Most of production is in that state, and "we do not know why nothing was
+ * read" has to behave like "we could not read it", never like "there was nothing there".
+ */
+const UNREADABLE_SOURCE_STATES = new Set([
+  'REFUSED', 'UNREACHABLE', 'HTTP_ERROR', 'DISALLOWED',
+]);
+
+export function sourceWasUnreadable(research: {
+  status?: string | null; sourceState?: string | null; pagesFetched?: number | null;
+} | null): boolean {
+  if (!research) return false;
+  if (research.sourceState) return UNREADABLE_SOURCE_STATES.has(research.sourceState);
+  // Older runs recorded only a count. Nothing read and the run did not complete is the
+  // shape of a failure whose reason nobody kept.
+  return (research.pagesFetched ?? 0) === 0 && research.status !== 'completed';
+}
+
 /** A finding the authorization covers: decisive, and not one a person must see first. */
 function isActionable(finding: Finding): boolean {
   return finding.confidence === 'HIGH' && !finding.reviewRequired;
@@ -146,6 +182,27 @@ export async function planRemediation(limit: number | null = null): Promise<Appl
 
   for (const verdict of verdicts) {
     const bundle = bundles.find((entry) => entry.accountId === verdict.accountId)!;
+
+    /**
+     * Nothing negative happens to an Account whose website we could not read.
+     *
+     * The guard sits before every instrument rather than inside each one, so a new
+     * instrument added later inherits it instead of having to remember it.
+     */
+    if (sourceWasUnreadable(bundle.latestResearch)) {
+      const why = bundle.latestResearch?.sourceState
+        ? `the last research run could not read the site (${bundle.latestResearch.sourceState.toLowerCase()})`
+        : 'the last research run read nothing and did not record why';
+      for (const finding of verdict.findings) {
+        if (finding.code === 'VERTICAL_SUPPORTED' || finding.code === 'LOW_CONFIDENCE_FINDING') continue;
+        review.push({
+          accountId: verdict.accountId, companyName: verdict.canonicalName,
+          code: finding.code,
+          why: `${why}, and a source we could not read is not evidence against a company`,
+        });
+      }
+      continue;
+    }
 
     if (verdict.activityState === 'human_sales_activity') {
       protectedByHumanActivity.push(verdict.accountId);
@@ -315,6 +372,36 @@ export async function applyForAccount(
     if (await hasHumanActivity(client, accountId)) {
       for (const change of changes) {
         skipped.push({ change, why: 'human sales activity appeared on this Account' });
+      }
+      return;
+    }
+
+    /**
+     * Asked again here, and not trusted from the plan.
+     *
+     * A research run can finish between planning and applying, and the one that matters
+     * is the one that is true when the change is written. The same reason the human
+     * activity check lives inside the transaction.
+     */
+    const { rows: research } = await client.query<{
+      status: string | null; source_state: string | null; pages_fetched: number | null;
+    }>(
+      `select status, adapter_results->>'source_state' as source_state,
+              (adapter_results->>'pages_fetched')::int as pages_fetched
+         from research_runs
+        where account_id = $1 and completed_at is not null
+        order by completed_at desc limit 1`, [accountId]);
+    const unreadable = sourceWasUnreadable(research[0]
+      ? { status: research[0].status, sourceState: research[0].source_state,
+          pagesFetched: research[0].pages_fetched }
+      : null);
+    if (unreadable) {
+      for (const change of changes) {
+        skipped.push({
+          change,
+          why: 'the site could not be read, and a source we could not read is not '
+            + 'evidence against a company',
+        });
       }
       return;
     }

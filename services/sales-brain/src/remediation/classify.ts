@@ -91,6 +91,14 @@ export interface EmailEndpointEvidence {
 
 export interface ResearchEvidence {
   status: string | null;
+  /**
+   * What happened to the source, when the run recorded it.
+   *
+   * Null on every run written before the source state existed, which is most of
+   * production. Null means "we do not know why nothing was read", and the remediation
+   * guard treats not knowing exactly as it treats a refusal: as no evidence at all.
+   */
+  sourceState?: string | null;
   pagesFetched: number | null;
   pagesBlocked: number | null;
   completedAt: string | null;

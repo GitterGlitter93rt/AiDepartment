@@ -8,7 +8,7 @@ import { resetDatabase } from './helpers.js';
 import { researchFirstParty, sourceAccessState } from '../src/resolver/adapters/firstParty.js';
 import { resetFetchState } from '../src/resolver/fetcher.js';
 import { researchExceptions } from '../src/api/waveCQueries.js';
-import { planRemediation } from '../src/remediation/apply.js';
+import { applyForAccount, planRemediation } from '../src/remediation/apply.js';
 
 /**
  * A failed fetch is a fact about our crawler, not about the company.
@@ -133,6 +133,23 @@ test('a real challenge page is still recognised', async () => {
   } finally { globalThis.fetch = realFetch; }
 });
 
+test('a challenge that arrives as a 202 redirect is a refusal, not an empty page', () => {
+  // airworthac.com: the apex answers 403 and the www host answers 202 with 167 bytes --
+  // a meta refresh to /.well-known/sgcaptcha/. Status says yes and there is no site in
+  // it, so without this the run records a successful read of nothing.
+  serve(() => new Response(
+    '<html><head><link rel="icon" href="data:;">'
+    + '<meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2F&y=ipc:1.2.3.4">'
+    + '</meta></head></html>',
+    { status: 202, headers: { 'content-type': 'text/html' } }));
+  return research('challenged-202.invalid').then((outcome) => {
+    assert.equal(outcome.state, 'REFUSED',
+      `a captcha interstitial was recorded as ${outcome.state}`);
+    assert.ok(outcome.reasons.includes('anti_bot'));
+    assert.equal(outcome.pages, 0);
+  }).finally(() => { globalThis.fetch = realFetch; });
+});
+
 test('an HTTP error is an HTTP error, and a successful fetch raises no exception at all',
   async () => {
     serve(() => new Response('<html><body>not found</body></html>',
@@ -206,3 +223,112 @@ test('a website we could not read never costs an Account its trade or its invent
       [],
       'an Account was suppressed or lost its trade because our crawler was refused');
   });
+
+// ------------------ the hard guard: five things a failed fetch may never cause
+
+test('a site we could not read may never cause any of the five negative outcomes',
+  async () => {
+    // One Account that would otherwise trip every instrument at once: a page-copy name,
+    // a trade held up only by an organic result, a legacy status, and a stale endpoint
+    // role. The only thing standing between it and all of them is that our crawler was
+    // refused -- which is exactly the case Michael found live.
+    const { accountId } = await withTransaction((client) => upsertAccount(client, {
+      canonicalName: '10 Best HVAC Companies in Miami, FL - Air Motions HVAC',
+      website: 'https://airmotions.invalid', phone: '407-555-0303',
+      verticalProfileId: 'hvac',
+    }, { discoverySource: 'market_miner:dataforseo' }));
+    await query(`update accounts set entity_status = 'legacy_unverified' where account_id = $1`,
+      [accountId]);
+    await query(
+      `insert into search_observations (provider, source_type, observed_name, result_type,
+                                        retention_class, account_id, query, observed_at)
+       values ('dataforseo','discovery','Air Motions HVAC','organic','transient',$1,
+               'HVAC contractor 33133', now())`, [accountId]);
+    await query(
+      `insert into contact_endpoints (account_id, endpoint_type, normalized_value,
+                                      display_value, endpoint_role)
+       values ($1, 'EMAIL', 'info@airmotions.invalid', 'info@airmotions.invalid',
+               'DIRECT_PERSON_EMAIL')`, [accountId]);
+    await query(
+      `insert into research_runs (account_id, trigger, status, started_at, completed_at,
+                                  adapter_results)
+       values ($1, 'stale_evidence', 'partial', now() - interval '1 hour', now(),
+               '{"pages_fetched":0,"pages_blocked":1,"source_state":"REFUSED",
+                 "blocked_pages":[{"url":"https://airmotions.invalid/","reason":"access_denied"}]}'::jsonb)`,
+      [accountId]);
+
+    const plan = await planRemediation();
+    const planned = plan.changes.filter((change) => change.accountId === accountId);
+    assert.deepEqual(planned, [],
+      `a refused fetch produced ${planned.map((c) => c.action).join(', ')}`);
+
+    // And it is in review with the reason, rather than silently dropped.
+    const reviewed = plan.review.filter((entry) => entry.accountId === accountId);
+    assert.ok(reviewed.length > 0, 'the Account vanished instead of going to review');
+    assert.ok(reviewed.every((entry) => /not evidence against a company/.test(entry.why)));
+
+    // Even handed every change directly, the transaction refuses all five.
+    const forced = await applyForAccount(accountId, [
+      { accountId, companyName: 'x', action: 'SUPPRESS_NON_COMPANY', code: 'NON_COMPANY_ENTITY',
+        reason: 'forced', before: {}, after: {} },
+      { accountId, companyName: 'x', action: 'CLEAR_UNSUPPORTED_VERTICAL',
+        code: 'VERTICAL_FROM_QUERY_ONLY', reason: 'forced', before: {}, after: {} },
+      { accountId, companyName: 'x', action: 'TRIM_PAGE_COPY_NAME',
+        code: 'CANONICAL_NAME_IS_PAGE_COPY', reason: 'forced',
+        before: {}, after: { canonicalName: 'Air Motions HVAC' } },
+      { accountId, companyName: 'x', action: 'RECLASSIFY_ENDPOINT_ROLE',
+        code: 'ENDPOINT_ROLE_PREDATES_RULE', reason: 'forced', before: {}, after: {} },
+      { accountId, companyName: 'x', action: 'VERIFY_FROM_SITE_IDENTITY',
+        code: 'LEGACY_UNVERIFIED', reason: 'forced', before: {}, after: {} },
+    ]);
+    assert.equal(forced.applied.length, 0, 'the transaction applied a change anyway');
+    assert.equal(forced.skipped.length, 5);
+
+    const { rows } = await query<{
+      name: string; vertical: string | null; suppressed: boolean; status: string; role: string;
+    }>(
+      `select a.canonical_name as name, a.primary_vertical_profile_id as vertical,
+              a.is_suppressed as suppressed, a.entity_status as status,
+              (select endpoint_role from contact_endpoints where account_id = a.account_id limit 1) as role
+         from accounts a where a.account_id = $1`, [accountId]);
+    assert.equal(rows[0]!.name, '10 Best HVAC Companies in Miami, FL - Air Motions HVAC');
+    assert.equal(rows[0]!.vertical, 'hvac');
+    assert.equal(rows[0]!.suppressed, false);
+    assert.equal(rows[0]!.status, 'legacy_unverified');
+    assert.equal(rows[0]!.role, 'DIRECT_PERSON_EMAIL');
+  });
+
+test('a run that read nothing and never said why is treated as unreadable, not as nothing',
+  async () => {
+    // Every one of production's 94 such runs predates the source state. Not knowing why
+    // nothing was read has to behave like a refusal, never like an empty site.
+    const { accountId } = await withTransaction((client) => upsertAccount(client, {
+      canonicalName: 'Top 10 Roofers in Somewhere, FL', website: 'https://legacy.invalid',
+      phone: '407-555-0404', verticalProfileId: 'roofing',
+    }, { discoverySource: 'market_miner:dataforseo' }));
+    await query(
+      `insert into research_runs (account_id, trigger, status, started_at, completed_at,
+                                  adapter_results)
+       values ($1, 'newly_discovered', 'partial', now() - interval '2 hours', now(),
+               '{"pages_fetched":0,"pages_blocked":0}'::jsonb)`, [accountId]);
+
+    const plan = await planRemediation();
+    assert.deepEqual(plan.changes.filter((change) => change.accountId === accountId), []);
+    assert.ok(plan.review.some((entry) => entry.accountId === accountId
+      && /did not record why/.test(entry.why)));
+  });
+
+test('an Account with no website at all is not shielded by the guard', async () => {
+  // Nothing failed here. An article headline with no domain has no site to read, and
+  // that absence is a fact about the record rather than a failure of ours.
+  const { accountId } = await withTransaction((client) => upsertAccount(client, {
+    canonicalName: 'An 82-year-old Vietnam veteran in St. Augustine says he\'s ...',
+    phone: '904-555-0505',
+  }, { discoverySource: 'market_miner:dataforseo' }));
+
+  const plan = await planRemediation();
+  assert.ok(
+    plan.changes.some((change) => change.accountId === accountId
+      && change.action === 'SUPPRESS_NON_COMPANY'),
+    'the guard shielded a record that never had a website to fail at');
+});
