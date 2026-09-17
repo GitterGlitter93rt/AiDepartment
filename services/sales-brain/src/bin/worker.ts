@@ -10,6 +10,8 @@ import { closePool } from '../db/pool.js';
 import { runWorker, stopWorker } from '../workers/runner.js';
 import '../workers/contactResearch.js';   // registers contact_research / account_research
 import '../workers/marketMiner.js';       // registers market_mine / zip_research
+import '../workers/websiteRecovery.js';  // registers website_recovery
+import '../workers/domainResolution.js'; // registers domain_resolution
 
 // Discovery providers. Registered in both processes so the API answers "can this
 // system find a new business" the same way the worker would; registering an
@@ -29,6 +31,7 @@ console.log(
 const { SWEEP_INTERVAL_MS } = await import('../workers/marketScheduler.js');
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
+const { sweepWebsiteRecovery } = await import('../workers/websiteRecovery.js');
 const { reconcileMissingResearch, recomputeStaleScores, scoreUnscoredResearched } =
   await import('../workers/researchReconcile.js');
 const { scheduleDueMarkets } = await import('../workers/marketScheduler.js');
@@ -70,6 +73,16 @@ const sweep = setInterval(async () => {
     const scheduled = await scheduleDueMarkets();
     if (scheduled.queued > 0) {
       console.log(`[worker] scheduled ${scheduled.queued} of ${scheduled.due} due market(s)`);
+    }
+
+    // Recovery campaigns that should be running and are not: Accounts newly sitting in
+    // a recoverable state, and active campaigns whose next attempt came due while
+    // nothing was serving it. The second is what a crash between scheduling the next
+    // attempt and committing leaves behind, and without it a campaign stalls silently.
+    const recovery = await sweepWebsiteRecovery();
+    if (recovery.opened > 0 || recovery.requeued > 0) {
+      console.log(`[worker] website recovery: opened ${recovery.opened} campaign(s), `
+        + `re-queued ${recovery.requeued} due attempt(s)`);
     }
 
     // A booking the provider never confirmed must stop looking upcoming.

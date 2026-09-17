@@ -131,6 +131,37 @@ const LANES_PER_JOB_TYPE: Readonly<Record<string, number>> = {
 
 const runningByType = new Map<string, number>();
 
+/** How many lanes this process runs. See the note in `runWorker`. */
+export function workerConcurrency(): number {
+  return numeric('WORKER_CONCURRENCY', 2, { min: 1, max: 32 });
+}
+
+/**
+ * Claiming is serialised within the process; running is not.
+ *
+ * The cap is counted in memory and incremented once a lease comes back, so four lanes
+ * calling leaseJob in the same tick all passed the check before any of them had been
+ * counted -- measured at four concurrent market searches under a cap of one. A lease is
+ * a single UPDATE and takes no measurable time, so making the lanes take turns at the
+ * claim costs nothing and makes the count true at the moment it is read. The handler
+ * runs outside the gate, which is where the concurrency was wanted in the first place.
+ */
+let leaseGate: Promise<void> = Promise.resolve();
+
+async function claimJob(laneId: string): Promise<JobRecord | null> {
+  let release!: () => void;
+  const previous = leaseGate;
+  leaseGate = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    const job = await leaseJob(laneId, typesAtCapacity());
+    if (job) runningByType.set(job.job_type, (runningByType.get(job.job_type) ?? 0) + 1);
+    return job;
+  } finally {
+    release();
+  }
+}
+
 /** Job types this process is currently unable to take more of. */
 function typesAtCapacity(): string[] {
   const full: string[] = [];
@@ -327,7 +358,7 @@ export async function recordHeartbeat(input: {
      input.processed ?? 0, input.lastJobAt ?? null,
      stopping ? new Date() : null, currentJobId,
      identity.sha, identity.migrationsExpected,
-     config.worker.concurrency, held],
+     workerConcurrency(), held],
   );
 }
 
@@ -375,7 +406,11 @@ export async function runHousekeeping(): Promise<{
 export async function runWorker(log: (message: string, meta?: unknown) => void = console.log): Promise<void> {
   running = true;
   stopping = false;
-  const lanes = config.worker.concurrency;
+  // Read here rather than taken from `config`, which freezes its values at import.
+  // A ceiling or a lane count captured at module load is one that ignores anything set
+  // after the process started, and -- the reason it matters in practice -- one that no
+  // test can vary. `dailyBudgetUsd` made the same decision for the same reason.
+  const lanes = workerConcurrency();
   log(`[worker] ${workerId} started with ${lanes} lane(s); `
     + `handlers: ${[...handlers.keys()].join(', ') || 'none'}`);
 
@@ -417,7 +452,7 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
     while (!stopping) {
       let job: JobRecord | null = null;
       try {
-        job = await leaseJob(laneId, typesAtCapacity());
+        job = await claimJob(laneId);
       } catch (error) {
         log(`[worker] lane ${index} failed to lease a job`, error);
         await sleep(config.worker.pollIntervalMs * 3);
@@ -436,12 +471,13 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
       if (!handler) {
         log(`[worker] no handler for job type ${job.job_type}; marking failed`);
         await failUnhandled(job);
+        // The claim reserved a slot for this type; nothing ran, so give it back.
+        runningByType.set(job.job_type, (runningByType.get(job.job_type) ?? 1) - 1);
         continue;
       }
 
       const startedAt = Date.now();
       heldByLane.set(index, job.job_id);
-      runningByType.set(job.job_type, (runningByType.get(job.job_type) ?? 0) + 1);
       await recordHeartbeat({ processed, lastJobAt })
         .catch(() => { /* a heartbeat is not worth failing a job over */ });
       try {

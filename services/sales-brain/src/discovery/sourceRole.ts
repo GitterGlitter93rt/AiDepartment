@@ -139,10 +139,79 @@ export function nameMatchesDomain(companyName: string | null | undefined,
     || name.includes(stem.slice(0, Math.min(stem.length, 14)));
 }
 
-function addressKey(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\b(street|st|avenue|ave|road|rd|drive|dr|suite|ste|unit|boulevard|blvd)\b/g, ' ')
-    .replace(/\s+/g, ' ').trim();
+/**
+ * Street abbreviations, expanded rather than deleted.
+ *
+ * Deleting them looked simpler and was wrong: "29851 Co Rd 49" and "29851 County Road
+ * 49" are the same road written two ways, and stripping `rd` from one while leaving
+ * `county` in the other left two strings that shared a house number and disagreed about
+ * everything else. Expanding both to the same words is what makes them comparable.
+ */
+const ADDRESS_WORDS: Readonly<Record<string, string>> = {
+  st: 'street', str: 'street', ave: 'avenue', av: 'avenue', rd: 'road', dr: 'drive',
+  blvd: 'boulevard', blv: 'boulevard', hwy: 'highway', ln: 'lane', ct: 'court',
+  pkwy: 'parkway', pky: 'parkway', cir: 'circle', pl: 'place', ter: 'terrace',
+  co: 'county', cty: 'county', sr: 'state', fm: 'farm',
+  n: 'north', s: 'south', e: 'east', w: 'west',
+  ne: 'northeast', nw: 'northwest', se: 'southeast', sw: 'southwest',
+  ste: 'suite', apt: 'apartment', bldg: 'building',
+};
+
+/**
+ * Words that appear in everybody's address.
+ *
+ * Counting these as agreement is what made "120 Oak Avenue, Tampa FL" match "120 North
+ * Main Street, Tampa FL": they share a house number, a city and a state, which is three
+ * tokens of agreement and no evidence at all. What distinguishes one address from
+ * another on the same street is the street's name, so that is what has to match.
+ */
+const GENERIC_ADDRESS_WORDS = new Set([
+  'street', 'avenue', 'road', 'drive', 'boulevard', 'highway', 'lane', 'court',
+  'parkway', 'circle', 'place', 'terrace', 'county', 'state', 'farm', 'route', 'trail',
+  'way', 'loop', 'run', 'north', 'south', 'east', 'west', 'northeast', 'northwest',
+  'southeast', 'southwest', 'suite', 'apartment', 'building', 'unit', 'floor', 'usa',
+]);
+
+const US_STATE = /^(a[klrz]|c[aot]|de|fl|ga|hi|i[adln]|k[sy]|la|m[adeinost]|n[cdehjmvy]|o[hkr]|pa|ri|s[cd]|t[nx]|ut|v[at]|w[aivy])$/;
+
+interface AddressParts { house: string | null; distinctive: Set<string>; all: Set<string> }
+
+function addressTokens(value: string): AddressParts {
+  const raw = value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/)
+    .filter(Boolean);
+  const house = raw.find((token) => /^\d+$/.test(token)) ?? null;
+  const all = new Set<string>();
+  const distinctive = new Set<string>();
+  for (const token of raw) {
+    const word = /^\d+$/.test(token) ? token : (ADDRESS_WORDS[token] ?? token);
+    all.add(word);
+    if (!/^\d+$/.test(word) && !GENERIC_ADDRESS_WORDS.has(word) && !US_STATE.test(word)) {
+      distinctive.add(word);
+    }
+  }
+  return { house, distinctive, all };
+}
+
+/**
+ * Whether two written addresses are the same place.
+ *
+ * The house number has to agree -- it is the one part nobody abbreviates -- and every
+ * distinctive word of the shorter address has to appear in the longer one. A ZIP on one
+ * side only, a suite number, a spelled-out direction: all are ordinary differences
+ * between two true records of one address, and none of them should make an ownership
+ * signal disappear. A different street name is not an ordinary difference.
+ */
+export function addressesMatch(left: string, right: string): boolean {
+  const a = addressTokens(left);
+  const b = addressTokens(right);
+  if (!a.house || !b.house || a.house !== b.house) return false;
+
+  const [shorter, longer] = a.distinctive.size <= b.distinctive.size ? [a, b] : [b, a];
+  if (shorter.distinctive.size === 0) return false;
+  for (const word of shorter.distinctive) {
+    if (!longer.distinctive.has(word)) return false;
+  }
+  return true;
 }
 
 /* ------------------------------------------------------------------- the decision --- */
@@ -230,9 +299,8 @@ export function classifySourceRole(evidence: SourceRoleEvidence): SourceRoleVerd
     (p) => normalizePhone(p) === wantedPhone)) {
     strong.push("the company's known phone is published on this site");
   }
-  const wantedAddress = evidence.companyAddress ? addressKey(evidence.companyAddress) : null;
-  if (wantedAddress && (evidence.publishedAddresses ?? []).some(
-    (a) => addressKey(a).includes(wantedAddress) || wantedAddress.includes(addressKey(a)))) {
+  if (evidence.companyAddress && (evidence.publishedAddresses ?? []).some(
+    (published) => addressesMatch(evidence.companyAddress!, published))) {
     strong.push("the company's known address is published on this site");
   }
 

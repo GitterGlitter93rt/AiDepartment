@@ -1,5 +1,5 @@
 import { politeFetch, type FetchResult } from './fetcher.js';
-import { registrableDomain } from '../domain/normalize.js';
+import { registrableDomain } from '../discovery/sourceClass.js';
 
 /**
  * Trying again, on the finite set of hosts a company might actually be on.

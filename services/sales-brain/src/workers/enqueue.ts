@@ -24,16 +24,23 @@ async function enqueue(input: {
   accountId?: string | null;
   marketId?: string | null;
   priority?: number;
+  /**
+   * When this job first becomes eligible. The queue already honours `run_after` in its
+   * lease predicate, which is what makes a schedule survive a restart: a job due in an
+   * hour is a row, not a timer, and a deployment in between changes nothing about it.
+   */
+  runAfter?: Date | null;
 }): Promise<EnqueueResult> {
   const { rows } = await query<{ job_id: string }>(
-    `insert into jobs (job_type, idempotency_key, payload, requested_by, account_id, market_id, priority)
-     values ($1,$2,$3,$4,$5,$6,coalesce($7,100))
+    `insert into jobs (job_type, idempotency_key, payload, requested_by, account_id, market_id, priority, run_after)
+     values ($1,$2,$3,$4,$5,$6,coalesce($7,100),coalesce($8, now()))
      on conflict (idempotency_key) where idempotency_key is not null and status in ('QUEUED','RUNNING')
      do nothing
      returning job_id`,
     [
       input.jobType, input.idempotencyKey, JSON.stringify(input.payload),
-      input.requestedBy ?? null, input.accountId ?? null, input.marketId ?? null, input.priority ?? null,
+      input.requestedBy ?? null, input.accountId ?? null, input.marketId ?? null,
+      input.priority ?? null, input.runAfter ?? null,
     ],
   );
 
@@ -358,5 +365,50 @@ export async function enqueueMarketResearch(input: {
     requestedBy: input.requestedBy,
     marketId: input.marketId,
     priority: 80,
+  });
+}
+
+/**
+ * The next attempt of a website recovery campaign.
+ *
+ * Keyed by campaign and attempt number, so the hourly sweep, a worker restart and a
+ * deployment can all try to schedule attempt four and produce one job between them. The
+ * partial unique index on QUEUED/RUNNING is what enforces it, and a finished attempt
+ * four does not block a legitimately different attempt five.
+ *
+ * Priority sits below research and above mining: recovering a site we already own the
+ * question about is worth more than buying a new search, and less than the research a
+ * rep is waiting on.
+ */
+export async function enqueueWebsiteRecovery(input: {
+  campaignId: string; accountId: string; attemptNumber: number; runAfter?: Date | null;
+}): Promise<EnqueueResult> {
+  return enqueue({
+    jobType: 'website_recovery',
+    idempotencyKey: `website_recovery:${input.campaignId}:${input.attemptNumber}`,
+    payload: { campaign_id: input.campaignId, attempt_number: input.attemptNumber },
+    accountId: input.accountId,
+    priority: 60,
+    runAfter: input.runAfter ?? null,
+  });
+}
+
+/**
+ * Finding a company's website when the record has none.
+ *
+ * NO_WEBSITE is not a transient failure and retrying an empty URL hourly would be a
+ * loop that learns nothing. The useful work is a grounded search for the domain, which
+ * is a different job with a different cost.
+ */
+export async function enqueueDomainResolution(input: {
+  accountId: string; reason: string; runAfter?: Date | null;
+}): Promise<EnqueueResult> {
+  return enqueue({
+    jobType: 'domain_resolution',
+    idempotencyKey: `domain_resolution:${input.accountId}`,
+    payload: { account_id: input.accountId, reason: input.reason },
+    accountId: input.accountId,
+    priority: 70,
+    runAfter: input.runAfter ?? null,
   });
 }

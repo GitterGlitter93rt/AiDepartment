@@ -12,6 +12,8 @@ import { registerConfiguredDiscoveryAdapters } from '../src/miner/registry.js';
 // so the file itself is checked further down.
 import '../src/workers/contactResearch.js';
 import '../src/workers/marketMiner.js';
+import '../src/workers/websiteRecovery.js';
+import '../src/workers/domainResolution.js';
 
 /**
  * One source of registration truth.
