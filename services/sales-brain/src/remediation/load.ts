@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { searchQueriesFor, serviceAliasesFor } from '../miner/searchTaxonomy.js';
+import { decodeEntities } from '../resolver/siteIdentity.js';
 import type { AccountBundle } from './classify.js';
 
 /**
@@ -212,7 +213,11 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
         // The claim text is the sentence a reviewer reads; the name inside it is what
         // the comparison needs, so it is taken from the quotes rather than re-derived.
         const named = /"([^"]+)"/.exec(row.claim_text)?.[1] ?? null;
-        return named ? { name: named, basis: row.notes } : null;
+        // Decoded on the way in, not on the way out: the evidence keeps what the site
+        // actually said, and the comparison uses what a person would read. An undecoded
+        // `Solar Pool &amp; Roof` reads as a different company from `Solar Pool & Roof`,
+        // which proposed suppressing a real roofer as somebody else's page.
+        return named ? { name: decodeEntities(named), basis: row.notes } : null;
       })(),
       serviceAliases: account.primary_vertical_profile_id
         ? aliases.get(account.primary_vertical_profile_id) ?? [] : [],

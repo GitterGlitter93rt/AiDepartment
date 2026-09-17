@@ -1,6 +1,7 @@
 import type { Queryable } from '../db/pool.js';
 import { query, withTransaction } from '../db/pool.js';
 import { classifyEmail, normalizeCompanyName, registrableDomain } from '../domain/normalize.js';
+import { looksLikePageCopy, namesAgree, siteNamesTheTrade } from './classify.js';
 import { loadAccountBundles } from './load.js';
 import { classifyAccount, type AccountVerdict, type Finding } from './classify.js';
 
@@ -134,42 +135,74 @@ export function proposeTrimmedName(input: {
    * suppressed, not relabelled with the site's name.
    */
   recordLooksLikeAPage?: boolean;
+  tradeTerms?: readonly string[];
 }): { name: string; basis: string } | null {
   const stored = normalizeCompanyName(input.canonicalName);
   if (!stored) return null;
 
   /**
+   * A proposal has to be a name.
+   *
+   * The dry run offered to rename "Home - St Augustine Roofing Contractor | Fidus" to
+   * "St Augustine Roofing Contractor | Fidus", which is the same page copy with the word
+   * Home removed. Shuffling a title is not a correction, and a rep reads the result
+   * either way.
+   */
+  const isAName = (candidate: string): boolean => {
+    if (looksLikePageCopy(candidate).yes) return false;
+    /**
+     * A hostname is not a name.
+     *
+     * Trimming "Contact Us - Hvaccontractorsorlando.net" down to its own domain is not a
+     * correction; it replaces page copy with a URL and a rep still has nothing to say on
+     * a call. Four records reached this by the domain-segment route, and where no source
+     * states a company name the honest outcome is to leave the record alone and let a
+     * person look at it.
+     */
+    return !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(candidate.trim());
+  };
+
+  /**
+   * Nothing is renamed on a record that is decisively a page on somebody else's site.
+   *
+   * Such a record is suppressed, not relabelled. Renaming it would leave a directory or
+   * a news outlet sitting in the inventory wearing its publisher's name, which reads to
+   * a rep as a real prospect -- worse than the bad name it started with.
+   */
+  if (input.recordLooksLikeAPage) return null;
+
+  /**
    * The site's own name, from the Account's own domain.
    *
-   * Two shapes, and the second one needed the estate to be looked at before it could be
-   * written honestly.
+   * Tried first, because it is the strongest evidence available: a machine-readable
+   * self-declaration on the domain attributed to this Account. Containment came first in
+   * the earlier version and won with worse answers -- a fragment of the stored title
+   * beats nothing, but it loses to the company saying its own name.
    *
-   * The first is containment: "HVAC Services in St. Augustine, FL - Palatka - Southern
-   * Air" becomes "Southern Air" because southernair.com says so and the stored name
-   * already carries the words.
-   *
-   * The second is the case containment misses, and it is the common one. Production
-   * holds "Top St. Augustine Roofing Contractor | Free Roof Inspection" on
-   * hightideroofing.com, whose own schema.org block says "High Tide Roofing &
-   * Waterproofing, Inc". The stored name contains none of that -- it is pure page copy
-   * with no brand segment at all -- so containment refuses exactly the records that most
-   * need fixing.
-   *
-   * What makes the replacement safe is not containment, it is *whose site said it*. A
-   * machine-readable self-declaration, on the domain attributed to this Account, whose
-   * name matches that domain, is the company naming itself. The domain check is the
-   * load-bearing part: it is what stops a directory's own name -- "Today's Homeowner" on
-   * todayshomeowner.com -- from being written onto a record that merely sits there,
-   * because such a record is a page rather than a company and is handled by suppression
-   * instead.
+   * The domain check is the load-bearing part. It is what stops a directory's own name
+   * -- "Today's Homeowner" on todayshomeowner.com -- from being written onto a record
+   * that merely sits there, and such a record is handled by suppression instead.
    */
   const site = input.siteIdentity;
   if (site) {
-    const siteName = normalizeCompanyName(site.name);
-    if (siteName.length >= 4 && siteName !== stored && stored.includes(siteName)) {
-      return { name: site.name.trim(), basis: `the site's own name (${site.basis ?? 'first party'})` };
-    }
+    /**
+     * A site's name is not adopted when the site is somebody else's.
+     *
+     * The rule Michael pinned: a directory or article record whose site identifies the
+     * publisher must not merely be renamed to the publisher and left sitting in the
+     * inventory as a prospect. A rep reading "Homeyou" or "firstcoastnews.com" on a
+     * workable Account is worse off than one reading the bad title, because the bad
+     * title at least looks wrong.
+     *
+     * Where the shapes are decisive the record is suppressed instead. Where they are
+     * not, this returns nothing and the record keeps its name and goes to a person --
+     * we decline to assert either that it is a company or that it is not.
+     */
+    const foreign = !namesAgree(input.canonicalName, site.name)
+      && !siteNamesTheTrade(site.name.toLowerCase(), input.tradeTerms ?? []);
+    if (foreign) return null;
 
+    const siteName = normalizeCompanyName(site.name);
     const declared = /SCHEMA_ORG_NAME|OG_SITE_NAME/.test(site.basis ?? '');
     const domain = input.canonicalDomain ? registrableDomain(input.canonicalDomain) : null;
     const domainStem = domain ? domain.split('.')[0]!.replace(/[^a-z0-9]/gi, '').toLowerCase() : null;
@@ -177,12 +210,18 @@ export function proposeTrimmedName(input: {
     const namesItsOwnDomain = Boolean(domainStem && domainStem.length >= 5 && siteCompact.length >= 5
       && (domainStem.includes(siteCompact.slice(0, Math.min(siteCompact.length, 12)))
         || siteCompact.includes(domainStem)));
+
     if (declared && namesItsOwnDomain && siteName.length >= 4 && siteName !== stored
-      && !input.recordLooksLikeAPage) {
+      && isAName(site.name)) {
       return {
         name: site.name.trim(),
         basis: `the company's own site declares it (${site.basis}), on its own domain ${domain}`,
       };
+    }
+
+    if (siteName.length >= 4 && siteName !== stored && stored.includes(siteName)
+      && isAName(site.name)) {
+      return { name: site.name.trim(), basis: `the site's own name (${site.basis ?? 'first party'})` };
     }
   }
 
@@ -190,7 +229,8 @@ export function proposeTrimmedName(input: {
     .map((candidate) => ({ ...candidate, normalized: normalizeCompanyName(candidate.name) }))
     .filter((candidate) => candidate.normalized.length >= 4
       && candidate.normalized !== stored
-      && stored.includes(candidate.normalized))
+      && stored.includes(candidate.normalized)
+      && isAName(candidate.name))
     .sort((a, b) => a.name.length - b.name.length)[0];
   if (fromResolver) {
     return { name: fromResolver.name.trim(), basis: `resolver candidate (${fromResolver.basis ?? 'no basis'})` };
@@ -206,7 +246,8 @@ export function proposeTrimmedName(input: {
     .filter((segment) => segment.length >= 3);
   for (const segment of segments) {
     const compact = normalizeCompanyName(segment).replace(/\s+/g, '');
-    if (compact.length >= 5 && (domainStem.includes(compact) || compact.includes(domainStem))) {
+    if (compact.length >= 5 && (domainStem.includes(compact) || compact.includes(domainStem))
+      && isAName(segment)) {
       return { name: segment, basis: `title segment matching the Account's own domain ${domain}` };
     }
   }
@@ -350,7 +391,12 @@ export async function planRemediation(limit: number | null = null): Promise<Appl
         canonicalDomain: verdict.canonicalDomain,
         candidateNames: bundle.candidateResolvedNames,
         siteIdentity: bundle.siteIdentity,
-        recordLooksLikeAPage: verdict.findings.some((f) => f.code === 'NON_COMPANY_ENTITY'),
+        // Only a decisive non-company finding blocks a rename. A single name-shape
+        // signal is a question, and a question should not keep an SEO title on a real
+        // company's record.
+        recordLooksLikeAPage: verdict.findings.some(
+          (f) => f.code === 'NON_COMPANY_ENTITY' && f.confidence === 'HIGH'),
+        tradeTerms: [...bundle.verticalTerms, ...bundle.serviceAliases],
       });
       if (proposal) {
         changes.push({

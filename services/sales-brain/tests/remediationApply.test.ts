@@ -9,6 +9,7 @@ import { applyForAccount, planRemediation, proposeTrimmedName } from '../src/rem
 import {
   identityFromJsonLd, identityFromMeta, identityFromTitle,
 } from '../src/resolver/siteIdentity.js';
+import { namesAgree, siteNamesTheTrade } from '../src/remediation/classify.js';
 
 /**
  * SB-V2-1b — the apply half, authorised on 2026-09-17.
@@ -30,9 +31,10 @@ test('a site names itself in the three places worth believing', () => {
     '@type': 'LocalBusiness', name: 'Southern Air',
   }]), 'Southern Air');
 
+  // Decoded, because a name is compared as a person reads it.
   assert.equal(
     identityFromMeta('<meta property="og:site_name" content="Today&#39;s Homeowner">'),
-    'Today&#39;s Homeowner');
+    "Today's Homeowner");
 
   // A title segment is the weakest, so it is only taken when the domain agrees.
   assert.equal(
@@ -48,14 +50,29 @@ test('a site names itself in the three places worth believing', () => {
 // --------------------------------------------------------------- what a name may become
 
 test('a name is only ever trimmed to one the stored name already contains', () => {
-  // The case Michael named.
+  // The case Michael named: a brand segment the stored name already carries.
   const trimmed = proposeTrimmedName({
+    canonicalName: 'AC Repair Safety Harbor - Burgess Heating & Air',
+    canonicalDomain: 'burgessheatingandair.com',
+    candidateNames: [],
+    siteIdentity: { name: 'Burgess Heating & Air Inc', basis: 'basis=SCHEMA_ORG_NAME' },
+    tradeTerms: ['HVAC contractor', 'heating and cooling'],
+  });
+  assert.equal(trimmed?.name, 'Burgess Heating & Air Inc');
+
+  // Deliberately withheld, and the cost of the rule above it: southernair.net is a real
+  // HVAC company, its site says "Southern Air", and that name sits in the publisher slot
+  // of the stored title -- structurally identical to "... - Homeyou", which is a
+  // directory. Nothing in the evidence separates the two, so neither is renamed
+  // automatically and both go to a person. A rep reading a bad title is better off than
+  // a rep reading a confident wrong name.
+  assert.equal(proposeTrimmedName({
     canonicalName: 'HVAC Services in St. Augustine, FL - Palatka - Southern Air',
-    canonicalDomain: 'southernair.com',
+    canonicalDomain: 'southernair.net',
     candidateNames: [],
     siteIdentity: { name: 'Southern Air', basis: 'basis=SCHEMA_ORG_NAME' },
-  });
-  assert.equal(trimmed?.name, 'Southern Air');
+    tradeTerms: ['HVAC contractor', 'air conditioning'],
+  }), null);
 
   // A site name the stored name does not contain is a different company or a rename,
   // and either needs a person.
@@ -78,6 +95,17 @@ test('a name is only ever trimmed to one the stored name already contains', () =
   assert.equal(otherCity, null);
 });
 
+test('a name is compared as a person reads it, not as the markup spells it', () => {
+  // Caught by the dry run against production before it changed anything:
+  // solarpoolroof.com declares `Solar Pool &amp; Roof`, and the undecoded entity made
+  // that look like a different name from the one already in the record -- which proposed
+  // suppressing a real roofing company as a page on somebody else's site.
+  assert.equal(identityFromJsonLd([{ '@type': 'LocalBusiness', name: 'Solar Pool &amp; Roof' }]),
+    'Solar Pool & Roof');
+  assert.equal(identityFromMeta('<meta property="og:site_name" content="Today&#39;s Homeowner">'),
+    "Today's Homeowner");
+});
+
 test('a company that declares its own name on its own domain may be renamed from it', () => {
   // The common production shape, and the one containment refuses: the stored name is
   // pure page copy with no brand segment at all. hightideroofing.com's schema.org block
@@ -87,6 +115,7 @@ test('a company that declares its own name on its own domain may be renamed from
     canonicalDomain: 'hightideroofing.com',
     candidateNames: [],
     siteIdentity: { name: 'High Tide Roofing & Waterproofing, Inc', basis: 'basis=SCHEMA_ORG_NAME' },
+    tradeTerms: ['roofing contractor', 'roofer'],
   });
   assert.equal(renamed?.name, 'High Tide Roofing & Waterproofing, Inc');
   assert.match(renamed!.basis, /its own domain/);
@@ -269,4 +298,77 @@ test('a legacy record is promoted only when its own site names it', async () => 
     [named]);
   assert.equal(rows[0]!.entity_status, 'verified');
   assert.match(rows[0]!.basis ?? '', /own site names it/);
+});
+
+// ------------------------------------------------- whose site is the name coming from
+
+test('a name in the publisher slot of a title is not agreement', () => {
+  // The last segment of an HTML title is where the site's own name goes. Reading a name
+  // there as agreement let "Central Air Service - Winter Park HVAC Contractors -
+  // Homeyou" agree with a site calling itself "Homeyou", and a directory listing was
+  // about to be renamed to the directory and left workable.
+  assert.equal(
+    namesAgree('Central Air Service - Winter Park HVAC Contractors - Homeyou', 'Homeyou'),
+    false);
+
+  // A match anywhere earlier is real agreement: the company titled its own page its own
+  // way, which is most of this inventory.
+  assert.equal(
+    namesAgree('Acree: Plumbing, HVAC & Electrical Services in Tampa, FL', 'Acree'), true);
+  assert.equal(namesAgree('Fidus', 'Fidus Roofing & Construction LLC'), true);
+});
+
+test('a trade is recognised by stem, and a publisher is not a trade', () => {
+  const roofing = ['roofing contractor', 'roofer', 'roof repair'];
+
+  // "Solar Pool & Roof" is a roofer. A whole-word test against "roofing" does not find
+  // "roof" inside it, and the company was proposed for suppression because of that.
+  assert.equal(siteNamesTheTrade('Solar Pool & Roof', roofing), true);
+  assert.equal(siteNamesTheTrade('High Tide Roofing & Waterproofing, Inc', roofing), true);
+  assert.equal(siteNamesTheTrade('First Coast News', roofing), false);
+
+  // The pinned regression: a directory whose name contains the trade word is still a
+  // directory, and must not lend its name to a record and leave it a prospect.
+  assert.equal(siteNamesTheTrade('National Roofing Directory', roofing), false);
+  assert.equal(siteNamesTheTrade('Birdeye Profiles', roofing), false);
+});
+
+test('a record is never renamed to the publisher of the site it sits on', () => {
+  // Michael's rule, stated as a test. Each of these was produced by a dry run against
+  // production and each would have left a directory, a news outlet or a state licensing
+  // site sitting in the rep inventory wearing its publisher's name.
+  for (const [name, domain, site] of [
+    ['Central Air Service - Winter Park HVAC Contractors - Homeyou', 'homeyou.com', 'Homeyou'],
+    ['Jacksonville roofing company under investigation by State ...', 'firstcoastnews.com',
+      'First Coast News'],
+    ['Roofing Contractors in Saint Augustine, FL', 'nationalroofingdirectory.com',
+      'National Roofing Directory'],
+    ['St. Augustine Roofing - 29 Reviews - Birdeye', 'reviews.birdeye.com', 'Birdeye Profiles'],
+  ] as const) {
+    assert.equal(proposeTrimmedName({
+      canonicalName: name, canonicalDomain: domain, candidateNames: [],
+      siteIdentity: { name: site, basis: 'basis=SCHEMA_ORG_NAME' },
+      tradeTerms: ['roofing contractor', 'roofer', 'HVAC contractor'],
+    }), null, `${site} must not become the name of ${name}`);
+  }
+});
+
+test('a hostname is not a name, and neither is shorter page copy', () => {
+  // Trimming "Contact Us - Hvaccontractorsorlando.net" to its own domain replaces page
+  // copy with a URL; a rep still has nothing to say on a call.
+  assert.equal(proposeTrimmedName({
+    canonicalName: 'Contact Us - Hvaccontractorsorlando.net',
+    canonicalDomain: 'hvaccontractorsorlando.net',
+    candidateNames: [{ name: 'Hvaccontractorsorlando.net', basis: 'own_site_title' }],
+  }), null);
+
+  // And a proposal that is itself a title is not a correction: the dry run offered to
+  // rename "Home - St Augustine Roofing Contractor | Fidus" to the same string without
+  // the word Home. That candidate is refused, and the record falls through to the brand
+  // segment that matches its own domain.
+  assert.equal(proposeTrimmedName({
+    canonicalName: 'Home - St Augustine Roofing Contractor | Fidus',
+    canonicalDomain: 'fidusroofing.com',
+    candidateNames: [{ name: 'St Augustine Roofing Contractor | Fidus', basis: 'own_site_title' }],
+  })?.name, 'Fidus');
 });

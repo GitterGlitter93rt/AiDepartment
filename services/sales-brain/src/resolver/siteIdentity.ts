@@ -21,6 +21,30 @@ import { politeFetch } from '../resolver/fetcher.js';
  * an observation rather than applied to anything on its own.
  */
 
+/**
+ * A name as a person would read it, not as the markup spells it.
+ *
+ * Caught by the dry run before it changed anything: solarpoolroof.com declares itself
+ * `Solar Pool &amp; Roof`, and an undecoded entity made that look like a different name
+ * from the "Solar Pool & Roof" already in the record -- which proposed suppressing a real
+ * roofing company as a page on somebody else's site. The comparison is only as good as
+ * the decoding underneath it.
+ */
+export function decodeEntities(value: string): string {
+  return value
+    .replace(/&amp;/gi, '&')
+    .replace(/&#0?39;|&apos;|&#x27;/gi, "'")
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#8211;|&ndash;/gi, '\u2013')
+    .replace(/&#8212;|&mdash;/gi, '\u2014')
+    .replace(/&#(\d{2,5});/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export interface SiteIdentity {
   name: string;
   basis: 'SCHEMA_ORG_NAME' | 'OG_SITE_NAME' | 'TITLE_BRAND_SEGMENT';
@@ -41,7 +65,7 @@ export function identityFromJsonLd(blocks: unknown[]): string | null {
     const types = asArray(node['@type']).map((t) => String(t).toLowerCase());
     if (types.some((t) => ORGANIZATION_TYPE.test(t)) && typeof node.name === 'string'
       && node.name.trim().length > 1) {
-      return node.name.trim();
+      return decodeEntities(node.name);
     }
     for (const key of ['@graph', 'mainEntity', 'about', 'publisher', 'isPartOf']) {
       for (const child of asArray(node[key])) {
@@ -61,7 +85,7 @@ export function identityFromJsonLd(blocks: unknown[]): string | null {
 export function identityFromMeta(html: string): string | null {
   const og = /<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']{2,80})["']/i.exec(html)
     ?? /<meta[^>]+content=["']([^"']{2,80})["'][^>]+property=["']og:site_name["']/i.exec(html);
-  return og?.[1]?.trim() ?? null;
+  return og?.[1] ? decodeEntities(og[1]) : null;
 }
 
 /**
@@ -80,7 +104,9 @@ export function identityFromTitle(html: string, domain: string | null): string |
   for (const segment of stripTags(title).split(/[|–—]|\s-\s|:/)) {
     const cleaned = segment.trim();
     const compact = cleaned.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (compact.length >= 5 && (stem.includes(compact) || compact.includes(stem))) return cleaned;
+    if (compact.length >= 5 && (stem.includes(compact) || compact.includes(stem))) {
+      return decodeEntities(cleaned);
+    }
   }
   return null;
 }

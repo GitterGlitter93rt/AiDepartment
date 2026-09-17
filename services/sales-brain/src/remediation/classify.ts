@@ -266,9 +266,64 @@ export function looksLikePageCopy(name: string): { yes: boolean; reasons: string
  * else's site. The site's own name is read by `npm run identity:estate` and arrives here
  * as evidence; where it is absent, nothing is concluded from its absence.
  */
+/**
+ * Whether a site's own declared name says it is in this trade.
+ *
+ * Matched on stems rather than whole words, because a trade is spelled several ways and
+ * a company picks one: "Solar Pool & Roof" is a roofer, and a whole-word test against
+ * the vocabulary term "roofing" does not find "roof" inside it. Four characters is the
+ * shortest stem that stays specific -- it keeps roof/roofer/roofing together and plumb/
+ * plumber/plumbing together, while "air" and "gas" are too short to mean anything on
+ * their own and are excluded by the length floor.
+ */
+/**
+ * Whether a record's name and a site's name are about the same subject.
+ *
+ * The last segment of an HTML title is the publisher slot: "Page Title - Site Name" is
+ * how titles are conventionally built. A site's name appearing there proves only whose
+ * site the page sits on, which is the one thing already known, so it is not agreement.
+ * Reading it as agreement is what let "Central Air Service - Winter Park HVAC
+ * Contractors - Homeyou" agree with a site calling itself "Homeyou", and a directory
+ * listing was about to be renamed to the directory and left workable.
+ *
+ * A match anywhere earlier is real agreement: "Acree: Plumbing, HVAC & Electrical
+ * Services in Tampa, FL" on a site calling itself "Acree" is that company's own page,
+ * titled its own way.
+ */
+export function namesAgree(storedName: string, siteName: string): boolean {
+  const stored = normalizeForCompare(storedName);
+  const site = normalizeForCompare(siteName);
+  if (!site || !stored) return false;
+  const segments = storedName.split(/\s[-|\u2013\u2014:]\s|\s\u00b7\s/);
+  const head = segments.length > 1 ? normalizeForCompare(segments.slice(0, -1).join(' ')) : stored;
+  return stored === site || site.includes(stored) || (head.length > 0 && head.includes(site));
+}
+
+export function siteNamesTheTrade(siteName: string, tradeVocabulary: readonly string[]): boolean {
+  const site = siteName.toLowerCase();
+  if (!site.trim()) return false;
+
+  /**
+   * A site that announces itself a publisher is not in the trade, whatever else it says.
+   *
+   * "National Roofing Directory" contains the trade word and would otherwise read as a
+   * roofer, and a record called "Roofing Contractors in Saint Augustine, FL" was about
+   * to be renamed to it and left workable -- the exact regression Michael pinned. These
+   * are words describing the kind of thing a site is rather than a business, and a
+   * contractor whose name genuinely contains one loses nothing but a trip to review.
+   */
+  if (/\b(directory|directories|listings?|reviews|guide|magazine|media|news|blog)\b/.test(site)) {
+    return false;
+  }
+  return tradeVocabulary.some((term) => term.toLowerCase().split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 4)
+    .some((token) => new RegExp(`\\b${token.slice(0, 4)}`).test(site)));
+}
+
 function looksLikeNonCompany(
   name: string, domain: string | null,
   siteIdentity: { name: string; basis: string | null } | null = null,
+  tradeVocabulary: readonly string[] = [],
 ): { yes: boolean; reasons: string[] } {
   const reasons: string[] = [];
   if (LISTICLE_PREFIX.test(name.trim())) reasons.push('is shaped like a listicle');
@@ -276,14 +331,42 @@ function looksLikeNonCompany(
   if (CATEGORY_PAGE_SHAPE.test(name)) reasons.push('is shaped like a category or directory page');
   if (!domain) reasons.push('has no domain of its own');
 
+  /*
+   * A general page-copy shape is deliberately not a reason here.
+   *
+   * It pairs with the weak `unpromotable` signal in the caller, and the pair suppressed
+   * Acree, Spicer Gas, Team Enoch and forty other real contractors in a dry run: almost
+   * every company in this inventory arrived with an SEO page title and no business
+   * listing. Two weak, correlated signals are not two signals. A page-shaped name on a
+   * publisher's site is handled by refusing to rename it, in `proposeTrimmedName`.
+   */
+
   if (siteIdentity) {
     const stored = normalizeForCompare(name);
     const site = normalizeForCompare(siteIdentity.name);
-    const agrees = site.length > 0
-      && (stored === site || stored.includes(site) || site.includes(stored));
-    if (!agrees && reasons.length > 0) {
+
+    const agrees = site.length > 0 && namesAgree(name, siteIdentity.name);
+
+    /**
+     * Whether the site that names itself is in this trade.
+     *
+     * The discriminator the dry run demanded. Two records were about to be suppressed as
+     * pages on somebody else's site: "Top 5 Roofing Companies in St. Augustine | 2026
+     * Guide" on a site calling itself "Fidus Roofing & Construction LLC", and "Top St.
+     * Augustine Roofing Contractor" on one calling itself "High Tide Roofing &
+     * Waterproofing, Inc". Both are real roofers whose own blog post or page title
+     * ranked -- the name is page copy, the company is not.
+     *
+     * What separates them from Today's Homeowner Media, Yahoo, MiamiJobs.com,
+     * LocalProBook and BuildZoom is that those sites are not roofers. A site whose own
+     * declared name is in the trade is a company with a bad name, and belongs to the
+     * renaming path rather than to suppression.
+     */
+    const siteIsInTheTrade = siteNamesTheTrade(siteIdentity.name, tradeVocabulary);
+
+    if (!agrees && !siteIsInTheTrade && reasons.length > 0) {
       reasons.push(`sits on a site that calls itself "${siteIdentity.name}", which is not `
-        + 'this record\'s name');
+        + 'this record\'s name and is not in this trade');
     }
   }
   return { yes: reasons.length > 0, reasons };
@@ -308,6 +391,31 @@ const LISTING_RESULT_TYPES = new Set([
 export function verticalSupport(bundle: AccountBundle): {
   supported: boolean; basis: string | null;
 } {
+  /**
+   * The company's own site naming the trade.
+   *
+   * First-party evidence, and the strongest kind: a site that calls itself "Fidus
+   * Roofing & Construction LLC" is a roofer saying so on its own domain. Before this the
+   * trade rested on SERP observations alone, so a real roofer found by an organic result
+   * lost its trade even after its own site had been read and had told us -- 191 Accounts
+   * were about to be cleared that way, and the ones with a readable site are exactly the
+   * ones a rep can work.
+   */
+  const identity = bundle.siteIdentity
+    ? bundle.siteIdentity.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+    : '';
+  const identityNamesTheTrade = identity.length > 0
+    && [...bundle.verticalTerms, ...bundle.serviceAliases].some((term) => {
+      const needle = term.toLowerCase().trim();
+      return needle.length >= 4 && identity.includes(needle);
+    });
+  if (identityNamesTheTrade) {
+    return {
+      supported: true,
+      basis: `the company's own site calls itself "${bundle.siteIdentity!.name}"`,
+    };
+  }
+
   const providerListing = bundle.candidateSourceClasses.includes('BUSINESS_LISTING');
   for (const observation of bundle.observations) {
     const resultType = (observation.resultType ?? '').toLowerCase();
@@ -344,7 +452,8 @@ export function classifyAccount(bundle: AccountBundle): AccountVerdict {
 
   /* D -- is it a company at all? */
   const nonCompany = looksLikeNonCompany(
-    bundle.canonicalName, bundle.canonicalDomain, bundle.siteIdentity);
+    bundle.canonicalName, bundle.canonicalDomain, bundle.siteIdentity,
+    [...bundle.verticalTerms, ...bundle.serviceAliases]);
   const unpromotable = bundle.candidateSourceClasses.length > 0
     && !bundle.candidateSourceClasses.some((c) => c === 'BUSINESS_LISTING' || c === 'OFFICIAL_SITE');
   if (nonCompany.yes || unpromotable) {
