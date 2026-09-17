@@ -38,6 +38,17 @@ Three defects behind it — a captcha word in a script manifest discarding a 634
 hard guard so that a site we could not read can never cost an Account its trade, its name,
 its status or its place in inventory. See brain/DECISIONS.md DEC-024…DEC-027.
 
+**Follow-up defect found 2026-09-17, not fixed tonight: `WORKER_CONCURRENCY` has no
+runtime effect.** `src/config.ts` declares it (`numeric('WORKER_CONCURRENCY', 2)`) and
+nothing reads it, so the worker leases one job at a time whatever the value says. Setting
+it to 4 and restarting changed nothing observable. The estate re-research was scaled the
+way the queue was actually designed for — additional worker processes, which the
+`for update skip locked` lease makes safe — rather than by inventing concurrency inside
+one process. This is the ninth piece of configuration found written down and never
+consulted; the 2026-09-08 entry named five, and this run added
+`search_observations.category`, `evidence_records.location_id`, `service_aliases` and now
+this one. A sweep for the pattern is worth more than fixing them one at a time.
+
 **Follow-up not done tonight:** a `www`/apex fallback in the crawler, for sites that only
 serve `www`. It would not have helped the case that motivated it, and it is new crawl
 behaviour that could not be qualified against the real estate tonight.
