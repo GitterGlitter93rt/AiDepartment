@@ -47,6 +47,49 @@ export interface FirstPartyResult {
   notes: string[];
 }
 
+/**
+ * What happened when we went to the company's website.
+ *
+ * A state about *our access to the source*, never about the company and never about
+ * whether the website works. A rep reading "we were refused" and a rep reading "the
+ * site is broken" will do different things, and only one of those sentences is
+ * something this system can know.
+ */
+export type SourceAccessState =
+  /** Pages were read. */
+  | 'READ'
+  /** The server answered and declined to serve this crawler: 401, 403, 429, a challenge. */
+  | 'REFUSED'
+  /** We could not reach it at all: DNS, TLS, timeout, connection refused. */
+  | 'UNREACHABLE'
+  /** It answered with HTTP errors and no readable page. */
+  | 'HTTP_ERROR'
+  /** There was no website to read. */
+  | 'NO_WEBSITE'
+  /** robots.txt told us not to. */
+  | 'DISALLOWED';
+
+const REFUSAL_REASONS = new Set(['login_required', 'access_denied', 'anti_bot', 'too_large', 'not_html']);
+const UNREACHABLE_REASONS = new Set(['tls_error', 'dns_error', 'timeout', 'connection_refused', 'fetch_error']);
+
+/**
+ * The honest one-word answer, from what the crawl actually saw.
+ *
+ * Deliberately not "broken": nothing here can establish that a website is broken. The
+ * strongest thing a single run can say is that we could not read it, and which of the
+ * several different ways that happened.
+ */
+export function sourceAccessState(result: FirstPartyResult, hadWebsite: boolean): SourceAccessState {
+  if (!hadWebsite) return 'NO_WEBSITE';
+  if (result.pagesFetched.length > 0) return 'READ';
+  const reasons = result.pagesBlocked.map((page) => page.reason);
+  if (reasons.some((reason) => reason === 'robots_disallow')) return 'DISALLOWED';
+  if (reasons.some((reason) => REFUSAL_REASONS.has(reason))) return 'REFUSED';
+  if (reasons.some((reason) => UNREACHABLE_REASONS.has(reason))) return 'UNREACHABLE';
+  if (reasons.some((reason) => reason === 'http_error')) return 'HTTP_ERROR';
+  return 'UNREACHABLE';
+}
+
 /** Page paths worth trying, best first. */
 const CANDIDATE_PATHS = [
   '/about', '/about-us', '/our-team', '/team', '/leadership', '/meet-the-team',
@@ -459,7 +502,8 @@ export async function researchFirstParty(
       result.pagesBlocked.push({ url, reason });
 
       // A wall ends the crawl for this host. We do not work around it.
-      if (response.blockedReason === 'login_required' || response.blockedReason === 'anti_bot') {
+      if (response.blockedReason === 'login_required' || response.blockedReason === 'anti_bot'
+        || response.blockedReason === 'access_denied') {
         result.notes.push(
           `Stopped crawling ${origin}: the site returned a ${response.blockedReason.replace('_', ' ')} response.`,
         );

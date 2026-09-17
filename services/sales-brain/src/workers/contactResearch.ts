@@ -1,7 +1,8 @@
 import { config } from '../config.js';
 import { mayResearchDomainWithHistory } from '../discovery/attribution.js';
 import { query, withTransaction } from '../db/pool.js';
-import { researchFirstParty } from '../resolver/adapters/firstParty.js';
+import { researchFirstParty, sourceAccessState } from '../resolver/adapters/firstParty.js';
+import type { SourceAccessState } from '../resolver/adapters/firstParty.js';
 import type { AddressObservation, ServiceAreaObservation } from '../resolver/address.js';
 import { reconcile } from '../resolver/reconcile.js';
 import { persistResolution } from '../resolver/persist.js';
@@ -147,6 +148,9 @@ export async function runContactResearch(
   /** Kept apart all the way through: a place the company is, and places it travels. */
   let addresses: AddressObservation[] = [];
   let serviceAreas: ServiceAreaObservation[] = [];
+  /** How the attempt on the company's own site went, and why, in its own words. */
+  let sourceState: SourceAccessState = 'NO_WEBSITE';
+  let blockedPages: { url: string; reason: string }[] = [];
   let pagesBlocked = 0;
   const notes: string[] = [];
 
@@ -184,6 +188,8 @@ export async function runContactResearch(
     pageText = firstParty.pageText;
     addresses = firstParty.addresses;
     serviceAreas = firstParty.serviceAreas;
+    blockedPages = firstParty.pagesBlocked;
+    sourceState = sourceAccessState(firstParty, true);
   } else {
     stagesSkipped.push({ stage: 'A_company_first_party', reason: attribution.reason });
   }
@@ -337,6 +343,16 @@ export async function runContactResearch(
           pages_fetched: pagesFetched,
           pages_blocked: pagesBlocked,
           resolution_status: resolution.status,
+          /**
+           * Why a page could not be read, kept per page.
+           *
+           * Without this the run recorded "0 pages fetched" and nothing else, so a live
+           * company whose WAF refused us was indistinguishable from a dead domain -- and
+           * Research Health called both of them a broken website. A reason is the
+           * difference between a sentence about our crawler and a claim about the company.
+           */
+          source_state: sourceState,
+          blocked_pages: blockedPages.slice(0, 10),
         }),
       ],
     );

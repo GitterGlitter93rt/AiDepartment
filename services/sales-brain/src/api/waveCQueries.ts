@@ -216,9 +216,37 @@ export async function researchExceptions() {
          and a.research_fresh_until < now() - interval '14 days'
        limit 20)
      union all
+     /*
+      * "Website research unavailable", and never "broken website".
+      *
+      * This row used to be typed broken_website, which the page rendered as "Broken
+      * Website" over the sentence "no page could be read on the last attempt". Those are
+      * two different claims and only the second one is ours to make. Michael opened
+      * three of them in a browser -- energyair.com, airmotionshvac.com, airworthac.com --
+      * and every one was a live business site. One served 634 KB of HVAC content and was
+      * discarded because its script manifest contains the word "captcha"; the other two
+      * answered 403, which is a WAF refusing this crawler rather than a company without
+      * a website.
+      *
+      * So the exception says what happened to us, and carries the reason the run
+      * recorded, so a person reading it can tell a refusal from a dead domain.
+      */
      (select a.account_id, a.canonical_name,
-             'broken_website',
-             'A primary website is recorded but no page could be read on the last attempt',
+             'website_research_unavailable',
+             'Sales Brain could not read this website on the last attempt'
+               || case
+                    when r.adapter_results->>'source_state' = 'REFUSED'
+                      then ': the site refused our crawler'
+                    when r.adapter_results->>'source_state' = 'UNREACHABLE'
+                      then ': the site could not be reached'
+                    when r.adapter_results->>'source_state' = 'HTTP_ERROR'
+                      then ': the site answered with an error'
+                    when r.adapter_results->>'source_state' = 'DISALLOWED'
+                      then ': robots.txt asks us not to read it'
+                    else ''
+                  end
+               || coalesce(' (' || (r.adapter_results->'blocked_pages'->0->>'reason') || ')', '')
+               || '. That is a fact about our research, not about the company.',
              r.started_at
         from accounts a
         join research_runs r on r.account_id = a.account_id
