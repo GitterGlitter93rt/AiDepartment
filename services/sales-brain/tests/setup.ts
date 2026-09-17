@@ -46,5 +46,36 @@ if (!process.env.TEST_DB_CONFIGURED) {
   if (process.env.DISCOVERY_DAILY_BUDGET_USD === undefined) {
     process.env.DISCOVERY_DAILY_BUDGET_USD = '0';
   }
+
 }
+
+/**
+ * Nor the operator's provider configuration.
+ *
+ * The same shape of problem as the ceiling above, found the same way. A box with real
+ * DataForSEO credentials and a signed governance review in its .env gave the suite a
+ * live provider, and two tests whose whole subject is "this build cannot reach
+ * DataForSEO" failed -- on a machine where the product was behaving correctly. One of
+ * them says so in its own assertion message: an adapter registered in a test process
+ * means the assertion is measuring the harness rather than the product.
+ *
+ * Only the discovery provider is neutralised, and deliberately only that. Pinning the
+ * outbound and integration keys as well looked like the same tidy idea and broke four
+ * unrelated tests that configure those themselves: the fix for a leak is to stop the
+ * leak that was found, not to sterilise everything within reach.
+ *
+ * `config.ts` skips any key already present in the environment, so an empty string
+ * here keeps the .env value out, and a test that needs a credential sets its own.
+ */
+const neutralised: Record<string, string> = {
+  DATAFORSEO_ENABLED: 'false',
+  DATAFORSEO_GOVERNANCE_REVIEWED: 'false',
+  DATAFORSEO_LOGIN: '',
+  DATAFORSEO_PASSWORD: '',
+};
+for (const [key, value] of Object.entries(neutralised)) {
+  if (process.env[key] === undefined) process.env[key] = value;
+}
+
+
 export {};

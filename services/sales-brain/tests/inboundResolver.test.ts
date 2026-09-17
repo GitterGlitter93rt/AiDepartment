@@ -566,9 +566,13 @@ test('a personal line attached to a contact names that contact', async () => {
 test('two locations of one company are one company, not an ambiguity', async () => {
   const fixture = await seedAccount('Two Location Co');
   const { rows: location } = await query<{ location_id: string }>(
-    `insert into locations (account_id, name, city, state_region, postal_code,
-                            country_code, location_type, is_active)
-     values ($1, 'Southside branch', 'Jacksonville', 'FL', '32257', 'US', 'physical', true)
+    // A physical location carries a street from migration 053 onward; a branch without
+    // one is a place name rather than a place, which is the distinction that migration
+    // exists to hold.
+    `insert into locations (account_id, name, address_line_1, city, state_region,
+                            postal_code, country_code, location_type, is_active)
+     values ($1, 'Southside branch', '4100 Southside Blvd', 'Jacksonville', 'FL', '32257',
+             'US', 'physical', true)
      returning location_id`, [fixture.accountId]);
   await withTransaction((client) => upsertEndpoint(client, {
     accountId: fixture.accountId, contactId: null, locationId: location[0]!.location_id,

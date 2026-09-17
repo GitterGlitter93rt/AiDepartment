@@ -339,9 +339,13 @@ test('a company with a branch in the ZIP is in that market', async () => {
   await markEntityVerified(accountId);
 
   await query(
-    `insert into locations (account_id, city, state_region, postal_code, is_active,
-                            location_type)
-     values ($1, 'St. Augustine', 'FL', '32095', true, 'physical')`, [accountId]);
+    // A physical location needs a street from migration 053 onward: a city and a ZIP
+    // with nothing in front of them is a place name, which is what the searched
+    // geography was. The branch this test is about has an address like any branch does.
+    `insert into locations (account_id, address_line_1, city, state_region, postal_code,
+                            is_active, location_type)
+     values ($1, '1200 Anastasia Blvd', 'St. Augustine', 'FL', '32095', true, 'physical')`,
+    [accountId]);
 
   const found = await searchProspects(
     { geography: { type: 'zip_zcta', value: '32095' }, pageSize: 50 }, viewer);

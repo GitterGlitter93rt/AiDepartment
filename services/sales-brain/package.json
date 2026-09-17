@@ -41,7 +41,10 @@
     "blockb": "tsx tests/support/blockBPacket.ts",
     "remediation:preview": "tsx src/bin/remediation-preview.ts",
     "stage-d:preview": "tsx src/bin/stage-d-preview.ts",
-    "contact:yield": "tsx src/bin/contact-yield.ts"
+    "contact:yield": "tsx src/bin/contact-yield.ts",
+    "research:estate": "tsx src/bin/re-research-estate.ts",
+    "identity:estate": "tsx src/bin/site-identity.ts",
+    "remediation:apply": "tsx src/bin/remediation-apply.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

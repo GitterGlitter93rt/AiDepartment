@@ -28,8 +28,14 @@ export interface FetchResult {
   finalUrl: string;
   contentType: string;
   body: string;
-  /** Set when we declined to fetch rather than failing to. */
-  blockedReason?: 'robots_disallow' | 'login_required' | 'anti_bot' | 'not_html' | 'too_large';
+  /**
+   * Set when we were refused or declined, rather than when we failed to reach the site.
+   *
+   * None of these mean the website is broken. Every one of them means the server
+   * answered and either we or it decided this crawler does not get the page.
+   */
+  blockedReason?: 'robots_disallow' | 'login_required' | 'access_denied' | 'anti_bot'
+    | 'not_html' | 'too_large';
   /**
    * Set when we tried to fetch and could not. Deliberately separate from
    * `blockedReason`: "we chose not to read this" and "we could not read this" lead to
@@ -155,15 +161,37 @@ function pathAllowed(rules: RobotsRules, pathname: string): boolean {
   return matchLength(rules.allow) >= disallowed;
 }
 
-/** Signals that we have hit a wall we must not try to get around. */
+/**
+ * Walls we must not try to get around, told apart from each other.
+ *
+ * Three different sentences, and the product used to say one of them for all three and
+ * then a fourth thing entirely -- "broken website" -- to the rep.
+ *
+ *   401  the site wants credentials. A login wall.
+ *   403  the site refused this crawler. A WAF or a bot rule, not a login, and emphatically
+ *        not a broken site: the server answered, and what it answered was no.
+ *   429  we asked too often.
+ *
+ * The content test is deliberately narrow now. It used to fire on the bare word
+ * "captcha" anywhere in the first four kilobytes, and energyair.com serves 634 KB of
+ * HVAC content whose script manifest lists a module called "captcha" -- so a live
+ * company site was discarded, the run recorded zero pages read, and Research Health
+ * reported the company as a broken website. A challenge page announces itself in words
+ * written for a human being; a manifest entry does not.
+ */
 function detectWall(status: number, body: string): FetchResult['blockedReason'] | undefined {
-  if (status === 401 || status === 403) return 'login_required';
+  if (status === 401) return 'login_required';
+  if (status === 403) return 'access_denied';
   if (status === 429) return 'anti_bot';
   const sample = body.slice(0, 4000).toLowerCase();
-  if (/cf-browser-verification|checking your browser|captcha|are you a robot|__cf_chl/.test(sample)) {
-    return 'anti_bot';
-  }
-  return undefined;
+  const challenge =
+    /cf-browser-verification|__cf_chl|checking your browser before|attention required!\s*\|\s*cloudflare/
+      .test(sample)
+    || /(please )?verify (that )?you are (a )?human|complete the security check|enable javascript and cookies to continue|are you a robot\?/
+      .test(sample);
+  // A challenge page is a page about the challenge. A quarter of a megabyte of a
+  // company's own site is not one, whatever string appears in its bundler output.
+  return challenge && body.length < 120_000 ? 'anti_bot' : undefined;
 }
 
 export async function politeFetch(url: string): Promise<FetchResult> {

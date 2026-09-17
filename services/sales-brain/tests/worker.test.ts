@@ -118,22 +118,43 @@ test('the crawl finds team pages and never reads a disallowed one', async () => 
   assert.equal(result.people.some((p) => p.rawTitle === 'Secret Title'), false);
 });
 
-test('a login wall stops the crawl instead of being worked around', async () => {
-  const walled = createServer((_request, response) => {
+test('a wall stops the crawl instead of being worked around, and says which wall', async () => {
+  /**
+   * This test used to serve 403 "Access denied" and assert `login_required`, which is
+   * the misclassification behind a live product bug: airmotionshvac.com and
+   * airworthac.com answer 403 from a WAF, the fetcher called it a login wall, and
+   * Research Health rendered both as "Broken Website". A 403 is a refusal to serve this
+   * crawler. A 401 is a request for credentials. Two different sentences.
+   */
+  const refusing = createServer((_request, response) => {
     response.writeHead(403, { 'content-type': 'text/html' });
     response.end('<html><body>Access denied</body></html>');
   });
-  await new Promise<void>((resolve) => walled.listen(0, '127.0.0.1', resolve));
-  const walledOrigin = `http://127.0.0.1:${(walled.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) => refusing.listen(0, '127.0.0.1', resolve));
+  const refusingOrigin = `http://127.0.0.1:${(refusing.address() as AddressInfo).port}`;
 
   try {
-    const response = await politeFetch(`${walledOrigin}/`);
+    const response = await politeFetch(`${refusingOrigin}/`);
     assert.equal(response.ok, false);
-    assert.equal(response.blockedReason, 'login_required');
+    assert.equal(response.blockedReason, 'access_denied');
 
-    const result = await researchFirstParty(walledOrigin);
+    const result = await researchFirstParty(refusingOrigin);
     assert.equal(result.pagesFetched.length, 0);
-    assert.ok(result.notes.some((note) => /login required/i.test(note)));
+    assert.ok(result.notes.some((note) => /access denied/i.test(note)),
+      `the run did not say why it stopped: ${result.notes.join(' | ')}`);
+  } finally {
+    await new Promise<void>((resolve) => refusing.close(() => resolve()));
+  }
+
+  const walled = createServer((_request, response) => {
+    response.writeHead(401, { 'content-type': 'text/html', 'www-authenticate': 'Basic' });
+    response.end('<html><body>Authentication required</body></html>');
+  });
+  await new Promise<void>((resolve) => walled.listen(0, '127.0.0.1', resolve));
+  const walledOrigin = `http://127.0.0.1:${(walled.address() as AddressInfo).port}`;
+  try {
+    const response = await politeFetch(`${walledOrigin}/`);
+    assert.equal(response.blockedReason, 'login_required');
   } finally {
     await new Promise<void>((resolve) => walled.close(() => resolve()));
   }

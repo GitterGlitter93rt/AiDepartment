@@ -145,6 +145,13 @@ export interface AccountBundle {
   verticalTerms: string[];
   /** The trade's own vocabulary, for reading a provider category. */
   serviceAliases: string[];
+  /**
+   * What the Account's own site calls itself, when it has been asked.
+   *
+   * Null means nobody has asked, which is not the same as a site that named nothing,
+   * and neither is evidence about the company.
+   */
+  siteIdentity: { name: string; basis: string | null } | null;
   emails: EmailEndpointEvidence[];
   phoneCount: number;
   locationCount: number;
@@ -233,12 +240,44 @@ export function looksLikePageCopy(name: string): { yes: boolean; reasons: string
   return { yes: reasons.length > 0, reasons };
 }
 
-function looksLikeNonCompany(name: string, domain: string | null): { yes: boolean; reasons: string[] } {
+/**
+ * Whether the record is a page rather than a company.
+ *
+ * The shape of a name is one signal and the classifier needs two, which is why a
+ * listicle that owns a domain sat at LOW confidence and went to review: "10 Best Roofers
+ * in St. Augustine, FL" on todayshomeowner.com produced exactly one reason.
+ *
+ * Two candidate second signals were measured against production and rejected. Counting
+ * distinct business names on a domain catches local.yahoo.com at seventeen and
+ * buildzoom at nine -- and mechanicalone.com at seven, which is a real HVAC company
+ * whose pages ranked under different titles. Absence of business-listing evidence is as
+ * true of energyair.com as it is of a listicle.
+ *
+ * What separates them is what the site says it is. A record whose stored name is page
+ * copy, on a site that calls itself something else entirely, is a page on somebody
+ * else's site. The site's own name is read by `npm run identity:estate` and arrives here
+ * as evidence; where it is absent, nothing is concluded from its absence.
+ */
+function looksLikeNonCompany(
+  name: string, domain: string | null,
+  siteIdentity: { name: string; basis: string | null } | null = null,
+): { yes: boolean; reasons: string[] } {
   const reasons: string[] = [];
   if (LISTICLE_PREFIX.test(name.trim())) reasons.push('is shaped like a listicle');
   if (ARTICLE_SHAPE.test(name)) reasons.push('is shaped like an article headline');
   if (CATEGORY_PAGE_SHAPE.test(name)) reasons.push('is shaped like a category or directory page');
   if (!domain) reasons.push('has no domain of its own');
+
+  if (siteIdentity) {
+    const stored = normalizeForCompare(name);
+    const site = normalizeForCompare(siteIdentity.name);
+    const agrees = site.length > 0
+      && (stored === site || stored.includes(site) || site.includes(stored));
+    if (!agrees && reasons.length > 0) {
+      reasons.push(`sits on a site that calls itself "${siteIdentity.name}", which is not `
+        + 'this record\'s name');
+    }
+  }
   return { yes: reasons.length > 0, reasons };
 }
 
@@ -296,7 +335,8 @@ export function classifyAccount(bundle: AccountBundle): AccountVerdict {
     touched ? { ...f, reviewRequired: true, proposedAction: `${f.proposedAction} (a person has worked this Account, so review first)` } : f;
 
   /* D -- is it a company at all? */
-  const nonCompany = looksLikeNonCompany(bundle.canonicalName, bundle.canonicalDomain);
+  const nonCompany = looksLikeNonCompany(
+    bundle.canonicalName, bundle.canonicalDomain, bundle.siteIdentity);
   const unpromotable = bundle.candidateSourceClasses.length > 0
     && !bundle.candidateSourceClasses.some((c) => c === 'BUSINESS_LISTING' || c === 'OFFICIAL_SITE');
   if (nonCompany.yes || unpromotable) {

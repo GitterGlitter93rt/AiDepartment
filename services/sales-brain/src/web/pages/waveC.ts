@@ -571,6 +571,26 @@ function discoveryBanner(kpis: any): RawHtml {
     <div style="height:14px"></div>`;
 }
 
+/**
+ * What an exception is called, in words that claim only what we know.
+ *
+ * `titleCase` of the type was doing this, which is how `broken_website` became "Broken
+ * Website" on the screen -- a claim about a company's website made on the strength of one
+ * failed fetch by our own crawler. Three of them were live sites when Michael opened
+ * them. A label that names our research says something true whatever the site turns out
+ * to be.
+ */
+const EXCEPTION_LABEL: Record<string, string> = {
+  website_research_unavailable: 'Website research unavailable',
+  stale_evidence: 'Stale evidence',
+  provider_failure: 'Provider failure',
+  no_contact_route: 'No contact route',
+};
+
+function exceptionLabel(type: string): string {
+  return EXCEPTION_LABEL[type] ?? titleCase(type);
+}
+
 // ----------------------------------------------------------- Research Health
 
 export function renderResearchHealthPage(input: {
@@ -639,7 +659,7 @@ export function renderResearchHealthPage(input: {
               <tbody>
                 ${exceptions.map((row: any) => html`<tr>
                   <td class="cell-company">${row.company_name}</td>
-                  <td>${statusPill(titleCase(row.exception_type),
+                  <td>${statusPill(exceptionLabel(row.exception_type),
                     row.exception_type === 'provider_failure' ? 'destructive' : 'warning')}</td>
                   <td class="cell-why" title="${row.detail}">${row.detail}</td>
                   <td class="muted small">${relativeTime(row.since)}</td>
