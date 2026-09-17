@@ -36,7 +36,8 @@ export type RemediationAction =
   | 'SUPPRESS_NON_COMPANY'
   | 'CLEAR_UNSUPPORTED_VERTICAL'
   | 'TRIM_PAGE_COPY_NAME'
-  | 'RECLASSIFY_ENDPOINT_ROLE';
+  | 'RECLASSIFY_ENDPOINT_ROLE'
+  | 'VERIFY_FROM_SITE_IDENTITY';
 
 export interface PlannedChange {
   accountId: string;
@@ -207,6 +208,40 @@ export async function planRemediation(limit: number | null = null): Promise<Appl
       }
     }
 
+    /**
+     * A legacy record whose own site names it.
+     *
+     * `legacy_unverified` from a discovery run is not workable, which is correct while
+     * nothing has confirmed the record names a company -- and it is also why 66 real
+     * Roofing companies sit outside the rep's list. The only thing that moves one is
+     * evidence: the site was read, it names itself, and the name it gives is the name on
+     * the record. Anything less stays where it is, because promoting to reduce a count
+     * is how an unverified record becomes a verified wrong one.
+     */
+    if (bundle.entityStatus === 'legacy_unverified' && bundle.siteIdentity
+      && !verdict.findings.some((f) => f.code === 'NON_COMPANY_ENTITY')) {
+      const stored = normalizeCompanyName(verdict.canonicalName);
+      const site = normalizeCompanyName(bundle.siteIdentity.name);
+      const agrees = site.length >= 4
+        && (stored === site || stored.includes(site) || site.includes(stored));
+      if (agrees) {
+        changes.push({
+          accountId: verdict.accountId, companyName: verdict.canonicalName,
+          action: 'VERIFY_FROM_SITE_IDENTITY', code: 'LEGACY_UNVERIFIED',
+          reason: `The site calls itself "${bundle.siteIdentity.name}", which is the name `
+            + 'on this record, so something has now confirmed it names a company.',
+          before: { entityStatus: 'legacy_unverified' },
+          after: { entityStatus: 'verified' },
+        });
+      } else {
+        review.push({
+          accountId: verdict.accountId, companyName: verdict.canonicalName,
+          code: 'LEGACY_UNVERIFIED',
+          why: `the site calls itself "${bundle.siteIdentity.name}", which is not the name on the record`,
+        });
+      }
+    }
+
     // Names are handled outside the actionable gate, because the preview marks every
     // name finding for review and tonight's authorization narrows that to the case where
     // the evidence already holds the shorter name.
@@ -314,6 +349,14 @@ export async function applyForAccount(
           await client.query(
             'update contact_endpoints set endpoint_role = $2 where endpoint_id = $1',
             [String(change.after['endpointId']), String(change.after['role'])]);
+          break;
+        }
+        case 'VERIFY_FROM_SITE_IDENTITY': {
+          await client.query(
+            `update accounts set entity_status = 'verified',
+                    entity_status_basis = $2, entity_status_at = now()
+              where account_id = $1 and entity_status = 'legacy_unverified'`,
+            [accountId, 'V2 re-research: the company\'s own site names it']);
           break;
         }
       }

@@ -199,3 +199,38 @@ test('every change carries what it was before', async () => {
     assert.ok('after' in row.detail);
   }
 });
+
+test('a legacy record is promoted only when its own site names it', async () => {
+  const named = await seed('Cooper Roofing', { domain: 'cooperroofing.invalid' });
+  const other = await seed('Proof Roofing', { domain: 'someportal.invalid' });
+  await query(`update accounts set entity_status = 'legacy_unverified'
+                where account_id in ($1, $2)`, [named, other]);
+  await query(
+    `insert into evidence_records (account_id, category, claim_key, claim_text,
+                                   normalized_value, confidence, can_state_as_fact,
+                                   source_type, source_reference)
+     values ($1, 'identity', 'first_party_site_name', 'The site calls itself "Cooper Roofing"',
+             'cooper roofing', 'confirmed', true, 'first_party', 'https://cooperroofing.invalid/'),
+            ($2, 'identity', 'first_party_site_name', 'The site calls itself "Some Portal"',
+             'some portal', 'confirmed', true, 'first_party', 'https://someportal.invalid/')`,
+    [named, other]);
+
+  const plan = await planRemediation();
+  const promotion = plan.changes.find((entry) => entry.accountId === named
+    && entry.action === 'VERIFY_FROM_SITE_IDENTITY');
+  assert.ok(promotion, 'a legacy record whose site names it was not promoted');
+
+  assert.equal(
+    plan.changes.some((entry) => entry.accountId === other
+      && entry.action === 'VERIFY_FROM_SITE_IDENTITY'),
+    false, 'a record was verified by a site that names a different company');
+  assert.ok(plan.review.some((entry) => entry.accountId === other
+    && entry.code === 'LEGACY_UNVERIFIED'));
+
+  await applyForAccount(named, [promotion!]);
+  const { rows } = await query<{ entity_status: string; basis: string | null }>(
+    'select entity_status, entity_status_basis as basis from accounts where account_id = $1',
+    [named]);
+  assert.equal(rows[0]!.entity_status, 'verified');
+  assert.match(rows[0]!.basis ?? '', /own site names it/);
+});
