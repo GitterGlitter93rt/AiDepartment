@@ -37,9 +37,14 @@ import {
   renderOpportunitiesPage, renderOpportunityDetailPage, renderRepliesPage,
 } from '../web/pages/waveB.js';
 import {
-  renderImportsPage, renderImportWizardPage, renderMiningPage, renderResearchHealthPage,
+  miningTabFrom, renderImportsPage, renderImportWizardPage, renderMiningPage,
+  renderResearchHealthPage,
 } from '../web/pages/waveC.js';
 import { miningJobs, miningKpis, researchExceptions, researchHealthMetrics } from './waveCQueries.js';
+import {
+  loadMiningView, providerTruthByJob, RESEARCH_BUCKETS, websiteResearchRows,
+  websiteResearchSummary, type ResearchBucket,
+} from './miningView.js';
 import {
   buildPreview, cancelSession, confirmSession, createSession, getSession, listImportHistory,
   setColumnMap,
@@ -386,13 +391,37 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
     return user;
   };
 
-  app.get('/mining', async (request, reply) => {
+  /**
+   * Mining.
+   *
+   * Each tab loads what it shows and nothing else: the market-discovery assembly
+   * reads several tables, and paying for it in order to render the job list would
+   * make the page slower the more history there is.
+   */
+  app.get<{ Querystring: { tab?: string; bucket?: string } }>('/mining', async (request, reply) => {
     const user = requireOps(request, reply);
     if (!user) return;
-    const [counts, kpis, jobs] = await Promise.all([
-      navCountsFull(user.userId, user.role), miningKpis(), miningJobs(),
+    const tab = miningTabFrom(request.query.tab);
+    const bucket = RESEARCH_BUCKETS.includes(request.query.bucket as ResearchBucket)
+      ? request.query.bucket as ResearchBucket : null;
+
+    // One assembly: the counts above the tabs and the rows beneath them classify the
+    // same searches, so they cannot disagree about what is in flight.
+    const [counts, kpis, view] = await Promise.all([
+      navCountsFull(user.userId, user.role), miningKpis(), loadMiningView(),
     ]);
-    return reply.type('text/html').send(renderMiningPage({ user, counts, kpis, jobs }));
+    const summary = view.summary;
+    const discovery = tab === 'discovery' ? view.rows : [];
+    const website = tab === 'website' ? await websiteResearchSummary() : null;
+    const websiteDrill = tab === 'website' && bucket ? await websiteResearchRows(bucket) : [];
+    const jobs = tab === 'activity' ? await miningJobs() : [];
+    const jobProviderTruth = await providerTruthByJob(
+      jobs.map((job) => String((job as Record<string, unknown>)['job_id'])));
+
+    return reply.type('text/html').send(renderMiningPage({
+      user, counts, kpis, tab, summary, discovery, website,
+      websiteBucket: bucket, websiteRows: websiteDrill, jobs, jobProviderTruth,
+    }));
   });
 
   app.get('/research-health', async (request, reply) => {

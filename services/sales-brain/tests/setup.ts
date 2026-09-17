@@ -28,5 +28,23 @@ if (!process.env.TEST_DB_CONFIGURED) {
   process.env.DATABASE_URL = testUrl;
   process.env.SESSION_SECRET = values.get('SESSION_SECRET') ?? 'test-session-secret-value-only';
   process.env.TEST_DB_CONFIGURED = '1';
+
+  /**
+   * A test run must not inherit the operator's live spending ceiling.
+   *
+   * `src/config.ts` loads the whole .env into the process, so a box with
+   * `DISCOVERY_DAILY_BUDGET_USD=0.30` set for production gave the suite a real
+   * ceiling: the sixth mined market in one test exhausted it and every later search
+   * was refused by our own budget, so a test asserting how a *provider* refusal is
+   * reported read DISCOVERY_BLOCKED instead. The same suite passed on a box with no
+   * ceiling configured, which is the worst shape a failure can have.
+   *
+   * Setting it here rather than deleting it: the loader skips any key already in the
+   * environment, and 0 is how "no ceiling" is spelled. A test about spend controls
+   * sets its own value and is unaffected.
+   */
+  if (process.env.DISCOVERY_DAILY_BUDGET_USD === undefined) {
+    process.env.DISCOVERY_DAILY_BUDGET_USD = '0';
+  }
 }
 export {};

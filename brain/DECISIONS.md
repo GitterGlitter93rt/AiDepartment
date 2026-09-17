@@ -838,3 +838,77 @@ test caught this against the real "Comfort Pro" row before the rule was tightene
 Nothing with human sales activity is ever proposed for a mechanical change, whatever the
 evidence says. Non-companies are proposed for suppression and quarantine, never deletion.
 `--apply` is refused explicitly and exits before it opens a database connection.
+
+---
+
+## SB-V2-2 — the Mining page reads a ledger, not a job's memory (2026-09-17)
+
+The page was a list of `jobs` rows. A job row is a snapshot of what one worker believed
+at the moment it stopped, and a market search is bought from an asynchronous provider:
+the run that buys it ends minutes before the answer exists, records `PROVIDER_PENDING`,
+and never speaks again. A different run collects the answer and writes its own row.
+
+Production, at the time of this work: **92 `market_mine` job rows for 49 paid searches**,
+**40** of them still saying *Provider still working* about searches DataForSEO finished
+days earlier whose businesses are already in inventory. Every `provider_tasks` row is
+`COLLECTED` (44) or `ABANDONED` (5); not one is pending.
+
+### What is now authoritative for what
+
+**`provider_tasks` is the only thing asked what the provider did.** Provider state and
+Sales Brain state are separate columns, because "the provider has not answered" and "we
+have not collected the answer" are different problems with different owners. The second
+had no way of being seen at all before: a paid, answered, uncollected search was
+indistinguishable from one the provider was still running.
+
+**The unit of the Market Discovery table is one paid search, not one job.** Several job
+rows about the same search collapse into the row that describes it, and the numbers come
+from the run that heard the answer rather than from the run that gave up waiting. On
+production data the page goes from 92 rows to 54: 45 ingested, 5 abandoned, 4 never
+searched.
+
+**The counts above the tabs are tallied from the same rows the table lists.** They were
+first derived separately — the counts in SQL over `provider_tasks`, the rows in
+TypeScript over searches — and they disagreed on production by exactly the one search
+made in live mode, which therefore never created a task row. A count an operator cannot
+reconcile with the table under it is worse than no count, so there is one classification
+and `summarizeMiningView` counts its output.
+
+### `providerAnswered` has one definition, in `src/miner/discoveryStatus.ts`
+
+The page first read "any status that is not PENDING" as "the provider answered". On
+production that turned two runs our *own* daily ceiling had refused — `BUDGET_EXHAUSTED`,
+nothing bought, no task — into searches whose results had been ingested. The miner's
+rule (`OK` or `ZERO_RESULTS`) now lives in its own module that both the worker and the
+web process import; importing the miner itself would register the job handlers inside
+the API process, which is why the rule was copied in the first place.
+
+Separately, the entry a row takes its numbers from is a wider question than whether the
+provider answered — `MALFORMED` is an answer we could not read, and the run that received
+it is still the run that knows what happened. The two questions have two functions.
+
+### Website research aggregates before it enumerates
+
+A hundred rows each saying "Researching website" is not something an operator can act
+on. Six counts drill down into one list. The counts come from `research_runs`, not from
+job outcomes: production holds **320 `account_research` jobs that all report COMPLETED**
+over **226 runs that read a site, 59 that were refused a page, and 35 that read nothing
+and were refused nothing**. A finished job is not a site that was read.
+
+### A dash is not a zero, and a stale sentence is still a stale sentence
+
+A search nobody bought reports `—` for provider rows, resolved businesses and new
+businesses, never `0`: zero is a measurement of a market and nobody measured it. And the
+explanation under a row is taken from the run that answered, because falling back to the
+submitting run's words put *"the provider accepted the search and its results are not
+ready yet"* under a row whose results were ingested an hour later — the same lie in
+smaller type.
+
+### Test runs no longer inherit the operator's spending ceiling
+
+`src/config.ts` loads the whole `.env` into the process, so a box with
+`DISCOVERY_DAILY_BUDGET_USD=0.30` set for production gave the suite a real ceiling: the
+sixth market mined inside one test exhausted it, and a test asserting how a *provider*
+refusal is reported read `DISCOVERY_BLOCKED` — our own refusal — instead. The same suite
+passed on a box with no ceiling configured. `tests/setup.ts` now pins it to 0 unless a
+test sets its own, which is how the spend-control tests already work.

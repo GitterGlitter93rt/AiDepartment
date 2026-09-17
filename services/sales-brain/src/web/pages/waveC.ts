@@ -9,6 +9,11 @@ import type { SessionUser } from '../../domain/auth.js';
 import type { ImportPreview, SessionSummary } from '../../import/session.js';
 import type { OperationalSnapshot } from '../../api/operations.js';
 import type { SemanticState } from '../components/primitives.js';
+import {
+  PROVIDER_STATE_LABEL, SALES_BRAIN_STATE_LABEL,
+  type JobProviderTruth, type MarketDiscoveryRow, type MiningSummary,
+  type ResearchBucket, type WebsiteResearchRow, type WebsiteResearchSummary,
+} from '../../api/miningView.js';
 
 /**
  * Wave C pages: Mining, Research Health, Imports, Sales AI Pilot, Call Review.
@@ -25,25 +30,178 @@ const JOB_STAGE_LABEL: Record<string, string> = {
   contact_research: 'Resolving contacts',
 };
 
+export type MiningTab = 'discovery' | 'website' | 'activity';
+
+const MINING_TABS: { value: MiningTab; label: string }[] = [
+  { value: 'discovery', label: 'Market Discovery' },
+  { value: 'website', label: 'Website Research' },
+  { value: 'activity', label: 'All Activity' },
+];
+
+export function miningTabFrom(value: string | null | undefined): MiningTab {
+  return value === 'website' || value === 'activity' ? value : 'discovery';
+}
+
+/**
+ * Mining.
+ *
+ * The page was a list of job rows, which is a list of things workers believed at the
+ * moments they stopped. An operator could not read off it what market was searched,
+ * what the provider was doing, what Sales Brain was doing, or whether any business
+ * had come of it — and for forty paid searches it said "Provider still working" about
+ * results that were already in inventory.
+ *
+ * Three tabs now, defaulting to the one that answers "what did we search and what did
+ * we get". Market Discovery is one row per paid search; Website Research aggregates
+ * before it enumerates; All Activity keeps the raw job history for when the question
+ * really is about a job.
+ */
 export function renderMiningPage(input: {
-  user: SessionUser; counts: NavCounts; kpis: any; jobs: any[];
+  user: SessionUser; counts: NavCounts; kpis: any; tab: MiningTab;
+  summary: MiningSummary;
+  discovery: MarketDiscoveryRow[];
+  website: WebsiteResearchSummary | null;
+  websiteBucket: ResearchBucket | null;
+  websiteRows: WebsiteResearchRow[];
+  jobs: any[];
+  jobProviderTruth: Map<string, JobProviderTruth>;
 }): string {
-  const { user, counts, kpis, jobs } = input;
+  const { user, counts, kpis, tab, summary } = input;
 
   const body = html`
     ${discoveryBanner(kpis)}
+    ${miningSummaryStrip(summary)}
+
+    <div class="chips" style="margin:16px 0">
+      ${MINING_TABS.map((entry) => html`
+        <a class="chip" href="/mining?tab=${entry.value}"
+           aria-pressed="${tab === entry.value ? 'true' : 'false'}">${entry.label}</a>`)}
+    </div>
+
+    ${tab === 'discovery' ? marketDiscoverySection(input.discovery, kpis) : ''}
+    ${tab === 'website'
+      ? websiteResearchSection(input.website, input.websiteBucket, input.websiteRows)
+      : ''}
+    ${tab === 'activity' ? allActivitySection(input.jobs, input.jobProviderTruth) : ''}`;
+
+  return renderPage({
+    title: 'Mining',
+    subtitle: 'Keep prospect inventory fresh without interrupting reps.',
+    user, currentPath: '/mining', counts, body,
+  });
+}
+
+/**
+ * The seven numbers above the tabs.
+ *
+ * Provider work and our work are separate cards on purpose. "Waiting on Sales Brain"
+ * is the one that never existed before: a search that is paid for, answered, and not
+ * yet in inventory was indistinguishable from one the provider was still running.
+ */
+function miningSummaryStrip(summary: MiningSummary): RawHtml {
+  return html`
     <div class="grid grid-kpi">
-      ${kpiCard({ label: 'Active jobs', value: kpis.active, sub: `${kpis.queued} queued` })}
+      ${kpiCard({ label: 'Provider processing', value: summary.providerProcessing,
+                  sub: 'paid searches not answered yet' })}
+      ${kpiCard({ label: 'Waiting on Sales Brain', value: summary.waitingOnSalesBrain,
+                  tone: summary.waitingOnSalesBrain > 0 ? 'attention' : 'default',
+                  sub: 'answered, not collected' })}
+      ${kpiCard({ label: 'Collecting', value: summary.collecting,
+                  sub: 'collection running now' })}
+      ${kpiCard({ label: 'Results ingested', value: summary.resultsIngested,
+                  sub: `of ${summary.searchesCounted} searches on this page` })}
+      ${kpiCard({ label: 'Website research queued', value: summary.websiteResearchQueued,
+                  sub: 'accounts waiting to be researched' })}
+      ${kpiCard({ label: 'Website research running', value: summary.websiteResearchRunning,
+                  sub: 'in progress now' })}
+      ${kpiCard({ label: 'Needs attention', value: summary.needsAttention,
+                  tone: summary.needsAttention > 0 ? 'attention' : 'default',
+                  sub: 'failed, abandoned or uncollected' })}
+    </div>`;
+}
+
+// ------------------------------------------------------------ Market Discovery
+
+function marketDiscoverySection(rows: MarketDiscoveryRow[], kpis: any): RawHtml {
+  return html`
+    <div class="grid grid-kpi" style="margin-bottom:16px">
       ${kpiCard({ label: 'Discovered by the miner', value: kpis.discoveredByMinerToday,
                   tone: kpis.discoveredByMinerToday > 0 ? 'good' : 'default',
                   sub: 'new businesses found today' })}
       ${kpiCard({ label: 'Re-researched by a worker', value: kpis.refreshedByWorkerToday,
                   sub: 'completed research runs today' })}
-      ${kpiCard({ label: 'Needs review', value: kpis.failed,
-                  tone: kpis.failed > 0 ? 'attention' : 'default', sub: 'failed jobs' })}
     </div>
 
-    <div style="height:14px"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Market searches</h2>
+        <span class="muted small">
+          One row per search. Provider state comes from the paid-task ledger; Sales
+          Brain state is what we have done with the answer.
+        </span>
+      </div>
+      ${rows.length === 0
+        ? emptyState({
+            title: 'No market searches yet',
+            explanation: 'A row appears here when a market search is submitted, whether or not the provider has answered.',
+            action: { href: '/markets', label: 'Browse markets' },
+          })
+        : html`<div class="table-wrap">
+            <table class="data">
+              <thead><tr>
+                <th>Industry</th><th>Geography</th><th>Keyword</th><th>Requested by</th>
+                <th>Provider</th><th>Sales Brain</th><th>Submitted</th><th>Collected</th>
+                <th>Rows returned</th><th>Duplicates</th><th>Resolved businesses</th>
+                <th>New businesses</th><th>Matched existing</th><th>Existing refreshed</th>
+                <th>Rejected</th>
+                <th>Needs review</th><th>Spend</th><th>Outcome</th>
+              </tr></thead>
+              <tbody>
+                ${rows.map((row) => html`<tr>
+                  <td class="cell-company">${row.verticalProfileId ?? '—'}</td>
+                  <td>${row.geography ?? row.marketName ?? '—'}
+                      ${row.geographyType
+                        ? html`<span class="micro muted"> ${row.geographyType}</span>` : ''}</td>
+                  <td class="muted small">${row.keyword ?? row.term ?? '—'}</td>
+                  <td class="muted small">${row.requestedBy ?? 'scheduler'}</td>
+                  <td>${providerStatePill(row)}</td>
+                  <td>${salesBrainStatePill(row)}</td>
+                  <td class="muted small">${row.submittedAt ? relativeTime(row.submittedAt) : '—'}</td>
+                  <td class="muted small">
+                    ${row.providerCollectedAt ? relativeTime(row.providerCollectedAt) : '—'}</td>
+                  <td>${count(row.rowsReturned)}</td>
+                  <td>${count(row.duplicateRows)}</td>
+                  <td>${count(row.resolvedBusinesses)}</td>
+                  <td>${row.newBusinesses == null
+                        ? html`<span class="muted small">—</span>`
+                        : html`<strong>${row.newBusinesses}</strong>`}</td>
+                  <td>${count(row.matchedExisting)}</td>
+                  <td>${count(row.existingRefreshed)}</td>
+                  <td>${count(row.rejectedEntities)}</td>
+                  <td>${row.needsReview == null
+                        ? html`<span class="muted small">—</span>`
+                        : html`${row.needsReview}${row.needsReviewIsRunWide
+                            ? html`<span class="micro muted" title="This run ingested several searches, so the figure covers all of them."> (run)</span>`
+                            : ''}`}</td>
+                  <td class="muted small">${row.spendUsd == null
+                        ? html`<span title="No charge is recorded for this search.">—</span>`
+                        : `$${row.spendUsd.toFixed(4)}`}</td>
+                  <td>${searchOutcomePill(row)}</td>
+                </tr>
+                ${row.reason || row.rowsReturned ? html`<tr>
+                  <td colspan="18" class="micro muted" style="padding-top:0">
+                    ${row.providerTaskId
+                      ? html`<span title="The provider's own task id.">${row.providerTaskId}</span>`
+                      : ''}${row.providerTaskId && row.reason ? ' · ' : ''}${row.reason ?? ''}${
+                      searchFunnelLine(row)}
+                  </td>
+                </tr>` : ''}`)}
+              </tbody>
+            </table>
+          </div>`}
+    </div>
+
+    <div style="height:18px"></div>
 
     <div class="card">
       <div class="card-head">
@@ -74,14 +232,181 @@ export function renderMiningPage(input: {
         the last 24 hours; ${kpis.refreshedByWorkerToday} of those came from a research
         run that actually completed. A seeded or imported timestamp is not a refresh.
       </div>
+    </div>`;
+}
+
+/**
+ * The arithmetic between what the provider sent and what reached inventory.
+ *
+ * The columns carry the same numbers; this restates them in their units, because
+ * "5 provider rows became 1 new Account" is either good dedupe or a broken filter and
+ * the only way to tell is to see the steps in between named.
+ */
+function searchFunnelLine(row: MarketDiscoveryRow): RawHtml {
+  const rows = row.rowsReturned ?? 0;
+  if (rows === 0) return raw('');
+  const parts = [
+    `${rows} provider row(s)`,
+    (row.duplicateRows ?? 0) > 0 ? `${row.duplicateRows} duplicate` : null,
+    (row.rejectedEntities ?? 0) > 0 ? `${row.rejectedEntities} unusable` : null,
+    `${row.matchedExisting ?? 0} already held`,
+    `${row.newBusinesses ?? 0} new`,
+  ].filter(Boolean) as string[];
+  return html` <span class="micro">· ${parts.join(' → ')}</span>`;
+}
+
+function count(value: number | null): RawHtml {
+  // A dash, not a zero. Zero is a measurement; "we never got there" is not.
+  return value == null ? html`<span class="muted small">—</span>` : html`${value}`;
+}
+
+/** The ledger's word, never a job's. */
+function providerStatePill(row: MarketDiscoveryRow): RawHtml {
+  const label = PROVIDER_STATE_LABEL[row.providerState];
+  if (row.providerState === 'COLLECTED') return statusPill(label, 'success');
+  if (row.providerState === 'PENDING') return statusPill(label, 'info');
+  if (row.providerState === 'ABANDONED') return statusPill(label, 'warning');
+  if (row.providerState === 'FAILED') return statusPill(label, 'destructive');
+  return statusPill(label, 'neutral');
+}
+
+function salesBrainStatePill(row: MarketDiscoveryRow): RawHtml {
+  const label = SALES_BRAIN_STATE_LABEL[row.salesBrainState];
+  switch (row.salesBrainState) {
+    case 'INGESTED': return statusPill(label, 'success');
+    case 'COLLECTING': return statusPill(label, 'info');
+    case 'AWAITING_PROVIDER': return statusPill(label, 'neutral');
+    case 'COLLECTED_NOT_INGESTED': return statusPill(label, 'review');
+    case 'ABANDONED': return statusPill(label, 'warning');
+    case 'PROVIDER_FAILED': return statusPill(label, 'destructive');
+    default: return statusPill(label, 'blocked');
+  }
+}
+
+/**
+ * What the search achieved, in the words the rest of the product uses.
+ *
+ * Derived from the search rather than from its job, so a run that bought four
+ * searches no longer describes all four with one verdict.
+ */
+function searchOutcomePill(row: MarketDiscoveryRow): RawHtml {
+  if (row.salesBrainState === 'NOT_SEARCHED') {
+    if (row.jobOutcome === 'MARKET_DISABLED') {
+      return statusPill('Market switched off — not searched', 'neutral');
+    }
+    if (row.jobOutcome === 'PROVIDER_UNAVAILABLE') {
+      return statusPill('Provider unavailable', 'destructive');
+    }
+    // Includes our own daily ceiling: the search was refused before it was bought.
+    return statusPill('Could not search', 'warning');
+  }
+  if (row.salesBrainState === 'ABANDONED') return statusPill('Paid, never collected', 'warning');
+  if (row.salesBrainState === 'PROVIDER_FAILED') return statusPill('Failed', 'destructive');
+  if (row.salesBrainState !== 'INGESTED') return statusPill('In flight', 'info');
+  if (row.searchStatus === 'MALFORMED') {
+    return statusPill('Answer could not be read', 'destructive');
+  }
+  if ((row.newBusinesses ?? 0) > 0) return statusPill('Found new businesses', 'success');
+  if ((row.matchedExisting ?? 0) > 0) {
+    return statusPill('Searched, all already held', 'neutral');
+  }
+  return statusPill('Searched, found nothing new', 'neutral');
+}
+
+// ------------------------------------------------------------ Website Research
+
+const RESEARCH_BUCKET_LABEL: Record<ResearchBucket, string> = {
+  queued: 'Queued', running: 'Running', completed: 'Completed',
+  blocked: 'Blocked', source_unavailable: 'Source unavailable', failed: 'Failed',
+};
+
+function websiteResearchSection(
+  summary: WebsiteResearchSummary | null, bucket: ResearchBucket | null,
+  rows: WebsiteResearchRow[],
+): RawHtml {
+  if (!summary) return emptyState({ title: 'No website research yet', explanation: 'Research runs appear here once accounts are queued for it.' });
+
+  // Each aggregate is the way into its own drill-down, which is what keeps a hundred
+  // "Researching website" rows off the page an operator opens.
+  const card = (key: ResearchBucket, value: number, sub: string): RawHtml =>
+    kpiCard({
+      label: RESEARCH_BUCKET_LABEL[key], value,
+      sub: bucket === key ? `${sub} · showing below` : sub,
+      href: `/mining?tab=website&bucket=${key}`,
+      tone: (key === 'failed' || key === 'blocked' || key === 'source_unavailable')
+        && value > 0 ? 'attention' : 'default',
+    });
+
+  return html`
+    <div class="card">
+      <div class="card-head">
+        <h2>Website research</h2>
+        <span class="muted small">
+          ${summary.total} run(s) recorded. A run that finished is not a site that was read.
+        </span>
+      </div>
+      <div class="card-pad">
+        <div class="grid grid-kpi">
+          ${card('queued', summary.queued, 'waiting for a worker')}
+          ${card('running', summary.running, 'in progress now')}
+          ${card('completed', summary.completed, 'the site was read')}
+          ${card('blocked', summary.blocked, 'a page refused us')}
+          ${card('source_unavailable', summary.sourceUnavailable, 'nothing could be read')}
+          ${card('failed', summary.failed, 'the job itself failed')}
+        </div>
+        <p class="micro muted" style="margin:12px 0 0">
+          ${summary.completedWithSomeBlocked} completed run(s) still had at least one page
+          refused, so "completed" does not mean the whole site was readable.
+        </p>
+      </div>
     </div>
 
     <div style="height:18px"></div>
 
+    ${bucket
+      ? html`<div class="card">
+          <div class="card-head">
+            <h2>${RESEARCH_BUCKET_LABEL[bucket]}</h2>
+            <span class="muted small">${rows.length} shown</span>
+          </div>
+          ${rows.length === 0
+            ? emptyState({ title: 'Nothing in this state', explanation: 'No research run is currently in this state.' })
+            : html`<div class="table-wrap">
+                <table class="data">
+                  <thead><tr>
+                    <th>Company</th><th>State</th><th>Pages read</th><th>Pages refused</th>
+                    <th>When</th><th>Detail</th>
+                  </tr></thead>
+                  <tbody>
+                    ${rows.map((row) => html`<tr>
+                      <td class="cell-company">${row.accountId
+                        ? html`<a href="/accounts/${row.accountId}">${row.companyName ?? 'Unnamed account'}</a>`
+                        : (row.companyName ?? '—')}</td>
+                      <td>${statusPill(RESEARCH_BUCKET_LABEL[row.bucket],
+                            row.bucket === 'completed' ? 'success'
+                              : row.bucket === 'failed' ? 'destructive'
+                              : row.bucket === 'blocked' ? 'blocked'
+                              : row.bucket === 'running' ? 'info' : 'warning')}</td>
+                      <td>${count(row.pagesFetched)}</td>
+                      <td>${count(row.pagesBlocked)}</td>
+                      <td class="muted small">${row.at ? relativeTime(row.at) : '—'}</td>
+                      <td class="muted small cell-why">${row.detail ?? '—'}</td>
+                    </tr>`)}
+                  </tbody>
+                </table>
+              </div>`}
+        </div>`
+      : html`<p class="muted small">Choose a state above to see the accounts in it.</p>`}`;
+}
+
+// ---------------------------------------------------------------- All Activity
+
+function allActivitySection(jobs: any[], truth: Map<string, JobProviderTruth>): RawHtml {
+  return html`
     <div class="card">
       <div class="card-head">
-        <h2>Research jobs</h2>
-        <span class="muted small">Keeping inventory fresh without interrupting reps</span>
+        <h2>All activity</h2>
+        <span class="muted small">Every job, newest first — the raw history behind the tabs above</span>
       </div>
       ${jobs.length === 0
         ? emptyState({
@@ -104,7 +429,7 @@ export function renderMiningPage(input: {
                   <td class="muted small">${job.started_at ? relativeTime(job.started_at) : 'not started'}</td>
                   <td>${discoveredCell(job)}</td>
                   <td class="muted small">${job.refresh_queued ?? 0}</td>
-                  <td>${outcomePill(job)}</td>
+                  <td>${outcomePill(job, truth.get(job.job_id) ?? null)}</td>
                   <td class="muted small">${job.requested_by_name ?? 'system'}</td>
                 </tr>
                 ${job.outcome_reason ? html`<tr>
@@ -124,12 +449,6 @@ export function renderMiningPage(input: {
             </table>
           </div>`}
     </div>`;
-
-  return renderPage({
-    title: 'Mining',
-    subtitle: 'Keep prospect inventory fresh without interrupting reps.',
-    user, currentPath: '/mining', counts, body,
-  });
 }
 
 function jobStagePill(job: any): RawHtml {
@@ -162,10 +481,31 @@ const JOB_OUTCOME_LABEL: Record<string, { label: string; tone: SemanticState }> 
   FAILED: { label: 'Failed', tone: 'destructive' },
 };
 
-function outcomePill(job: any): RawHtml {
+/**
+ * What the job was told, corrected by what the ledger has since recorded.
+ *
+ * A `market_mine` run that bought an asynchronous search ends before the answer
+ * exists and records PROVIDER_PENDING for ever. Forty production rows say "Provider
+ * still working" about searches DataForSEO finished days ago, whose results are in
+ * inventory. The job's own outcome is not rewritten -- it was true when it was
+ * written -- but the sentence a person reads is the current one.
+ */
+function outcomePill(job: any, truth: JobProviderTruth | null): RawHtml {
   if (job.status === 'RUNNING') return statusPill('Running', 'info');
   if (job.status === 'QUEUED') return statusPill('Queued', 'neutral');
   if (job.status === 'CANCELLED') return statusPill('Cancelled', 'neutral');
+  if (job.outcome === 'PROVIDER_PENDING' && truth && truth.outstanding === 0) {
+    if (truth.collected > 0) {
+      return statusPill('Provider finished — collected since', 'success',
+        'This run ended before the provider answered. The paid-task ledger records the '
+        + 'answer as collected afterwards.');
+    }
+    if (truth.abandoned > 0) {
+      return statusPill('Provider never delivered', 'warning',
+        'The paid task was given up on: its result is no longer retrievable.');
+    }
+    if (truth.failed > 0) return statusPill('Provider failed', 'destructive');
+  }
   const outcome = job.outcome ? JOB_OUTCOME_LABEL[job.outcome] : null;
   if (outcome) return statusPill(outcome.label, outcome.tone);
   // A job that ran before outcomes existed. Saying "succeeded" is the thing this

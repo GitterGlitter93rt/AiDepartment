@@ -49,13 +49,17 @@ A task should appear in only one status section. Dependencies may be referenced 
   **Completion gate:** preview counts and worked examples per class, with a proposed
   action per class, and no production writes. Mass remediation needs Michael's separate
   authorization.
-- [ ] **SB-V2-2 — Mining page redesign.** Default tab Market Discovery; tabs Market
-  Discovery / Website Research / All Activity. Provider state and internal Sales Brain
-  state must be separate columns — the page must never show "Provider still working"
-  when `provider_tasks` durably says COLLECTED. Website Research aggregates
-  Queued/Running/Complete/Blocked/Failed with drill-down, not a wall of "Researching
-  websites". **Completion gate:** both status dimensions render from durable truth and
-  the summary counts reconcile with the tables.
+- [x] **SB-V2-2 — Mining page redesign COMPLETE.** Default tab Market Discovery; tabs
+  Market Discovery / Website Research / All Activity. One row per paid search rather
+  than per job: provider state comes from `provider_tasks`, Sales Brain state from what
+  we did with the answer, in separate columns. Website Research aggregates
+  Queued/Running/Completed/Blocked/Source unavailable/Failed from `research_runs` with
+  drill-down. **Gate verified:** the phrase "Provider still working" cannot appear for a
+  task the ledger has collected (asserted on all three tabs); the summary counts are
+  tallied from the rows the table lists, so they reconcile by construction; 13 new
+  targeted tests plus 34 existing mining-truth tests pass; `npm run check` and
+  `npm run build` clean. On production data the page reads 54 searches instead of 92 job
+  rows, and the 40 "Provider still working" rows are gone. Detail in brain/DECISIONS.md.
 - [ ] **SB-V2-3 — Physical location enrichment, conservative and first-party.** Keep
   PHYSICAL ADDRESS, SERVICE AREA and DISCOVERY GEOGRAPHY distinct. Sources: schema.org
   `PostalAddress`, `LocalBusiness`, contact and location pages, explicit company
