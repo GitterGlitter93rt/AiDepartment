@@ -75,8 +75,8 @@ is distinguishable from it.
 | | |
 |---|---|
 | V2 branch | `feature/sales-brain-v2` |
-| RC commit | _recorded below once frozen_ |
-| RC tree | _recorded below once frozen_ |
+| RC commit | `6261a713f859c5f3a2e4c8fbffd31e862af86b3a` (frozen 2026-09-17 08:14 UTC) |
+| RC tree | `887c5b0de0ff52b3aefd1333dae02880f4ee1ada` |
 | `services/` subtree under qualification | `154b047e` |
 | Previous production SHA | `3e4a2820afdaf2ef3b1490bad99e849bb08372ef` |
 | Production branch | `feature/outbound-sales-brain` |
@@ -100,7 +100,47 @@ been deployed. **Any future port of that work must renumber it**; it must not be
 to own 053. This is recorded here and in `brain/DECISIONS.md` so the collision is caught
 before it reaches a database rather than after.
 
-## 4. Results
+## 4. Pre-deploy production capture (2026-09-17 08:15 UTC)
+
+Verified before anything was touched, not assumed from the brief.
+
+| | |
+|---|---|
+| production SHA (worker heartbeat) | `3e4a282`, migrations_expected 52, heartbeat 8s old |
+| `/healthz` | 200, `database: ok`, `outboundDialEnabled: false` |
+| services | `yad-sales-api` active, `yad-sales-worker` active |
+| schema | 52 applied, latest `052_search_plan_preview.sql` |
+| tables | 77 |
+| Accounts | 320 total, 320 not suppressed, 0 merged |
+| `provider_tasks` | 44 COLLECTED, 5 ABANDONED, **0 PENDING** |
+| jobs | 412 SUCCEEDED, 0 queued, 0 running |
+| saved markets | 0 total, 0 enabled |
+| `provider_usage` | 97 calls, $0.2580 lifetime spend |
+| human sales activity | **0** (activities with an actor: 0; 320 DISCOVERED + 320 CONTACT_ENRICHED, all system) |
+
+**Pre-deploy backup:** `/home/roothecks/yad-sales-backups/yad_sales_20260917T081538Z.sql.gz`,
+985,350 bytes, taken with the project's own `deploy/backup.sh` and verified by
+`deploy/verify-backup.sh`: *77 tables declared, all 6 required present*.
+
+## 5. Migration rehearsal against production-shaped data
+
+The backup was restored into a throwaway database (`yad_sales_rehearsal`) and the V2
+migrations run against it. This is the check that matters more than a fresh-install test:
+it is production's own rows, at schema 52, meeting the new constraints.
+
+| check | result |
+|---|---|
+| applies from schema 52 | ✅ `053` and `054` applied, 52 → 54 |
+| idempotent per the runner | ✅ second run: *0 applied, 54 already present* |
+| enrichment-only tables needed | ✅ none |
+| tables | 77 → 78 (`account_relationships`) |
+| data preserved | ✅ 320 Accounts, 66 locations |
+| `locations_physical_needs_street` | present, **NOT VALID as designed** — the 66 legacy rows are governed going forward, not rejected retroactively |
+| constraint bites | ✅ physical-with-no-street refused, one-signal relationship refused, self-relationship refused |
+| `evidence_records.location_id` | present |
+| V2 tooling at schema 54 | ✅ `remediation:preview` produces identical counts on production data |
+
+## 6. Results
 
 _Filled in as the run proceeds._
 
