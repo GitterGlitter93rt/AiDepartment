@@ -51,6 +51,7 @@ function line(verdict: AccountVerdict): string {
     `  domain            ${verdict.canonicalDomain ?? '-'}`,
     `  vertical          ${verdict.verticalProfileId ?? '-'}`,
     `  entity status     ${verdict.entityStatus ?? '-'}`,
+    `  entity basis      ${verdict.entityStatusBasis ?? '-'}`,
     `  discovery query   ${e.discoveryQuery ?? '-'}`,
     `  result types      ${e.resultTypes.join(', ') || '-'}   best position ${e.bestPosition ?? '-'}`,
     `  provider category ${e.providerCategories.join(', ') || 'none recorded'}`,

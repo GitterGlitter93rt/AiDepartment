@@ -156,6 +156,7 @@ export interface AccountVerdict {
   canonicalDomain: string | null;
   verticalProfileId: string | null;
   entityStatus: string | null;
+  entityStatusBasis: string | null;
   primaryClass: RemediationClass;
   findings: Finding[];
   activityState: ActivityState;
@@ -460,6 +461,7 @@ export function classifyAccount(bundle: AccountBundle): AccountVerdict {
     canonicalDomain: bundle.canonicalDomain,
     verticalProfileId: bundle.verticalProfileId,
     entityStatus: bundle.entityStatus,
+    entityStatusBasis: bundle.entityStatusBasis,
     primaryClass,
     findings,
     activityState: state,
