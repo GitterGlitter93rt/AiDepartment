@@ -140,10 +140,52 @@ it is production's own rows, at schema 52, meeting the new constraints.
 | `evidence_records.location_id` | present |
 | V2 tooling at schema 54 | ✅ `remediation:preview` produces identical counts on production data |
 
-## 6. Results
+## 6. What the preview says tonight, and why re-research comes before remediation
+
+Read against production before any change, to see what the authorization would actually
+act on. It found the reason the order in Michael's instructions is the right one.
+
+The junk class is mostly **LOW confidence and marked for review**, not because the records
+are defensible but because the classifier requires two independent signals and a listicle
+*with* a domain currently produces one:
+
+| record | domain | confidence |
+|---|---|---|
+| `An 82-year-old Vietnam veteran in St. Augustine says he's ...` | — | HIGH |
+| `10 Best Roofers in St. Augustine, FL` | todayshomeowner.com | LOW, review |
+| `Best roofers in St. Augustine, Fla.` | local.yahoo.com | LOW, review |
+| `Apartments for Rent in 33133 - Miami, FL` | apartments.com | LOW, review |
+| `Construction & Skilled Trades Jobs in Ybor City, FL 33605, USA` | miamijobs.com | LOW, review |
+
+Two candidate "second signals" were measured against production rather than assumed, and
+one of them failed:
+
+- **distinct business names seen on the same domain** — local.yahoo.com carries 17 and
+  buildzoom.com 9, but `mechanicalone.com` carries 7 and is a real HVAC company whose
+  pages simply ranked under different titles. At any threshold low enough to catch the
+  aggregators it catches real companies, so it is not used as a gate.
+- **absence of any business-listing evidence** — true of the junk and equally true of real
+  companies like `energyair.com` and `alvarezplumbing.com`. Not discriminating.
+
+The signal that does separate them is one this estate does not have yet: **what the site
+says it is**. A page titled "10 Best Roofers in St. Augustine, FL" sits on a site whose own
+identity is "Today's Homeowner", and a record whose stored name is page copy *and* whose
+own site identifies a different company is not a company record — it is a page on somebody
+else's site. That evidence is produced by first-party research, which is exactly why the
+authorization puts re-research before remediation.
+
+So tonight's order is: deploy, re-research the estate, then judge with the evidence the
+re-research produced. Records that still rest on one signal go to review, as instructed.
+
+**Also settled by this reading:** `Apartments for Rent in 33133 - Miami, FL` is a real
+company's page (Apartments.com), and the honest action for it is the U-Haul action —
+clear the unsupported trade so it leaves HVAC inventory — rather than pretending the
+company does not exist.
+
+## 7. Results
 
 _Filled in as the run proceeds._
 
-## 5. Morning handoff
+## 8. Morning handoff
 
 _Filled in at the end._
