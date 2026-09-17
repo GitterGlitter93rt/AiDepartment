@@ -124,24 +124,65 @@ export function proposeTrimmedName(input: {
   candidateNames: { name: string; basis: string | null }[];
   /** What the site calls itself, when it has been asked. */
   siteIdentity?: { name: string; basis: string | null } | null;
+  /**
+   * True when the record is shaped like a page rather than a company.
+   *
+   * The declaration rule below is refused for such a record, and this flag is the only
+   * thing that refuses it. Without it the rule renames "10 Best Roofers in St.
+   * Augustine, FL" to "Today's Homeowner", because a directory names itself on its own
+   * domain exactly as convincingly as a contractor does. A page on somebody's site is
+   * suppressed, not relabelled with the site's name.
+   */
+  recordLooksLikeAPage?: boolean;
 }): { name: string; basis: string } | null {
   const stored = normalizeCompanyName(input.canonicalName);
   if (!stored) return null;
 
   /**
-   * The site's own name, when the stored name already contains it.
+   * The site's own name, from the Account's own domain.
    *
-   * This is the case Michael named: "HVAC Services in St. Augustine, FL - Palatka -
-   * Southern Air" becomes "Southern Air" because southernair.com says it is Southern
-   * Air, and the stored name already carries those words. A site name the stored name
-   * does *not* contain is not applied -- that is a different company's record, or a
-   * rename, and either needs a person.
+   * Two shapes, and the second one needed the estate to be looked at before it could be
+   * written honestly.
+   *
+   * The first is containment: "HVAC Services in St. Augustine, FL - Palatka - Southern
+   * Air" becomes "Southern Air" because southernair.com says so and the stored name
+   * already carries the words.
+   *
+   * The second is the case containment misses, and it is the common one. Production
+   * holds "Top St. Augustine Roofing Contractor | Free Roof Inspection" on
+   * hightideroofing.com, whose own schema.org block says "High Tide Roofing &
+   * Waterproofing, Inc". The stored name contains none of that -- it is pure page copy
+   * with no brand segment at all -- so containment refuses exactly the records that most
+   * need fixing.
+   *
+   * What makes the replacement safe is not containment, it is *whose site said it*. A
+   * machine-readable self-declaration, on the domain attributed to this Account, whose
+   * name matches that domain, is the company naming itself. The domain check is the
+   * load-bearing part: it is what stops a directory's own name -- "Today's Homeowner" on
+   * todayshomeowner.com -- from being written onto a record that merely sits there,
+   * because such a record is a page rather than a company and is handled by suppression
+   * instead.
    */
   const site = input.siteIdentity;
   if (site) {
     const siteName = normalizeCompanyName(site.name);
     if (siteName.length >= 4 && siteName !== stored && stored.includes(siteName)) {
       return { name: site.name.trim(), basis: `the site's own name (${site.basis ?? 'first party'})` };
+    }
+
+    const declared = /SCHEMA_ORG_NAME|OG_SITE_NAME/.test(site.basis ?? '');
+    const domain = input.canonicalDomain ? registrableDomain(input.canonicalDomain) : null;
+    const domainStem = domain ? domain.split('.')[0]!.replace(/[^a-z0-9]/gi, '').toLowerCase() : null;
+    const siteCompact = siteName.replace(/[^a-z0-9]/g, '');
+    const namesItsOwnDomain = Boolean(domainStem && domainStem.length >= 5 && siteCompact.length >= 5
+      && (domainStem.includes(siteCompact.slice(0, Math.min(siteCompact.length, 12)))
+        || siteCompact.includes(domainStem)));
+    if (declared && namesItsOwnDomain && siteName.length >= 4 && siteName !== stored
+      && !input.recordLooksLikeAPage) {
+      return {
+        name: site.name.trim(),
+        basis: `the company's own site declares it (${site.basis}), on its own domain ${domain}`,
+      };
     }
   }
 
@@ -309,6 +350,7 @@ export async function planRemediation(limit: number | null = null): Promise<Appl
         canonicalDomain: verdict.canonicalDomain,
         candidateNames: bundle.candidateResolvedNames,
         siteIdentity: bundle.siteIdentity,
+        recordLooksLikeAPage: verdict.findings.some((f) => f.code === 'NON_COMPANY_ENTITY'),
       });
       if (proposal) {
         changes.push({

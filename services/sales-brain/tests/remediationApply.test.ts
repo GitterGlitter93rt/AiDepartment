@@ -64,6 +64,7 @@ test('a name is only ever trimmed to one the stored name already contains', () =
     canonicalDomain: 'todayshomeowner.com',
     candidateNames: [],
     siteIdentity: { name: "Today's Homeowner", basis: 'basis=OG_SITE_NAME' },
+    recordLooksLikeAPage: true,
   });
   assert.equal(different, null);
 
@@ -75,6 +76,41 @@ test('a name is only ever trimmed to one the stored name already contains', () =
     candidateNames: [{ name: 'HVAC Service Areas Near Tampa, FL', basis: 'own_site_title' }],
   });
   assert.equal(otherCity, null);
+});
+
+test('a company that declares its own name on its own domain may be renamed from it', () => {
+  // The common production shape, and the one containment refuses: the stored name is
+  // pure page copy with no brand segment at all. hightideroofing.com's schema.org block
+  // says "High Tide Roofing & Waterproofing, Inc" and the record says none of it.
+  const renamed = proposeTrimmedName({
+    canonicalName: 'Top St. Augustine Roofing Contractor | Free Roof Inspection',
+    canonicalDomain: 'hightideroofing.com',
+    candidateNames: [],
+    siteIdentity: { name: 'High Tide Roofing & Waterproofing, Inc', basis: 'basis=SCHEMA_ORG_NAME' },
+  });
+  assert.equal(renamed?.name, 'High Tide Roofing & Waterproofing, Inc');
+  assert.match(renamed!.basis, /its own domain/);
+
+  // The load-bearing guard: a name that does not match the domain it came from is a
+  // site naming itself on somebody else's record, and is refused.
+  const directory = proposeTrimmedName({
+    canonicalName: '10 Best Roofers in St. Augustine, FL',
+    canonicalDomain: 'todayshomeowner.com',
+    candidateNames: [],
+    siteIdentity: { name: "Today's Homeowner", basis: 'basis=OG_SITE_NAME' },
+    recordLooksLikeAPage: true,
+  });
+  assert.equal(directory, null,
+    "a directory's own name was written onto a record that merely sits on it");
+
+  // And a title-segment match is not a declaration, so it does not get the wider rule.
+  const weak = proposeTrimmedName({
+    canonicalName: 'Some Page Title Entirely Unrelated',
+    canonicalDomain: 'hightideroofing.com',
+    candidateNames: [],
+    siteIdentity: { name: 'High Tide Roofing', basis: 'basis=TITLE_BRAND_SEGMENT' },
+  });
+  assert.equal(weak, null);
 });
 
 // ------------------------------------------------------------------ what is applied
