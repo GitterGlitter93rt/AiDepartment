@@ -143,6 +143,8 @@ export interface AccountBundle {
   observations: ObservationEvidence[];
   /** ENTITY_DISCOVERY terms of the Account's current vertical profile. */
   verticalTerms: string[];
+  /** The trade's own vocabulary, for reading a provider category. */
+  serviceAliases: string[];
   emails: EmailEndpointEvidence[];
   phoneCount: number;
   locationCount: number;
@@ -266,6 +268,7 @@ export function verticalSupport(bundle: AccountBundle): {
       resultType,
       providerCategory: observation.category,
       verticalTerms: bundle.verticalTerms,
+      serviceAliases: bundle.serviceAliases,
       providerListing: providerListing && LISTING_RESULT_TYPES.has(resultType),
     });
     if (relevance === 'SUPPORTED') {

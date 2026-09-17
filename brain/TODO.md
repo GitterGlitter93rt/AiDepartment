@@ -27,6 +27,23 @@ A task should appear in only one status section. Dependencies may be referenced 
 
 ### V2 — next phase (branch `feature/sales-brain-v2`, cut from the live V1 SHA)
 
+**Where V2 stands.** SB-V2-1 through SB-V2-7 are built and targeted-green on the branch.
+Nothing is deployed: production still runs V1 at `3e4a282`, `outboundDialEnabled` is
+false, no paid search has been bought and no historical record has been rewritten.
+
+**The two decisions that are Michael's, in the order the measurements suggest:**
+
+1. **Authorise historical remediation (SB-V2-1b).** 189 of 320 Accounts carry a page
+   title where a company name should be, and the Stage-D planner refuses to buy a search
+   for a page title — so 56 of every 100 Accounts cannot be usefully searched until this
+   is fixed. Fixing names first roughly doubles what the same Stage-D money buys.
+2. **Authorise a measured Stage-D batch,** at $0.74 per 100 Accounts (worst case $3.00),
+   after reading `npm run contact:yield` and `npm run stage-d:preview`.
+
+**Before a V2 release candidate is frozen:** the full forward and reverse qualification,
+which has deliberately not been run during development.
+
+
 - [x] **SB-V2-1 — Historical data remediation, read-only preview COMPLETE.** `npm run
   remediation:preview` classifies all 320 Accounts from evidence, writes nothing, and
   refuses `--apply`. **Gate verified:** 20 targeted tests pass, `npm run check` clean,
@@ -123,7 +140,18 @@ A task should appear in only one status section. Dependencies may be referenced 
   provider, measure ~100 workable Accounts: decision maker and named email from
   first-party only, then after public search; direct phone vs main line only; unresolved
   counts; average Stage-D searches per Account; estimated spend per Account and per 100.
-- [ ] **SB-V2-7 — Vertical evidence: a provider business listing is currently enough.**
+- [x] **SB-V2-7 — Vertical evidence boundary closed.** The provider's category is now
+  captured (`item.category` → observation → candidate → `search_observations.category`,
+  a column nothing had ever written) and it settles the trade both ways: one that agrees
+  supports it, one that disagrees refuses it whatever the listing says. A listing with
+  no category still supports the trade, measured rather than assumed — 21 of 93
+  listing-found Accounts contain no discovery-query word and are real HVAC companies.
+  `service_aliases`, declared by every profile and read by nothing, is now read, because
+  Google's own HVAC categories match no HVAC discovery query. **Gate verified:** 16
+  vertical-relevance tests including the three new boundary cases, 54 across the
+  vertical suites, `npm run check` clean, and the remediation preview reports identical
+  counts on production because every historical category is null.
+- [ ] ~~SB-V2-7 — Vertical evidence: a provider business listing is currently enough.~~
   `discoveryVerticalRelevance` returns SUPPORTED on `providerListing === true` before
   reading the result type, and the miner passes `providerCategory: null`, so a listing
   categorised as another trade still inherits the searched trade. V1 stopped the organic

@@ -92,6 +92,15 @@ export function discoveryVerticalRelevance(input: {
   providerCategory?: string | null;
   verticalTerms: readonly string[];
   /**
+   * The trade's own words for itself, from the profile's `service_aliases`.
+   *
+   * Separate from `verticalTerms`, which are search queries. A company called "Mills
+   * Air Inc" is an HVAC company and contains none of the discovery queries; it
+   * contains an alias. Optional, so a caller that has not loaded the profile behaves
+   * exactly as before.
+   */
+  serviceAliases?: readonly string[];
+  /**
    * The resolver found a provider entity listing for this identity in this search.
    *
    * The same evidence `local_result` is, but read from the identity rather than from
@@ -105,7 +114,25 @@ export function discoveryVerticalRelevance(input: {
   corroborated?: boolean;
 }): VerticalRelevance {
   const category = (input.providerCategory ?? '').toLowerCase().trim();
-  if (category && matchesAnyTerm(category, input.verticalTerms)) return 'SUPPORTED';
+  if (category) {
+    /**
+     * The provider's own classification outranks everything below it, both ways.
+     *
+     * A category that agrees settles the question. A category that *disagrees* settles
+     * it too, and that is the half V1 did not have: a business listing returned for
+     * "HVAC contractor 33701" and categorised by the provider as a plumber used to
+     * inherit HVAC anyway, because the listing branch returned before anything read
+     * the category. The listing proves a business exists. The category is the only
+     * thing either of them says about which trade it is in.
+     *
+     * Before this, no `search_observation` in production had ever carried a category
+     * at all -- the miner did not capture the field -- so the rule could not fire even
+     * when the provider supplied one.
+     */
+    const agrees = matchesAnyTerm(category, input.verticalTerms)
+      || matchesAnyTerm(category, input.serviceAliases ?? []);
+    return agrees ? 'SUPPORTED' : 'INSUFFICIENT';
+  }
 
   if (input.providerListing === true) return 'SUPPORTED';
 

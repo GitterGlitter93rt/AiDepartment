@@ -104,6 +104,13 @@ export interface ProviderItem {
   breadcrumb?: string;
   description?: string;
   phone?: string;
+  /**
+   * The provider's own classification of the business, on the rows that carry one.
+   *
+   * DataForSEO puts it on local pack items and leaves it off organic rows. It is the
+   * only field that can contradict the trade a search was made for, so it is read.
+   */
+  category?: string;
   /** Free-form, as the provider printed it. */
   address?: string;
   /**
@@ -202,6 +209,10 @@ export function normalizeResponse(
           observedPostalCode: item.address_info?.zip?.trim() || null,
           searchLocationName: result.location_name ?? null,
           resultType: type,
+          // What the provider says this business is. Local pack items carry it; organic
+          // rows do not, and a missing one stays null rather than being inferred from
+          // the query, which would make the search's trade the business's trade again.
+          category: item.category?.trim() || null,
           position: item.rank_absolute ?? item.rank_group ?? null,
           adHeadline: isPaidPlacement(type) ? (item.title?.trim() || null) : null,
           landingUrl: item.url ?? null,

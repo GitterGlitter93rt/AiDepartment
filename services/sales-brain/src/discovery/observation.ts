@@ -64,6 +64,16 @@ export interface ProviderObservation {
   /** Where the provider was asked to look. Discovery provenance, never an address. */
   searchLocationName: string | null;
   resultType: NormalizedResultType;
+  /**
+   * The provider's own classification of the business, when it gives one.
+   *
+   * Never read until now, and the column has been null on all 582 production
+   * observations because nothing ever wrote it. It is the only signal that can say a
+   * listing returned for one trade belongs to another, so a rule that consults it
+   * needs it captured first -- "use the category when it is available" is not a fix
+   * while it is never available.
+   */
+  category?: string | null;
   position: number | null;
   adHeadline: string | null;
   landingUrl: string | null;
@@ -167,6 +177,9 @@ export function resolveObservations(
     observedBusinessAddress: observation.observedBusinessAddress,
     landingUrl: observation.landingUrl,
     position: observation.position,
+    // Carried so the resolver can hand it to whoever decides the trade. Dropping it
+    // here is how it stayed unread: every layer below had a column for it.
+    category: observation.category ?? null,
   })), marketVocabulary);
 
   const verified = candidates.filter((candidate) => candidate.status === 'VERIFIED');

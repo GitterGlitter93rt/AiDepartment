@@ -192,3 +192,57 @@ test('no listing means the ad is still not a classification', () => {
       providerListing: false,
     }), 'INSUFFICIENT');
 });
+
+// --------------------------------------------------------------------- SB-V2-7
+
+test('a provider category that names another trade beats the listing', () => {
+  // The V1 residual, in one line. `discoveryVerticalRelevance` returned SUPPORTED on
+  // `providerListing` before anything read the category, and the miner passed
+  // `providerCategory: null` -- so a business the provider had classified as a plumber,
+  // returned in the local pack for an HVAC search, became an HVAC prospect.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: 'Plumber',
+      verticalTerms: HVAC, providerListing: true,
+    }), 'INSUFFICIENT', 'a listing outranked the provider\'s own classification');
+
+  // And a category that agrees still settles it.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: 'HVAC contractor',
+      verticalTerms: HVAC, providerListing: false,
+    }), 'SUPPORTED');
+});
+
+test('a trade is recognised by the words it uses for itself', () => {
+  // "Furnace repair service" is one of Google's real HVAC categories and it matches
+  // none of the profile's discovery queries. The profile has declared `service_aliases`
+  // since it was written and nothing ever read them -- which is why the category check
+  // would have been right to fire and wrong about the answer the moment it started
+  // firing, rejecting a real HVAC company on the strength of its own category.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: 'Furnace repair service',
+      verticalTerms: HVAC,
+      serviceAliases: ['air conditioning', 'AC', 'heating', 'cooling', 'heat pump', 'furnace'],
+      providerListing: true,
+    }), 'SUPPORTED');
+
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: 'Furnace repair service',
+      verticalTerms: HVAC, providerListing: true,
+    }), 'INSUFFICIENT',
+    'without the trade\'s own vocabulary its own category reads as another trade');
+});
+
+test('no category still means the listing decides, and says only what it can', () => {
+  // A listing with no category is the common case -- production has 93 of them -- and
+  // it remains evidence that this is a business in the trade the local pack answered
+  // for. What changed is that it no longer outranks a category when there is one.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: null,
+      verticalTerms: HVAC, providerListing: true,
+    }), 'SUPPORTED');
+});

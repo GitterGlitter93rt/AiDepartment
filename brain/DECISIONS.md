@@ -1133,3 +1133,55 @@ does suggest: fix the names, then run the free official sources, then price Stag
 again against inventory that a search can actually help.
 
 **No paid batch has been run. Stage-D spend still needs Michael's authorisation.**
+
+---
+
+## SB-V2-7 — the provider's category is captured, and it outranks the listing (2026-09-17)
+
+The V1 residual, stated exactly: `discoveryVerticalRelevance` returned SUPPORTED on
+`providerListing === true` before anything read the result type or the category, and the
+miner passed `providerCategory: null` as a literal. So a business the provider had
+classified as one trade, returned in the local pack for another trade's query, inherited
+the trade of the question.
+
+The reason the obvious fix — "consult the category when it is available" — was not a fix:
+**no `search_observation` in production has ever carried a category.** All 582 rows are
+null, because the adapter never read `item.category` from the response and the miner
+never wrote the column. A rule that consults a field nothing populates has never run.
+
+### What changed
+
+**The category is captured.** `item.category` is read from local pack items, carried
+through the observation, the resolver candidate and into the call site, and written to
+`search_observations.category` — a column that has existed since migration 003 with
+nothing ever writing it.
+
+**A category settles the question both ways.** One that agrees supports the trade. One
+that disagrees refuses it, *whatever the listing says*. That is the half that did not
+exist: the listing proves a business exists, and the category is the only thing either
+of them says about which trade it is in.
+
+**A listing with no category still supports the trade.** This was measured rather than
+assumed. Of 93 production Accounts found through a business listing, 21 do not contain
+any word from their trade's discovery queries — and reading them shows "Mills Air Inc",
+"English Air Inc.", "Air Masters of Tampa Bay", "I Know A Guy AC": real HVAC companies
+whose names use the trade's vocabulary rather than its search queries. Demoting a
+category-less listing would have thrown those away to fix a problem they do not have.
+
+### A profile's own vocabulary, read at last
+
+`service_aliases` has been declared by every vertical profile since they were written and
+**nothing has ever read it** — the same shape as `negative_terms` before SB-QA3 wired it
+up. It matters here because Google's real HVAC categories are "Furnace repair service",
+"Heating contractor", "Air conditioning repair service", and none of those match an HVAC
+discovery query. Without the aliases the new category check would have been right to fire
+and wrong about the answer, rejecting real HVAC companies on the strength of their own
+category. `serviceAliasesFor()` now reads it, and both the miner and the remediation
+preview pass it.
+
+### What did not change
+
+The remediation preview reports exactly the same counts on production as before —
+227 / 196 / 189 / 94 / 66 / 66 / 43 / 37 / 32 — because every historical observation's
+category is null. The new rule can only act where a category exists, which is the correct
+blast radius for it.

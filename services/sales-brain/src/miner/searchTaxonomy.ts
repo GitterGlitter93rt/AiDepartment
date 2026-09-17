@@ -173,6 +173,28 @@ export async function inherentCausesFor(verticalProfileId: string): Promise<Set<
       .map((entry) => entry.trim().toLowerCase()));
 }
 
+/**
+ * The words a trade uses for itself, as the profile declares them.
+ *
+ * `service_aliases` has been in every profile since they were written and nothing has
+ * ever read it -- the same shape as `negative_terms` before it was wired up. It matters
+ * because a company's name is evidence about its trade and the discovery queries are
+ * the wrong vocabulary for reading one: of 93 production Accounts found through a
+ * business listing, 21 do not contain any discovery query word, and they include
+ * "Mills Air Inc", "English Air Inc.", "Air Masters of Tampa Bay" and "I Know A Guy AC".
+ * Every one of those contains an alias.
+ */
+export async function serviceAliasesFor(verticalProfileId: string): Promise<string[]> {
+  const definition = await getVerticalProfile(verticalProfileId) as Record<string, unknown> | null;
+  if (!definition) return [];
+  const taxonomy = definition['search_taxonomy'] as Record<string, unknown> | undefined;
+  const aliases = (taxonomy?.['service_aliases'] ?? definition['service_aliases'] ?? []) as unknown;
+  if (!Array.isArray(aliases)) return [];
+  return aliases
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry) => entry.length > 0);
+}
+
 export async function searchQueriesFor(verticalProfileId: string): Promise<SearchQuery[]> {
   const definition = await getVerticalProfile(verticalProfileId) as Record<string, unknown> | null;
   if (!definition) return [];

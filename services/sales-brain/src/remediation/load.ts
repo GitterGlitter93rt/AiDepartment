@@ -1,5 +1,5 @@
 import { query } from '../db/pool.js';
-import { searchQueriesFor } from '../miner/searchTaxonomy.js';
+import { searchQueriesFor, serviceAliasesFor } from '../miner/searchTaxonomy.js';
 import type { AccountBundle } from './classify.js';
 
 /**
@@ -139,6 +139,11 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
     .map((a) => a.primary_vertical_profile_id)
     .filter((id): id is string => !!id))];
   const terms = await verticalTermsByProfile(profileIds);
+  // The trade's own words for itself, so the preview judges a provider category by the
+  // same rule the miner does. Null on every historical observation, and that is the
+  // point: when the miner starts capturing categories, both readers already agree.
+  const aliases = new Map<string, string[]>();
+  for (const profileId of profileIds) aliases.set(profileId, await serviceAliasesFor(profileId));
 
   const group = <T>(rows: T[], key: (row: T) => string): Map<string, T[]> => {
     const out = new Map<string, T[]>();
@@ -182,6 +187,8 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
         query: o.query, observedName: o.observed_name, observedDomain: o.observed_domain,
         observedPhone: o.observed_phone, observedLocation: o.observed_location,
       })),
+      serviceAliases: account.primary_vertical_profile_id
+        ? aliases.get(account.primary_vertical_profile_id) ?? [] : [],
       verticalTerms: account.primary_vertical_profile_id
         ? terms.get(account.primary_vertical_profile_id) ?? [] : [],
       emails: mine.filter((e) => e.endpoint_type === 'EMAIL').map((e) => ({

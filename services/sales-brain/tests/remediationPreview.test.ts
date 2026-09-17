@@ -6,6 +6,7 @@ import {
 } from '../src/remediation/classify.js';
 
 const HVAC_TERMS = ['hvac contractor', 'air conditioning repair', 'heating and cooling'];
+const HVAC_ALIASES = ['air conditioning', 'AC', 'heating', 'cooling', 'heat pump', 'furnace'];
 
 const NO_ACTIVITY: HumanActivityEvidence = {
   claimed: false, ownershipEvents: 0, activitiesWithActor: 0,
@@ -33,6 +34,7 @@ function bundle(overrides: Partial<AccountBundle> = {}): AccountBundle {
       observedLocation: null,
     }],
     verticalTerms: HVAC_TERMS,
+    serviceAliases: HVAC_ALIASES,
     emails: [],
     phoneCount: 2,
     locationCount: 0,

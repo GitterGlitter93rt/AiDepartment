@@ -32,6 +32,8 @@ export type EntityStatus =
 
 export interface CandidateObservation extends ClassifiableObservation {
   position: number | null;
+  /** The provider's own classification of the business, when the row carries one. */
+  category?: string | null;
 }
 
 export interface EntityCandidate {
@@ -48,6 +50,14 @@ export interface EntityCandidate {
   phone: string | null;
   /** Only from a listing that actually observed an address. */
   observedBusinessAddress: string | null;
+  /**
+   * The provider's classification, taken from the best row this identity has.
+   *
+   * Carried so the caller can consult it. Without it the trade decision had nothing to
+   * read but the result type, which is why a listing returned for one trade could
+   * inherit that trade whatever the provider said the business was.
+   */
+  category: string | null;
   observationCount: number;
   reasons: string[];
 }
@@ -244,6 +254,16 @@ export function resolveCandidates(
       return (left.position ?? Number.MAX_SAFE_INTEGER) - (right.position ?? Number.MAX_SAFE_INTEGER);
     });
     const best = ranked[0]!;
+    /**
+     * The category, from the row entitled to state one.
+     *
+     * A listing row carries the provider's classification; an organic row does not, and
+     * an organic row's absence of a category must not read as the listing's silence.
+     */
+    const category = ranked.find((row) =>
+      (row.resultType === 'MAPS_LOCAL' || row.resultType === 'LOCAL_SERVICES_AD')
+      && typeof row.category === 'string' && row.category.trim().length > 0)
+      ?.category?.trim() ?? null;
     const classified = classifyObservation(best);
     const reasons = [...classified.reasons];
     let sourceClass = classified.sourceClass;
@@ -278,7 +298,7 @@ export function resolveCandidates(
         candidates.push({
           identity, status: 'VERIFIED', sourceClass: 'BUSINESS_LISTING',
           resolvedName: named.observedName!.trim(), nameBasis: 'provider_listing',
-          domain: null, phone: best.observedPhone,
+          domain: null, phone: best.observedPhone, category,
           observedBusinessAddress: best.observedBusinessAddress ?? null,
           observationCount: rows.length,
           reasons: ['a company name and a phone number, with no website on record'],
@@ -287,7 +307,7 @@ export function resolveCandidates(
       }
       candidates.push({
         identity, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
-        nameBasis: 'unresolved', domain: null, phone: null,
+        nameBasis: 'unresolved', domain: null, phone: null, category,
         observedBusinessAddress: null, observationCount: rows.length,
         reasons: ['a phone number somebody is advertising, with no name we can trust '
           + 'and no website to check it against'],
@@ -297,7 +317,7 @@ export function resolveCandidates(
 
     if (!mayPromote(sourceClass)) {
       candidates.push({
-        identity, status: 'REJECTED', sourceClass, resolvedName: null,
+        identity, category, status: 'REJECTED', sourceClass, resolvedName: null,
         nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
         phone: null, observedBusinessAddress: null, observationCount: rows.length, reasons,
       });
@@ -308,7 +328,7 @@ export function resolveCandidates(
       // The provider resolved this entity; the name, phone and address are its own
       // statements about the business rather than text scraped off a page.
       candidates.push({
-        identity, status: 'VERIFIED', sourceClass,
+        identity, category, status: 'VERIFIED', sourceClass,
         resolvedName: best.observedName!.trim(), nameBasis: 'provider_listing',
         domain: registrableDomain(best.observedDomain), phone: best.observedPhone ?? null,
         observedBusinessAddress: best.observedBusinessAddress ?? null,
@@ -360,7 +380,7 @@ export function resolveCandidates(
 
     if (nameable && corroboration) {
       candidates.push({
-        identity, status: 'VERIFIED', sourceClass,
+        identity, category, status: 'VERIFIED', sourceClass,
         resolvedName: nameable.observedName!.trim(), nameBasis: 'own_site_title',
         domain,
         phone: best.observedPhone ?? null,
@@ -377,7 +397,7 @@ export function resolveCandidates(
       // somebody else's name, and one row is too few for the multiplicity rule to tell
       // them apart. Kept for verification rather than guessed either way.
       candidates.push({
-        identity, status: 'NEEDS_REVIEW', sourceClass,
+        identity, category, status: 'NEEDS_REVIEW', sourceClass,
         resolvedName: null, nameBasis: 'unresolved', domain,
         phone: null, observedBusinessAddress: null, observationCount: rows.length,
         reasons: [...reasons,
@@ -409,7 +429,7 @@ export function resolveCandidates(
       PAID_PLACEMENT.has(observation.resultType));
     if (paidPlacement && registrableDomain(best.observedDomain) && listingForSameDomain) {
       candidates.push({
-        identity, status: 'VERIFIED', sourceClass,
+        identity, category, status: 'VERIFIED', sourceClass,
         resolvedName: registrableDomain(best.observedDomain), nameBasis: 'domain',
         domain: registrableDomain(best.observedDomain),
         phone: best.observedPhone ?? null, observedBusinessAddress: best.observedBusinessAddress ?? null,
@@ -428,7 +448,7 @@ export function resolveCandidates(
     // still paid for.
     const named = looksLikeCompanyName(best.observedName);
     candidates.push({
-      identity, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
+      identity, category, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
       nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
       // A phone read off a page we have not established ownership of is not this
       // company's phone.

@@ -1588,6 +1588,15 @@ async function ingestDiscoveries(
         .filter((entry) => entry.purpose === 'ENTITY_DISCOVERY')
         .map((entry) => entry.query)
     : [];
+  /**
+   * The trade's own words for itself, which are not its search queries.
+   *
+   * Declared by every profile as `service_aliases` and read by nothing until now. A
+   * provider category of "Air conditioning contractor" agrees with the HVAC profile
+   * through an alias and matches none of its discovery queries.
+   */
+  const { serviceAliasesFor } = await import('../miner/searchTaxonomy.js');
+  const serviceAliases = verticalProfileId ? await serviceAliasesFor(verticalProfileId) : [];
 
   // Every identity this search resolved, kept whether or not it became anything.
   //
@@ -1653,9 +1662,9 @@ async function ingestDiscoveries(
                                         result_type, advertised_service, landing_url,
                                         retention_class, account_id, job_id,
                                         query, position, ad_headline, provider_native_id,
-                                        observed_at)
+                                        category, observed_at)
        values (null, $1, 'discovery', $2, $3, $4, $5, $6, $7, $8, 'transient', null, $9,
-               $10, $11, $12, $13, coalesce($14::timestamptz, now()))
+               $10, $11, $12, $13, $14, coalesce($15::timestamptz, now()))
        returning observation_id`,
       [
         providerName, observation.observedName, observation.observedDomain,
@@ -1666,7 +1675,12 @@ async function ingestDiscoveries(
         storedResultType(observation.resultType), observation.advertisedService,
         observation.landingUrl, job.job_id,
         observation.query, observation.position, observation.adHeadline,
-        observation.providerNativeId, observation.observedAt ?? null,
+        observation.providerNativeId,
+        // The column has existed since the observation table did and nothing has ever
+        // written it, which is why "consult the provider's category" has never once
+        // been able to fire.
+        observation.category ?? null,
+        observation.observedAt ?? null,
       ]);
     if (!identity) continue;
     const held = observationIdsByIdentity.get(identity) ?? [];
@@ -1842,10 +1856,19 @@ async function ingestDiscoveries(
            * resolver has already ranked the identity's rows and put the listing
            * first, so its classification is what decides.
            */
+          /**
+           * The provider's own classification is now read, because it is now captured.
+           *
+           * `providerCategory: null` was hard-coded here, and the column behind it was
+           * null on every one of production's 582 observations, so the branch that
+           * consults a category had never once run. A listing returned for one trade
+           * inherited that trade whatever the provider said the business was.
+           */
           verticalProfileId: discoveryVerticalRelevance({
             resultType: business.resultType ?? null,
-            providerCategory: null,
+            providerCategory: candidate?.category ?? null,
             verticalTerms,
+            serviceAliases,
             providerListing: candidate?.sourceClass === 'BUSINESS_LISTING',
           }) === 'SUPPORTED' ? verticalProfileId : null,
           sourceIdentity: business.providerNativeId
