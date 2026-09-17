@@ -239,8 +239,151 @@ writes a physical location without a street (`upsertLocation` types such a row
 
 ## 8. Results
 
-_Filled in as the run proceeds._
+### The estate, re-researched under V2 rules
+
+Every one of the 324 historical Accounts was re-researched. 648 research runs, 1,094 pages
+read, and for the first time a recorded answer to *could we read this site at all*:
+
+| source state | accounts | what it means |
+|---|---|---|
+| READ | 222 | the site was read |
+| NO_WEBSITE | 49 | no website on the record to read |
+| REFUSED | 37 | the site refused our crawler |
+| DISALLOWED | 11 | robots.txt asks us not to |
+| UNREACHABLE | 5 | the request did not complete |
+
+The last three — **53 Accounts** — are the ones the hard guard protects. None of them lost
+a trade, a name, a place in inventory or an identity because we could not read a page.
+
+219 physical locations now carry provenance, where before there were none, and 211
+Accounts have a machine-readable identity read from their own site.
+
+### What was applied
+
+339 changes across 189 Accounts, each in its own transaction, each recorded in
+`audit_log` with what it was before. **0 skipped, 0 failed.**
+
+| change | count |
+|---|---|
+| `CLEAR_UNSUPPORTED_VERTICAL` | 135 |
+| `RECLASSIFY_ENDPOINT_ROLE` | 98 |
+| `TRIM_PAGE_COPY_NAME` | 84 |
+| `SUPPRESS_NON_COMPANY` | 12 |
+| `VERIFY_FROM_SITE_IDENTITY` | 10 |
+
+Protected and untouched: **0** Accounts carried human sales activity, **53** sat in an
+unreadable source state, and **387 findings across 218 Accounts** were handed to a person
+rather than guessed at.
+
+### The inventory a rep now sees
+
+The before column is reconstructed from the pre-apply backup, not from arithmetic:
+
+| | before | after |
+|---|---|---|
+| workable (verified, not suppressed) | 258 | 267 |
+| …carrying a trade | 258 | 163 |
+| suppressed as not-a-company | 0 | 12 |
+| `legacy_unverified` | 66 | 45 |
+| emails claiming to be a named person | 98 | **0** |
+| exceptions calling a live site "broken" | 19 | **0** |
+
+Michael's 66 legacy Roofing Accounts are resolved: 10 promoted to `verified` because their
+own sites name them, 11 suppressed as listicles and articles, and 45 still waiting on
+evidence — unchanged rather than guessed at. Workable rose by nine even after twelve
+suppressions, because those ten promotions and the re-research outweighed them.
+
+The 12 suppressed records are ten listicles and articles, one jobs board and one roofing
+directory. Every one keeps its evidence: `evidence_records` is 3,647 before and after.
+`suppressions.is_active = false` reverses any of them.
+
+Clearing 135 unsupported trades is the largest single change and the one that most changes
+what a rep sees. It is what removes **U-Haul**, **MyFloridaLicense.com** and a bridal shop
+from HVAC inventory without asserting the falsehood that they are not companies.
+
+### Six dry runs, and what each one caught
+
+Nothing was applied until the plan stopped changing. Each pass found a defect in the
+previous one, against real production records:
+
+1. HTML entities were never decoded, so `Solar Pool &amp; Roof` looked like a different
+   name from the record's and proposed suppressing a real roofer.
+2. The rename rule renamed *"10 Best Roofers in St. Augustine, FL"* to *"Today's
+   Homeowner"* — the publisher of the listicle.
+3. Two real roofers, Fidus and High Tide, were proposed for suppression because their own
+   blog post or SEO title had ranked. A site that names the trade is a company with a bad
+   name.
+4. 191 trade removals included companies whose own sites declare the trade; first-party
+   identity now counts as support, and the number fell to 135.
+5. A rename offered *"Home - St Augustine Roofing Contractor | Fidus"* → *"St Augustine
+   Roofing Contractor | Fidus"*. A proposal has to be a name, not shorter page copy.
+6. Six records would have been renamed to their publisher and left workable —
+   `firstcoastnews.com`, `Homeyou`, `MyFloridaLicense.com`, `Myserviceprofile.com`,
+   `National Roofing Directory`, `Birdeye`. The last segment of a title is the publisher
+   slot, and a name found there proves only whose site the page is on.
+
+A seventh pass was written and thrown away. Widening the shapes that justify suppression
+paired two weak, correlated signals — "the name is page copy" and "no business listing" —
+and proposed suppressing Acree, Spicer Gas, Team Enoch and forty other real contractors,
+because nearly every Account in this inventory arrived with an SEO title and no listing.
+
+### What was deliberately not done
+
+There is no evidence in this system that separates a lead-gen directory's category page
+from a real contractor's category-page SEO title on its own domain. `candidateSourceClasses`
+does not: Homeyou, U-Haul and the state licensing site are all recorded as `OFFICIAL_SITE`.
+
+So about nineteen real companies — southernair.net, aircoservice.com, teamenoch.com and
+others — keep an ugly SEO title this round and sit in the review queue. A rep reading a bad
+title is better off than a rep reading a confident wrong name, and the alternative was
+renaming directories to themselves and leaving them in the pipeline.
+
+### Stage D — preview only, nothing bought
+
+| | before remediation | after |
+|---|---|---|
+| accounts eligible per 100 | 43 | 75 |
+| queries planned per 100 | — | 253 |
+| cost per 100 accounts | $0.74 | $1.52 |
+| worst case per 100 | $3.00 | $3.00 |
+
+Eligibility rose because the re-research gave Accounts the grounding a query needs — a
+published city, a street, an attributed domain. More Accounts can now be asked about
+meaningfully, so a batch would cost more and be worth more. **Nothing was bought:** total
+provider spend is **$0.2760**, unchanged, and `task_post` from Stage D remains **0**.
 
 ## 9. Morning handoff
 
-_Filled in at the end._
+**Production is current, verified and reversible.**
+
+| | |
+|---|---|
+| `DEPLOYED_CODE_SHA` | `b34a079` (`feature/outbound-sales-brain`) |
+| `REMEDIATION_TOOLS_SHA` | `6e53f58` (`feature/sales-brain-v2-tools`) |
+| schema | 54 |
+| `/healthz` | 200 |
+| queue | drained, 747 succeeded, 0 failed, 0 pending |
+| provider spend | $0.2760 (unchanged) |
+| outbound / Twilio / Smartlead / Cal.com | all disabled |
+| Stage D | disabled, 0 `task_post` |
+
+**Backup taken before the apply, and verified row-for-row against live:**
+`~/yad-backups/pre-remediation-20260917T215515Z.sql.gz` — 1.4 MB, 10,471,427 bytes
+uncompressed, 78 `COPY` blocks, terminates cleanly. An earlier attempt produced a 20-byte
+empty file because `pg_dump` ran as the wrong role and the error went to stderr while the
+shell still wrote the file; it was caught by verifying, and deleted.
+
+**What needs a person, in the order it pays:**
+
+1. **387 findings across 218 Accounts** in the review queue. The largest group is 261
+   `CANONICAL_NAME_IS_PAGE_COPY` — Accounts whose names are still SEO titles that no rule
+   could safely shorten. Reviewing the ~19 named above would return real companies to
+   clean names.
+2. **`WORKER_CONCURRENCY` is declared and read by nothing.** Scaling the re-research
+   needed extra worker processes started by hand. This is the ninth instance of the
+   declared-but-unread configuration pattern in this codebase and it deserves a sweep.
+3. **`candidateSourceClasses` is unreliable** — a directory, a moving company and a state
+   licensing site are all `OFFICIAL_SITE`. Until that is fixed, the classifier cannot be
+   asked to tell a directory from a contractor.
+4. **Stage D remains unauthorised.** The preview above is what it would ask and what it
+   would cost. It buys nothing until Michael says so.

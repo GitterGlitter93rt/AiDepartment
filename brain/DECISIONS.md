@@ -1252,3 +1252,65 @@ A `www`/apex fallback in the crawler would help sites that only serve `www`. It 
 have helped the case that motivated it — both Air Worth hosts challenge — and new crawl
 behaviour that cannot be qualified against the real estate tonight is not worth shipping
 in a release. Recorded as follow-up rather than added at four in the morning.
+
+## DEC-028 — A name found in the publisher slot of a title is not the prospect's name
+
+**Date:** 2026-09-17  **Status:** Applied to production
+
+Titles are conventionally built `Page Title - Site Name`, so a site's own name appearing
+at the end of a stored Account name proves only whose site the page sits on — which is
+the one thing already known. Treating that as agreement between the record and the site
+offered to rename *"Central Air Service - Winter Park HVAC Contractors - Homeyou"* to
+**Homeyou**, a news article to **firstcoastnews.com**, and *"Roofing Contractors in Saint
+Augustine, FL"* to **National Roofing Directory** — each left workable in rep inventory.
+
+Michael's rule, now enforced in code and in tests: a directory or article record whose
+site identifies the publisher must never merely be renamed to that publisher and remain a
+prospect. Where the record's shape is decisive it is suppressed. Where it is not, nothing
+is asserted and it goes to a person.
+
+A match anywhere earlier in the stored name is still real agreement, which is what keeps
+*"Acree: Plumbing, HVAC & Electrical Services in Tampa, FL"* with Acree.
+
+## DEC-029 — A trade is matched by stem, and a publisher is never in the trade
+
+**Date:** 2026-09-17  **Status:** Applied to production
+
+A site whose own declared name states the trade is a company with a bad name rather than
+a page on somebody else's site. Matching that name whole-word against the vocabulary term
+`roofing` fails to find `roof` inside **Solar Pool & Roof**, and proposed suppressing a
+real roofer. Stems of four characters are matched at word boundaries instead.
+
+The exception is a site that announces what kind of thing it is: *directory, listings,
+reviews, guide, magazine, media, news, blog*. **National Roofing Directory** contains the
+trade word and is not a roofer. A contractor whose name genuinely contains one of these
+words loses nothing but a trip to the review queue.
+
+## DEC-030 — Two weak signals are not two signals
+
+**Date:** 2026-09-17  **Status:** Rejected before it reached production
+
+A dry run widened the shapes that justify automatic suppression to include any page-copy
+name, pairing it with the existing "no business-listing evidence" signal to reach high
+confidence. It proposed suppressing **Acree**, **Spicer Gas**, **Team Enoch** and forty
+other real contractors, because nearly every Account in this inventory arrived with an
+SEO page title and no business listing. The two signals are weak and correlated, and
+their conjunction carries no more information than either alone.
+
+Automatic suppression stays restricted to decisive name shapes — listicle, article
+headline, category page, or no domain at all — each of which must still be paired with a
+site identity that disagrees with the record and is not in the trade.
+
+## DEC-031 — Where the evidence cannot decide, the product says nothing
+
+**Date:** 2026-09-17  **Status:** Applied to production
+
+Nothing in this system separates a lead-generation directory's category page from a real
+contractor's category-page SEO title on its own domain. `candidateSourceClasses` does not:
+Homeyou, U-Haul and the Florida state licensing site are all recorded `OFFICIAL_SITE`.
+
+Rather than pick a heuristic that would be wrong in one direction or the other, roughly
+nineteen real companies — southernair.net, aircoservice.com, teamenoch.com among them —
+keep an unattractive SEO title and sit in the review queue. A rep reading a bad name is
+better off than a rep reading a confident wrong one, and the alternative was renaming
+directories to themselves and leaving them in the pipeline.

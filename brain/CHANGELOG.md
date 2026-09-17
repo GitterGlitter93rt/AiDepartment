@@ -1,5 +1,37 @@
 # Operational Brain Changelog
 
+## 2026-09-17 (later) — V2 deployed, and the historical estate re-researched under its rules
+
+V2 is live on `b34a079`, schema 54. Every one of the 324 historical Accounts was
+re-researched: 648 runs, 1,094 pages, and for the first time a recorded answer to whether
+we could read the site at all — READ 222, NO_WEBSITE 49, REFUSED 37, DISALLOWED 11,
+UNREACHABLE 5. The 53 Accounts in the last three states are protected by a hard guard: a
+site we could not read never costs an Account its trade, its name, its identity or its
+place in inventory.
+
+339 changes were applied across 189 Accounts, each in its own transaction and each
+recorded in `audit_log` with what it was before. 135 unsupported trades cleared, 98 email
+roles corrected, 84 names trimmed out of SEO page titles, 12 records suppressed as
+listicles and articles, 10 legacy Accounts promoted because their own sites name them.
+Nothing was skipped and nothing failed. `evidence_records` is 3,647 before and after.
+
+Zero emails now claim to be a named person, where 98 did. Zero exceptions call a live
+website broken, where 19 did. Michael's 66 legacy Roofing Accounts are resolved into 10
+promotions, 11 suppressions and 45 still honestly waiting on evidence.
+
+Six dry runs preceded the apply and a seventh was written and thrown away — the detail is
+in `brain/releases/V2-OVERNIGHT-RELEASE-20260917.md` and in DEC-028 through DEC-031. The
+short version: a publisher's name in the last segment of a page title is not the
+prospect's name, a trade has to be matched by stem, and two weak correlated signals do not
+add up to confidence.
+
+387 findings across 218 Accounts went to a person rather than being guessed at, including
+about nineteen real companies whose SEO titles no rule could safely shorten.
+
+Provider spend is unchanged at $0.2760. Stage D remains disabled with zero `task_post`;
+its preview now shows 75 eligible Accounts per 100 at $1.52, up from 43 at $0.74, because
+re-research gave those Accounts the grounding a query needs.
+
 ## 2026-09-17 — V2: what the inventory actually contains, and what the product may say about it
 
 Seven work items on `feature/sales-brain-v2`, all built from the live V1 production SHA

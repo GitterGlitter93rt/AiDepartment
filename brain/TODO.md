@@ -27,9 +27,23 @@ A task should appear in only one status section. Dependencies may be referenced 
 
 ### V2 — next phase (branch `feature/sales-brain-v2`, cut from the live V1 SHA)
 
-**Where V2 stands.** SB-V2-1 through SB-V2-7 are built and targeted-green on the branch.
-Nothing is deployed: production still runs V1 at `3e4a282`, `outboundDialEnabled` is
-false, no paid search has been bought and no historical record has been rewritten.
+**Where V2 stands.** Deployed and the estate rebuilt. Production runs `b34a079` at schema
+54, `/healthz` 200, queue drained (747 succeeded, 0 failed). `outboundDialEnabled` is
+false, Twilio, Smartlead and Cal.com are disabled, provider spend is unchanged at $0.2760
+and Stage-D `task_post` is 0.
+
+All 324 historical Accounts were re-researched under V2 rules and 339 authorized
+high-confidence changes were applied across 189 Accounts, each reversible from
+`audit_log`. **Gate verified:** 106 tests across the seven affected suites, 0 changes
+skipped, 0 failed, `evidence_records` 3,647 before and after, and a row-for-row verified
+pre-apply backup at `~/yad-backups/pre-remediation-20260917T215515Z.sql.gz`. Full detail
+in `brain/releases/V2-OVERNIGHT-RELEASE-20260917.md`; naming rules in DEC-028…DEC-031.
+
+**Open, and needing a person:** 387 findings across 218 Accounts in the review queue, 261
+of them names that are still SEO page titles. About nineteen are real companies —
+southernair.net, aircoservice.com, teamenoch.com among them — whose site names sit in the
+publisher slot of their own titles, structurally identical to a directory's. No evidence
+in this system separates the two, so none of them was renamed automatically (DEC-031).
 
 **RELEASE BLOCKER, fixed 2026-09-17 before deploy:** Research Health was labelling live
 company websites "Broken Website" on the strength of one failed fetch by our own crawler.
@@ -38,7 +52,12 @@ Three defects behind it — a captcha word in a script manifest discarding a 634
 hard guard so that a site we could not read can never cost an Account its trade, its name,
 its status or its place in inventory. See brain/DECISIONS.md DEC-024…DEC-027.
 
-**Follow-up defect found 2026-09-17, not fixed tonight: `WORKER_CONCURRENCY` has no
+**Follow-up defect, open: `candidateSourceClasses` cannot be trusted.** Homeyou (a
+directory), U-Haul and the Florida state licensing site are all recorded `OFFICIAL_SITE`.
+Until source classification means something, no classifier built on it can be asked to
+tell a directory from a contractor, and the review queue carries the cost.
+
+**Follow-up defect found 2026-09-17, still open: `WORKER_CONCURRENCY` has no
 runtime effect.** `src/config.ts` declares it (`numeric('WORKER_CONCURRENCY', 2)`) and
 nothing reads it, so the worker leases one job at a time whatever the value says. Setting
 it to 4 and restarting changed nothing observable. The estate re-research was scaled the
@@ -59,14 +78,16 @@ high-confidence historical remediation. Recorded in full in
 `brain/releases/V2-OVERNIGHT-RELEASE-20260917.md`.
 
 **NOT authorized, and awaiting Michael:** any paid Stage-D search, including the
-100-Account experiment. Stage D stays disabled and Stage-D spend stays $0.00. The
-measured proposal — $0.74 per 100 Accounts, worst case $3.00, after reading
-`npm run contact:yield` and `npm run stage-d:preview` — is a recommendation for Michael
-to decide on, and **no agent-written line anywhere in this repository authorizes provider
-spend.**
+100-Account experiment. Stage D stays disabled and Stage-D spend stays $0.00. The measured
+proposal, re-run after the estate rebuild, is now **75 eligible Accounts per 100 at $1.52,
+worst case $3.00** — up from 43 at $0.74, because re-research gave those Accounts the
+published city, street and attributed domain a meaningful query needs. It remains a
+recommendation for Michael to decide on, and **no agent-written line anywhere in this
+repository authorizes provider spend.**
 
-**Before a V2 release candidate is frozen:** the full forward and reverse qualification,
-which has deliberately not been run during development.
+**Qualification run before the release was frozen:** forward and reverse both complete.
+The four forward failures were classified — two harness-environment, two stale fixtures —
+and resolved; the table is in the release document.
 
 
 - [x] **SB-V2-1 — Historical data remediation, read-only preview COMPLETE.** `npm run
@@ -77,9 +98,15 @@ which has deliberately not been run during development.
   DIRECT_PERSON_EMAIL row). Counts and the two facts that change later work are in
   brain/DECISIONS.md. **Mass remediation still needs Michael's separate authorization.**
 
-- [ ] **SB-V2-1b — Historical data remediation, apply path.** Blocked on that
-  authorization. When granted, the apply path goes behind the existing `--apply` flag
-  and takes its plan from the reviewed preview, so what was agreed is what runs.
+- [x] **SB-V2-1b — Historical data remediation, apply path COMPLETE.** Authorized by
+  Michael on 2026-09-17 and applied to production. `npm run remediation:apply -- --apply`
+  runs one transaction per Account behind the existing flag and takes its plan from the
+  same preview. **Gate verified:** 339 changes across 189 Accounts, 0 skipped, 0 failed;
+  106 tests across the seven affected suites; `evidence_records` 3,647 before and after;
+  `suppressions.is_active = false` reverses any suppression; every change in `audit_log`
+  with its before state; row-for-row verified backup taken first. 0 Accounts carrying
+  human sales activity were touched, 53 in an unreadable source state were protected by
+  the hard guard, and 387 findings went to a person. Naming rules in DEC-028…DEC-031.
 
 - [ ] ~~SB-V2-1 — Historical data remediation, read-only preview first.~~ Classify the
   320 existing Accounts into: valid company + valid vertical; valid company + wrong or
