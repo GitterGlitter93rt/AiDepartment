@@ -75,10 +75,15 @@ is distinguishable from it.
 | | |
 |---|---|
 | V2 branch | `feature/sales-brain-v2` |
-| RC commit | `f28971c6bb86853e924aedd7695551d8c16983c9` (refrozen 2026-09-17 ~12:10 UTC) |
-| RC tree | `fba0d051d42aafda29b983a6c7f7652ef213d14b` |
-| `services/` subtree under qualification | `bdeef04b` |
-| first RC, superseded | `6261a71` / tree `887c5b0` / services `154b047e` |
+| **FINAL RC commit** | `b34a07968ec158f0cd8a73b754f5a5f6a1b51cc9` |
+| **FINAL RC tree** | `3c48239282ad48d467bdb266ff4ab25d82022919` |
+| **FINAL `services/` subtree** | `74d7690adae3b14da1b4fee6c5c366fc39a5b111` |
+| superseded RC 2 | `f28971c` / tree `fba0d05` / services `bdeef04` — the broken-website fix, before the hard guard |
+| superseded RC 1 | `6261a71` / tree `887c5b0` / services `154b047e` — qualified 2250/2254, four failures classified, none a product defect |
+
+Each RC was superseded for a stated reason, and the qualification evidence for each is
+kept rather than discarded: RC1's forward run is what identified the four failures, and
+RC2 was never deployed because the hard guard changed remediation code before it could be.
 | Previous production SHA | `3e4a2820afdaf2ef3b1490bad99e849bb08372ef` |
 | Production branch | `feature/outbound-sales-brain` |
 
@@ -237,10 +242,34 @@ too broke four unrelated tests that configure those themselves. Application code
 writes a physical location without a street (`upsertLocation` types such a row
 `service_area`), so the two fixtures were given addresses.
 
-## 8. Results
+## 8. Blast radius of the false "Broken Website"
+
+Measured with the fixed fetcher against every Account whose last research run read
+nothing, read-only, writing nothing. **75 Accounts** hold a website and had read nothing.
+
+| what the fixed fetcher finds | count | what it means |
+|---|---|---|
+| **READABLE** | **19** | live company sites that were being reported as broken |
+| `access_denied` (403 / WAF) | 36 | the site refuses our crawler. Honest, and not a claim about the company |
+| `robots_disallow` | 11 | the site asks us not to read it. We do not |
+| `tls_error` | 7 | we could not negotiate TLS. Not weakened to make it pass |
+| `anti_bot` | 1 | a genuine challenge page |
+| `dns_error` | 1 | one failed lookup, which is not a dead domain |
+
+**19 live businesses** were carrying a false claim about their website, and the other 56
+now carry an accurate reason instead of a wrong one. Among the 19: Energy Air, English Air
+Inc., Ferran Air Conditioning, Bob Heinmiller Air Conditioning, Miami Mechanical, Air Flow
+Designs, Certified Climate Control.
+
+This also changes what the estate re-research is worth. Every one of those 19 will now
+yield first-party evidence — contact routes, published addresses, site identity — that the
+pre-fix estimate assumed was unavailable. Energy Air alone produced 14 contact endpoints
+and 2 addresses in the verification run.
+
+## 9. Results
 
 _Filled in as the run proceeds._
 
-## 9. Morning handoff
+## 10. Morning handoff
 
 _Filled in at the end._
