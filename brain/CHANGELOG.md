@@ -1,5 +1,62 @@
 # Operational Brain Changelog
 
+## 2026-09-17 — V2: what the inventory actually contains, and what the product may say about it
+
+Seven work items on `feature/sales-brain-v2`, all built from the live V1 production SHA
+and none of them deployed. Production still runs `3e4a282`, `OUTBOUND_DIAL_ENABLED` is
+false, no paid search was bought and no historical record was rewritten.
+
+**A read-only census of the estate.** `npm run remediation:preview` re-runs today's rules
+over the original evidence for all 320 Accounts, because the stored value is the thing
+under suspicion. Three of its counts reconcile with independently known facts, which is
+how you tell a classifier from a guess: 66 legacy Roofing Accounts, 94 partial research
+runs, and 98 `DIRECT_PERSON_EMAIL` rows — every one in the database, because not one is
+linked to a contact. **0 Accounts have human sales activity**, reconfirmed rather than
+assumed.
+
+**The Mining page stopped believing a job's memory.** A market search is bought from an
+asynchronous provider: the run that buys it ends before the answer exists and records
+`PROVIDER_PENDING` for ever. Production held 92 job rows for 49 paid searches, **40 of
+them saying "Provider still working"** about searches DataForSEO finished days earlier
+whose businesses are already in inventory. The ledger is now the only thing asked what a
+provider did, what we did with the answer is a separate column, and the page reads 54
+searches instead of 92 jobs.
+
+**Where a company is, only if the company said so.** All 66 `locations` rows in
+production carry ZIP 32095 — the ZIP the canary searched — typed as a service area, with
+no street and no source. Four claims about place are now four different things with
+provenance on each, and the extractor was rewritten after being pointed at fourteen real
+company sites: three of the first eight came back wrong, because a greedy scan eats the
+"St." that begins a city name and there was nowhere for a unit to sit between a street
+and a town.
+
+**Two companies that share a person are still two companies.** `account_relationships`
+records the link and what it rests on, with a check constraint requiring two independent
+signals — a shared address alone is a business park. Every promotion is refused: a
+qualifier is not an owner, an agent is not an owner, and a related business's phone
+carries "verify it is current" rather than reading as a direct line.
+
+**Stage D planned, priced and disabled.** $0.74 per 100 Accounts, worst case $3.00, at
+1.23 searches each. Running the preview against production produced its own finding: the
+first query it wanted to buy was a search for a page title this system had stored as a
+company name, and 189 of 320 Accounts carry a name of that shape. Refusing those took a
+batch from 275 queries to 123 — which makes the remediation authorisation worth more than
+the Stage-D one.
+
+**And what the free stages have actually produced**, across all 320 Accounts: 21% have a
+named decision maker, **0% have a named email**, **0% have a direct phone route**. All 404
+phone endpoints are main business lines. Stages B and C report NOT_RUN, never "nothing
+found".
+
+**The pattern named in the 2026-09-08 entry held again.** Three more pieces of the system
+were found written down and never read: `search_observations.category`, which is why
+"consult the provider's category" had never once fired; `evidence_records.location_id`,
+so a location's evidence floated free of the location; and `service_aliases`, declared by
+every vertical profile since profiles existed — without which the new category check would
+have rejected real HVAC companies on the strength of their own Google category. This
+codebase still writes down more than it consults.
+
+
 ## 2026-09-08 — The profiles and the runtime speaking one language
 
 The seven product decisions the sweep had deliberately left open, now
