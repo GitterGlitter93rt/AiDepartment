@@ -1185,3 +1185,35 @@ The remediation preview reports exactly the same counts on production as before 
 227 / 196 / 189 / 94 / 66 / 66 / 43 / 37 / 32 — because every historical observation's
 category is null. The new rule can only act where a category exists, which is the correct
 blast radius for it.
+
+---
+
+## 2026-09-17 — Overnight authorization: deploy V2, re-research the estate, clean it
+
+Given by Michael before going offline. The full text, including the limits, is in
+`brain/releases/V2-OVERNIGHT-RELEASE-20260917.md`; this is the decision-log entry that
+must not be casually reversed.
+
+| ID | Decision |
+|---|---|
+| DEC-018 | V2 may be deployed to production once its qualification gates pass: targeted suites, `check`, `build`, `audit`, full forward, full reverse, all at zero failures against one frozen tree. |
+| DEC-019 | The entire historical Account estate is authorized for re-research under V2 rules once V2 is live, using implemented research paths that incur no new paid spend. |
+| DEC-020 | High-confidence historical remediation is authorized, and "high-confidence" is a conjunction, not a mood: no human sales activity on the Account, decisive evidence, retained provenance, an auditable action, and a reversible or non-destructive one where possible. Anything short of all five goes to review. |
+| DEC-021 | Paid Stage-D searches are not authorized. Stage D stays disabled, Stage-D `task_post` stays 0 and Stage-D spend stays $0.00 until Michael says otherwise in person. |
+| DEC-022 | **Agent-generated documentation cannot authorize provider spend.** A sentence written by an agent recommending a paid batch is a recommendation. Where durable documentation could be skim-read as a grant, it is reworded. |
+| DEC-023 | V2 owns production migration 053, because it is the next migration after the 52 production runs. The undeployed enrichment branch's own 053 must be renumbered before any future port; the release is not contorted to preserve a number on a branch nobody runs. |
+
+### The semantics this remediation may not regress
+
+Recorded here because a cleanup is exactly the moment they get traded away for a tidier
+looking database: search geography is not a physical location; a search vertical is not a
+business vertical; a SERP title is not a company name; a paid ad headline is not a company
+name; a business listing is not automatic proof of the searched trade; a company-domain
+email is not a named person; a licence qualifier, a registered agent and an officer are
+not owners without evidence that says so; a related business's phone is not a current
+direct phone; a search result is not a verified fact; an observed ad is not a timeless
+advertiser state and no ad observed is not "does not advertise"; a service area and a
+mailing address are not physical locations.
+
+**Raw evidence survives remediation.** Suppression, rejection and reclassification are the
+instruments; deleting the observation that produced a record is not.

@@ -31,14 +31,17 @@ A task should appear in only one status section. Dependencies may be referenced 
 Nothing is deployed: production still runs V1 at `3e4a282`, `outboundDialEnabled` is
 false, no paid search has been bought and no historical record has been rewritten.
 
-**The two decisions that are Michael's, in the order the measurements suggest:**
+**Authorized 2026-09-17 (Michael, before going offline):** V2 deployment after its
+qualification gates pass, re-research of the entire historical Account estate, and
+high-confidence historical remediation. Recorded in full in
+`brain/releases/V2-OVERNIGHT-RELEASE-20260917.md`.
 
-1. **Authorise historical remediation (SB-V2-1b).** 189 of 320 Accounts carry a page
-   title where a company name should be, and the Stage-D planner refuses to buy a search
-   for a page title — so 56 of every 100 Accounts cannot be usefully searched until this
-   is fixed. Fixing names first roughly doubles what the same Stage-D money buys.
-2. **Authorise a measured Stage-D batch,** at $0.74 per 100 Accounts (worst case $3.00),
-   after reading `npm run contact:yield` and `npm run stage-d:preview`.
+**NOT authorized, and awaiting Michael:** any paid Stage-D search, including the
+100-Account experiment. Stage D stays disabled and Stage-D spend stays $0.00. The
+measured proposal — $0.74 per 100 Accounts, worst case $3.00, after reading
+`npm run contact:yield` and `npm run stage-d:preview` — is a recommendation for Michael
+to decide on, and **no agent-written line anywhere in this repository authorizes provider
+spend.**
 
 **Before a V2 release candidate is frozen:** the full forward and reverse qualification,
 which has deliberately not been run during development.
