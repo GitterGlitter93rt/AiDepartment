@@ -109,8 +109,48 @@ const workerId = `${hostname()}:${process.pid}`;
 export const JOB_STARVATION_AFTER_MS = numeric('JOB_STARVATION_AFTER_MS', 60 * 60_000,
   { min: 1000 });
 
-/** Claims one job atomically. `skip locked` lets several workers share the queue. */
-async function leaseJob(): Promise<JobRecord | null> {
+/**
+ * How many lanes of this process may run a given job type at once.
+ *
+ * Concurrency is worth having for research, which is almost entirely waiting on other
+ * people's web servers, and is worth nothing for a market search, which is bounded by
+ * the provider rather than by us. Running two market searches at once would also put
+ * two lanes either side of the daily spend ceiling: that check reads what has been
+ * spent and then spends, and a second lane reading in the gap sees the first lane's
+ * money as unspent. The ceiling is a precondition of a call, so the honest fix is for
+ * there to be one caller rather than for the check to become a distributed reservation.
+ *
+ * In-process, which is what production is -- one worker unit under systemd. Two worker
+ * processes on one database would each honour their own cap and the ceiling would be
+ * back to being racy, so a second process is a deployment change rather than a knob.
+ */
+const LANES_PER_JOB_TYPE: Readonly<Record<string, number>> = {
+  market_mine: 1,
+  zip_research: 1,
+};
+
+const runningByType = new Map<string, number>();
+
+/** Job types this process is currently unable to take more of. */
+function typesAtCapacity(): string[] {
+  const full: string[] = [];
+  for (const [type, cap] of Object.entries(LANES_PER_JOB_TYPE)) {
+    if ((runningByType.get(type) ?? 0) >= cap) full.push(type);
+  }
+  return full;
+}
+
+/**
+ * Claims one job atomically. `skip locked` lets several workers share the queue.
+ *
+ * Takes the claimant rather than assuming the process, because a process now runs
+ * several lanes and `leased_by` is the only record of which one holds a job. Two lanes
+ * of one process writing the same value would still be safe -- `skip locked` is what
+ * prevents a double claim -- but an expired lease would name a process rather than the
+ * lane that stopped making progress, and that is the thing an operator needs.
+ */
+async function leaseJob(leasedBy: string = workerId,
+                        excludeTypes: string[] = []): Promise<JobRecord | null> {
   const { rows } = await query<JobRecord>(
     `update jobs set status = 'RUNNING',
                      leased_by = $1,
@@ -123,6 +163,10 @@ async function leaseJob(): Promise<JobRecord | null> {
          -- backed-off job and then releasing it would burn a retry on every poll.
          where run_after <= now()
            and (status = 'QUEUED' or (status = 'RUNNING' and leased_until < now()))
+           -- A type this process is already running as many of as it may. Excluded in
+           -- the predicate rather than released afterwards, because claiming a job to
+           -- hand it straight back increments attempts and spends a retry on a poll.
+           and not (job_type = any($4::text[]))
          -- Age first, and only once it is genuinely excessive: see
          -- JOB_STARVATION_AFTER_MS. Measured from run_after rather than created_at,
          -- so a job that has been backed off repeatedly does not claim to have been
@@ -133,7 +177,8 @@ async function leaseJob(): Promise<JobRecord | null> {
          limit 1
       )
       returning job_id, job_type, payload, attempts, max_attempts, account_id, market_id, requested_by`,
-    [workerId, String(config.worker.leaseSeconds), String(JOB_STARVATION_AFTER_MS)],
+    [leasedBy, String(config.worker.leaseSeconds), String(JOB_STARVATION_AFTER_MS),
+     excludeTypes],
   );
   return rows[0] ?? null;
 }
@@ -242,15 +287,27 @@ export const HEARTBEAT_INTERVAL_MS = numeric('WORKER_HEARTBEAT_MS', 15_000, { mi
  */
 export const HEARTBEAT_STALE_AFTER_MS = HEARTBEAT_INTERVAL_MS * 3;
 
+/**
+ * The jobs this process is holding right now, by lane.
+ *
+ * Module state rather than a parameter because the heartbeat runs on its own timer and
+ * has no lane to ask. A lane records what it holds; the timer reports all of it.
+ */
+const heldByLane = new Map<number, string>();
+
 export async function recordHeartbeat(input: {
   processed?: number; lastJobAt?: Date | null; currentJobId?: string | null;
 } = {}): Promise<void> {
   const identity = buildIdentity();
+  // Ordered by lane so the oldest-numbered lane's job is the one a pre-concurrency
+  // read model sees, rather than whichever finished most recently.
+  const held = [...heldByLane.entries()].sort((a, b) => a[0] - b[0]).map(([, id]) => id);
+  const currentJobId = input.currentJobId ?? held[0] ?? null;
   await query(
     `insert into worker_instances (worker_id, hostname, pid, handlers, last_heartbeat_at,
                                    jobs_processed, last_job_at, draining_since, current_job_id,
-                                   build_sha, migrations_expected)
-     values ($1, $2, $3, $4, now(), $5, $6, $7, $8, $9, $10)
+                                   build_sha, migrations_expected, concurrency, current_job_ids)
+     values ($1, $2, $3, $4, now(), $5, $6, $7, $8, $9, $10, $11, $12)
      on conflict (worker_id) do update set
        last_heartbeat_at = now(),
        handlers = excluded.handlers,
@@ -263,11 +320,14 @@ export async function recordHeartbeat(input: {
        -- running just because its next heartbeat fires.
        draining_since = coalesce(worker_instances.draining_since, excluded.draining_since),
        current_job_id = excluded.current_job_id,
+       concurrency = excluded.concurrency,
+       current_job_ids = excluded.current_job_ids,
        stopped_at = null`,
     [workerId, hostname(), process.pid, [...handlers.keys()],
      input.processed ?? 0, input.lastJobAt ?? null,
-     stopping ? new Date() : null, input.currentJobId ?? null,
-     identity.sha, identity.migrationsExpected],
+     stopping ? new Date() : null, currentJobId,
+     identity.sha, identity.migrationsExpected,
+     config.worker.concurrency, held],
   );
 }
 
@@ -275,7 +335,7 @@ export async function recordHeartbeat(input: {
 export async function recordWorkerStopped(): Promise<void> {
   await query(
     `update worker_instances set stopped_at = now(), draining_since = null,
-            current_job_id = null
+            current_job_id = null, current_job_ids = '{}'
       where worker_id = $1`, [workerId]);
 }
 
@@ -315,7 +375,9 @@ export async function runHousekeeping(): Promise<{
 export async function runWorker(log: (message: string, meta?: unknown) => void = console.log): Promise<void> {
   running = true;
   stopping = false;
-  log(`[worker] ${workerId} started; handlers: ${[...handlers.keys()].join(', ') || 'none'}`);
+  const lanes = config.worker.concurrency;
+  log(`[worker] ${workerId} started with ${lanes} lane(s); `
+    + `handlers: ${[...handlers.keys()].join(', ') || 'none'}`);
 
   let processed = 0;
   let lastJobAt: Date | null = null;
@@ -337,46 +399,78 @@ export async function runWorker(log: (message: string, meta?: unknown) => void =
   }, HOUSEKEEPING_INTERVAL_MS);
   housekeeping.unref?.();
 
+  /**
+   * One lane: lease, run, repeat, until asked to stop.
+   *
+   * `WORKER_CONCURRENCY` was declared in config.ts and consumed by nothing, so a worker
+   * leased one job at a time whatever the value said -- scaling the V2 estate rebuild
+   * meant starting extra processes by hand and killing them by hand afterwards. N lanes
+   * inside one process is what the queue was already built for: `for update skip locked`
+   * makes the claim atomic, and a lease is owned by whoever holds it rather than by a
+   * process, so nothing about correctness depends on there being exactly one.
+   *
+   * What the lanes share is deliberately small -- the stop flag, the counters, and the
+   * two timers -- because everything else is per-job state that was already local.
+   */
+  const lane = async (index: number): Promise<void> => {
+    const laneId = lanes > 1 ? `${workerId}#${index}` : workerId;
+    while (!stopping) {
+      let job: JobRecord | null = null;
+      try {
+        job = await leaseJob(laneId, typesAtCapacity());
+      } catch (error) {
+        log(`[worker] lane ${index} failed to lease a job`, error);
+        await sleep(config.worker.pollIntervalMs * 3);
+        continue;
+      }
+
+      if (!job) {
+        // Staggered, so N idle lanes do not poll the same table in the same
+        // millisecond for ever. The jitter is a fraction of the interval and only
+        // matters when there is nothing to do.
+        await sleep(config.worker.pollIntervalMs + Math.floor(Math.random() * 250));
+        continue;
+      }
+
+      const handler = handlers.get(job.job_type);
+      if (!handler) {
+        log(`[worker] no handler for job type ${job.job_type}; marking failed`);
+        await failUnhandled(job);
+        continue;
+      }
+
+      const startedAt = Date.now();
+      heldByLane.set(index, job.job_id);
+      runningByType.set(job.job_type, (runningByType.get(job.job_type) ?? 0) + 1);
+      await recordHeartbeat({ processed, lastJobAt })
+        .catch(() => { /* a heartbeat is not worth failing a job over */ });
+      try {
+        const progress = await handler(job);
+        await completeJob(job.job_id, progress);
+        log(`[worker] ${job.job_type} ${job.job_id} succeeded in ${Date.now() - startedAt}ms`);
+      } catch (error) {
+        await failJob(job, error);
+        log(`[worker] ${job.job_type} ${job.job_id} failed (attempt ${job.attempts}/${job.max_attempts})`, error);
+      } finally {
+        // Released even when the handler threw, so a crashed job does not leave this
+        // process claiming to be working on it, nor a capped type permanently full.
+        heldByLane.delete(index);
+        runningByType.set(job.job_type, (runningByType.get(job.job_type) ?? 1) - 1);
+      }
+      processed += 1;
+      lastJobAt = new Date();
+    }
+  };
+
   try {
-  while (!stopping) {
-    let job: JobRecord | null = null;
-    try {
-      job = await leaseJob();
-    } catch (error) {
-      log('[worker] failed to lease a job', error);
-      await sleep(config.worker.pollIntervalMs * 3);
-      continue;
-    }
-
-    if (!job) {
-      await sleep(config.worker.pollIntervalMs);
-      continue;
-    }
-
-    const handler = handlers.get(job.job_type);
-    if (!handler) {
-      log(`[worker] no handler for job type ${job.job_type}; marking failed`);
-      await failUnhandled(job);
-      continue;
-    }
-
-    const startedAt = Date.now();
-    await recordHeartbeat({ processed, lastJobAt, currentJobId: job.job_id })
-      .catch(() => { /* a heartbeat is not worth failing a job over */ });
-    try {
-      const progress = await handler(job);
-      await completeJob(job.job_id, progress);
-      log(`[worker] ${job.job_type} ${job.job_id} succeeded in ${Date.now() - startedAt}ms`);
-    } catch (error) {
-      await failJob(job, error);
-      log(`[worker] ${job.job_type} ${job.job_id} failed (attempt ${job.attempts}/${job.max_attempts})`, error);
-    }
-    processed += 1;
-    lastJobAt = new Date();
-  }
+    // Every lane finishes the job it holds before any of them returns, which is what
+    // makes a deliberate shutdown finish work rather than abandon it to lease expiry.
+    await Promise.all(Array.from({ length: lanes }, (_, index) => lane(index)));
   } finally {
     clearInterval(heartbeat);
     clearInterval(housekeeping);
+    heldByLane.clear();
+    runningByType.clear();
     await recordWorkerStopped().catch(() => { /* the process is going anyway */ });
   }
 

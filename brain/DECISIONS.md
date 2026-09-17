@@ -1252,3 +1252,77 @@ A `www`/apex fallback in the crawler would help sites that only serve `www`. It 
 have helped the case that motivated it — both Air Worth hosts challenge — and new crawl
 behaviour that cannot be qualified against the real estate tonight is not worth shipping
 in a release. Recorded as follow-up rather than added at four in the morning.
+
+## DEC-032 — Paid data acquisition is authorized; accounting is not switched off with it
+
+**Date:** 2026-09-17  **Status:** Active for the V3 sprint
+
+Michael: *"IDC spend whatever is needed lets go! We want more HVAC companies and we want
+to re-research everything for data accuracy."* Paid DataForSEO market discovery and paid
+Stage-D contact search are authorized with no fixed cap.
+
+What that does not mean. Every paid request stays purposeful, deduplicated, attributable,
+logged and tied to a market or Account objective, and every query family is measured for
+marginal yield of net-new verified companies. A family stops when the evidence says it is
+exhausted — three consecutive searches dominated by duplicates, or results dominated by
+directories and non-HVAC businesses — rather than when a dollar figure is reached. The two
+numbers that decide whether this sprint worked are cost per net-new verified HVAC company
+and cost per newly attributed decision maker.
+
+Paid research is not outbound. Nothing in this sprint contacts a prospect.
+
+## DEC-033 — Ownership of a website is a conclusion, never a default
+
+**Date:** 2026-09-17  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+`classifyObservation` ended with a fallthrough that called any unrecognised row
+`OFFICIAL_SITE`. Production consequently records homeyou.com, uhaul.com and
+myfloridalicense.com as contractors' own websites, and 2,002 of 3,006 discovery candidates
+carry that class. Every V2 attempt to tell a directory from a contractor failed on this.
+
+`COMPANY_OWNED_SITE` now requires positive evidence — name/domain agreement, a site
+declaring an organisation matching its own domain, a site declaring itself to be this
+company, or the company's independently-known phone or address published on the page —
+with two supporting signals substituting for one strong one. Anything else is `UNKNOWN`,
+and unknown is better than wrong.
+
+A licensing portal on a `.com` is still a licensing portal. A domain carrying three or
+more distinct businesses is serving other people's businesses whatever it calls itself.
+
+## DEC-034 — A worker's concurrency is real, and the paid lane stays single
+
+**Date:** 2026-09-17  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+`WORKER_CONCURRENCY` was declared and consumed by nothing. It now runs N lanes in one
+process, which is what the job queue was already built for.
+
+Two consequences had to be handled rather than discovered later. The heartbeat now reports
+every job a process holds, because one row covering several jobs while naming one of them
+is the same class of untruth as a setting that does nothing. And the daily spend ceiling
+is a precondition of a call — it reads what has been spent and then spends — so two lanes
+either side of that gap both see the same money as unspent. Rather than turn the check
+into a distributed reservation, paid job types are capped at one lane. Mining is bounded
+by the provider; research is bounded by other people's web servers, and that is the part
+concurrency actually helps.
+
+## DEC-035 — One failed fetch is not the end of research
+
+**Date:** 2026-09-17  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+V2 established that a site we could not read is never evidence against a company, then
+left 53 such Accounts unreadable for ever because research ran once and never again.
+
+Recovery is an hourly, bounded, ten-attempt campaign that lives in the database and is
+driven by the existing job queue's `run_after`, so it survives worker restarts, API
+restarts, crashes and deployments. An in-memory timer would lose every campaign on the
+next deploy, which is the failure it exists to end. One active campaign per Account,
+enforced by a unique partial index.
+
+It retries; it never circumvents. A 403, a challenge page and a robots disallow are
+answers, and the answer to an answer is not to ask again wearing a different hat. No
+identity rotation, no CAPTCHA solving, no WAF circumvention, no weakened TLS verification.
+`DISALLOWED` ends the campaign rather than authorising an hourly crawl of a blocked path.
+The only mechanism relied on is that a site's own state may change.
+
+Retry eligibility is not evidence about a company. An exhausted campaign routes the
+Account to alternative public sources and review, and never to suppression.

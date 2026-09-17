@@ -1,3 +1,4 @@
+import { numeric } from '../../config.js';
 import { politeFetch } from '../fetcher.js';
 import {
   extractAddresses, type AddressObservation, type ServiceAreaObservation,
@@ -94,9 +95,24 @@ export function sourceAccessState(result: FirstPartyResult, hadWebsite: boolean)
 const CANDIDATE_PATHS = [
   '/about', '/about-us', '/our-team', '/team', '/leadership', '/meet-the-team',
   '/staff', '/our-story', '/company', '/contact', '/contact-us', '/locations',
+  // Added for V3. A homepage says what a company sells; these are where it says who
+  // runs it, and a decision maker found on /who-we-are is the whole point of the crawl.
+  '/who-we-are', '/management', '/our-company', '/meet-our-team', '/location',
 ];
 
-const MAX_PAGES = 8;
+/**
+ * How many of a company's own pages one research run may read.
+ *
+ * Eight was enough to find a contact route and not enough to find a person. The pages
+ * that name an owner are rarely the first eight a site links to -- they sit behind
+ * "About" on a submenu, or on a location page -- and a crawl that stops before them
+ * reports, accurately and uselessly, that the company published no names.
+ *
+ * Raised rather than removed: this is somebody else's web server, the per-host delay
+ * means every extra page is another 1.5 seconds of their bandwidth, and a budget that
+ * is merely large is a budget nobody has thought about.
+ */
+const MAX_PAGES = numeric('RESEARCH_MAX_PAGES_PER_SITE', 16, { min: 1, max: 40 });
 
 function stripTags(html: string): string {
   return html
@@ -450,8 +466,8 @@ function discoverPaths(html: string, origin: string): string[] {
 
     const path = url.pathname.toLowerCase();
     const interesting =
-      /(about|team|leadership|staff|our-people|meet|management|contact|locations?)/.test(path)
-      || /(about|our team|meet the team|leadership|staff|management|contact)/.test(label);
+      /(about|team|leadership|staff|our-people|meet|management|contact|locations?|owner|founder|president|principal)/.test(path)
+      || /(about|our team|meet the team|leadership|staff|management|contact|owner|founder|president)/.test(label);
     if (interesting && path !== '/') found.add(url.origin + url.pathname);
   }
   return [...found];
