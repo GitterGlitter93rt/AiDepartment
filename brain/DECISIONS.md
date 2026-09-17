@@ -765,3 +765,76 @@ alone establishing a trade. It does not stop a business listing categorised as a
 trade. The tests pin the organic case (`verticalRelevance.test.ts:97`); the listing
 case is an intentional, documented boundary. Roughly 51 existing Accounts took their
 vertical from `local_result`. Carry into V2.
+
+---
+
+## SB-V2-1 — what the existing inventory actually contains (2026-09-17)
+
+Read-only preview over all 320 production Accounts, run by
+`npm run remediation:preview`. Nothing was written. The tool re-runs **today's** rules
+over the **original** evidence rather than reading the stored value, because the stored
+value is the thing under suspicion.
+
+### Human activity, reverified
+
+**0 Accounts have human sales activity.** All 320 are `system_activity_only`: 320
+`DISCOVERED` and 320 `CONTACT_ENRICHED` rows, every one with `actor_user_id` null, no
+notes and no disposition. `ownership_events`, `follow_ups`, `opportunities`,
+`contact_attempts`, `meeting_bookings`, `suppressions` and `duplicate_reviews` are all
+empty, every Account is UNCLAIMED with no owner, and the 15 `audit_log` rows are logins
+and integration settings. Remediation is therefore as safe as it will ever be.
+
+**The trap worth writing down:** `accounts.manual_score` and `accounts.manual_tier` are
+set on all 320 Accounts, and they are *not* human input. `src/scoring/score.ts` writes
+them — the column names are older than the automated scorer that now fills them. Reading
+them as a human signal would mark the entire estate untouchable and stop remediation
+before it began. `HumanActivityEvidence` deliberately has no field for them.
+
+### Findings
+
+| Class | Accounts | Rows | What it is |
+|---|---|---|---|
+| A | 43 | | valid company, trade supported by a provider listing |
+| B | 227 | | trade asserted from the question the search asked, not from the business |
+| C | 189 | | display name is page copy, not a company name |
+| D | 32 | | not a company: listicle, article, category or directory page |
+| E | 66 | | legacy unverified; entity resolution never ran |
+| F | 37 | 98 | endpoint role predates the rule that now governs it |
+| G | 94 | | research state claims more than the run behind it supports |
+| H | 196 | | at least one finding rests on a single signal |
+
+199 Accounts need human review; 78 have a mechanical proposed action. By primary
+(worst) class: B 162, E 47, A 43, D 32, G 22, C 8, F 6.
+
+Three of these reconcile exactly with independently known facts, which is the check that
+the classifier is measuring and not inventing: E = 66 is the known 66 legacy Roofing
+Accounts; G = 94 is the 94 `research_runs` with status `partial`; F = 98 rows is every
+`DIRECT_PERSON_EMAIL` endpoint in the database — **all 98**, because not one email
+endpoint is linked to a contact, so not one has a person attributed.
+
+### Two facts that change later work
+
+**No `search_observation` has ever carried a provider `category`.** All 582 observation
+rows have `category` null. SB-V2-7 cannot be fixed by "use the category when it is
+available" against historical data, because it never is; the category has to start being
+captured before it can be consulted, and every historical vertical decision has to be
+settled some other way.
+
+**226 of 320 Accounts have organic-only evidence.** 93 have a `local_result` listing and
+1 has no observation at all. That is the shape of class B: the trade on two thirds of the
+inventory came from the question, and under today's rules nothing we hold supports it.
+
+### Rules the preview follows
+
+A proposed name may only ever **trim** the name on the row, never introduce a new one:
+the alternative must already be contained in the displayed name once punctuation is
+ignored. This exists because the resolver's stored names are not reliably better —
+production holds an Account displayed as "Orlando HVAC Services" whose candidate name is
+"HVAC Service Areas Near Orlando, FL", and one in Winter Park whose candidate names
+Tampa. Replacing a bad name with a wrong one is worse than leaving it: a rep can see that
+a name reads like a page title and cannot see that it belongs to a different company. A
+test caught this against the real "Comfort Pro" row before the rule was tightened.
+
+Nothing with human sales activity is ever proposed for a mechanical change, whatever the
+evidence says. Non-companies are proposed for suppression and quarantine, never deletion.
+`--apply` is refused explicitly and exits before it opens a database connection.

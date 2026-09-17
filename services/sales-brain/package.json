@@ -38,7 +38,8 @@
     "canary:packet": "tsx src/bin/canary-packet.ts",
     "probe:packet": "tsx src/bin/probe-packet.ts",
     "blocka": "tsx src/bin/block-a.ts",
-    "blockb": "tsx tests/support/blockBPacket.ts"
+    "blockb": "tsx tests/support/blockBPacket.ts",
+    "remediation:preview": "tsx src/bin/remediation-preview.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

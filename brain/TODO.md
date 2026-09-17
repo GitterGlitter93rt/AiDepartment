@@ -27,7 +27,19 @@ A task should appear in only one status section. Dependencies may be referenced 
 
 ### V2 — next phase (branch `feature/sales-brain-v2`, cut from the live V1 SHA)
 
-- [ ] **SB-V2-1 — Historical data remediation, read-only preview first.** Classify the
+- [x] **SB-V2-1 — Historical data remediation, read-only preview COMPLETE.** `npm run
+  remediation:preview` classifies all 320 Accounts from evidence, writes nothing, and
+  refuses `--apply`. **Gate verified:** 20 targeted tests pass, `npm run check` clean,
+  0 human sales activity reconfirmed, and three counts reconcile with independently
+  known facts (E=66 legacy Roofing, G=94 partial research runs, F=98 = every
+  DIRECT_PERSON_EMAIL row). Counts and the two facts that change later work are in
+  brain/DECISIONS.md. **Mass remediation still needs Michael's separate authorization.**
+
+- [ ] **SB-V2-1b — Historical data remediation, apply path.** Blocked on that
+  authorization. When granted, the apply path goes behind the existing `--apply` flag
+  and takes its plan from the reviewed preview, so what was agreed is what runs.
+
+- [ ] ~~SB-V2-1 — Historical data remediation, read-only preview first.~~ Classify the
   320 existing Accounts into: valid company + valid vertical; valid company + wrong or
   unsupported vertical; valid company + bad canonical display name; junk/non-company;
   legacy unverified; stale contact-endpoint classification; needs human review. Separate
