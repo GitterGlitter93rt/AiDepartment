@@ -75,9 +75,10 @@ is distinguishable from it.
 | | |
 |---|---|
 | V2 branch | `feature/sales-brain-v2` |
-| RC commit | `6261a713f859c5f3a2e4c8fbffd31e862af86b3a` (frozen 2026-09-17 08:14 UTC) |
-| RC tree | `887c5b0de0ff52b3aefd1333dae02880f4ee1ada` |
-| `services/` subtree under qualification | `154b047e` |
+| RC commit | `f28971c6bb86853e924aedd7695551d8c16983c9` (refrozen 2026-09-17 ~12:10 UTC) |
+| RC tree | `fba0d051d42aafda29b983a6c7f7652ef213d14b` |
+| `services/` subtree under qualification | `bdeef04b` |
+| first RC, superseded | `6261a71` / tree `887c5b0` / services `154b047e` |
 | Previous production SHA | `3e4a2820afdaf2ef3b1490bad99e849bb08372ef` |
 | Production branch | `feature/outbound-sales-brain` |
 
@@ -182,10 +183,64 @@ company's page (Apartments.com), and the honest action for it is the U-Haul acti
 clear the unsupported trade so it leaves HVAC inventory — rather than pretending the
 company does not exist.
 
-## 7. Results
+## 7. The release candidate was refrozen, twice-over reasons
+
+### A. The "Broken Website" defect (reported live by Michael)
+
+Research Health was labelling live company sites **Broken Website** over the sentence
+"no page could be read on the last attempt". Michael opened three in a browser and found
+three working HVAC businesses. The audit found **three separate defects** behind that one
+label.
+
+| site | what actually happened | what we said |
+|---|---|---|
+| energyair.com | HTTP **200**, 634 KB, title *"Energy Air - Trusted HVAC & Commercial AC Services in Florida"* | discarded — the word `captcha` appears at byte 3634, inside a **script manifest** (`"businesslogger","captcha","clickhandlerregistrar"`) |
+| airmotionshvac.com | HTTP **403** from a WAF | classified `login_required` |
+| airworthac.com | HTTP **403** from a WAF | classified `login_required` |
+
+And the run recorded only `pages_fetched: 0`, so nothing downstream could tell a refusal
+from a dead domain.
+
+**Fixed:** the content test now matches only the sentences a challenge page writes for a
+human, and ignores a page the size of a real website; `403` is `access_denied` and `401`
+stays `login_required`, with the crawl still stopping at both; a research run stores
+`source_state` — READ / REFUSED / UNREACHABLE / HTTP_ERROR / DISALLOWED / NO_WEBSITE —
+with per-page reasons behind it. The exception is now `website_research_unavailable`,
+reading *"Sales Brain could not read this website on the last attempt: the site refused
+our crawler (access_denied). That is a fact about our research, not about the company."*
+
+**Verified against the three sites after the fix:**
+
+| site | before | after |
+|---|---|---|
+| energyair.com | 0 pages, "Broken Website" | **READ** — 2 pages, 14 contact endpoints, 2 addresses |
+| airmotionshvac.com | "Broken Website" | **REFUSED** (`access_denied`) |
+| airworthac.com | "Broken Website" | **REFUSED** (`access_denied`) |
+
+Nine regression tests cover every case Michael listed, including the last one: **an
+Account never loses its trade or its place in inventory because our crawler was refused.**
+
+### B. The four forward-qualification failures, classified
+
+The first forward run on `6261a71` was 2250/2254. The four:
+
+| test | class | resolution |
+|---|---|---|
+| `F1 nothing in this build can reach DataForSEO` | HARNESS_ENVIRONMENT | the suite inherited production's `.env`, so it ran with live credentials and a signed governance review |
+| `a connection test reports what is actually usable` | HARNESS_ENVIRONMENT | the same — it authenticated against the real API and read an account balance of 50.745 |
+| `a company with a branch in the ZIP is in that market` | STALE_EXPECTATION | fixture writes a `physical` location with no street, which migration 053 refuses |
+| `two locations of one company are one company` | STALE_EXPECTATION | same fixture shape |
+
+Neither product defect. `tests/setup.ts` now starts a run from no provider, no credential
+and no signed review — and only the discovery provider, because pinning the outbound keys
+too broke four unrelated tests that configure those themselves. Application code never
+writes a physical location without a street (`upsertLocation` types such a row
+`service_area`), so the two fixtures were given addresses.
+
+## 8. Results
 
 _Filled in as the run proceeds._
 
-## 8. Morning handoff
+## 9. Morning handoff
 
 _Filled in at the end._
