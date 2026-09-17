@@ -205,7 +205,15 @@ function normalizeForCompare(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
-function looksLikePageCopy(name: string): { yes: boolean; reasons: string[] } {
+/**
+ * Exported because Stage D reads it too.
+ *
+ * A paid search built from "HVAC Tune-Up in Saint Petersburg, FL 33703 - AGNI" is money
+ * spent searching for our own bad data, and the rule for what that name is already
+ * lives here. Two copies of it would drift, and the one that drifted would be the one
+ * spending money.
+ */
+export function looksLikePageCopy(name: string): { yes: boolean; reasons: string[] } {
   const reasons: string[] = [];
   const lower = name.toLowerCase();
   if (TITLE_SEPARATORS.test(name)) reasons.push('carries a title separator');

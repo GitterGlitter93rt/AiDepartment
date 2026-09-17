@@ -93,7 +93,25 @@ A task should appear in only one status section. Dependencies may be referenced 
   promoted to another without evidence. Sunbright HVAC / Mr AC of Orlando is the design
   fixture: same person and address, companies stay separate, the qualifier does not
   become the owner, the related phone does not become the current direct phone.
-- [ ] **SB-V2-5 — Decision-maker research waterfall.** First-party site, then official
+- [x] **SB-V2-5 — Stage D planned, priced and disabled.** `npm run stage-d:preview`.
+  Queries are built only from established facts, never from the searched geography;
+  budget 3 + 2, stopping early; the price is the worst actually charged on the paid
+  ledger ($0.0060 across 44 tasks), not a constant. `--run` is refused explicitly and no
+  executor exists. **Gate verified:** 13 targeted tests, `npm run check` clean, and the
+  preview runs read-only against production. **Finding:** the planner refuses Accounts
+  whose stored name is page copy — that took a 100-Account batch from 275 planned
+  queries to 123 and from 3 to 57 Accounts needing nothing, which ties SB-V2-1b to the
+  value of Stage D. Production Stage-D spend still needs separate authorisation.
+- [x] **SB-V2-6 — 100-Account contact experiment, measured and reported.**
+  `npm run contact:yield`. Across all 320 production Accounts: 21% (67) have a named
+  decision maker, **0% have a named email**, **0% have a direct phone route** (404 of
+  404 phones are main lines), 226 of 320 research runs read the site and 94 read
+  nothing. The 98 `DIRECT_PERSON_EMAIL` rows have no contact attached, so they are not
+  named emails and the report prints the difference. Stages B and C report NOT_RUN, not
+  "nothing found". Estimated Stage-D cost per 100 Accounts: $0.74, worst case $3.00.
+  **No paid batch has been run.** The report is re-runnable, so the same numbers can be
+  taken again after remediation and after any spend.
+- [ ] ~~SB-V2-5 — Decision-maker research waterfall.~~ First-party site, then official
   public sources, then search-indexed public evidence via the existing DataForSEO
   account. No Apollo/Hunter/ZoomInfo. Stage D ships **disabled, preview-only and
   fixture-tested**; production Stage-D spend needs a separate authorization. Budget when
@@ -101,7 +119,7 @@ A task should appear in only one status section. Dependencies may be referenced 
   Account, stopping early when the evidence is sufficient. A search snippet is candidate
   evidence, never a verified fact; inferred email patterns stay INFERRED/UNVERIFIED and
   are never emailed.
-- [ ] **SB-V2-6 — 100-Account contact experiment.** Before buying any contact-data
+- [ ] ~~SB-V2-6 — 100-Account contact experiment.~~ Before buying any contact-data
   provider, measure ~100 workable Accounts: decision maker and named email from
   first-party only, then after public search; direct phone vs main line only; unresolved
   counts; average Stage-D searches per Account; estimated spend per Account and per 100.

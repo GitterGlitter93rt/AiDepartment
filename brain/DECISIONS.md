@@ -1057,3 +1057,79 @@ REGISTERED_AGENT, OFFICER and MEMBER never establish ownership. The list lives b
 rule rather than at the call sites, because the call sites are where it gets forgotten: a
 qualifier on a licence and an agent on a filing both read like "the person in charge" to
 anybody who has not been told otherwise.
+
+---
+
+## SB-V2-5 and SB-V2-6 — Stage D priced, and the free stages measured (2026-09-17)
+
+### Stage D ships planned, priced and disabled
+
+`npm run stage-d:preview` says what would be asked and what it would cost. There is no
+executor: `--run` is refused explicitly rather than being an unrecognised flag, and
+`stageDRunnable()` returns false twice over — once because the flag is off, and once
+because turning the flag on still finds nothing to run.
+
+A query is built only from facts already established: a person's name from first-party
+or official evidence, a street and city from what the company published, never from the
+geography we searched. A query built from where we looked returns results about where we
+looked. The budget is 3 decision-maker queries plus 2 contact queries, 5 absolute, and
+the plan stops early rather than filling the ceiling.
+
+**The price comes from the ledger, not from a constant.** `provider_tasks.cost_usd`
+holds the highest price actually charged across production's 44 collected tasks:
+$0.0060. The worst observed price is used rather than the average, because an estimate
+that is right on the cheap day and wrong on the expensive one is the wrong way round for
+a spending decision.
+
+### What running the preview against production found
+
+The first plan it produced was:
+
+> `"HVAC Tune-Up in Saint Petersburg, FL 33703 - AGNI" owner OR president OR "general manager"`
+
+Nobody calls the company that. It is a page title this system stored as a name, and
+**189 of the 320 Accounts carry a name of that shape**. Paying to search for our own bad
+data is the one expense with no possible upside, so the planner now refuses it, reading
+the rule from the remediation classifier rather than restating it. The effect on a
+100-Account batch:
+
+| | before the gate | after |
+|---|---|---|
+| queries planned | 275 | 123 |
+| accounts needing nothing | 3 | 57 (56 of them blocked by their name) |
+| estimated cost per 100 | $1.65 | $0.74 |
+
+That ties SB-V2-1b directly to the value of Stage D: **more than half the inventory
+cannot be usefully searched until its names are fixed.**
+
+### What the free stages have actually produced (SB-V2-6)
+
+`npm run contact:yield`, measured over all 320 production Accounts:
+
+| measure | value |
+|---|---|
+| research runs | 320, of which 226 read the site and 94 read nothing |
+| pages read per run | 3.43; median run 18.4s |
+| named decision maker | **21% (67 of 320)** |
+| a role standing in for a person | 79% (253 of 320) |
+| accounts with a named email | **0% (0 of 320)** |
+| accounts with a direct phone route | **0% (0 of 320)** |
+| phone endpoints | 404, every one of them a main business line |
+
+The email figure is the one worth reading twice. 98 endpoints carry the role
+`DIRECT_PERSON_EMAIL` and **not one is linked to a contact**, so not one has a person
+attributed: the role was assigned from the shape of the mailbox before the rule that now
+governs it existed. The report counts a named email as one attributed to a person and
+prints the difference rather than hiding it.
+
+Stages B and C are reported as `NOT_RUN`, never as nothing found. Nothing has been asked
+of them, and that is not the same as their having nothing to say.
+
+### What this does not decide
+
+It does not say a paid contact provider is unnecessary and it does not say one is
+needed, and the report says so in its own last paragraph. The measured order of work it
+does suggest: fix the names, then run the free official sources, then price Stage D
+again against inventory that a search can actually help.
+
+**No paid batch has been run. Stage-D spend still needs Michael's authorisation.**

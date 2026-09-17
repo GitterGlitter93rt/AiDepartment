@@ -39,7 +39,9 @@
     "probe:packet": "tsx src/bin/probe-packet.ts",
     "blocka": "tsx src/bin/block-a.ts",
     "blockb": "tsx tests/support/blockBPacket.ts",
-    "remediation:preview": "tsx src/bin/remediation-preview.ts"
+    "remediation:preview": "tsx src/bin/remediation-preview.ts",
+    "stage-d:preview": "tsx src/bin/stage-d-preview.ts",
+    "contact:yield": "tsx src/bin/contact-yield.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
