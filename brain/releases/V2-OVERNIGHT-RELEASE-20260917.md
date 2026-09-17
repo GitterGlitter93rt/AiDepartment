@@ -266,10 +266,59 @@ yield first-party evidence — contact routes, published addresses, site identit
 pre-fix estimate assumed was unavailable. Energy Air alone produced 14 contact endpoints
 and 2 addresses in the verification run.
 
-## 9. Results
+## 9. Qualification and deployment
+
+### Gates on the final RC `b34a079` (services `74d7690`)
+
+| gate | result |
+|---|---|
+| `npm run check` | PASS |
+| `npm run build` | PASS |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| targeted V2 release gate | 116 / 116 |
+| **full forward** | **2274 / 2274, 0 failures** (4 849 s) |
+| **full reverse / isolation** | **2274 / 2274, 0 failures** (4 875 s) |
+
+Both full runs are on the same tree, run sequentially, against the throwaway test
+database and never production. RC1's forward run (2250/2254) is kept as the evidence that
+identified its four failures; none was a product defect.
+
+### Deployment, 2026-09-17 17:44 UTC
+
+| | |
+|---|---|
+| from | `3e4a2820afdaf2ef3b1490bad99e849bb08372ef` (V1, schema 52) |
+| to | **`b34a07968ec158f0cd8a73b754f5a5f6a1b51cc9`** — fast-forward, no merge, no force |
+| migrations | 053 and 054 applied; schema 52 → **54**; tables 77 → 78 |
+| restart | worker then API, **2.19 s** window |
+| `/healthz` | 200, database ok, `outboundDialEnabled: false` |
+| worker | `build_sha=b34a079`, `migrations_expected=54`, heartbeat 12 s |
+| new schema live | `locations.basis`, `account_relationships`, `evidence_records.location_id` |
+| saved markets enabled | 0 |
+| provider tasks caused by the deploy | **0** |
+| pre-deploy backup | `yad_sales_20260917T174300Z.sql.gz`, 1 014 549 bytes, verified |
+
+### Unrelated human activity during the window, recorded rather than absorbed
+
+Between **17:24 and 17:42 UTC** — while the reverse gate was still running and before the
+17:44 restart — somebody ran three HVAC market searches through the portal (Orlando,
+Miami, FL). They bought 3 provider tasks and created 4 Accounts.
+
+| | before | after |
+|---|---|---|
+| Accounts | 320 | **324** |
+| provider_usage calls | 97 | 106 |
+| lifetime provider spend | $0.2580 | **$0.2760** |
+| provider tasks | 49 | 52 |
+
+None of it is attributable to this run: every task was submitted before the deploy, and
+**zero provider tasks have been submitted since**. The estate rebuild therefore works over
+324 Accounts rather than 320.
+
+## 10. Results
 
 _Filled in as the run proceeds._
 
-## 10. Morning handoff
+## 11. Morning handoff
 
 _Filled in at the end._
