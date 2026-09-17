@@ -76,9 +76,33 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
         left join contacts c on c.contact_id = ce.contact_id
        where ce.account_id = any($1::uuid[])`, [ids]);
 
-  const { rows: locations } = await query<{ account_id: string; n: string }>(
-    `select account_id, count(*)::text n from locations
-      where account_id = any($1::uuid[]) and address_line_1 is not null
+  /**
+   * Locations, counted three ways.
+   *
+   * A row with a street is a place. A row without one is a geography, and a row with
+   * no recorded basis is a geography nobody can account for -- which is exactly what
+   * the 66 legacy rows are: ZIP 32095, the ZIP the canary searched, on 66 Accounts.
+   */
+  //
+  // `basis` arrived with migration 053 and the preview has to keep running against a
+  // database that has not had it applied -- which is the point of a read-only tool:
+  // production is where the question is asked, and production is by definition behind
+  // the branch asking it. Where the column does not exist, no row can account for
+  // itself, which is the same answer the column would give.
+  const { rows: hasBasis } = await query<{ present: boolean }>(
+    `select exists (select 1 from information_schema.columns
+                     where table_name = 'locations' and column_name = 'basis') as present`);
+  const basisExpression = hasBasis[0]?.present
+    ? `count(*) filter (where basis is not null)::text` : `'0'::text`;
+
+  const { rows: locations } = await query<{
+    account_id: string; n: string; with_street: string; with_basis: string;
+  }>(
+    `select account_id, count(*)::text n,
+            count(*) filter (where address_line_1 is not null)::text with_street,
+            ${basisExpression} as with_basis
+       from locations
+      where account_id = any($1::uuid[])
       group by account_id`, [ids]);
 
   // The run that produced the state currently on the Account: the most recent one.
@@ -127,7 +151,10 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
   const candidatesBy = group(candidates, (r) => r.account_id);
   const observationsBy = group(observations, (r) => r.account_id);
   const endpointsBy = group(endpoints, (r) => r.account_id);
-  const locationsBy = new Map(locations.map((r) => [r.account_id, Number(r.n)]));
+  const locationsBy = new Map(locations.map((r) => [r.account_id, Number(r.with_street)]));
+  const locationClaimsBy = new Map(locations.map((r) => [r.account_id, {
+    total: Number(r.n), withStreet: Number(r.with_street), withBasis: Number(r.with_basis),
+  }]));
   const researchBy = new Map(research.map((r) => [r.account_id, r]));
   const activityBy = new Map(activity.map((r) => [r.account_id, r]));
 
@@ -163,6 +190,8 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
       })),
       phoneCount: mine.filter((e) => e.endpoint_type === 'PHONE').length,
       locationCount: locationsBy.get(account.account_id) ?? 0,
+      locationClaims: locationClaimsBy.get(account.account_id)
+        ?? { total: 0, withStreet: 0, withBasis: 0 },
       latestResearch: run
         ? { status: run.status, pagesFetched: run.pages_fetched, pagesBlocked: run.pages_blocked,
             completedAt: run.completed_at }

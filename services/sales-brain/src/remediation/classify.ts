@@ -146,6 +146,8 @@ export interface AccountBundle {
   emails: EmailEndpointEvidence[];
   phoneCount: number;
   locationCount: number;
+  /** Every location row on the Account, and how many of them can account for themselves. */
+  locationClaims: { total: number; withStreet: number; withBasis: number };
   latestResearch: ResearchEvidence | null;
   humanActivity: HumanActivityEvidence;
 }
@@ -310,6 +312,25 @@ export function classifyAccount(bundle: AccountBundle): AccountVerdict {
       proposedAction: 're-resolve identity from first-party evidence before a rep works it',
       confidence: 'HIGH',
       reviewRequired: false,
+    }));
+  }
+
+  /* H -- a place claim nothing supports. */
+  //
+  // Production holds 66 of these, one per legacy Roofing Account, every one carrying
+  // ZIP 32095: the ZIP the canary searched. They are typed `service_area`, which reads
+  // as something the business declared, and nothing was read from any page. A row with
+  // no street and no recorded basis is a geography wearing a location's clothes.
+  const placeless = bundle.locationClaims.total - bundle.locationClaims.withStreet;
+  if (placeless > 0 && bundle.locationClaims.withBasis === 0) {
+    findings.push(gate({
+      remediationClass: 'H',
+      code: 'LOCATION_WITHOUT_PROVENANCE',
+      reason: `${placeless} location row(s) name no street and record no source, so nothing `
+        + 'says where the geography on them came from.',
+      proposedAction: 'remove the unsupported location claim; re-derive from first-party evidence',
+      confidence: 'HIGH',
+      reviewRequired: true,
     }));
   }
 

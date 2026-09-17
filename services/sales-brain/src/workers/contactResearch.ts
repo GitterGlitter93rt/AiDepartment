@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { mayResearchDomainWithHistory } from '../discovery/attribution.js';
 import { query, withTransaction } from '../db/pool.js';
 import { researchFirstParty } from '../resolver/adapters/firstParty.js';
+import type { AddressObservation, ServiceAreaObservation } from '../resolver/address.js';
 import { reconcile } from '../resolver/reconcile.js';
 import { persistResolution } from '../resolver/persist.js';
 import { recordEvidence } from '../domain/accounts.js';
@@ -143,6 +144,9 @@ export async function runContactResearch(
   const endpoints: EndpointObservation[] = [];
   let pagesFetched = 0;
   let pageText: { url: string; text: string }[] = [];
+  /** Kept apart all the way through: a place the company is, and places it travels. */
+  let addresses: AddressObservation[] = [];
+  let serviceAreas: ServiceAreaObservation[] = [];
   let pagesBlocked = 0;
   const notes: string[] = [];
 
@@ -178,6 +182,8 @@ export async function runContactResearch(
     pagesBlocked = firstParty.pagesBlocked.length;
     notes.push(...firstParty.notes);
     pageText = firstParty.pageText;
+    addresses = firstParty.addresses;
+    serviceAreas = firstParty.serviceAreas;
   } else {
     stagesSkipped.push({ stage: 'A_company_first_party', reason: attribution.reason });
   }
@@ -289,6 +295,15 @@ export async function runContactResearch(
 
   await withTransaction(async (client) => {
     await persistResolution(client, accountId, resolution, researchRunId);
+
+    // Where the company says it is, and where it says it will travel — separately.
+    const { persistPublishedLocations } = await import('../resolver/locations.js');
+    const located = await persistPublishedLocations(client, {
+      accountId, researchRunId, addresses, serviceAreas,
+    });
+    if (located.physical > 0) {
+      notes.push(`${located.physical} published address(es) recorded.`);
+    }
 
     for (const signal of signals) {
       await recordEvidence(client, {

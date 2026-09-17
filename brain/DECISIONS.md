@@ -912,3 +912,83 @@ sixth market mined inside one test exhausted it, and a test asserting how a *pro
 refusal is reported read `DISCOVERY_BLOCKED` — our own refusal — instead. The same suite
 passed on a box with no ceiling configured. `tests/setup.ts` now pins it to 0 unless a
 test sets its own, which is how the spend-control tests already work.
+
+---
+
+## SB-V2-3 — a physical address is something a company published (2026-09-17)
+
+Three claims are now kept apart in the data model, and none may be derived from
+another:
+
+| | what it means | where it lives |
+|---|---|---|
+| PHYSICAL LOCATION | a street address the company puts on its own site | `locations`, type `physical`, with a basis and a source URL |
+| MAILING ADDRESS | a PO box or mail drop | `locations`, type `mailing` |
+| SERVICE AREA | where the company says it will travel | `evidence_records`, claim key `service_area` |
+| DISCOVERY GEOGRAPHY | the ZIP or city we typed into a provider | never a location |
+
+### What production actually holds
+
+**66 `locations` rows, one per legacy Roofing Account, every one carrying ZIP 32095** —
+the ZIP the canary searched. No street, no source, nothing any company ever said, and
+typed `service_area`, which reads as a claim the business made. V1 stopped writing them;
+they are still there. The remediation preview now reports them as
+`LOCATION_WITHOUT_PROVENANCE` — 66 accounts, matching the known 66 exactly, which is the
+same reconciliation check the other classes pass.
+
+They are deliberately **not** relabelled or deleted: that is a production data rewrite
+and mass remediation is not authorised. A null basis is the honest description of a row
+whose provenance was never recorded.
+
+### The rules the extractor follows
+
+A street address needs a number, a street name with a recognised suffix, a city, a state
+and a ZIP. Each is load-bearing: without the ZIP the matcher eats "Serving Winter Park,
+FL"; without the suffix it eats phone numbers and dates; without the number it eats the
+name of a road in a sentence about driving down it.
+
+A schema.org address of a locality and a region **with no street is refused**. "Orlando,
+FL" is a place name, and a place name is exactly what the 66 rows are. Accepting it would
+rebuild them out of structured data instead of a ZIP.
+
+Service-area wording in the 90 characters before a candidate disqualifies it, because the
+sentence a place name sits in is what says whether the company is *in* it: "Proudly
+serving Winter Park, FL 32789" is a service area with a ZIP in it.
+
+`areaServed` is read rather than ignored. The two claims sit next to each other in the
+same JSON-LD node, and the way they get confused is one of them being invisible.
+
+A `Person` node's address is not the company's address — the Sunbright fixture's whole
+point, one step earlier than the relationship graph.
+
+### Enforced below the code
+
+Migration 053 adds `basis`, `source_reference`, `first_observed_at` and
+`last_verified_at` to `locations`, and a `not valid` check constraint: a row typed
+`physical` must have a street. `not valid` governs every future write without rewriting
+the history it inherits; validating it belongs with the remediation authorisation, not
+with the migration.
+
+`recordEvidence` can finally write `evidence_records.location_id`. The column has existed
+since migration 003 and nothing could set it, so a location's evidence floated free of
+the location it was about.
+
+### What the rep is shown
+
+"Where they are" on the Account page now reads in order of what the claim is worth: the
+address the company publishes (with the URL it was read from and the date), then a
+mailing address labelled as a mail drop and not a place of business, then where the
+company *says it serves* — labelled as travel — then the line a provider printed, then
+last the discovery geography with its existing "where we looked, not where they are".
+
+Four claims about place, four different sentences. The rep can see which is which, which
+is the whole point: the 66 legacy rows are indistinguishable from a real address until
+somebody says where each one came from.
+
+### The preview keeps running against production
+
+`basis` arrives with migration 053, and production runs 52. The remediation preview asks
+`information_schema` whether the column exists and treats its absence as "no row can
+account for itself", which is the answer the column would give anyway. A read-only tool
+whose whole purpose is asking production what it contains cannot require the schema of
+the branch asking.

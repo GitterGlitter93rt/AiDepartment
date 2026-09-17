@@ -60,10 +60,17 @@ A task should appear in only one status section. Dependencies may be referenced 
   targeted tests plus 34 existing mining-truth tests pass; `npm run check` and
   `npm run build` clean. On production data the page reads 54 searches instead of 92 job
   rows, and the 40 "Provider still working" rows are gone. Detail in brain/DECISIONS.md.
-- [ ] **SB-V2-3 — Physical location enrichment, conservative and first-party.** Keep
-  PHYSICAL ADDRESS, SERVICE AREA and DISCOVERY GEOGRAPHY distinct. Sources: schema.org
-  `PostalAddress`, `LocalBusiness`, contact and location pages, explicit company
-  address. Never infer a physical location from the search ZIP or city.
+- [x] **SB-V2-3 — Physical location enrichment COMPLETE.** PHYSICAL ADDRESS, MAILING
+  ADDRESS, SERVICE AREA and DISCOVERY GEOGRAPHY are four separate things; a location
+  records how it is known and the URL it was read from. Sources: schema.org
+  `PostalAddress` on an organisation node, and street addresses in the readable text of
+  pages the company publishes. A locality with no street is refused, service-area
+  wording disqualifies a candidate, a PO box is `mailing`, and a `Person` node's address
+  is not the company's. **Gate verified:** 15 targeted tests including an end-to-end
+  research run against a stubbed site and the database constraint refusing a physical
+  location with no street; `npm run check` clean. Migration 053 adds provenance columns
+  and a `not valid` check. The preview now reports the 66 legacy ZIP-only rows as
+  `LOCATION_WITHOUT_PROVENANCE` — exactly the known 66 — and changes none of them.
 - [ ] **SB-V2-4 — Public official source graph.** Florida DBPR and Sunbiz where
   accessible and governed; Texas Comptroller official API once legitimately keyed, TDLR,
   TSBPE snapshots. No CAPTCHA bypass, no robots circumvention, no SOSDirect paid

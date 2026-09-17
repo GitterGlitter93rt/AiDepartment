@@ -520,6 +520,10 @@ export async function recordEvidence(
   client: Queryable,
   input: {
     accountId: string; contactId?: string | null; endpointId?: string | null;
+    // The place a claim is about, when the claim is about a place. The column has
+    // always existed; nothing could write it, so a location's evidence floated free
+    // of the location.
+    locationId?: string | null;
     researchRunId?: string | null; category: string; claimKey: string; claimText: string;
     normalizedValue?: string | null; confidence: 'confirmed' | 'likely' | 'unknown' | 'contradicted';
     canStateAsFact: boolean; sourceType: string; sourceProvider?: string | null;
@@ -528,17 +532,19 @@ export async function recordEvidence(
   },
 ): Promise<string> {
   const { rows } = await client.query<{ evidence_id: string }>(
-    `insert into evidence_records (account_id, contact_id, endpoint_id, research_run_id, category,
+    `insert into evidence_records (account_id, location_id, contact_id, endpoint_id,
+                                   research_run_id, category,
                                    claim_key, claim_text, normalized_value, confidence,
                                    can_state_as_fact, source_type, source_provider, source_reference,
                                    expires_at, freshness, precedence_rank, notes)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'fresh',coalesce($15,9),$16)
+     values ($1,$17,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'fresh',coalesce($15,9),$16)
      returning evidence_id`,
     [
       input.accountId, input.contactId ?? null, input.endpointId ?? null, input.researchRunId ?? null,
       input.category, input.claimKey, input.claimText, input.normalizedValue ?? null, input.confidence,
       input.canStateAsFact, input.sourceType, input.sourceProvider ?? null, input.sourceReference ?? null,
       input.expiresAt ?? null, input.precedenceRank ?? null, input.notes ?? null,
+      input.locationId ?? null,
     ],
   );
   return rows[0]!.evidence_id;

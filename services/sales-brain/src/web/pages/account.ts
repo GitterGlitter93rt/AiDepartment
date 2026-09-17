@@ -286,9 +286,32 @@ export function renderAccountBody(detail: AccountDetail, user: SessionUser): Raw
     </div>
   </div>`}
 
-  ${detail.entity.observedBusinessAddress || detail.entity.discoveredForGeography ? html`
+  ${detail.entity.publishedLocations.length > 0 || detail.entity.serviceAreas.length > 0
+    || detail.entity.observedBusinessAddress || detail.entity.discoveredForGeography ? html`
   <div class="section">
     <h3>Where they are</h3>
+    ${detail.entity.publishedLocations.map((location) => html`
+      <div class="row" style="gap:8px;align-items:baseline;margin-bottom:4px">
+        <span class="badge">${location.kind === 'mailing' ? 'Mailing address' : 'Published address'}</span>
+        <span>${location.line}</span>
+      </div>
+      <p class="micro muted">
+        ${location.kind === 'mailing'
+          ? 'A mail drop the company publishes. An address, and not a place of business.'
+          : 'From the company&rsquo;s own site, which is where they say they are.'}
+        ${location.sourceReference
+          ? html`Read from <a href="${location.sourceReference}" rel="nofollow noopener"
+                   target="_blank">${location.sourceReference}</a>`
+          : ''}${location.lastVerifiedAt
+          ? html` on ${formatDateTime(location.lastVerifiedAt)}` : ''}.
+      </p>`)}
+    ${detail.entity.serviceAreas.length > 0 ? html`
+      <div class="row" style="gap:8px;align-items:baseline;margin-bottom:4px">
+        <span class="badge">Says it serves</span>
+        <span>${detail.entity.serviceAreas.join(', ')}</span>
+      </div>
+      <p class="micro muted">Where they say they will travel, which is not where they
+      are.</p>` : ''}
     ${detail.entity.observedBusinessAddress ? html`
       <div class="row" style="gap:8px;align-items:baseline;margin-bottom:4px">
         <span class="badge">Observed address</span>

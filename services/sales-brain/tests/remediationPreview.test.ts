@@ -36,6 +36,7 @@ function bundle(overrides: Partial<AccountBundle> = {}): AccountBundle {
     emails: [],
     phoneCount: 2,
     locationCount: 0,
+    locationClaims: { total: 0, withStreet: 0, withBasis: 0 },
     latestResearch: { status: 'completed', pagesFetched: 6, pagesBlocked: 0, completedAt: null },
     humanActivity: NO_ACTIVITY,
     ...overrides,
@@ -280,4 +281,23 @@ test('the summary counts each Account once per class it is in', () => {
   assert.equal(summary.byFindingClass['F'], 1, 'two stale endpoints on one Account is one affected Account');
   assert.equal(summary.byCode['ENDPOINT_ROLE_PREDATES_RULE'], 1, 'and one finding');
   assert.equal(summary.activity.human_sales_activity, 0);
+});
+
+test('a location with no street and no source is a claim nobody can account for', () => {
+  // Production holds 66 of these: one per legacy Roofing Account, all carrying ZIP
+  // 32095, which is the ZIP the canary searched and not something any company said.
+  const verdict = classifyAccount(bundle({
+    locationCount: 0,
+    locationClaims: { total: 1, withStreet: 0, withBasis: 0 },
+  }));
+  const finding = verdict.findings.find((f) => f.code === 'LOCATION_WITHOUT_PROVENANCE');
+  assert.ok(finding, 'an unsupported place claim was not reported');
+  assert.equal(finding!.reviewRequired, true);
+
+  // A published address with its basis recorded is not a finding.
+  const clean = classifyAccount(bundle({
+    locationCount: 1,
+    locationClaims: { total: 1, withStreet: 1, withBasis: 1 },
+  }));
+  assert.equal(clean.findings.some((f) => f.code === 'LOCATION_WITHOUT_PROVENANCE'), false);
 });

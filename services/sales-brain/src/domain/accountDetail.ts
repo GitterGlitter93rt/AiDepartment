@@ -127,6 +127,22 @@ export interface EntityPicture {
    * "we have seen one and will not pretend to know which ZIP it is in".
    */
   observedBusinessAddress: string | null;
+  /**
+   * Addresses the company publishes on its own site, with how each is known.
+   *
+   * Held apart from `observedBusinessAddress`, which is a line a *provider* printed
+   * and nothing has parsed. Both are evidence and they are different claims: one is
+   * the company saying where it is, the other is a directory saying so.
+   */
+  publishedLocations: {
+    line: string;
+    kind: string;
+    basis: string;
+    sourceReference: string | null;
+    lastVerifiedAt: Date | null;
+  }[];
+  /** Where the company says it will travel. Never anywhere it is. */
+  serviceAreas: string[];
 }
 
 export interface TimelineEvent {
@@ -481,12 +497,39 @@ async function entityPictureFor(accountId: string): Promise<EntityPicture> {
   const account = accountRows[0];
   const foundByMachine = account?.found_by_machine ?? false;
 
-  // An observed address with no resolved city or ZIP: the provider printed a line and
-  // nothing has parsed it, which is a fact worth showing rather than discarding.
-  const { rows: addressRows } = await query<{ address_line_1: string | null }>(
-    `select address_line_1 from locations
-      where account_id = $1 and address_line_1 is not null
-      order by created_at limit 1`, [accountId]);
+  // Two kinds of address, read in one pass and never mixed.
+  //
+  // A row with a `basis` was read from a page the company publishes and says so. A row
+  // without one is either a line a provider printed and nothing parsed, or a legacy row
+  // whose provenance was never recorded -- production holds 66 of the latter, all
+  // carrying the ZIP the canary searched.
+  const { rows: addressRows } = await query<{
+    address_line_1: string | null; city: string | null; state_region: string | null;
+    postal_code: string | null; location_type: string; basis: string | null;
+    source_reference: string | null; last_verified_at: Date | null;
+  }>(
+    `select address_line_1, city, state_region, postal_code, location_type,
+            basis, source_reference, last_verified_at
+       from locations
+      where account_id = $1
+      order by is_headquarters desc, created_at`, [accountId]);
+
+  const publishedLocations = addressRows
+    .filter((row) => row.basis && row.address_line_1)
+    .map((row) => ({
+      line: [row.address_line_1, row.city, [row.state_region, row.postal_code]
+        .filter(Boolean).join(' ')].filter(Boolean).join(', '),
+      kind: row.location_type,
+      basis: row.basis!,
+      sourceReference: row.source_reference,
+      lastVerifiedAt: row.last_verified_at,
+    }));
+
+  const { rows: areaRows } = await query<{ normalized_value: string | null }>(
+    `select distinct normalized_value from evidence_records
+      where account_id = $1 and claim_key = 'service_area'
+        and contradicted_by_evidence_id is null
+      order by normalized_value limit 8`, [accountId]);
 
   const { rows: candidateRows } = await query<{
     source_class: string; reasons: string[] | null;
@@ -508,6 +551,9 @@ async function entityPictureFor(accountId: string): Promise<EntityPicture> {
     sourceClass: candidateRows[0]?.source_class ?? null,
     discoveredForGeography: account?.discovered_for_geography ?? null,
     discoveredForGeographyType: account?.discovered_for_geography_type ?? null,
-    observedBusinessAddress: addressRows[0]?.address_line_1 ?? null,
+    observedBusinessAddress: addressRows.find(
+      (row) => !row.basis && row.address_line_1)?.address_line_1 ?? null,
+    publishedLocations,
+    serviceAreas: areaRows.map((row) => row.normalized_value).filter((v): v is string => !!v),
   };
 }

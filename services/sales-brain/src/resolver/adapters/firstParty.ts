@@ -1,4 +1,7 @@
 import { politeFetch } from '../fetcher.js';
+import {
+  extractAddresses, type AddressObservation, type ServiceAreaObservation,
+} from '../address.js';
 import { relationshipFromTitle } from '../roles.js';
 import { normalizeEmail, normalizePhone } from '../../domain/normalize.js';
 import type { EndpointObservation, PersonObservation } from '../types.js';
@@ -31,6 +34,16 @@ export interface FirstPartyResult {
    */
   pageText: { url: string; text: string }[];
   pagesBlocked: { url: string; reason: string }[];
+  /**
+   * Where the company says it is, and where it says it will travel.
+   *
+   * Read from the same fetch as everything else, and kept as two separate lists
+   * because a service area is a claim about travel and an address is a claim about a
+   * place. The 66 `locations` rows production still holds are the searched ZIP typed
+   * as a service area, which is neither.
+   */
+  addresses: AddressObservation[];
+  serviceAreas: ServiceAreaObservation[];
   notes: string[];
 }
 
@@ -405,8 +418,11 @@ export async function researchFirstParty(
   website: string, companyName?: string | null,
 ): Promise<FirstPartyResult> {
   const result: FirstPartyResult = {
-    people: [], endpoints: [], pagesFetched: [], pageText: [], pagesBlocked: [], notes: [],
+    people: [], endpoints: [], pagesFetched: [], pageText: [], pagesBlocked: [],
+    addresses: [], serviceAreas: [], notes: [],
   };
+  /** Pages kept whole for address extraction: the structure and the prose together. */
+  const pagesForAddresses: { url: string; text: string; jsonLd: unknown[] }[] = [];
 
   let origin: string;
   try {
@@ -471,11 +487,13 @@ export async function researchFirstParty(
     const text = stripTags(response.body);
     result.pageText.push({ url: reference, text });
 
-    const jsonLd = peopleFromJsonLd(extractJsonLd(response.body), reference);
+    const blocks = extractJsonLd(response.body);
+    const jsonLd = peopleFromJsonLd(blocks, reference);
     result.people.push(...jsonLd.people);
     result.endpoints.push(...jsonLd.endpoints);
     result.people.push(...peopleFromText(text, reference, companyName));
     result.endpoints.push(...endpointsFromHtml(response.body, reference));
+    pagesForAddresses.push({ url: reference, text, jsonLd: blocks });
 
     if (!discovered) {
       discovered = true;
@@ -488,6 +506,12 @@ export async function researchFirstParty(
       }
     }
   }
+
+  // Deduplicated across the whole crawl rather than per page: one office published in
+  // a footer is one location, not one per page the footer appears on.
+  const located = extractAddresses(pagesForAddresses);
+  result.addresses = located.addresses;
+  result.serviceAreas = located.serviceAreas;
 
   if (result.pagesFetched.length === 0) {
     result.notes.push(`No public pages could be read for ${origin}.`);
