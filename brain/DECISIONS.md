@@ -669,3 +669,99 @@ produced 65 of the 66 legacy Roofing Accounts.** The other four roofing searches
 A recovery path must not depend on a *product* concept — a saved market — to rescue a
 *financial* one. The money was spent whether or not anybody saved the market afterwards,
 so the ledger, and only the ledger, decides what is still owed.
+
+---
+
+## V1 shipped to production (2026-09-17)
+
+`sales.youraidepartment.ai` moved from `d856bce` to **`3e4a282`** (tree `ba98139`) by
+fast-forward on `feature/outbound-sales-brain`. Restart window 2.7 seconds; worker
+restarted before the API. Backup taken first:
+`~/yad-sales-backups/yad_sales_20260917T033912Z.sql.gz`.
+
+### Release naming
+
+"Release 1 / Release 2 / Release 3" is retired. From here there is **V1** (the
+rep-ready release now live) and **V2** (the next phase). The numbers had been reused
+for a provider hotfix, a rep-readiness branch and a combined tree, and no longer said
+what was being shipped.
+
+Collapsing the two planned releases into one V1 also removed the deployment problem
+the earlier plan was built around. The old sequence deployed the provider hotfix
+`32abae6` first, and because that commit had been cherry-picked into the rep branch, a
+second `--ff-only` to `3e4a282` would have been refused — the plan called for a merge
+commit to repair the ancestry. Deploying `3e4a282` directly made that unnecessary:
+`d856bce` is already its ancestor, so one fast-forward shipped everything. The reverse
+qualification of the intermediate tree `c4234dc` was abandoned for the same reason —
+that tree was never going to be deployed.
+
+### How V1 was qualified
+
+Against the exact tree `ba98139`, worktree clean, provenance recorded at each launch:
+
+| Gate | Result |
+|---|---|
+| Forward full suite | 2171 / 2171, exit 0 |
+| Reverse / isolation full suite | 2171 / 2171, exit 0 |
+| Targeted gate, 32 files run one process each | 396 tests, 0 failures, every file exit 0 |
+| `npm run check` | PASS |
+| `npm run build` | PASS |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+
+The targeted gate runs one process per file on purpose. The full-suite TAP is flat —
+it carries test titles, not file names — so a single combined run cannot prove which
+file a given assertion came from. Per-file runs make each required area attributable
+and give each its own natural exit code.
+
+Isolated ephemeral Postgres only: throwaway `postgres:16-alpine` on a private Docker
+network, no published port, generated credentials, `DATAFORSEO_ENABLED=false`, no
+provider credentials, outbound/Twilio/Smartlead unset. Forward, targeted and reverse
+ran strictly sequentially — a previous session lost an entire "authoritative" run to
+`deadlock detected` when two suites shared a database name.
+
+### What the deploy cost
+
+Nothing. `task_post` unchanged at 42, provider spend unchanged at $0.2580, Accounts
+unchanged at 320, `saved_markets` still 0, jobs unchanged at 412 SUCCEEDED with none
+queued or running, schema unchanged at 52 migrations / 78 tables. Deliberately no
+historical remediation: `upsertAccount` uses `coalesce(existing, new)` for the vertical
+and does not update `canonical_name` at all, so V1 cannot rewrite the 320 existing
+Accounts. It changes only what new discovery creates.
+
+### Validated against the deployed build, read-only
+
+`PROVIDER_COLLECTION_PRIORITY` 30 / `contact_research` 40 / `account_research` 50 /
+ordinary `market_mine` 80, with no `.env` override so the code default applies.
+"Orlando, FL", "Miami, FL", "St. Augustine, FL" and "Fort Worth, TX" all normalize and
+reach a paid-search preview; bare "Orlando" is refused with *"Which Orlando? Add the
+state"*. The Orlando preview resolves to `locationName: "Orlando,Florida,United
+States"` and is marked `BUY_NEW` / `chargeable: true` — built but never confirmed, so
+nothing was bought. Markets renders 44 available-inventory cards with 0 saved markets.
+Department mailboxes (`donations@`, `investor_relations@`, `credit_department@`,
+`customer_care@`, `trucksales@`) classify as `ROLE_EMAIL`; a person-shaped address is
+`UNKNOWN_EMAIL_TYPE` without attribution and `DIRECT_PERSON_EMAIL` only with it.
+Company search finds an Account by canonical name, lowercased name, domain,
+digits-only phone, formatted phone and email. SALES_REP holds exactly the eight rep
+permissions and none of `request_market_refresh`, `manage_users`, `configure_markets`,
+`run_imports`, `remove_dnc`, `assign_accounts`, `export_inventory`. Cameron was never
+impersonated; permissions were read server-side.
+
+### Two findings recorded rather than fixed
+
+**Punctuation search looked like a 34/40 pass and is actually 34/34.** The six names
+whose punctuation-stripped variant did not match are not findable by their *exact*
+names either — a `todayshomeowner.com` listicle, a `local.yahoo.com` page, a news
+article about a veteran, and SEO-title names. They sit outside the rep-searchable
+inventory. V1 did not cause this: its diff removed only the old text-match block and
+added broader matching, changing no filter clause. These rows are V2 remediation
+candidates (class C and D).
+
+**A provider business listing establishes the trade without consulting the category.**
+`discoveryVerticalRelevance` returns SUPPORTED on `providerListing === true` before it
+reads `resultType`, and the miner passes `providerCategory: null` at its only call
+site, so the category never participates in production. V1 stops the measured failure
+— an organic result at position 51 becoming an HVAC prospect — and stops a paid ad
+alone establishing a trade. It does not stop a business listing categorised as another
+trade. The tests pin the organic case (`verticalRelevance.test.ts:97`); the listing
+case is an intentional, documented boundary. Roughly 51 existing Accounts took their
+vertical from `local_result`. Carry into V2.

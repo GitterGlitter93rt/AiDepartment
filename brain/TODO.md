@@ -17,6 +17,66 @@ A task should appear in only one status section. Dependencies may be referenced 
 
 ## 🔴 High priority
 
+- [x] **SB-V1 — Sales Brain V1 deployed to production.** `feature/outbound-sales-brain`
+  fast-forwarded `d856bce` → `3e4a282` on 2026-09-17; 2.7s restart window, worker before
+  API. **Gate verified:** forward 2171/2171, reverse 2171/2171, targeted 32 files /
+  396 tests all exit 0, check PASS, build PASS, audit 0 vulnerabilities, all against
+  tree `ba98139`; `/healthz` 200, worker heartbeat reporting `build=3e4a282`, and zero
+  delta in Accounts, jobs, provider tasks, saved markets and provider spend. Detail in
+  brain/DECISIONS.md.
+
+### V2 — next phase (branch `feature/sales-brain-v2`, cut from the live V1 SHA)
+
+- [ ] **SB-V2-1 — Historical data remediation, read-only preview first.** Classify the
+  320 existing Accounts into: valid company + valid vertical; valid company + wrong or
+  unsupported vertical; valid company + bad canonical display name; junk/non-company;
+  legacy unverified; stale contact-endpoint classification; needs human review. Separate
+  `human_sales_activity` from `system_activity_only` and `no_activity` and reverify at
+  execution time — a previous audit found 0 Accounts with human sales activity, which is
+  what would make remediation safe, and that fact must be re-established, not assumed.
+  **Completion gate:** preview counts and worked examples per class, with a proposed
+  action per class, and no production writes. Mass remediation needs Michael's separate
+  authorization.
+- [ ] **SB-V2-2 — Mining page redesign.** Default tab Market Discovery; tabs Market
+  Discovery / Website Research / All Activity. Provider state and internal Sales Brain
+  state must be separate columns — the page must never show "Provider still working"
+  when `provider_tasks` durably says COLLECTED. Website Research aggregates
+  Queued/Running/Complete/Blocked/Failed with drill-down, not a wall of "Researching
+  websites". **Completion gate:** both status dimensions render from durable truth and
+  the summary counts reconcile with the tables.
+- [ ] **SB-V2-3 — Physical location enrichment, conservative and first-party.** Keep
+  PHYSICAL ADDRESS, SERVICE AREA and DISCOVERY GEOGRAPHY distinct. Sources: schema.org
+  `PostalAddress`, `LocalBusiness`, contact and location pages, explicit company
+  address. Never infer a physical location from the search ZIP or city.
+- [ ] **SB-V2-4 — Public official source graph.** Florida DBPR and Sunbiz where
+  accessible and governed; Texas Comptroller official API once legitimately keyed, TDLR,
+  TSBPE snapshots. No CAPTCHA bypass, no robots circumvention, no SOSDirect paid
+  automation without separate authorization. Relationship roles stay distinct:
+  LICENSE_QUALIFIER, AUTHORIZED_MEMBER, OFFICER, OWNER, FOUNDER, EMPLOYEE,
+  REGISTERED_AGENT, RELATED_BUSINESS, HISTORICAL_BUSINESS_ASSOCIATION — no role is
+  promoted to another without evidence. Sunbright HVAC / Mr AC of Orlando is the design
+  fixture: same person and address, companies stay separate, the qualifier does not
+  become the owner, the related phone does not become the current direct phone.
+- [ ] **SB-V2-5 — Decision-maker research waterfall.** First-party site, then official
+  public sources, then search-indexed public evidence via the existing DataForSEO
+  account. No Apollo/Hunter/ZoomInfo. Stage D ships **disabled, preview-only and
+  fixture-tested**; production Stage-D spend needs a separate authorization. Budget when
+  enabled: at most 3 decision-maker queries plus 2 contact queries, 5 absolute per
+  Account, stopping early when the evidence is sufficient. A search snippet is candidate
+  evidence, never a verified fact; inferred email patterns stay INFERRED/UNVERIFIED and
+  are never emailed.
+- [ ] **SB-V2-6 — 100-Account contact experiment.** Before buying any contact-data
+  provider, measure ~100 workable Accounts: decision maker and named email from
+  first-party only, then after public search; direct phone vs main line only; unresolved
+  counts; average Stage-D searches per Account; estimated spend per Account and per 100.
+- [ ] **SB-V2-7 — Vertical evidence: a provider business listing is currently enough.**
+  `discoveryVerticalRelevance` returns SUPPORTED on `providerListing === true` before
+  reading the result type, and the miner passes `providerCategory: null`, so a listing
+  categorised as another trade still inherits the searched trade. V1 stopped the organic
+  and paid-only contamination; this boundary remains. ~51 existing Accounts took their
+  vertical from `local_result`. Decide whether the provider category should be carried
+  to the call site and consulted.
+
 - [ ] **WEB-001 — Complete the live CTA and funnel-routing audit.** The chooser, short assessment, $495 audit, internal long engine, and confirmation route are confirmed. Audit every navigation/button/campaign URL so no old one-assessment destination remains. **Completion gate:** every live CTA has an intentional destination and the result is documented.
 - [ ] **TRACK-001 — Finish the production measurement inventory.** GTM, GA4, Google tag, and Google Ads IDs are confirmed in brain/TRACKING.md. Record account ownership/access, Meta Dataset/Pixel, consent requirements, and production/staging behavior. **Completion gate:** all non-secret IDs, owners, and consent decisions are documented.
 - [ ] **TRACK-003 — Finish and verify GA4 funnel coverage through GTM.** Add the three missing live events documented in brain/TRACKING.md and inspect parameter forwarding on existing tags. **Completion gate:** the complete event sequence appears once with correct non-PII parameters in Tag Assistant, GA4 DebugView, and production.
