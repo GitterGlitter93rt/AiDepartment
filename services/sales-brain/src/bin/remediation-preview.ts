@@ -72,9 +72,10 @@ function line(verdict: AccountVerdict): string {
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   if (options.apply) {
-    console.error('REFUSED: --apply is not implemented and must not be.');
-    console.error('Mass remediation rewrites Accounts under rules a person has not agreed to yet.');
-    console.error('Run the dry run, have the plan authorized, then the apply path is built against it.');
+    console.error('This command previews. The apply path is its own command:');
+    console.error('  npm run remediation:apply -- --dry-run');
+    console.error('  npm run remediation:apply -- --apply');
+    console.error('It was authorised on 2026-09-17; see brain/releases/V2-OVERNIGHT-RELEASE-20260917.md.');
     process.exitCode = 2;
     return;
   }

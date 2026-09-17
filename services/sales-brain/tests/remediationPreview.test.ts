@@ -35,6 +35,7 @@ function bundle(overrides: Partial<AccountBundle> = {}): AccountBundle {
     }],
     verticalTerms: HVAC_TERMS,
     serviceAliases: HVAC_ALIASES,
+    siteIdentity: null,
     emails: [],
     phoneCount: 2,
     locationCount: 0,

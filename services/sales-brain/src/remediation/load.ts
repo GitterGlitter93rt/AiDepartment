@@ -95,6 +95,23 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
   const basisExpression = hasBasis[0]?.present
     ? `count(*) filter (where basis is not null)::text` : `'0'::text`;
 
+  /**
+   * What each site calls itself, from the evidence `npm run identity:estate` records.
+   *
+   * The newest per Account, and only ones that have not been contradicted. An Account
+   * nobody has asked about arrives with null, which the classifier reads as "nobody
+   * asked" rather than as "the site named nothing".
+   */
+  const { rows: identities } = await query<{
+    account_id: string; claim_text: string; notes: string | null;
+  }>(
+    `select distinct on (account_id) account_id, claim_text, notes
+       from evidence_records
+      where account_id = any($1::uuid[])
+        and claim_key = 'first_party_site_name'
+        and contradicted_by_evidence_id is null
+      order by account_id, observed_at desc`, [ids]);
+
   const { rows: locations } = await query<{
     account_id: string; n: string; with_street: string; with_basis: string;
   }>(
@@ -187,6 +204,14 @@ export async function loadAccountBundles(limit: number | null = null): Promise<A
         query: o.query, observedName: o.observed_name, observedDomain: o.observed_domain,
         observedPhone: o.observed_phone, observedLocation: o.observed_location,
       })),
+      siteIdentity: (() => {
+        const row = identities.find((entry) => entry.account_id === account.account_id);
+        if (!row) return null;
+        // The claim text is the sentence a reviewer reads; the name inside it is what
+        // the comparison needs, so it is taken from the quotes rather than re-derived.
+        const named = /"([^"]+)"/.exec(row.claim_text)?.[1] ?? null;
+        return named ? { name: named, basis: row.notes } : null;
+      })(),
       serviceAliases: account.primary_vertical_profile_id
         ? aliases.get(account.primary_vertical_profile_id) ?? [] : [],
       verticalTerms: account.primary_vertical_profile_id
