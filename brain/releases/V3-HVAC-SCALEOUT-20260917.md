@@ -326,6 +326,21 @@ rows are in the private audit repository at
 
 **Coverage is the constraint, not price.** Half the Accounts returned no candidate at all.
 
+### Urgent sales export — RUN, 2026-09-18
+
+Michael separately authorized a one-off enrichment against the private 312-Account
+snapshot. This was an isolated data export, not a V3 deployment: production was not read
+or written, migration 058 was not applied, recurring Apollo stayed off, and nothing was
+sent to a prospect.
+
+Across 263 eligible verified target Accounts, free People Search found candidates for 86.
+Thirty-eight paid People Enrichments produced 38 high-confidence new attributable
+professional emails and 34 new decision makers, for an estimated 38 credits. The private
+sales-priority export contains 69 Accounts with a valid decision maker and a usable route.
+Phone reveal and both waterfalls remained off. Raw rows live only in the private
+`SalesBrain-Audit-Data` repository at commit
+`904c8d39f2e6b57a7e078e2e6712eb4d503310a7`.
+
 ### Pilot — NOT RUN (superseded above)
 
 `APOLLO_API_KEY` is present in the environment and empty. Nothing else blocks the live

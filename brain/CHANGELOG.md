@@ -1,5 +1,21 @@
 # Operational Brain Changelog
 
+## 2026-09-18 (urgent sales batch) — 38 new professional emails, private and read-only
+
+Michael authorized a one-off Apollo enrichment of the current 312-Account private
+production snapshot. It ran locally without a V3 deployment or production database write:
+263 verified, deduplicated target Accounts were eligible, 263 received free People Search
+(265 attempts including two successful rate-limit retries), and 38 high-confidence paid
+People Enrichments produced 38 new attributable professional emails. Thirty-four decision
+makers were new. The final salesperson shortlist contains 69 Accounts with a valid decision
+maker and at least one usable route.
+
+Phone reveal, email waterfall, phone waterfall, recurring Apollo and outbound all stayed
+off. Estimated consumption is 38 credits, or 1.00 per new professional email; Apollo does
+not expose the actual balance or per-call charge through this key. All contact rows and the
+checkpointed runner are in the private `SalesBrain-Audit-Data` repository at commit
+`904c8d39f2e6b57a7e078e2e6712eb4d503310a7`. This public repository records aggregates only.
+
 ## 2026-09-18 (later) — Apollo measured: one credit per owner's email, where Apollo has one
 
 The controlled twenty-Account pilot ran against the authorized snapshot. Three new

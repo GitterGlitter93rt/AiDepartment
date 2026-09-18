@@ -1641,3 +1641,38 @@ surname and the organization id, so it gives enough to *rank* and not enough to 
 the first version of the scoring read the redacted surname as a single token and rejected
 every real person, and the correction to that had to stop short of trusting the scope
 blindly. Identity is still re-judged in full after enrichment returns the real record.
+
+## DEC-050 — The urgent Apollo batch is a private export, not a production rollout
+
+**Date:** 2026-09-18  **Status:** Executed once; production remains unchanged
+
+Michael explicitly authorized a one-off enrichment of every eligible Account in the
+current 312-Account production snapshot for immediate sales use. That authorization did
+not authorize a V3 deployment, migration 058, production writes, recurring Apollo, phone
+reveal, either waterfall or outbound.
+
+The batch applied the same ordering and identity gates as the integration: verified HVAC
+gaps first, then Plumbing, Roofing and other legitimate target companies; free People
+Search before any paid call; no paid enrichment without an independently resolved company,
+a commercially relevant candidate and Apollo's free `has_email` signal; full person and
+employer identity judged again after enrichment. Two rate-limited free searches succeeded
+on targeted retry. No paid call was repeated.
+
+| | |
+|---|---:|
+| active Accounts considered | 312 |
+| eligible Accounts | 263 |
+| Accounts with candidates | 86 |
+| candidates seen | 534 |
+| paid People Enrichments | 38 |
+| high-confidence matches | 38 |
+| new decision makers | 34 |
+| new professional emails | 38 |
+| no match / ambiguous / provider error | 202 / 9 / 0 |
+| estimated credits | 38 |
+| sales-priority rows | 69 |
+
+Every paid enrichment produced a new attributable professional email, so the marginal
+stop rule did not fire. Exact balance and actual provider charges remain unknown. The raw
+rows are private at `SalesBrain-Audit-Data` commit
+`904c8d39f2e6b57a7e078e2e6712eb4d503310a7`; this repository carries no contact export.
