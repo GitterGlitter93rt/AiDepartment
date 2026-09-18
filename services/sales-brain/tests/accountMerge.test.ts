@@ -35,7 +35,7 @@ async function makeAccount(name: string, overrides: {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: name,
-      website: overrides.domain ?? `https://merge${sequence}.invalid`,
+      website: overrides.domain ?? `https://merge${sequence}.example-co`,
       phone: `904-555-${String(5000 + sequence).slice(-4)}`,
       city: overrides.city ?? 'Jacksonville', state: 'FL',
       postalCode: overrides.postalCode ?? '32256',
@@ -84,11 +84,11 @@ test('nothing merges because one field matched', async () => {
   // manual merge necessary and safe.
   await withTransaction(async (client) => {
     await upsertAccount(client, {
-      canonicalName: 'Shared Line Plumbing', website: 'https://sharedplumbing.invalid',
+      canonicalName: 'Shared Line Plumbing', website: 'https://sharedplumbing.example-co',
       phone: '904-555-6001', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'merge-test' });
     await upsertAccount(client, {
-      canonicalName: 'Shared Line Roofing', website: 'https://sharedroofing.invalid',
+      canonicalName: 'Shared Line Roofing', website: 'https://sharedroofing.example-co',
       phone: '904-555-6001', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'merge-test' });
   });
@@ -107,7 +107,7 @@ test('a merge moves the whole record and loses nothing', async () => {
   // alone -- here, a trading name in a different city.
   const surviving = await makeAccount('Coastal Air & Heat');
   const merged = await makeAccount('Alvarez Comfort Services',
-    { domain: 'https://coastalairheat2.invalid', city: 'Orange Park', postalCode: '32073' });
+    { domain: 'https://coastalairheat2.example-co', city: 'Orange Park', postalCode: '32073' });
 
   await claimAccount(merged, rep);
   await withStatement(merged, rep.userId);
@@ -131,7 +131,7 @@ test('a merge moves the whole record and loses nothing', async () => {
              'CONFIRMED', 'calcom', 'evt-merge-1', now(), $2)`, [merged, rep.userId]);
   await withTransaction((client) => upsertEndpoint(client, {
     accountId: merged, contactId: null, locationId: null, type: 'EMAIL',
-    rawValue: 'office@coastalairheat2.invalid', endpointRole: 'GENERAL_BUSINESS_EMAIL',
+    rawValue: 'office@coastalairheat2.example-co', endpointRole: 'GENERAL_BUSINESS_EMAIL',
     relationshipToPerson: 'ROLE_INBOX', qualityState: 'PUBLIC_OBSERVED_CURRENT',
     source: 'COMPANY_WEBSITE', sourceReference: null, verifiedAt: null,
   }));

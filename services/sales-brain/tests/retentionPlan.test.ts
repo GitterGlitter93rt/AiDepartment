@@ -50,7 +50,7 @@ async function observedAccount(options: {
 } = {}): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Retention Co ${Math.random().toString(36).slice(2, 8)}`,
-    website: `https://retention${Math.random().toString(36).slice(2, 8)}.invalid`,
+    website: `https://retention${Math.random().toString(36).slice(2, 8)}.example-co`,
     phone: null, city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:fixture' }));

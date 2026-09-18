@@ -32,7 +32,7 @@ async function makeAccount(name: string): Promise<string> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: name,
-      website: `https://${name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+      website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example-co`,
       phone: `904-555-${String(2000 + sequence).slice(-4)}`,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'concurrency-test' }));
@@ -429,7 +429,7 @@ test('an import that rediscovers an owned Account does not reset its ownership',
     const [, again] = await Promise.all([
       addNote(accountId, 'Rep working it now.', rep),
       withTransaction((client) => upsertAccount(client, {
-        canonicalName: 'Rediscovered Co', website: 'https://rediscoveredco.invalid',
+        canonicalName: 'Rediscovered Co', website: 'https://rediscoveredco.example-co',
         phone: original.rows[0]?.phone ?? null,
         city: 'Jacksonville', state: 'FL', postalCode: '32256',
       }, { discoverySource: 'second-import' })),

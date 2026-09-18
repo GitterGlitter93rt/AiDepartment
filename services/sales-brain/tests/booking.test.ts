@@ -240,7 +240,7 @@ test('a confirmed booking requires a provider event id, and writes the timeline'
   assert.equal(result.ok, true);
   assert.equal(result.providerEventId, 'evt-123');
   assert.match(result.spokenConfirmation, /confirmed/i);
-  assert.match(result.spokenConfirmation, /dana@northgate\.example-co\.com/);
+  assert.match(result.spokenConfirmation, /dana@northgate\.example\.com/);
 
   const booking = await query<{ status: string; provider_event_id: string; confirmed_at: Date; activity_id: number }>(
     'select status, provider_event_id, confirmed_at, activity_id from meeting_bookings where booking_id = $1',

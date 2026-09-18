@@ -137,14 +137,14 @@ test('the hash does not depend on the order fields were assigned in', async () =
 });
 
 test('nothing secret is in the plan or its hash', async () => {
-  process.env['DATAFORSEO_LOGIN'] = 'plan-login@example.invalid';
+  process.env['DATAFORSEO_LOGIN'] = 'plan-login@example.example-co';
   process.env['DATAFORSEO_PASSWORD'] = 'plan-password-secret';
   try {
     const plan = await buildPaidPlan(REQUEST);
     const serialized = `${JSON.stringify(plan)}\n${canonicalPlanString(plan)}`;
     assert.equal(serialized.includes('plan-password-secret'), false,
       'a credential reached a plan a person is shown');
-    assert.equal(serialized.includes('plan-login@example.invalid'), false);
+    assert.equal(serialized.includes('plan-login@example.example-co'), false);
   } finally {
     delete process.env['DATAFORSEO_LOGIN'];
     delete process.env['DATAFORSEO_PASSWORD'];

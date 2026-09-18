@@ -35,7 +35,7 @@ async function account(vertical: string | null = 'roofing'): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Hypothesis Fixture ${sequence}`,
-    website: `https://hypo${sequence}.invalid`,
+    website: `https://hypo${sequence}.example-co`,
     phone: `904-555-${String(9100 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     ...(vertical ? { verticalProfileId: vertical } : {}),

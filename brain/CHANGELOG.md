@@ -1,5 +1,33 @@
 # Operational Brain Changelog
 
+## 2026-09-18 (later) — Apollo measured: one credit per owner's email, where Apollo has one
+
+The controlled twenty-Account pilot ran against the authorized snapshot. Three new
+attributable owner emails for an estimated three credits, all high-confidence, none
+duplicating anything we held, zero paid enrichments that bought nothing.
+
+The constraint is coverage rather than price. Ten of twenty Accounts returned no candidate
+at all: Apollo does not hold people for many small local contractors. Where it does, the
+answer is cheap and good.
+
+Two defects found before spending. The free search withholds the surname and the
+organization id -- that is why it is free -- and the first scoring pass read the redacted
+surname as a single token and rejected all sixty-eight candidates. The correction then had
+to stop short of trusting the search scope blindly: an Account carrying the wrong domain
+returned a stranger's employees, and only the domain agreeing with the company name or with
+Apollo's own name for it makes a scoped result mean anything.
+
+Getting to a green suite took four authoritative runs and twenty-three failures, every one
+of them mine and none of them a weakened assertion. Nineteen were stale expectations and
+fixture collisions from the reserved-domain migration -- including three I first reported as
+pre-existing until bisecting against the production SHA proved otherwise. Three were my
+migration corrupting the tests that guarantee synthetic data is unreachable, where the
+tempting fix would have swapped a name that can never resolve for one somebody could
+register. The last was a test of mine reading a bare `limit 1` with no `order by`, which
+passed alone and failed at position 2082.
+
+Final: 2355 tests, 2355 pass, 0 fail.
+
 ## 2026-09-18 — Apollo, last in the waterfall, and the reserved-domain hole closed
 
 Apollo.io is integrated as a paid enrichment provider. It is built, tested and documented;

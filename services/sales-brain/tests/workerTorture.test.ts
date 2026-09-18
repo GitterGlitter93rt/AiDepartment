@@ -127,7 +127,7 @@ test('a crash after the Account lands but before research is queued is recovered
     sequence += 1;
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
       canonicalName: 'Crashed Before Research',
-      website: `https://torture${sequence}.invalid`,
+      website: `https://torture${sequence}.example-co`,
       phone: `904-555-${String(9500 + sequence).slice(-4)}`,
       city: 'St. Augustine', state: 'FL', postalCode: '32095',
     }, { discoverySource: 'market_miner:dataforseo' }));
@@ -151,7 +151,7 @@ test('a crash before the score is written leaves the Account scoreable, not scor
     sequence += 1;
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
       canonicalName: 'Crashed Before Score',
-      website: `https://torture${sequence}.invalid`,
+      website: `https://torture${sequence}.example-co`,
       phone: `904-555-${String(9600 + sequence).slice(-4)}`,
       city: 'St. Augustine', state: 'FL', postalCode: '32095',
       verticalProfileId: 'hvac',

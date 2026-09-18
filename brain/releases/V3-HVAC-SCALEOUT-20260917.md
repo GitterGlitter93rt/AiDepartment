@@ -278,7 +278,51 @@ days, doubling to a ceiling of four times. Complete: 90 days. A material change 
 organisation identity — a different canonical domain — makes an Account eligible at once,
 because a prior answer is about a company we are no longer asking about.
 
-### Pilot — NOT RUN
+### Live capability, verified 2026-09-18
+
+| capability | result |
+|---|---|
+| People Search | AVAILABLE · **0 credits** · reports `has_email` per person |
+| People Enrichment | AVAILABLE · high-confidence matches · ~1 credit |
+| Bulk People Enrichment | AVAILABLE |
+| Organization Enrichment | AVAILABLE · ~1 credit |
+| `usage_stats` | **403 on this scoped key** |
+| Phone reveal | NOT TESTED — 8 credits, unaskable without asking |
+| Waterfall | NOT TESTED |
+
+Apollo exposes **no credit-balance endpoint**, so credits before and after are UNKNOWN and
+every figure below is an estimate from the documented schedule, never a bill.
+
+**The free tier withholds what makes it free.** People search returns
+`last_name_obfuscated` and no `organization.id`: enough to rank a candidate, not enough to
+identify or contact one. The first scoring pass read the redacted surname as a single token
+and rejected all sixty-eight candidates across twenty Accounts. Full identity is now judged
+after enrichment returns the real record, and a domain-scoped search is ranking evidence
+only — and only once the domain is corroborated as the company's own (DEC-049).
+
+### Pilot — RUN, 2026-09-18
+
+| | |
+|---|---|
+| Accounts | 20 (8 named-no-route, 8 no-decision-maker, 4 unreadable-but-corroborated) |
+| returned any candidate | 10 |
+| candidates seen, free | 68 |
+| decision makers selected | 5 |
+| paid enrichments | 3 |
+| high / medium / low confidence | 3 / 0 / 0 |
+| professional emails, all new, all attributable | **3** |
+| no match · ambiguous · errors | 14 · 1 · 0 |
+| **estimated credits** | **3** |
+| credits per new attributable email | **1.00** |
+| paid enrichments that bought nothing | **0%** |
+
+`ehaeck@hawkinsserviceco.com` (President), `jgreen@greensenergy.com` (Owner/President),
+`lmills@millsair.com` (President) — each attributed `DIRECT_PERSON_EMAIL` on a
+`PROVIDER_STATED` basis at high confidence, and each a route the estate did not have.
+
+**Coverage is the constraint, not price.** Half the Accounts returned no candidate at all.
+
+### Pilot — NOT RUN (superseded above)
 
 `APOLLO_API_KEY` is present in the environment and empty. Nothing else blocks the live
 capability check or the authorized ~20-Account pilot.

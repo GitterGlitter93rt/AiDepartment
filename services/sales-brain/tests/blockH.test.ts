@@ -29,7 +29,7 @@ async function account(): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Block H Co ${sequence}`,
-    website: `https://blockh-${sequence}.invalid`,
+    website: `https://blockh-${sequence}.example-co`,
     phone: `904-555-${String(6100 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac', contactName: 'Dana Fielder', contactTitle: 'Owner',
@@ -106,10 +106,10 @@ test('H2 evidence that cannot be stated becomes an unknown, not a fact', async (
      values
        ($1, 'advertising', 'active_google_search_ad',
         'Runs Google search ads for AC repair', 'confirmed', true,
-        'SERP_OBSERVATION', 'https://blockh.invalid/serp', now()),
+        'SERP_OBSERVATION', 'https://blockh.example-co/serp', now()),
        ($1, 'operations', 'crm_provider',
         'Possibly uses a well-known CRM', 'likely', false,
-        'THIRD_PARTY_INFERENCE', 'https://blockh.invalid/guess', now())`,
+        'THIRD_PARTY_INFERENCE', 'https://blockh.example-co/guess', now())`,
     [accountId]);
 
   const pack = await buildCallPack(accountId);
@@ -137,7 +137,7 @@ test('H2 expired and contradicted evidence never reaches the pack', async () => 
         source_type, source_reference, observed_at, expires_at)
      values ($1, 'advertising', 'active_google_search_ad',
              'Ran Google ads a year ago', 'confirmed', true,
-             'SERP_OBSERVATION', 'https://blockh.invalid/old',
+             'SERP_OBSERVATION', 'https://blockh.example-co/old',
              now() - interval '400 days', now() - interval '300 days')`,
     [accountId]);
 

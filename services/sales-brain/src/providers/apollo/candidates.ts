@@ -63,6 +63,16 @@ export interface ScoredCandidate {
 }
 
 export interface ScoringInput {
+  /**
+   * True when the search itself was filtered to this company's domain.
+   *
+   * Then the employer is established by the query rather than by comparing strings: every
+   * row came back *because* Apollo places that person at that domain. Comparing names
+   * afterwards rejected real people at real companies -- Apollo returns its own canonical
+   * employer name ("Hawkins Service Company") where we hold the record's name ("Hawkins
+   * Service Co."), and a string test is not the right instrument for that.
+   */
+  searchScopedByDomain?: boolean;
   companyName: string;
   canonicalDomain: string | null;
   /** The Apollo organization id we resolved for this Account, where we have one. */
@@ -91,12 +101,27 @@ export function scoreCandidate(candidate: ApolloPersonCandidate,
    * website footer to hand back "wpadmin", but an organisation record filed as a person
    * is a shape both produce, and having one rule means the two cannot disagree.
    */
+  /**
+   * Identity is judged on the name Apollo actually gave us.
+   *
+   * A search candidate's surname is redacted, so the full gate would reject every real
+   * person for looking like a single token -- measured on the first pilot run, where all
+   * twenty Accounts came back as no-match with sixty-eight candidates seen. What can be
+   * checked here is that the name is not one of the things that is definitely not a
+   * person: a company, an agency, a schema literal, a login. The full check runs after
+   * enrichment, when the real name arrives, and nothing becomes a decision maker without
+   * passing it there.
+   */
   const personhood = judgePersonIdentity({
     name: candidate.fullName ?? '',
     companyName: input.companyName,
     rawTitle: candidate.title,
   });
-  if (!personhood.mayHoldDecisionMakerAuthority) {
+  const refusedOutright = !candidate.nameIsPartial
+    ? !personhood.mayHoldDecisionMakerAuthority
+    : ['COMPANY_NAME', 'BUSINESS_OR_AGENCY', 'SCHEMA_LITERAL', 'CMS_OR_USERNAME']
+        .includes(personhood.validity);
+  if (refusedOutright) {
     return { candidate, score: 0, reasons: personhood.reasons, admissible: false,
       rejection: `not a person: ${personhood.validity}` };
   }
@@ -108,6 +133,55 @@ export function scoreCandidate(candidate: ApolloPersonCandidate,
    * left. Where we hold an organization id, that is the check; otherwise the company name
    * or the domain has to agree. Nothing else is allowed to substitute.
    */
+  /**
+   * A domain-scoped search has already answered the employer question.
+   *
+   * Apollo returned this person *because* it places them at that domain, which is
+   * stronger than any name comparison we could make afterwards.
+   */
+  if (input.searchScopedByDomain) {
+    /**
+     * The scope is only evidence if the domain is really this company's.
+     *
+     * Caught by the pilot's quality gate: an Account called "Acosta Climate Solutions"
+     * carries the domain manus.space, and a domain-scoped search duly returned the people
+     * who work at manus.space. Treating the scope as proof of employer would have
+     * attributed a stranger to Acosta and paid a credit for the privilege.
+     *
+     * So the domain has to be corroborated -- by agreeing with the company's name, or by
+     * Apollo's own name for that organisation agreeing with ours. Where neither holds, the
+     * scope proves nothing and the candidate falls through to the ordinary comparison,
+     * which will refuse it.
+     */
+    const domainBelongsToCompany = nameMatchesDomain(input.companyName, input.canonicalDomain)
+      || Boolean(candidate.organizationName
+        && normalize(candidate.organizationName).includes(
+          normalize(input.companyName).slice(0, 10)));
+    if (!domainBelongsToCompany) {
+      return { candidate, score: 0, admissible: false,
+        rejection: 'the stored domain does not belong to this company',
+        reasons: [`the Account carries ${input.canonicalDomain}, which agrees neither with `
+          + `"${input.companyName}" nor with Apollo's "${candidate.organizationName ?? 'no name'}"`,
+          'so a domain-scoped result proves nothing about who works here'] };
+    }
+
+    const title = rankTitle(candidate.title);
+    const reasons = [`Apollo places this person at ${input.canonicalDomain}`,
+      `title reads as ${title.label}`];
+    let score = 40 + title.score;
+    if (candidate.hasEmail) { score += 15; reasons.push('Apollo holds an email for them'); }
+    else reasons.push('Apollo holds no email for them, so enriching would buy nothing');
+    if ((input.firstPartyPersonNames ?? []).some((n) =>
+      normalize(n).startsWith(normalize(candidate.firstName ?? '')) 
+      && (candidate.firstName ?? '').length >= 3)) {
+      score += 50; reasons.push("the company's own site names this person too");
+    }
+    if (candidate.nameIsPartial) {
+      reasons.push('the surname is redacted until enrichment, so identity is provisional');
+    }
+    return { candidate, score, reasons, admissible: true };
+  }
+
   const orgIdAgrees = Boolean(input.expectedOrganizationId
     && candidate.apolloOrganizationId === input.expectedOrganizationId);
   const nameAgrees = Boolean(candidate.organizationName

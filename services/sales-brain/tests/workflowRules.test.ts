@@ -32,7 +32,7 @@ async function makeAccount(name: string): Promise<{ accountId: string; endpointI
   sequence += 1;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example-co`,
       phone: `904-555-${String(4000 + sequence).slice(-4)}`,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'workflow-test' }));
@@ -220,7 +220,7 @@ test('an email bounce does not destroy a working phone relationship', async () =
   await claimAccount(account.accountId, rep);
   const emailId = await withTransaction((client) => upsertEndpoint(client, {
     accountId: account.accountId, contactId: null, locationId: null, type: 'EMAIL',
-    rawValue: 'office@bounceco.invalid', endpointRole: 'GENERAL_BUSINESS_EMAIL',
+    rawValue: 'office@bounceco.example-co', endpointRole: 'GENERAL_BUSINESS_EMAIL',
     relationshipToPerson: 'ROLE_INBOX', qualityState: 'PUBLIC_OBSERVED_CURRENT',
     source: 'COMPANY_WEBSITE', sourceReference: null, verifiedAt: null,
   }));

@@ -29,7 +29,7 @@ async function makeAccount(name: string): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example-co`,
       phone: `904-555-${String(8000 + sequence).slice(-4)}`,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'worker-test' }));
@@ -112,7 +112,7 @@ test('a job that completes but whose process dies before acknowledging runs agai
       await withTransaction((client) => recordEvidence(client, {
         accountId, category: 'website', claimKey: 'after_hours_answering',
         claimText: 'Site says 24/7.', confidence: 'likely', canStateAsFact: false,
-        sourceType: 'website', sourceReference: 'https://unacknowledged.invalid',
+        sourceType: 'website', sourceReference: 'https://unacknowledged.example-co',
       }));
     });
     await drainQueue();

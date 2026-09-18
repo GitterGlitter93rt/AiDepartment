@@ -71,7 +71,7 @@ test('a name is only ever trimmed to one the stored name already contains', () =
   // because the stored name does not contain it.
   const otherCity = proposeTrimmedName({
     canonicalName: 'Orlando HVAC Services',
-    canonicalDomain: 'example.invalid',
+    canonicalDomain: 'example.example-co',
     candidateNames: [{ name: 'HVAC Service Areas Near Tampa, FL', basis: 'own_site_title' }],
   });
   assert.equal(otherCity, null);
@@ -84,7 +84,7 @@ async function seed(name: string, options: {
 } = {}): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: options.domain === null ? null : `https://${options.domain ?? 'seed.invalid'}`,
+    website: options.domain === null ? null : `https://${options.domain ?? 'seed.example-co'}`,
     phone: `407-555-${String(1000 + Math.floor(Math.random() * 8999)).slice(-4)}`,
     verticalProfileId: options.vertical ?? null,
   }, { discoverySource: 'import' }));
@@ -128,10 +128,10 @@ test('a non-company is suppressed, and its evidence is still there afterwards', 
 });
 
 test('an Account a person has worked is never changed automatically', async () => {
-  const accountId = await seed('10 Best Roofers in Somewhere, FL', { domain: 'directory.invalid' });
+  const accountId = await seed('10 Best Roofers in Somewhere, FL', { domain: 'directory.example-co' });
   const { rows: user } = await query<{ user_id: string }>(
     `insert into users (email, email_normalized, display_name, role, password_hash)
-     values ('rep@apply.invalid','rep@apply.invalid','A Rep','SALES_REP','x')
+     values ('rep@apply.example-co','rep@apply.example-co','A Rep','SALES_REP','x')
      returning user_id`);
   await query(
     `insert into activities (account_id, activity_type, actor_user_id, notes, occurred_at)
@@ -155,7 +155,7 @@ test('an Account a person has worked is never changed automatically', async () =
 
 test('an unsupported trade is cleared, never replaced with a guess', async () => {
   const accountId = await seed('U-Haul Neighborhood Dealer', {
-    domain: 'uhaul.invalid', vertical: 'hvac' });
+    domain: 'uhaul.example-co', vertical: 'hvac' });
   await query(
     `insert into search_observations (provider, source_type, observed_name, result_type,
                                       retention_class, account_id, query, observed_at)
@@ -177,7 +177,7 @@ test('an unsupported trade is cleared, never replaced with a guess', async () =>
 });
 
 test('every change carries what it was before', async () => {
-  const accountId = await seed('Some Category Page in Miami, FL', { domain: 'listings.invalid',
+  const accountId = await seed('Some Category Page in Miami, FL', { domain: 'listings.example-co',
     vertical: 'hvac' });
   await query(
     `insert into search_observations (provider, source_type, observed_name, result_type,
@@ -201,8 +201,8 @@ test('every change carries what it was before', async () => {
 });
 
 test('a legacy record is promoted only when its own site names it', async () => {
-  const named = await seed('Cooper Roofing', { domain: 'cooperroofing.invalid' });
-  const other = await seed('Proof Roofing', { domain: 'someportal.invalid' });
+  const named = await seed('Cooper Roofing', { domain: 'cooperroofing.example-co' });
+  const other = await seed('Proof Roofing', { domain: 'someportal.example-co' });
   await query(`update accounts set entity_status = 'legacy_unverified'
                 where account_id in ($1, $2)`, [named, other]);
   await query(
@@ -210,9 +210,9 @@ test('a legacy record is promoted only when its own site names it', async () => 
                                    normalized_value, confidence, can_state_as_fact,
                                    source_type, source_reference)
      values ($1, 'identity', 'first_party_site_name', 'The site calls itself "Cooper Roofing"',
-             'cooper roofing', 'confirmed', true, 'first_party', 'https://cooperroofing.invalid/'),
+             'cooper roofing', 'confirmed', true, 'first_party', 'https://cooperroofing.example-co/'),
             ($2, 'identity', 'first_party_site_name', 'The site calls itself "Some Portal"',
-             'some portal', 'confirmed', true, 'first_party', 'https://someportal.invalid/')`,
+             'some portal', 'confirmed', true, 'first_party', 'https://someportal.example-co/')`,
     [named, other]);
 
   const plan = await planRemediation();

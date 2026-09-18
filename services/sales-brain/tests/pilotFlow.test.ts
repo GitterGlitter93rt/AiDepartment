@@ -40,12 +40,12 @@ async function signIn(email: string): Promise<string> {
 
 async function pilotFixture() {
   const repId = await createUser({
-    email: 'brent@demo.invalid', displayName: 'Demo Rep', role: 'SALES_REP', password: PASSWORD });
+    email: 'brent@demo.example-co', displayName: 'Demo Rep', role: 'SALES_REP', password: PASSWORD });
   const managerId = await createUser({
-    email: 'manager@demo.invalid', displayName: 'Demo Manager', role: 'SALES_MANAGER',
+    email: 'manager@demo.example-co', displayName: 'Demo Manager', role: 'SALES_MANAGER',
     password: PASSWORD });
   const seeded = await seedPilotDemo({ ownerUserId: null, managerUserId: managerId });
-  return { repId, managerId, rep: await signIn('brent@demo.invalid'), ...seeded };
+  return { repId, managerId, rep: await signIn('brent@demo.example-co'), ...seeded };
 }
 
 test('the demo fixture is unmistakably synthetic', async () => {
@@ -55,6 +55,9 @@ test('the demo fixture is unmistakably synthetic', async () => {
   const { rows } = await query<{ canonical_name: string; canonical_domain: string | null }>(
     'select canonical_name, canonical_domain from accounts');
   for (const row of rows) {
+    // Reserved by RFC 2606, so it can never resolve. That is the guarantee, and it is
+    // why the demo seed must keep using it rather than the fixture TLD the company
+    // fixtures moved to.
     assert.match(row.canonical_domain ?? '.invalid', /\.invalid$/,
       `${row.canonical_name} has a domain that could resolve`);
   }

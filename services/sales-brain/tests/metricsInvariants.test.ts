@@ -41,7 +41,7 @@ beforeEach(async () => {
 async function seedAccount(name: string, source: string, phone: string): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: `https://inv${++sequence}.invalid`,
+    website: `https://inv${++sequence}.example-co`,
     phone,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: source }));

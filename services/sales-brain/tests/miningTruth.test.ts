@@ -54,7 +54,7 @@ async function seedAccount(name: string, source: string, options: {
   sequence += 1;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://mining${sequence}.invalid`,
+      canonicalName: name, website: `https://mining${sequence}.example-co`,
       phone: options.phone ?? `904-555-${String(1000 + sequence).slice(-4)}`,
       city: 'St. Augustine', state: 'FL', postalCode: options.postalCode ?? '32095',
     }, { discoverySource: source }));
@@ -698,7 +698,7 @@ test('a company found by business listings counts as mining, not as typed in by 
   const { ingestListings } = await import('../src/miner/listingsIngest.js');
   await ingestListings({
     listings: [{
-      providerListingId: 'kpi-1', name: 'KPI Listings Co', domain: 'kpilistings.invalid',
+      providerListingId: 'kpi-1', name: 'KPI Listings Co', domain: 'kpilistings.example-co',
       phone: '+1 904-555-9500', address: '5 Main St', city: 'St. Augustine',
       state: 'FL', postalCode: '32095', category: 'HVAC contractor',
       rating: null, reviewCount: null, observedAt: new Date(),

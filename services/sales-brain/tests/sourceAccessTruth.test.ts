@@ -65,7 +65,7 @@ async function research(host: string): Promise<{
 test('a TLS failure is unreachable research, not a broken website', async () => {
   serve(() => { throw new Error('write EPROTO ... SSL routines:tls_error'); });
   try {
-    const outcome = await research('tls.invalid');
+    const outcome = await research('tls.example-co');
     assert.equal(outcome.state, 'UNREACHABLE');
     assert.ok(outcome.reasons.includes('tls_error'), outcome.reasons.join(','));
   } finally { globalThis.fetch = realFetch; }
@@ -74,7 +74,7 @@ test('a TLS failure is unreachable research, not a broken website', async () => 
 test('a timeout is unreachable research, not a broken website', async () => {
   serve(() => { throw new Error('The operation was aborted due to timeout'); });
   try {
-    const outcome = await research('slow.invalid');
+    const outcome = await research('slow.example-co');
     assert.equal(outcome.state, 'UNREACHABLE');
     assert.ok(outcome.reasons.includes('timeout'));
   } finally { globalThis.fetch = realFetch; }
@@ -86,7 +86,7 @@ test('a WAF refusing the crawler is a refusal, not a login wall and not a broken
     serve(() => new Response('<html><body>Access denied</body></html>',
       { status: 403, headers: { 'content-type': 'text/html' } }));
     try {
-      const outcome = await research('waf.invalid');
+      const outcome = await research('waf.example-co');
       assert.equal(outcome.state, 'REFUSED');
       assert.ok(outcome.reasons.includes('access_denied'),
         `403 was recorded as ${outcome.reasons.join(',')}`);
@@ -96,9 +96,9 @@ test('a WAF refusing the crawler is a refusal, not a login wall and not a broken
   });
 
 test('a DNS failure is one failed attempt, not a dead domain', async () => {
-  serve(() => { throw new Error('getaddrinfo ENOTFOUND nowhere.invalid'); });
+  serve(() => { throw new Error('getaddrinfo ENOTFOUND nowhere.example-co'); });
   try {
-    const outcome = await research('nowhere.invalid');
+    const outcome = await research('nowhere.example-co');
     assert.equal(outcome.state, 'UNREACHABLE');
     assert.ok(outcome.reasons.includes('dns_error'));
     // Nothing in the outcome claims the domain is gone. One attempt cannot say that.
@@ -114,7 +114,7 @@ test('a site that mentions a captcha in its own code is still read', async () =>
     + `<p>${'Commercial AC services in Florida. '.repeat(400)}</p></body></html>`;
   serve(() => new Response(page, { status: 200, headers: { 'content-type': 'text/html' } }));
   try {
-    const outcome = await research('energyair.invalid');
+    const outcome = await research('energyair.example-co');
     assert.equal(outcome.state, 'READ', `a live site was recorded as ${outcome.state}`);
     assert.ok(outcome.pages >= 1);
   } finally { globalThis.fetch = realFetch; }
@@ -127,7 +127,7 @@ test('a real challenge page is still recognised', async () => {
     + '</body></html>',
     { status: 503, headers: { 'content-type': 'text/html' } }));
   try {
-    const outcome = await research('challenged.invalid');
+    const outcome = await research('challenged.example-co');
     assert.equal(outcome.state, 'REFUSED');
     assert.ok(outcome.reasons.includes('anti_bot'));
   } finally { globalThis.fetch = realFetch; }
@@ -142,7 +142,7 @@ test('a challenge that arrives as a 202 redirect is a refusal, not an empty page
     + '<meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2F&y=ipc:1.2.3.4">'
     + '</meta></head></html>',
     { status: 202, headers: { 'content-type': 'text/html' } }));
-  return research('challenged-202.invalid').then((outcome) => {
+  return research('challenged-202.example-co').then((outcome) => {
     assert.equal(outcome.state, 'REFUSED',
       `a captcha interstitial was recorded as ${outcome.state}`);
     assert.ok(outcome.reasons.includes('anti_bot'));
@@ -155,14 +155,14 @@ test('an HTTP error is an HTTP error, and a successful fetch raises no exception
     serve(() => new Response('<html><body>not found</body></html>',
       { status: 404, headers: { 'content-type': 'text/html' } }));
     try {
-      const outcome = await research('gone.invalid');
+      const outcome = await research('gone.example-co');
       assert.equal(outcome.state, 'HTTP_ERROR');
     } finally { globalThis.fetch = realFetch; }
 
     serve(() => new Response('<html><body><h1>A Company</h1>We fix air conditioners.</body></html>',
       { status: 200, headers: { 'content-type': 'text/html' } }));
     try {
-      const outcome = await research('fine.invalid');
+      const outcome = await research('fine.example-co');
       assert.equal(outcome.state, 'READ');
       assert.deepEqual(outcome.reasons, []);
     } finally { globalThis.fetch = realFetch; }
@@ -172,7 +172,7 @@ test('an HTTP error is an HTTP error, and a successful fetch raises no exception
 
 test('the exception says research failed, and never that the website is broken', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Energy Air', website: 'https://energyair.invalid', phone: '407-555-0101',
+    canonicalName: 'Energy Air', website: 'https://energyair.example-co', phone: '407-555-0101',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
   await query(
@@ -180,7 +180,7 @@ test('the exception says research failed, and never that the website is broken',
                                 adapter_results)
      values ($1, 'stale_evidence', 'partial', now() - interval '1 hour', now(),
              '{"pages_fetched":0,"pages_blocked":1,"source_state":"REFUSED",
-               "blocked_pages":[{"url":"https://energyair.invalid/","reason":"access_denied"}]}'::jsonb)`,
+               "blocked_pages":[{"url":"https://energyair.example-co/","reason":"access_denied"}]}'::jsonb)`,
     [accountId]);
 
   const exceptions = await researchExceptions();
@@ -198,7 +198,7 @@ test('the exception says research failed, and never that the website is broken',
 test('a website we could not read never costs an Account its trade or its inventory',
   async () => {
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
-      canonicalName: 'Air Worth Heating & Cooling', website: 'https://airworth.invalid',
+      canonicalName: 'Air Worth Heating & Cooling', website: 'https://airworth.example-co',
       phone: '407-555-0102', verticalProfileId: 'hvac',
     }, { discoverySource: 'import' }));
     // The company was found by a provider listing, so its trade rests on that.
@@ -212,7 +212,7 @@ test('a website we could not read never costs an Account its trade or its invent
                                   adapter_results)
        values ($1, 'stale_evidence', 'partial', now() - interval '1 hour', now(),
                '{"pages_fetched":0,"pages_blocked":1,"source_state":"REFUSED",
-                 "blocked_pages":[{"url":"https://airworth.invalid/","reason":"access_denied"}]}'::jsonb)`,
+                 "blocked_pages":[{"url":"https://airworth.example-co/","reason":"access_denied"}]}'::jsonb)`,
       [accountId]);
 
     const plan = await planRemediation();
@@ -234,7 +234,7 @@ test('a site we could not read may never cause any of the five negative outcomes
     // refused -- which is exactly the case Michael found live.
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
       canonicalName: '10 Best HVAC Companies in Miami, FL - Air Motions HVAC',
-      website: 'https://airmotions.invalid', phone: '407-555-0303',
+      website: 'https://airmotions.example-co', phone: '407-555-0303',
       verticalProfileId: 'hvac',
     }, { discoverySource: 'market_miner:dataforseo' }));
     await query(`update accounts set entity_status = 'legacy_unverified' where account_id = $1`,
@@ -247,14 +247,14 @@ test('a site we could not read may never cause any of the five negative outcomes
     await query(
       `insert into contact_endpoints (account_id, endpoint_type, normalized_value,
                                       display_value, endpoint_role)
-       values ($1, 'EMAIL', 'info@airmotions.invalid', 'info@airmotions.invalid',
+       values ($1, 'EMAIL', 'info@airmotions.example-co', 'info@airmotions.example-co',
                'DIRECT_PERSON_EMAIL')`, [accountId]);
     await query(
       `insert into research_runs (account_id, trigger, status, started_at, completed_at,
                                   adapter_results)
        values ($1, 'stale_evidence', 'partial', now() - interval '1 hour', now(),
                '{"pages_fetched":0,"pages_blocked":1,"source_state":"REFUSED",
-                 "blocked_pages":[{"url":"https://airmotions.invalid/","reason":"access_denied"}]}'::jsonb)`,
+                 "blocked_pages":[{"url":"https://airmotions.example-co/","reason":"access_denied"}]}'::jsonb)`,
       [accountId]);
 
     const plan = await planRemediation();
@@ -289,7 +289,18 @@ test('a site we could not read may never cause any of the five negative outcomes
     }>(
       `select a.canonical_name as name, a.primary_vertical_profile_id as vertical,
               a.is_suppressed as suppressed, a.entity_status as status,
-              (select endpoint_role from contact_endpoints where account_id = a.account_id limit 1) as role
+              /*
+               * The email endpoint specifically.
+               *
+               * This read a bare limit 1 with no order by, and the Account also carries a
+               * phone, so which row came back depended on physical row order -- it
+               * passed alone and failed at position 2082 of a full suite. The subject
+               * is that remediation did not reclassify the email because a fetch
+               * failed, so the query has to name the email.
+               */
+              (select endpoint_role from contact_endpoints
+                where account_id = a.account_id and endpoint_type = 'EMAIL'
+                order by created_at, endpoint_id limit 1) as role
          from accounts a where a.account_id = $1`, [accountId]);
     assert.equal(rows[0]!.name, '10 Best HVAC Companies in Miami, FL - Air Motions HVAC');
     assert.equal(rows[0]!.vertical, 'hvac');
@@ -303,7 +314,7 @@ test('a run that read nothing and never said why is treated as unreadable, not a
     // Every one of production's 94 such runs predates the source state. Not knowing why
     // nothing was read has to behave like a refusal, never like an empty site.
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
-      canonicalName: 'Top 10 Roofers in Somewhere, FL', website: 'https://legacy.invalid',
+      canonicalName: 'Top 10 Roofers in Somewhere, FL', website: 'https://legacy.example-co',
       phone: '407-555-0404', verticalProfileId: 'roofing',
     }, { discoverySource: 'market_miner:dataforseo' }));
     await query(

@@ -34,7 +34,7 @@ async function account(input: {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: input.name ?? `Ready Air ${sequence}`,
-    website: input.website === undefined ? `https://ready${sequence}.invalid` : input.website,
+    website: input.website === undefined ? `https://ready${sequence}.example-co` : input.website,
     phone: input.phone === undefined ? `904-555-${String(5000 + sequence).slice(-4)}` : input.phone,
     city: input.located === false ? null : 'St. Augustine',
     state: input.located === false ? null : 'FL',

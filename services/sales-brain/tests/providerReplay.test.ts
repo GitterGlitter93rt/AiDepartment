@@ -32,7 +32,7 @@ import { enqueueMarketResearch } from '../src/workers/enqueue.js';
  */
 
 const CREDENTIALLED: NodeJS.ProcessEnv = {
-  DATAFORSEO_LOGIN: 'replay@example.invalid',
+  DATAFORSEO_LOGIN: 'replay@example.example-co',
   DATAFORSEO_PASSWORD: 'replay-secret',
   DATAFORSEO_ENABLED: 'true',
   DATAFORSEO_GOVERNANCE_REVIEWED: 'true',
@@ -216,7 +216,7 @@ beforeEach(async () => {
 async function seedNeighbour(): Promise<void> {
   await withTransaction((client) => upsertAccount(client, {
     canonicalName: 'Existing Air of St Augustine',
-    website: 'https://existingair.invalid', phone: '904-555-0100',
+    website: 'https://existingair.example-co', phone: '904-555-0100',
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'seed' }));

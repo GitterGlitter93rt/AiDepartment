@@ -52,7 +52,7 @@ const CONTEXT: SourceLookupContext = {
 test('the qualifier on a licence is a qualifier and never an owner', () => {
   const licence = parseDbprDetail(fixtures.DBPR_BUSINESS_LICENCE);
   assert.ok(licence, 'the licence page did not parse');
-  const people = dbprPeople(licence!, 'https://example.invalid/licence');
+  const people = dbprPeople(licence!, 'https://example.example-co/licence');
 
   const qualifier = people.find((person) => person.relationship === 'QUALIFIER');
   assert.ok(qualifier, 'the qualifying agent was not recorded at all');
@@ -74,7 +74,7 @@ test('the qualifier on a licence is a qualifier and never an owner', () => {
 test('a registered agent is an agent, whatever the filing looks like', () => {
   const record = parseSunbizDetail(fixtures.SUNBIZ_AGENT_ONLY);
   assert.ok(record);
-  const people = sunbizPeople(record!, 'https://example.invalid/filing');
+  const people = sunbizPeople(record!, 'https://example.example-co/filing');
   const agent = people.find((person) => person.relationship === 'REGISTERED_AGENT');
   assert.ok(agent, 'the registered agent was not recorded');
   assert.equal(people.some((person) => person.relationship === 'OWNER'), false);
@@ -134,7 +134,7 @@ test('a licence number identifies an entity by itself', () => {
 test('two companies sharing a qualifier stay two companies with a link between them',
   async () => {
     const sunbright = await withTransaction((client) => upsertAccount(client, {
-      canonicalName: 'Sunbright HVAC LLC', website: 'https://sunbrightair.invalid',
+      canonicalName: 'Sunbright HVAC LLC', website: 'https://sunbrightair.example-co',
       phone: '407-555-0111', city: 'Orlando', state: 'FL', postalCode: '32828',
       verticalProfileId: 'hvac',
     }, { discoverySource: 'import' }));
@@ -152,7 +152,7 @@ test('two companies sharing a qualifier stay two companies with a link between t
       relatedName: 'Mr AC of Orlando Inc',
       relationshipType: 'RELATED_BUSINESS',
       signals: ['same_exact_person', 'same_street_address'],
-      sourceReference: 'https://example.invalid/contractor-profile',
+      sourceReference: 'https://example.example-co/contractor-profile',
     }));
     assert.equal(result.written, true);
     assert.equal(result.confidence, 'MEDIUM');
@@ -212,7 +212,7 @@ test('the database refuses a relationship that names only one thing that agreed'
 test('a related business phone is never this company\'s line', () => {
   const caption = relatedPhoneCaption({
     e164: '+14075550199', relatedName: 'Mr AC of Orlando Inc',
-    sourceReference: 'https://example.invalid/contractor-profile',
+    sourceReference: 'https://example.example-co/contractor-profile',
   });
   assert.match(caption, /related business/);
   assert.match(caption, /[Vv]erify/);

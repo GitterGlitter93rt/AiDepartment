@@ -58,7 +58,7 @@ async function walk(vertical: string, signalIds: string[]): Promise<Walked> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Walk Fixture ${sequence}`,
-    website: `https://walk${sequence}.invalid`,
+    website: `https://walk${sequence}.example-co`,
     phone: `904-555-${String(3100 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical,

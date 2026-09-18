@@ -49,7 +49,7 @@ const ROOFING = { vertical: 'roofing', location: '32095' };
 
 async function hold(name: string, zip = '32095'): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+    canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example-co`,
     phone: null, city: 'St. Augustine', state: 'FL', postalCode: zip,
     verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
@@ -69,7 +69,7 @@ async function mine(found: string[], count = 1): Promise<void> {
       return {
         status: 'OK',
         observations: observationsFor(name
-          ? [{ name, website: `https://${name}.invalid`, phone: null,
+          ? [{ name, website: `https://${name}.example-co`, phone: null,
             city: null, state: null, postalCode: null,
             resultType: 'ORGANIC', query: request.search?.term ?? null }]
           : []),

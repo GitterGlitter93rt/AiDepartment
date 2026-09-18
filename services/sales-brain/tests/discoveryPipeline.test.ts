@@ -582,7 +582,7 @@ function threeSightings(order: ('organic' | 'paid' | 'maps')[]): ProviderObserva
       ...base, resultType: 'PAID_SEARCH_TEXT', position: 1,
       adHeadline: 'Emergency Roof Repair — Same Day',
       advertisedService: 'roof repair',
-      landingUrl: 'https://permutationroofing.invalid/roof-repair',
+      landingUrl: 'https://permutationroofing.example-co/roof-repair',
     },
     maps: {
       ...base, resultType: 'MAPS_LOCAL', position: 2,
@@ -713,8 +713,8 @@ test('two equally strong rows at the same rank resolve the same either way', asy
     resultType: 'ORGANIC' as const,
     position: 3,
   };
-  const a: ProviderObservation = { ...shared, landingUrl: 'https://tiebreakroofing.invalid/a' };
-  const b: ProviderObservation = { ...shared, landingUrl: 'https://tiebreakroofing.invalid/b' };
+  const a: ProviderObservation = { ...shared, landingUrl: 'https://tiebreakroofing.example-co/a' };
+  const b: ProviderObservation = { ...shared, landingUrl: 'https://tiebreakroofing.example-co/b' };
 
   const forward = resolveObservations([a, b]).businesses;
   const reversed = resolveObservations([b, a]).businesses;

@@ -31,7 +31,7 @@ async function seed(input: {
   const { accountId } = await withTransaction(async (client) => {
     const result = await upsertAccount(client, {
       canonicalName: input.name,
-      website: input.domain ?? `https://${input.name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+      website: input.domain ?? `https://${input.name.toLowerCase().replace(/\W+/g, '')}.example-co`,
       phone: input.phone ?? `904-555-${String(3000 + sequence).slice(-4)}`,
       city: input.city ?? 'Jacksonville', state: 'FL',
       postalCode: input.postalCode ?? '32256',
@@ -94,11 +94,11 @@ test('a phone fragment shorter than a line number is not a search', async () => 
 });
 
 test('an email finds the company', async () => {
-  await seed({ name: 'Email Search Co', email: 'office@emailsearch.invalid' });
-  const exact = await globalSearch('office@emailsearch.invalid');
+  await seed({ name: 'Email Search Co', email: 'office@emailsearch.example-co' });
+  const exact = await globalSearch('office@emailsearch.example-co');
   assert.equal(exact[0]!.companyName, 'Email Search Co');
   assert.equal(exact[0]!.matchedOn, 'Email');
-  const partial = await globalSearch('emailsearch.invalid');
+  const partial = await globalSearch('emailsearch.example-co');
   assert.ok(partial.some((hit) => hit.companyName === 'Email Search Co'));
 });
 
@@ -130,7 +130,7 @@ test('a city finds the companies in it', async () => {
 });
 
 test('a domain finds the company', async () => {
-  await seed({ name: 'Domain Search Co', domain: 'https://domainsearch.invalid' });
+  await seed({ name: 'Domain Search Co', domain: 'https://domainsearch.example-co' });
   const hits = await globalSearch('domainsearch');
   assert.ok(hits.some((hit) => hit.companyName === 'Domain Search Co'));
 });
@@ -175,10 +175,10 @@ test('a rep’s own Account outranks a namesake they do not own', async () => {
   // Distinct websites, or the identity resolver would correctly treat these as one
   // company: two namesakes are only two companies if something says so.
   const mine = await seed({
-    name: 'Summit Roofing', city: 'Jacksonville', domain: 'https://summitroofingjax.invalid' });
+    name: 'Summit Roofing', city: 'Jacksonville', domain: 'https://summitroofingjax.example-co' });
   const theirs = await seed({
     name: 'Summit Roofing', city: 'Orange Park', postalCode: '32073',
-    domain: 'https://summitroofingop.invalid' });
+    domain: 'https://summitroofingop.example-co' });
   assert.notEqual(mine, theirs, 'the fixture produced one Account, not two namesakes');
   await claimAccount(theirs, other);
   await claimAccount(mine, rep);
@@ -240,10 +240,10 @@ test('a suppressed company ranks below one a rep can work', async () => {
 
 test('every hit resolves to a canonical Account', async () => {
   const accountId = await seed({
-    name: 'Canonical Co', contact: 'Dana Whitfield', email: 'office@canonical.invalid',
+    name: 'Canonical Co', contact: 'Dana Whitfield', email: 'office@canonical.example-co',
     phone: '904-555-0199', postalCode: '32256',
   });
-  const terms = ['Canonical', 'Whitfield', 'office@canonical.invalid', '9045550199', '32256'];
+  const terms = ['Canonical', 'Whitfield', 'office@canonical.example-co', '9045550199', '32256'];
   for (const term of terms) {
     const hits = await globalSearch(term);
     const hit = hits.find((row) => row.accountId === accountId);
@@ -257,7 +257,7 @@ test('every hit resolves to a canonical Account', async () => {
 test('one Account appears once however many ways it matched', async () => {
   await seed({
     name: 'Repeated Match Co', contact: 'Repeated Match Person',
-    email: 'repeated@repeatedmatch.invalid', domain: 'https://repeatedmatch.invalid',
+    email: 'repeated@repeatedmatch.example-co', domain: 'https://repeatedmatch.example-co',
   });
   const hits = await globalSearch('repeatedmatch');
   const ids = hits.map((hit) => hit.accountId);

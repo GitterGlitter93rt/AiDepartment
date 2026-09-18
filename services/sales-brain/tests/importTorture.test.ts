@@ -47,8 +47,8 @@ test('a ten thousand row import completes, and re-running it creates nothing new
   async () => {
     const rows: string[] = [];
     for (let i = 0; i < 10_000; i += 1) {
-      rows.push(`Torture Co ${i},https://torture${i}.invalid,904-555-${String(i % 10000).padStart(4, '0')},`
-        + `info@torture${i}.invalid,Jacksonville,FL,32256,Owner ${i},Owner`);
+      rows.push(`Torture Co ${i},https://torture${i}.example-co,904-555-${String(i % 10000).padStart(4, '0')},`
+        + `info@torture${i}.example-co,Jacksonville,FL,32256,Owner ${i},Owner`);
     }
     const content = csv(rows);
 
@@ -74,8 +74,8 @@ test('a ten thousand row import completes, and re-running it creates nothing new
 
 test('the same file imported three times leaves one Account per company', async () => {
   const content = csv([
-    'Repeat Air,https://repeatair.invalid,904-555-0111,info@repeatair.invalid,Jacksonville,FL,32256,Ray Alvarez,Owner',
-    'Repeat Roofing,https://repeatroofing.invalid,904-555-0112,,Jacksonville,FL,32256,,',
+    'Repeat Air,https://repeatair.example-co,904-555-0111,info@repeatair.example-co,Jacksonville,FL,32256,Ray Alvarez,Owner',
+    'Repeat Roofing,https://repeatroofing.example-co,904-555-0112,,Jacksonville,FL,32256,,',
   ]);
   await runImport(content);
   await runImport(content);
@@ -94,7 +94,7 @@ test('the same file imported three times leaves one Account per company', async 
 
 test('punctuation, suffix and case variations of one company do not fork it', async () => {
   await runImport(csv([
-    'Northgate Air & Heat LLC,https://northgateair.invalid,904-555-0120,,Jacksonville,FL,32256,,',
+    'Northgate Air & Heat LLC,https://northgateair.example-co,904-555-0120,,Jacksonville,FL,32256,,',
   ]));
   const first = await accountCount();
   assert.equal(first, 1);
@@ -102,10 +102,10 @@ test('punctuation, suffix and case variations of one company do not fork it', as
   // Same company, four ways a list might spell it. The domain matches, so these
   // must resolve to the one Account.
   await runImport(csv([
-    '"northgate air & heat, llc",https://northgateair.invalid,904-555-0120,,Jacksonville,FL,32256,,',
-    'NORTHGATE AIR AND HEAT INC,https://www.northgateair.invalid,904-555-0120,,Jacksonville,FL,32256,,',
-    'Northgate Air & Heat Corp.,http://northgateair.invalid/,(904) 555-0120,,Jacksonville,FL,32256,,',
-    'Northgate Air &amp; Heat,https://northgateair.invalid,+1 904 555 0120,,Jacksonville,FL,32256,,',
+    '"northgate air & heat, llc",https://northgateair.example-co,904-555-0120,,Jacksonville,FL,32256,,',
+    'NORTHGATE AIR AND HEAT INC,https://www.northgateair.example-co,904-555-0120,,Jacksonville,FL,32256,,',
+    'Northgate Air & Heat Corp.,http://northgateair.example-co/,(904) 555-0120,,Jacksonville,FL,32256,,',
+    'Northgate Air &amp; Heat,https://northgateair.example-co,+1 904 555 0120,,Jacksonville,FL,32256,,',
   ]), 'variations');
 
   assert.equal(await accountCount(), 1,
@@ -119,7 +119,7 @@ test('a row whose columns are shifted is rejected, not turned into a phantom com
     // exists, this produced an Account with a name, no domain, no endpoint and no
     // location -- counted as created, and unreachable forever.
     const report = await runImport(csv([
-      'northgate air & heat, llc,https://northgateair.invalid,904-555-0120,,Jacksonville,FL,32256,,',
+      'northgate air & heat, llc,https://northgateair.example-co,904-555-0120,,Jacksonville,FL,32256,,',
     ]), 'misaligned');
 
     assert.equal(report.created, 0, 'a misaligned row created an Account');
@@ -138,9 +138,9 @@ test('a row whose columns are shifted is rejected, not turned into a phantom com
   });
 
 test('www, http and https are the same website', () => {
-  const forms = ['https://coastalair.invalid', 'http://coastalair.invalid',
-                 'https://www.coastalair.invalid', 'www.coastalair.invalid',
-                 'coastalair.invalid', 'https://coastalair.invalid/contact?utm_source=x'];
+  const forms = ['https://coastalair.example-co', 'http://coastalair.example-co',
+                 'https://www.coastalair.example-co', 'www.coastalair.example-co',
+                 'coastalair.example-co', 'https://coastalair.example-co/contact?utm_source=x'];
   const normalized = new Set(forms.map((form) => normalizeHostname(form)));
   assert.equal(normalized.size, 1, `these did not collapse: ${[...normalized].join(' | ')}`);
 });
@@ -149,8 +149,8 @@ test('two businesses at one phone number stay two businesses', async () => {
   // A strip mall, an answering service or a shared reception desk. The phone alone
   // must never merge identities.
   await runImport(csv([
-    'Shared Line Plumbing,https://sharedplumbing.invalid,904-555-0130,,Jacksonville,FL,32256,,',
-    'Shared Line Roofing,https://sharedroofing.invalid,904-555-0130,,Jacksonville,FL,32256,,',
+    'Shared Line Plumbing,https://sharedplumbing.example-co,904-555-0130,,Jacksonville,FL,32256,,',
+    'Shared Line Roofing,https://sharedroofing.example-co,904-555-0130,,Jacksonville,FL,32256,,',
   ]), 'shared-phone');
 
   assert.equal(await accountCount(), 2,
@@ -162,8 +162,8 @@ test('two businesses at one phone number stay two businesses', async () => {
 
 test('one business with two locations is one Account, not two', async () => {
   await runImport(csv([
-    'Two Branch Electric,https://twobranch.invalid,904-555-0140,,Jacksonville,FL,32256,,',
-    'Two Branch Electric,https://twobranch.invalid,904-555-0141,,St. Augustine,FL,32084,,',
+    'Two Branch Electric,https://twobranch.example-co,904-555-0140,,Jacksonville,FL,32256,,',
+    'Two Branch Electric,https://twobranch.example-co,904-555-0141,,St. Augustine,FL,32084,,',
   ]), 'two-locations');
   assert.equal(await accountCount(), 1, 'a second location forked the Account');
 
@@ -182,14 +182,14 @@ test('the same name in two states stays two companies', async () => {
 
 test('a tracking number does not become the canonical business phone', async () => {
   const report = await runImport(csv([
-    'Tracking Number Co,https://trackingco.invalid,904-555-0160,,Jacksonville,FL,32256,,',
+    'Tracking Number Co,https://trackingco.example-co,904-555-0160,,Jacksonville,FL,32256,,',
   ]), 'tracking');
   assert.equal(report.created, 1);
 
   // A second list carries a different number for the same company. Both are kept as
   // endpoints; neither silently replaces the other.
   await runImport(csv([
-    'Tracking Number Co,https://trackingco.invalid,904-555-0161,,Jacksonville,FL,32256,,',
+    'Tracking Number Co,https://trackingco.example-co,904-555-0161,,Jacksonville,FL,32256,,',
   ]), 'tracking-2');
 
   const endpoints = await query<{ normalized_value: string; quality_state: string }>(
@@ -203,11 +203,11 @@ test('a tracking number does not become the canonical business phone', async () 
 test('malformed phones, emails and URLs are refused rather than stored as truth',
   async () => {
     const report = await runImport(csv([
-      'Bad Phone Co,https://badphone.invalid,not-a-number,,Jacksonville,FL,32256,,',
-      'Bad Email Co,https://bademail.invalid,904-555-0170,not-an-email,Jacksonville,FL,32256,,',
+      'Bad Phone Co,https://badphone.example-co,not-a-number,,Jacksonville,FL,32256,,',
+      'Bad Email Co,https://bademail.example-co,904-555-0170,not-an-email,Jacksonville,FL,32256,,',
       'Bad Url Co,ht!tp://nonsense,904-555-0171,,Jacksonville,FL,32256,,',
-      'Short Phone Co,https://shortphone.invalid,555,,Jacksonville,FL,32256,,',
-      'Letters Phone Co,https://lettersphone.invalid,904-555-ABCD,,Jacksonville,FL,32256,,',
+      'Short Phone Co,https://shortphone.example-co,555,,Jacksonville,FL,32256,,',
+      'Letters Phone Co,https://lettersphone.example-co,904-555-ABCD,,Jacksonville,FL,32256,,',
     ]), 'malformed');
     assert.equal(report.rows, 5);
 
@@ -244,7 +244,7 @@ test('a row that identifies no business is rejected, with the line number', asyn
     ',,,,Jacksonville,FL,32256,,',
     'A,,,,Jacksonville,FL,32256,,',
     'No Contact Route Co,,,,Jacksonville,FL,32256,,',
-    'Fine Co,https://fine.invalid,904-555-0180,,Jacksonville,FL,32256,,',
+    'Fine Co,https://fine.example-co,904-555-0180,,Jacksonville,FL,32256,,',
   ]), 'rejects');
 
   assert.equal(report.created, 1, 'more than the one usable row was created');
@@ -260,7 +260,7 @@ test('a row that identifies no business is rejected, with the line number', asyn
 test('very long values do not break the import or get silently truncated', async () => {
   const longName = `Long ${'A'.repeat(4_000)} Co`;
   const report = await runImport(csv([
-    `"${longName}",https://longname.invalid,904-555-0190,,Jacksonville,FL,32256,,`,
+    `"${longName}",https://longname.example-co,904-555-0190,,Jacksonville,FL,32256,,`,
   ]), 'long');
   assert.equal(report.rows, 1);
 
@@ -278,7 +278,7 @@ test('unicode, accents and apostrophes survive the round trip', async () => {
   const names = ['Muñoz Plumbing', "O'Donnell Roofing", 'Björnsson Electric',
                  'Nguyễn Dental', 'Ceauşescu Contracting', '北方空调'];
   await runImport(csv(names.map((name, i) =>
-    `"${name}",https://unicode${i}.invalid,904-555-02${String(i).padStart(2, '0')},,Jacksonville,FL,32256,,`)),
+    `"${name}",https://unicode${i}.example-co,904-555-02${String(i).padStart(2, '0')},,Jacksonville,FL,32256,,`)),
   'unicode');
 
   const { rows } = await query<{ canonical_name: string }>(
@@ -293,10 +293,10 @@ test('a value that a spreadsheet would run is stored as data, and exported inert
   async () => {
     const hostile = '=cmd|\' /c calc\'!A1';
     await runImport(csv([
-      `"${hostile}",https://formula.invalid,904-555-0210,,Jacksonville,FL,32256,,`,
-      `"+1 Plumbing",https://plusone.invalid,904-555-0211,,Jacksonville,FL,32256,,`,
-      `"@Home Services",https://athome.invalid,904-555-0212,,Jacksonville,FL,32256,,`,
-      `"-Alpha Roofing",https://alpha.invalid,904-555-0213,,Jacksonville,FL,32256,,`,
+      `"${hostile}",https://formula.example-co,904-555-0210,,Jacksonville,FL,32256,,`,
+      `"+1 Plumbing",https://plusone.example-co,904-555-0211,,Jacksonville,FL,32256,,`,
+      `"@Home Services",https://athome.example-co,904-555-0212,,Jacksonville,FL,32256,,`,
+      `"-Alpha Roofing",https://alpha.example-co,904-555-0213,,Jacksonville,FL,32256,,`,
     ]), 'formula');
 
     // Stored exactly as it arrived: a prospect's name is not ours to rewrite, and a
@@ -326,7 +326,7 @@ test('a value that a spreadsheet would run is stored as data, and exported inert
 test('unexpected columns are reported, not silently dropped', async () => {
   const content = [
     'company,website,phone,secret_score,internal_notes,zip',
-    'Extra Columns Co,https://extracols.invalid,904-555-0220,99,do not import me,32256',
+    'Extra Columns Co,https://extracols.example-co,904-555-0220,99,do not import me,32256',
   ].join('\n');
   const report = await runImport(content, 'extra-columns');
   assert.ok(report.unmappedHeaders.includes('secret_score'), 'an unmapped column was hidden');
@@ -359,7 +359,7 @@ test('a semicolon or tab delimited file is detected rather than read as one colu
 
 test('an import never triggers outreach', async () => {
   await runImport(csv([
-    'No Outreach Co,https://nooutreach.invalid,904-555-0230,info@nooutreach.invalid,Jacksonville,FL,32256,Ray,Owner',
+    'No Outreach Co,https://nooutreach.example-co,904-555-0230,info@nooutreach.example-co,Jacksonville,FL,32256,Ray,Owner',
   ]), 'no-outreach');
 
   for (const table of ['contact_attempts', 'email_outbox', 'email_enrollments',
@@ -380,7 +380,7 @@ test('an import never triggers outreach', async () => {
 
 test('a suppressed endpoint stays suppressed when a list rediscovers it', async () => {
   await runImport(csv([
-    'Suppressed Endpoint Co,https://suppendpoint.invalid,904-555-0240,,Jacksonville,FL,32256,,',
+    'Suppressed Endpoint Co,https://suppendpoint.example-co,904-555-0240,,Jacksonville,FL,32256,,',
   ]), 'first');
   const { rows: endpoints } = await query<{ endpoint_id: string; account_id: string }>(
     `select endpoint_id, account_id from contact_endpoints where endpoint_type = 'PHONE'`);
@@ -393,7 +393,7 @@ test('a suppressed endpoint stays suppressed when a list rediscovers it', async 
 
   // The same number arrives again from a different source.
   await runImport(csv([
-    'Suppressed Endpoint Co,https://suppendpoint.invalid,904-555-0240,,Jacksonville,FL,32256,,',
+    'Suppressed Endpoint Co,https://suppendpoint.example-co,904-555-0240,,Jacksonville,FL,32256,,',
   ]), 'rediscovery');
 
   const after = await query<{ is_suppressed: boolean; quality_state: string }>(
@@ -405,7 +405,7 @@ test('a suppressed endpoint stays suppressed when a list rediscovers it', async 
 
 test('a suppressed Account is not resurrected as fresh cold inventory', async () => {
   await runImport(csv([
-    'Do Not Contact Co,https://dnc.invalid,904-555-0250,,Jacksonville,FL,32256,,',
+    'Do Not Contact Co,https://dnc.example-co,904-555-0250,,Jacksonville,FL,32256,,',
   ]), 'first');
   const { rows } = await query<{ account_id: string }>('select account_id from accounts limit 1');
   const accountId = rows[0]!.account_id;
@@ -414,7 +414,7 @@ test('a suppressed Account is not resurrected as fresh cold inventory', async ()
      values ('ACCOUNT', $1, 'DNC', 'prospect_request', 'Asked to be removed.')`, [accountId]);
 
   const report = await runImport(csv([
-    'Do Not Contact Co,https://dnc.invalid,904-555-0250,,Jacksonville,FL,32256,,',
+    'Do Not Contact Co,https://dnc.example-co,904-555-0250,,Jacksonville,FL,32256,,',
   ]), 'rediscovery');
 
   const after = await query<{ is_suppressed: boolean; ownership_state: string }>(
@@ -427,14 +427,14 @@ test('a suppressed Account is not resurrected as fresh cold inventory', async ()
 test('an import into an Account another rep owns does not take it', async () => {
   const rep = await makeUser('Import Owner');
   await runImport(csv([
-    'Already Owned Co,https://alreadyowned.invalid,904-555-0260,,Jacksonville,FL,32256,,',
+    'Already Owned Co,https://alreadyowned.example-co,904-555-0260,,Jacksonville,FL,32256,,',
   ]), 'first');
   const { rows } = await query<{ account_id: string }>('select account_id from accounts limit 1');
   const accountId = rows[0]!.account_id;
   await claimAccount(accountId, rep);
 
   await runImport(csv([
-    'Already Owned Co,https://alreadyowned.invalid,904-555-0260,ray@alreadyowned.invalid,Jacksonville,FL,32256,Ray Alvarez,Owner',
+    'Already Owned Co,https://alreadyowned.example-co,904-555-0260,ray@alreadyowned.example-co,Jacksonville,FL,32256,Ray Alvarez,Owner',
   ]), 'second');
 
   const after = await query<{ current_owner_user_id: string; ownership_state: string }>(
@@ -452,7 +452,7 @@ test('an import into an Account another rep owns does not take it', async () => 
 test('rediscovery does not reset an Account that already has history', async () => {
   const rep = await makeUser('History Rep');
   await runImport(csv([
-    'History Co,https://historyco.invalid,904-555-0270,,Jacksonville,FL,32256,,',
+    'History Co,https://historyco.example-co,904-555-0270,,Jacksonville,FL,32256,,',
   ]), 'first');
   const { rows } = await query<{ account_id: string }>('select account_id from accounts limit 1');
   const accountId = rows[0]!.account_id;
@@ -473,7 +473,7 @@ test('rediscovery does not reset an Account that already has history', async () 
     'the fixture did not advance the relationship at all');
 
   await runImport(csv([
-    'History Co,https://historyco.invalid,904-555-0270,,Jacksonville,FL,32256,,',
+    'History Co,https://historyco.example-co,904-555-0270,,Jacksonville,FL,32256,,',
   ]), 'rediscovery');
 
   const survived = await query<{ activities: number; statements: number; followups: number;
@@ -495,7 +495,7 @@ test('rediscovery does not reset an Account that already has history', async () 
 test('an import into a company with an opportunity and a meeting keeps both', async () => {
   const rep = await makeUser('Opportunity Rep');
   await runImport(csv([
-    'Opportunity Co,https://opportunityco.invalid,904-555-0280,,Jacksonville,FL,32256,,',
+    'Opportunity Co,https://opportunityco.example-co,904-555-0280,,Jacksonville,FL,32256,,',
   ]), 'first');
   const { rows } = await query<{ account_id: string }>('select account_id from accounts limit 1');
   const accountId = rows[0]!.account_id;
@@ -515,7 +515,7 @@ test('an import into a company with an opportunity and a meeting keeps both', as
              'CONFIRMED', 'calcom', 'evt-1', now(), $2)`, [accountId, rep.userId]);
 
   await runImport(csv([
-    'Opportunity Co,https://opportunityco.invalid,904-555-0280,,Jacksonville,FL,32256,,',
+    'Opportunity Co,https://opportunityco.example-co,904-555-0280,,Jacksonville,FL,32256,,',
   ]), 'rediscovery');
 
   const after = await query<{ opportunities: number; meetings: number; confirmed: number }>(
@@ -533,10 +533,10 @@ test('an import into a company with an opportunity and a meeting keeps both', as
 test('two sources naming different owners keep both, and neither is invented',
   async () => {
     await runImport(csv([
-      'Two Owners Co,https://twoowners.invalid,904-555-0290,,Jacksonville,FL,32256,Ray Alvarez,Owner',
+      'Two Owners Co,https://twoowners.example-co,904-555-0290,,Jacksonville,FL,32256,Ray Alvarez,Owner',
     ]), 'source-a');
     await runImport(csv([
-      'Two Owners Co,https://twoowners.invalid,904-555-0290,,Jacksonville,FL,32256,Dana Whitfield,Owner',
+      'Two Owners Co,https://twoowners.example-co,904-555-0290,,Jacksonville,FL,32256,Dana Whitfield,Owner',
     ]), 'source-b');
 
     const contacts = await query<{ full_name: string; role_confidence: string }>(
@@ -552,10 +552,10 @@ test('two sources naming different owners keep both, and neither is invented',
 
 test('blank fields do not overwrite what we already know', async () => {
   await runImport(csv([
-    'Blank Fields Co,https://blankfields.invalid,904-555-0300,ray@blankfields.invalid,Jacksonville,FL,32256,Ray Alvarez,Owner',
+    'Blank Fields Co,https://blankfields.example-co,904-555-0300,ray@blankfields.example-co,Jacksonville,FL,32256,Ray Alvarez,Owner',
   ]), 'full');
   await runImport(csv([
-    'Blank Fields Co,https://blankfields.invalid,,,,,,,',
+    'Blank Fields Co,https://blankfields.example-co,,,,,,,',
   ]), 'sparse');
 
   const after = await query<{ phones: number; emails: number; contacts: number }>(
@@ -570,7 +570,7 @@ test('blank fields do not overwrite what we already know', async () => {
 test('a dry run writes nothing at all', async () => {
   const before = await accountCount();
   const report = await runImport(csv([
-    'Dry Run Co,https://dryrun.invalid,904-555-0310,,Jacksonville,FL,32256,,',
+    'Dry Run Co,https://dryrun.example-co,904-555-0310,,Jacksonville,FL,32256,,',
   ]), 'dry', true);
   assert.equal(report.created, 1, 'a dry run should still report what it would create');
   assert.equal(await accountCount(), before, 'a dry run wrote to the database');
@@ -593,8 +593,8 @@ test('name normalisation is stable and does not over-collapse', () => {
 test('confirming the same import twice runs it once', async () => {
   const ops = await makeUser('Import Ops', 'RESEARCH_OPS');
   const content = csv([
-    'Confirm Once Co,https://confirmonce.invalid,904-555-0320,,Jacksonville,FL,32256,,',
-    'Confirm Twice Co,https://confirmtwice.invalid,904-555-0321,,Jacksonville,FL,32256,,',
+    'Confirm Once Co,https://confirmonce.example-co,904-555-0320,,Jacksonville,FL,32256,,',
+    'Confirm Twice Co,https://confirmtwice.example-co,904-555-0321,,Jacksonville,FL,32256,,',
   ]);
   const session = await createSession({
     content, fileName: 'confirm.csv', sourceName: 'confirm', sourceKind: 'csv',
@@ -622,7 +622,7 @@ test('confirming the same import twice runs it once', async () => {
 test('a confirm that throws does not wedge the session', async () => {
   const ops = await makeUser('Wedge Ops', 'RESEARCH_OPS');
   const session = await createSession({
-    content: csv(['Wedge Co,https://wedge.invalid,904-555-0330,,Jacksonville,FL,32256,,']),
+    content: csv(['Wedge Co,https://wedge.example-co,904-555-0330,,Jacksonville,FL,32256,,']),
     fileName: 'wedge.csv', sourceName: 'wedge', sourceKind: 'csv', createdBy: ops.userId,
   });
   await buildPreview(session.importSessionId, ops.userId);
@@ -650,7 +650,7 @@ test('a confirm that throws does not wedge the session', async () => {
 
 test('a failed import can be retried; a successful one cannot be run twice', async () => {
   const content = csv([
-    'Retry Guard Co,https://retryguard.invalid,904-555-0340,,Jacksonville,FL,32256,,',
+    'Retry Guard Co,https://retryguard.example-co,904-555-0340,,Jacksonville,FL,32256,,',
   ]);
   // The same content twice through the file-hash path: the second is refused.
   const first = await importCsvContent(content,
@@ -673,7 +673,7 @@ test('a row that throws inside a batch costs only itself', async () => {
   // Rows are committed in batches now, so the isolation that per-row transactions
   // gave has to come from somewhere: each row runs inside its own savepoint.
   const good = Array.from({ length: 20 }, (_, i) =>
-    `Savepoint Co ${i},https://savepoint${i}.invalid,904-555-04${String(i).padStart(2, '0')},,Jacksonville,FL,32256,,`);
+    `Savepoint Co ${i},https://savepoint${i}.example-co,904-555-04${String(i).padStart(2, '0')},,Jacksonville,FL,32256,,`);
   const report = await runImport(csv(good), 'savepoints');
   assert.equal(report.created, 20, 'a batch lost rows');
   assert.equal(await accountCount(), 20);

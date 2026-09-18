@@ -86,15 +86,15 @@ test('exposing and arming the dialler are not the same decision', async () => {
 });
 
 test('a demo login that still works stops the exposure', async () => {
-  await createUser({ email: 'brent@demo.invalid', displayName: 'Demo Rep',
+  await createUser({ email: 'brent@demo.example-co', displayName: 'Demo Rep',
     role: 'SALES_REP', password: 'demo-password-known' });
   const report = await exposurePreflight(SAFE);
   const demo = check(report, 'no_demo_logins');
   assert.equal(demo.state, 'FAIL');
-  assert.match(demo.finding, /brent@demo\.invalid/);
+  assert.match(demo.finding, /brent@demo\.example-co/);
   assert.match(demo.finding, /known\s+passwords/);
 
-  await query('update users set is_active = false where email = $1', ['brent@demo.invalid']);
+  await query('update users set is_active = false where email = $1', ['brent@demo.example-co']);
   assert.equal(check(await exposurePreflight(SAFE), 'no_demo_logins').state, 'PASS');
 });
 

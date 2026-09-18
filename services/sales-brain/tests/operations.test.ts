@@ -34,7 +34,7 @@ async function makeAccount(name: string): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example-co`,
       phone: `904-555-${String(7000 + sequence).slice(-4)}`,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'ops-test' }));
@@ -183,7 +183,7 @@ test('a prospect waiting a day for an answer is the loudest thing on the page',
        returning email_campaign_id`);
     const { rows: enrollment } = await query<{ enrollment_id: string }>(
       `insert into email_enrollments (email_campaign_id, account_id, normalized_email, status)
-       values ($1, $2, 'someone@waitingreply.invalid', 'REPLIED') returning enrollment_id`,
+       values ($1, $2, 'someone@waitingreply.example-co', 'REPLIED') returning enrollment_id`,
       [campaign[0]!.email_campaign_id, accountId]);
     await query(
       `insert into email_events (enrollment_id, account_id, provider, provider_event_id,
@@ -205,7 +205,7 @@ test('a reply that was answered is not still waiting', async () => {
      returning email_campaign_id`);
   const { rows: enrollment } = await query<{ enrollment_id: string }>(
     `insert into email_enrollments (email_campaign_id, account_id, normalized_email, status)
-     values ($1, $2, 'someone@answeredreply.invalid', 'REPLIED') returning enrollment_id`,
+     values ($1, $2, 'someone@answeredreply.example-co', 'REPLIED') returning enrollment_id`,
     [campaign[0]!.email_campaign_id, accountId]);
   await query(
     `insert into email_events (enrollment_id, account_id, provider, provider_event_id,
@@ -275,7 +275,7 @@ test('duplicates are reported as a number to watch, not as a fault', async () =>
   // Two companies can share a name legitimately.
   await makeAccount('Summit Roofing');
   await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Summit Roofing', website: 'https://summitroofing2.invalid',
+    canonicalName: 'Summit Roofing', website: 'https://summitroofing2.example-co',
     phone: '904-555-7999', city: 'Orange Park', state: 'FL', postalCode: '32073',
   }, { discoverySource: 'ops-test' }));
 

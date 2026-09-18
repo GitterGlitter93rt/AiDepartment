@@ -99,7 +99,7 @@ async function researchedAccount(vertical = 'hvac'): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Injection Co ${sequence}`,
-    website: `https://injection${sequence}.invalid`,
+    website: `https://injection${sequence}.example-co`,
     phone: `904-555-${String(9000 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical,
@@ -284,7 +284,7 @@ test('a suppressed company stays suppressed whatever its site says', async () =>
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Suppressed Injection ${sequence}`,
-    website: `https://injection${sequence}.invalid`, phone: '904-555-9500',
+    website: `https://injection${sequence}.example-co`, phone: '904-555-9500',
     city: 'St. Augustine', state: 'FL', postalCode: '32095', verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
   await query(

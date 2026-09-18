@@ -1,7 +1,8 @@
 import { flag, numeric } from '../../config.js';
 import type {
   ApolloAdapter, ApolloErrorClass, ApolloOrganization, ApolloPerson, ApolloPersonCandidate,
-  ApolloResponse, PeopleSearchRequest, PeopleSearchResult, PersonEnrichRequest,
+  ApolloResponse, ApolloUsageStats, PeopleSearchRequest, PeopleSearchResult,
+  PersonEnrichRequest,
 } from './types.js';
 
 /**
@@ -109,11 +110,17 @@ export function normalizeCandidate(raw: Record<string, unknown>): ApolloPersonCa
   const org = raw['organization'] as Record<string, unknown> | undefined;
   const first = toText(raw['first_name']);
   const last = toText(raw['last_name']);
+  // People search redacts the surname; enrichment returns it. Both shapes arrive here.
+  const obfuscated = toText(raw['last_name_obfuscated']);
+  const nameIsPartial = !last && Boolean(obfuscated ?? first);
   return {
     apolloPersonId: id,
+    nameIsPartial,
     firstName: first,
     lastName: last,
-    fullName: toText(raw['name']) ?? ([first, last].filter(Boolean).join(' ') || null),
+    fullName: toText(raw['name'])
+      ?? ([first, last].filter(Boolean).join(' ') || null)
+      ?? ([first, obfuscated].filter(Boolean).join(' ') || null),
     title: toText(raw['title']),
     seniority: toText(raw['seniority']),
     organizationName: org ? toText(org['name']) : toText(raw['organization_name']),
@@ -293,6 +300,31 @@ export function createApolloAdapter(options: { config?: ApolloConfig } = {}): Ap
               (sum, p) => sum + costOfEnrichment(p).creditsEstimated, 0),
           };
         },
+      });
+    },
+
+    async usageStats() {
+      return call<ApolloUsageStats>({
+        path: '/usage_stats/api_usage_stats', method: 'POST', body: {},
+        parse: (raw) => {
+          const window = (node: unknown): { limit: number | null; consumed: number | null;
+            leftOver: number | null } => {
+            const w = (node ?? {}) as Record<string, unknown>;
+            return { limit: toNumber(w['limit']), consumed: toNumber(w['consumed']),
+              leftOver: toNumber(w['left_over']) };
+          };
+          const perEndpoint: ApolloUsageStats['perEndpoint'] = [];
+          for (const [endpoint, node] of Object.entries(raw)) {
+            if (!node || typeof node !== 'object') continue;
+            const n = node as Record<string, unknown>;
+            if (!('day' in n) && !('hour' in n) && !('minute' in n)) continue;
+            perEndpoint.push({ endpoint, day: window(n['day']), hour: window(n['hour']),
+              minute: window(n['minute']) });
+          }
+          return { perEndpoint };
+        },
+        // Documented at zero, and it reports limits rather than credits.
+        estimate: () => ({ creditConsuming: 'NO', creditsEstimated: 0 }),
       });
     },
 

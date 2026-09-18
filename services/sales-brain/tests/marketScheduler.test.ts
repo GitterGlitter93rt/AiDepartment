@@ -145,7 +145,7 @@ test('a market with a provider task still owed is collected, not re-bought', asy
     async collect(providerTaskId) {
       collects += 1;
       return { status: 'OK' as const,
-        observations: observationsFor([{ name: 'owed.invalid', website: 'https://owed.invalid', phone: null,
+        observations: observationsFor([{ name: 'owed.example-co', website: 'https://owed.example-co', phone: null,
           city: null, state: null, postalCode: null }]),
         providerTaskId };
     },

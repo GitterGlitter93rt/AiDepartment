@@ -95,9 +95,9 @@ test('a distinctive subdomain of a site builder is still identity', async () => 
 
 test('a real website still merges the same company found twice', async () => {
   const first = await upsert({ name: 'Ancient City Roofing',
-    website: 'https://ancientcityroofing.invalid' });
+    website: 'https://ancientcityroofing.example-co' });
   const again = await upsert({ name: 'Ancient City Roofing Inc',
-    website: 'https://www.ancientcityroofing.invalid/contact' });
+    website: 'https://www.ancientcityroofing.example-co/contact' });
   assert.equal(again.created, false);
   assert.equal(again.accountId, first.accountId);
 });

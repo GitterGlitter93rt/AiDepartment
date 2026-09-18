@@ -42,7 +42,7 @@ async function accountWithContact(input: {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Standing Co ${sequence}`,
-    website: `https://standing${sequence}.invalid`,
+    website: `https://standing${sequence}.example-co`,
     phone: `904-555-${String(7000 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
@@ -209,7 +209,7 @@ test('a current name comes with no hedge and no fallback', async () => {
 
 test('an account with no contact at all tells the rep what to do', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'No Contact Co', website: 'https://nocontact.invalid',
+    canonicalName: 'No Contact Co', website: 'https://nocontact.example-co',
     phone: '904-555-7900', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));

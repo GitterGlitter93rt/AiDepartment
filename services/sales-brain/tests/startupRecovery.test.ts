@@ -145,7 +145,7 @@ test('the API refuses to start without the environment it needs, and says which'
 
   assert.match(message, /DATABASE_URL/,
     'a missing variable must be named; "cannot read property of undefined" is not an answer');
-  assert.match(message, /\.env\.example-co/, 'and it must say where to look');
+  assert.match(message, /\.env\.example/, 'and it must say where to look');
 });
 
 test('a clean worker stop is not reported as an outage', async () => {

@@ -53,7 +53,7 @@ function rotatingProvider(): void {
           return {
             status: 'OK',
             observations: observationsFor([{
-              name: `shadow${id}.invalid`, website: `https://shadow${id}.invalid`,
+              name: `shadow${id}.example-co`, website: `https://shadow${id}.example-co`,
               phone: null, city: null, state: null, postalCode: null,
               resultType: 'PAID_SEARCH_TEXT', query: 'ac repair', position: 1,
             }]),
@@ -83,8 +83,8 @@ function rotatingProvider(): void {
       return {
         status: 'OK',
         observations: observationsFor([{
-          name: `collected${providerTaskId}.invalid`,
-          website: `https://collected${cycle}.invalid`, phone: null,
+          name: `collected${providerTaskId}.example-co`,
+          website: `https://collected${cycle}.example-co`, phone: null,
           city: null, state: null, postalCode: null, resultType: 'ORGANIC',
         }]),
         providerTaskId,

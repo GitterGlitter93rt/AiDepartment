@@ -92,6 +92,9 @@ const ROUTES: RouteUnderTest[] = [
   // Authenticated by provider signature rather than by session.
   { method: 'POST', path: '/api/webhooks/calcom', minimum: 'signature_only' },
   { method: 'POST', path: '/api/webhooks/smartlead', minimum: 'signature_only' },
+  // Apollo's asynchronous phone delivery. Authenticated by a shared secret compared in
+  // constant time, never by a session, and refused outright while the capability is off.
+  { method: 'POST', path: '/api/webhooks/apollo/phone', minimum: 'signature_only' },
 ];
 
 interface Fixture { rep: string; manager: string; admin: string; accountId: string }

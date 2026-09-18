@@ -73,8 +73,8 @@ async function account(input: {
 // ------------------------------------------------------- what gets queued -------
 
 test('two companies with the same name in the same place are queued', async () => {
-  await account({ name: 'Salazar Roofing', website: 'https://salazar-a.invalid' });
-  await account({ name: 'Salazar Roofing', website: 'https://salazar-b.invalid' });
+  await account({ name: 'Salazar Roofing', website: 'https://salazar-a.example-co' });
+  await account({ name: 'Salazar Roofing', website: 'https://salazar-b.example-co' });
 
   const result = await refreshDuplicateQueue();
   assert.equal(result.queued, 1, `queued ${result.queued} of ${result.found} found`);
@@ -116,15 +116,15 @@ test('two live Accounts cannot share a domain at all', async () => {
   // is either resolved onto the first or refused by the database. The rule is kept in
   // the vocabulary and never produced, and the wording that would present a shared
   // Facebook page as evidence of one company stays as a guard.
-  const a = await account({ name: 'Domain One', website: 'https://shared-domain.invalid' });
-  const b = await account({ name: 'Domain Two', website: 'https://shared-domain.invalid' });
+  const a = await account({ name: 'Domain One', website: 'https://shared-domain.example-co' });
+  const b = await account({ name: 'Domain Two', website: 'https://shared-domain.example-co' });
   assert.equal(a, b,
     'two Accounts were created on one domain, so the domain rule is not resolving');
 
   await assert.rejects(
     () => query(
       `insert into accounts (canonical_name, normalized_name, canonical_domain)
-       values ('Forced Collision', 'forced collision', 'shared-domain.invalid')`),
+       values ('Forced Collision', 'forced collision', 'shared-domain.example-co')`),
     /unique|duplicate key/i,
     'the database allowed two Accounts to claim one domain');
 });
@@ -139,8 +139,8 @@ test('companies in different cities with one name are not queued', async () => {
 });
 
 test('a suppressed company is never offered for merging', async () => {
-  const a = await account({ name: 'Quiet Roofing', website: 'https://quiet-a.invalid' });
-  await account({ name: 'Quiet Roofing', website: 'https://quiet-b.invalid' });
+  const a = await account({ name: 'Quiet Roofing', website: 'https://quiet-a.example-co' });
+  await account({ name: 'Quiet Roofing', website: 'https://quiet-b.example-co' });
   await query(
     `update accounts set is_suppressed = true, suppression_summary = 'asked not to'
       where account_id = $1`, [a]);
@@ -153,8 +153,8 @@ test('a suppressed company is never offered for merging', async () => {
 // ------------------------------------------------- a decision that is remembered --
 
 test('"not a duplicate" is remembered, so the pair never comes back', async () => {
-  await account({ name: 'Twin Roofing', website: 'https://twin-a.invalid' });
-  await account({ name: 'Twin Roofing', website: 'https://twin-b.invalid' });
+  await account({ name: 'Twin Roofing', website: 'https://twin-a.example-co' });
+  await account({ name: 'Twin Roofing', website: 'https://twin-b.example-co' });
   await refreshDuplicateQueue();
 
   const [candidate] = await openDuplicateCandidates();
@@ -178,8 +178,8 @@ test('"not a duplicate" is remembered, so the pair never comes back', async () =
 });
 
 test('a decision is written to the audit trail with its note', async () => {
-  await account({ name: 'Audit Roofing', website: 'https://audit-a.invalid' });
-  await account({ name: 'Audit Roofing', website: 'https://audit-b.invalid' });
+  await account({ name: 'Audit Roofing', website: 'https://audit-a.example-co' });
+  await account({ name: 'Audit Roofing', website: 'https://audit-b.example-co' });
   await refreshDuplicateQueue();
   const [candidate] = await openDuplicateCandidates();
   const manager = await makeUser(`Dup Audit ${Date.now()}`, 'SALES_MANAGER');
@@ -196,8 +196,8 @@ test('a decision is written to the audit trail with its note', async () => {
 });
 
 test('deciding a pair twice is refused rather than silently repeated', async () => {
-  await account({ name: 'Once Roofing', website: 'https://once-a.invalid' });
-  await account({ name: 'Once Roofing', website: 'https://once-b.invalid' });
+  await account({ name: 'Once Roofing', website: 'https://once-a.example-co' });
+  await account({ name: 'Once Roofing', website: 'https://once-b.example-co' });
   await refreshDuplicateQueue();
   const [candidate] = await openDuplicateCandidates();
   const manager = await makeUser(`Dup Twice ${Date.now()}`, 'SALES_MANAGER');
@@ -217,8 +217,8 @@ test('deciding a pair twice is refused rather than silently repeated', async () 
 // ---------------------------------------------------------------- merging -------
 
 test('a merge from the queue goes through the manager gate, not around it', async () => {
-  const a = await account({ name: 'Gate Roofing', website: 'https://gate-a.invalid' });
-  await account({ name: 'Gate Roofing', website: 'https://gate-b.invalid' });
+  const a = await account({ name: 'Gate Roofing', website: 'https://gate-a.example-co' });
+  await account({ name: 'Gate Roofing', website: 'https://gate-b.example-co' });
   await refreshDuplicateQueue();
   const [candidate] = await openDuplicateCandidates();
 
@@ -236,8 +236,8 @@ test('a merge from the queue goes through the manager gate, not around it', asyn
 });
 
 test('a merge has to say which of the two survives', async () => {
-  await account({ name: 'Survive Roofing', website: 'https://survive-a.invalid' });
-  await account({ name: 'Survive Roofing', website: 'https://survive-b.invalid' });
+  await account({ name: 'Survive Roofing', website: 'https://survive-a.example-co' });
+  await account({ name: 'Survive Roofing', website: 'https://survive-b.example-co' });
   await refreshDuplicateQueue();
   const [candidate] = await openDuplicateCandidates();
   const manager = await makeUser(`Dup Survive ${Date.now()}`, 'SALES_MANAGER');
@@ -257,8 +257,8 @@ test('a merge has to say which of the two survives', async () => {
 });
 
 test('a merge from the queue leaves a tombstone and the queue empty', async () => {
-  const a = await account({ name: 'Merge Roofing', website: 'https://merge-a.invalid' });
-  const b = await account({ name: 'Merge Roofing', website: 'https://merge-b.invalid' });
+  const a = await account({ name: 'Merge Roofing', website: 'https://merge-a.example-co' });
+  const b = await account({ name: 'Merge Roofing', website: 'https://merge-b.example-co' });
   await refreshDuplicateQueue();
   const [candidate] = await openDuplicateCandidates();
   const manager = await makeUser(`Dup Merge ${Date.now()}`, 'SALES_MANAGER');
@@ -281,8 +281,8 @@ test('a merge from the queue leaves a tombstone and the queue empty', async () =
 });
 
 test('a rep’s claim survives a merge decided from the queue', async () => {
-  const a = await account({ name: 'Claimed Roofing', website: 'https://claimed-a.invalid' });
-  await account({ name: 'Claimed Roofing', website: 'https://claimed-b.invalid' });
+  const a = await account({ name: 'Claimed Roofing', website: 'https://claimed-a.example-co' });
+  await account({ name: 'Claimed Roofing', website: 'https://claimed-b.example-co' });
   const rep = await makeUser(`Dup Claim Rep ${Date.now()}`, 'SALES_REP');
   await claimAccount(a, { userId: rep.userId, role: 'SALES_REP', activeClaimTarget: null });
 
@@ -302,8 +302,8 @@ test('a rep’s claim survives a merge decided from the queue', async () => {
 // -------------------------------------------------------------- the panel -------
 
 test('the operations page reports what is waiting, not what merely looks alike', async () => {
-  await account({ name: 'Panel Roofing', website: 'https://panel-a.invalid' });
-  await account({ name: 'Panel Roofing', website: 'https://panel-b.invalid' });
+  await account({ name: 'Panel Roofing', website: 'https://panel-a.example-co' });
+  await account({ name: 'Panel Roofing', website: 'https://panel-b.example-co' });
   await refreshDuplicateQueue();
 
   const snapshot = await operationalSnapshot();

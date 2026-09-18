@@ -35,7 +35,7 @@ async function accountIn(vertical: string): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Safety Fixture ${sequence}`,
-    website: `https://safety${sequence}.invalid`,
+    website: `https://safety${sequence}.example-co`,
     phone: `904-555-${String(7100 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical,
@@ -150,7 +150,7 @@ test('the universal prohibitions are not displaced by the vertical ones', async 
 test('a company with no vertical still gets the universal set', async () => {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: `No Vertical ${sequence}`, website: `https://nov${sequence}.invalid`,
+    canonicalName: `No Vertical ${sequence}`, website: `https://nov${sequence}.example-co`,
     phone: '904-555-7999', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'import' }));
   const pack = await buildCallPack(accountId);

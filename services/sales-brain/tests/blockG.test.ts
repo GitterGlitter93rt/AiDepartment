@@ -34,7 +34,7 @@ async function account(): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Block G Co ${sequence}`,
-    website: `https://blockg-${sequence}.invalid`,
+    website: `https://blockg-${sequence}.example-co`,
     phone: `904-555-${String(5100 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095', verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
@@ -52,7 +52,7 @@ async function evidence(accountId: string, claimKey: string, options: {
        (account_id, category, claim_key, claim_text, normalized_value, confidence,
         can_state_as_fact, source_type, source_reference, observed_at)
      values ($1, 'operations', $2, $3, $4, $5, true, 'COMPANY_WEBSITE',
-             'https://blockg.invalid/probe', now())`,
+             'https://blockg.example-co/probe', now())`,
     [accountId, claimKey, `Block G evidence for ${claimKey}`,
      options.value ?? 'yes', options.confidence ?? 'confirmed']);
 }

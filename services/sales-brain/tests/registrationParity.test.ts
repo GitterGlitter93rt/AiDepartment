@@ -88,7 +88,7 @@ test('an adapter constructed for a health check is not a registered adapter', ()
 test('registering is idempotent, so two callers cannot double a provider', () => {
   clearDiscoveryAdapters();
   const env = {
-    DATAFORSEO_LOGIN: 'parity@example.invalid', DATAFORSEO_PASSWORD: 'x',
+    DATAFORSEO_LOGIN: 'parity@example.example-co', DATAFORSEO_PASSWORD: 'x',
     DATAFORSEO_ENABLED: 'true', DATAFORSEO_GOVERNANCE_REVIEWED: 'true',
   };
   registerConfiguredDiscoveryAdapters(env);

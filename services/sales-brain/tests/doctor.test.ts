@@ -135,7 +135,7 @@ test('a provider that owes us an answer is told apart from one that lost it', as
 
 test('research nobody queued is separated from research that failed', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Doctor Stranded', website: 'https://doctorstranded.invalid',
+    canonicalName: 'Doctor Stranded', website: 'https://doctorstranded.example-co',
     phone: '904-555-9601', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:doctor' }));
@@ -150,7 +150,7 @@ test('research nobody queued is separated from research that failed', async () =
 
 test('a researched company with no score is a scoring fault, and says why it matters', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Doctor Unscored', website: 'https://doctorunscored.invalid',
+    canonicalName: 'Doctor Unscored', website: 'https://doctorunscored.example-co',
     phone: '904-555-9602', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:doctor' }));
@@ -167,7 +167,7 @@ test('a researched company with no score is a scoring fault, and says why it mat
 
 test('scores from an older ruleset are a stale projection, not a failure', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Doctor Old Policy', website: 'https://doctoroldpolicy.invalid',
+    canonicalName: 'Doctor Old Policy', website: 'https://doctoroldpolicy.example-co',
     phone: '904-555-9603', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:doctor' }));
@@ -245,7 +245,7 @@ test('twelve rows that were all directories is an answer, not an ingestion fault
 
 test('a run that matched everything it found is coverage, and says so', async () => {
   await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'doctorknown.invalid', website: 'https://doctorknown.invalid',
+    canonicalName: 'doctorknown.example-co', website: 'https://doctorknown.example-co',
     phone: null, city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
@@ -255,7 +255,7 @@ test('a run that matched everything it found is coverage, and says so', async ()
     isConfigured: () => true,
     async discover() {
       return { status: 'OK' as const,
-        observations: observationsFor([{ name: 'doctorknown.invalid', website: 'https://doctorknown.invalid',
+        observations: observationsFor([{ name: 'doctorknown.example-co', website: 'https://doctorknown.example-co',
           phone: null, city: null, state: null, postalCode: null }]),
         };
     },

@@ -56,7 +56,7 @@ function countingProvider(state: { submits: number; collects: number }) {
       return {
         status: 'OK',
         observations: observationsFor([{
-          name: `canary${index}.invalid`, website: `https://canary${index}.invalid`,
+          name: `canary${index}.example-co`, website: `https://canary${index}.example-co`,
           phone: null, city: null, state: null, postalCode: null,
           resultType: 'PAID_SEARCH_TEXT', query: request.search?.term ?? null,
         }]),
@@ -135,8 +135,13 @@ test('ten means ten independent searches, never one query with ten terms', async
   const plan = await planCanary({ vertical: 'hvac', location: '32095', count: 10,
     maxCostCents: 200 });
 
-  // hvac defines eight terms, so ten is honestly eight.
-  assert.equal(plan.searches.length, plan.availableTerms);
+  /*
+   * Ten means ten separate searches, or every term there is when the profile defines
+   * fewer. Derived rather than hard-coded: this used to read "hvac defines eight terms,
+   * so ten is honestly eight", and the V3 taxonomy expansion took HVAC to fifteen. The
+   * number was never the subject -- the subject is that a count is a count of searches.
+   */
+  assert.equal(plan.searches.length, Math.min(plan.requestedCount, plan.availableTerms));
   assert.equal(plan.requestedCount, 10);
 
   const keywords = plan.searches.map((search) => search.keyword);
@@ -238,7 +243,7 @@ test('cost is estimated on what will run, not on what was asked for', async () =
 
 test('a canary changes no suppression or DNC state', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Suppressed Roofing', website: 'https://suppressed.invalid',
+    canonicalName: 'Suppressed Roofing', website: 'https://suppressed.example-co',
     phone: '904-555-8001', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
@@ -258,7 +263,7 @@ test('a canary changes no suppression or DNC state', async () => {
 test('a canary changes no owner, even when a source re-finds the company', async () => {
   const rep = await makeUser(`Canary Rep ${Date.now()}`, 'SALES_REP');
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'canary1.invalid', website: 'https://canary1.invalid',
+    canonicalName: 'canary1.example-co', website: 'https://canary1.example-co',
     phone: '904-555-8002', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
@@ -338,7 +343,7 @@ test('a restarted live run collects what it already paid for', async () => {
     async collect(providerTaskId) {
       collects += 1;
       return { status: 'OK' as const,
-        observations: observationsFor([{ name: 'collected.invalid', website: 'https://collected.invalid',
+        observations: observationsFor([{ name: 'collected.example-co', website: 'https://collected.example-co',
           phone: null, city: null, state: null, postalCode: null }]),
         providerTaskId };
     },
@@ -366,7 +371,7 @@ test('a market of companies we already hold is coverage, not an empty market', a
   // it as ZERO_RESULTS tells a rep the ZIP is empty when it is fully known.
   for (let index = 1; index <= 3; index += 1) {
     await withTransaction((client) => upsertAccount(client, {
-      canonicalName: `canary${index}.invalid`, website: `https://canary${index}.invalid`,
+      canonicalName: `canary${index}.example-co`, website: `https://canary${index}.example-co`,
       phone: null, city: 'St. Augustine', state: 'FL', postalCode: '32095',
       verticalProfileId: 'roofing',
     }, { discoverySource: 'import' }));
@@ -396,7 +401,7 @@ test('the report accounts for each search separately', async () => {
       const index = request.search?.index ?? 0;
       if (index === 1) {
         return { status: 'OK',
-          observations: observationsFor([{ name: 'mixed.invalid', website: 'https://mixed.invalid',
+          observations: observationsFor([{ name: 'mixed.example-co', website: 'https://mixed.example-co',
             phone: null, city: null, state: null, postalCode: null }]),
           costUsd: 0.006 };
       }

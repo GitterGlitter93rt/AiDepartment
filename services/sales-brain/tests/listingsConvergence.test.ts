@@ -58,7 +58,7 @@ function listing(overrides: Partial<BusinessListing> = {}): BusinessListing {
   return {
     providerListingId: `listing-${sequence}`,
     name: `Coastal Air ${sequence}`,
-    domain: `coastal${sequence}.invalid`,
+    domain: `coastal${sequence}.example-co`,
     phone: `+1 904-555-${String(6000 + sequence).slice(-4)}`,
     address: '1200 US-1 S, St. Augustine, FL 32095',
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
@@ -124,11 +124,11 @@ test('a listing with no stable id is a search result wearing a listing’s cloth
 test('the same listing twice is one company, and the richer row wins', () => {
   const thin = listing({ providerListingId: 'same', domain: null, rating: null,
     reviewCount: null, category: null });
-  const rich = listing({ providerListingId: 'same', domain: 'rich.invalid' });
+  const rich = listing({ providerListingId: 'same', domain: 'rich.example-co' });
   const collapsed = dedupeListings([thin, rich]);
 
   assert.equal(collapsed.length, 1);
-  assert.equal(collapsed[0]!.domain, 'rich.invalid');
+  assert.equal(collapsed[0]!.domain, 'rich.example-co');
   assert.equal(collapsed[0]!.rating, 4.7);
 });
 
@@ -147,7 +147,7 @@ test('two listings that merely look alike stay two companies', () => {
 async function fromListings(overrides: Partial<BusinessListing> = {}): Promise<void> {
   await ingestListings({
     listings: [listing({ providerListingId: 'shared-1', name: 'Convergence Air',
-      domain: 'convergence.invalid', phone: '+1 904-555-7001', ...overrides })],
+      domain: 'convergence.example-co', phone: '+1 904-555-7001', ...overrides })],
     provider: 'fixture-listings', verticalProfileId: 'hvac',
     searchedGeographyType: 'zip_zcta', searchedGeographyValue: '32095',
   });
@@ -161,7 +161,7 @@ async function fromSerp(): Promise<void> {
       return {
         status: 'OK' as const,
         observations: observationsFor([{
-          name: 'convergence.invalid', website: 'https://convergence.invalid',
+          name: 'convergence.example-co', website: 'https://convergence.example-co',
           phone: null, city: null, state: null, postalCode: null,
           resultType: 'PAID_SEARCH_TEXT', adHeadline: 'Same-Day AC Repair',
           query: 'ac repair', position: 1,
@@ -179,7 +179,7 @@ async function fromSerp(): Promise<void> {
 
 async function fromImport(): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Convergence Air', website: 'https://convergence.invalid',
+    canonicalName: 'Convergence Air', website: 'https://convergence.example-co',
     phone: '904-555-7001', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
@@ -320,9 +320,9 @@ test('listings obey the same exclusions a SERP does', async () => {
   const counts = await ingestListings({
     listings: [
       listing({ providerListingId: 'supply', name: 'Gulf Coast HVAC Supply',
-        domain: 'gulfsupply.invalid' }),
+        domain: 'gulfsupply.example-co' }),
       listing({ providerListingId: 'real', name: 'Ancient City Heating & Air',
-        domain: 'ancientcity.invalid' }),
+        domain: 'ancientcity.example-co' }),
     ],
     provider: 'fixture-listings', verticalProfileId: 'hvac',
   });
@@ -335,7 +335,7 @@ test('listings obey the same exclusions a SERP does', async () => {
 test('discovering from listings queues research, like any other source', async () => {
   const counts = await ingestListings({
     listings: [listing({ providerListingId: 'fresh', name: 'Fresh Air Co',
-      domain: 'freshair.invalid' })],
+      domain: 'freshair.example-co' })],
     provider: 'fixture-listings', verticalProfileId: 'hvac',
   });
   assert.equal(counts.created, 1);

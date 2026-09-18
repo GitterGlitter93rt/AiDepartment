@@ -235,6 +235,7 @@ registerHandler('apollo_enrichment', async (job: JobRecord): Promise<JobResult> 
     `select full_name from contacts where account_id = $1 and full_name is not null`,
     [accountId]);
   const selection = selectDecisionMaker(candidates.data?.people ?? [], {
+    searchScopedByDomain: Boolean(account.canonical_domain),
     companyName: account.canonical_name,
     canonicalDomain: account.canonical_domain,
     city: account.city, state: account.region,

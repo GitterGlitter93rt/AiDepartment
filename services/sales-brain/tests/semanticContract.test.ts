@@ -419,7 +419,7 @@ test('the authoritative hook order reaches the pack, not just the resolver', asy
   const { withTransaction } = await import('../src/db/pool.js');
   const { upsertAccount } = await import('../src/domain/accounts.js');
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Hook Order Fixture', website: 'https://hookorder.invalid',
+    canonicalName: 'Hook Order Fixture', website: 'https://hookorder.example-co',
     phone: '904-555-3401', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));

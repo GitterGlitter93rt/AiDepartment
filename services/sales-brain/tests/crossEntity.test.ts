@@ -102,7 +102,7 @@ test('33/34. the searched ZIP is discovery provenance, never an address', async 
   // What the miner now writes when the provider returned no address: no location at
   // all, and the market it was found in recorded separately.
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Block P0 Roofing', website: 'https://blockp0.invalid',
+    canonicalName: 'Block P0 Roofing', website: 'https://blockp0.example-co',
     city: null, state: null, postalCode: null, verticalProfileId: 'roofing',
   }, { discoverySource: 'market_miner:dataforseo' }));
   await query(
@@ -123,7 +123,7 @@ test('33/34. the searched ZIP is discovery provenance, never an address', async 
 
 test('35. an observed address may become a real location', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Block P0 Located Roofing', website: 'https://blockp0located.invalid',
+    canonicalName: 'Block P0 Located Roofing', website: 'https://blockp0located.example-co',
     city: 'St. Augustine', state: 'FL', postalCode: '32084', verticalProfileId: 'roofing',
   }, { discoverySource: 'listings:google' }));
   const { rows } = await query<{ postal_code: string | null }>(
@@ -143,7 +143,7 @@ test('33/34. the miner itself never turns the searched ZIP into an address', asy
       return {
         status: 'OK',
         observations: observationsFor([{
-          name: 'Nowhere Stated Roofing', website: 'https://nowherestated.invalid',
+          name: 'Nowhere Stated Roofing', website: 'https://nowherestated.example-co',
           phone: '904-555-0155',
           // Exactly the live shape: a SERP row with no address at all.
           city: null, state: null, postalCode: null,

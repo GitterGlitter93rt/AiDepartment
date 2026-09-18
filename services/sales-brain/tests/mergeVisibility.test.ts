@@ -43,7 +43,7 @@ async function makeAccount(name: string): Promise<string> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: name,
-      website: `https://mergevis${sequence}.invalid`,
+      website: `https://mergevis${sequence}.example-co`,
       phone: `904-555-${String(6000 + sequence).slice(-4)}`,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'merge-visibility-test' }));

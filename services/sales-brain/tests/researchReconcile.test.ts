@@ -51,7 +51,7 @@ async function discoveredAccount(name: string, options: {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: `https://reconcile${sequence}.invalid`,
+    website: `https://reconcile${sequence}.example-co`,
     phone: `904-555-${String(4000 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: options.source ?? 'market_miner:dataforseo' }));
@@ -283,7 +283,7 @@ test('a company found by business listings is rescued, not stranded for ever', a
   // invisible to the very sweep that exists to catch exactly that -- the crash
   // window reopened for the new source, in silence.
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Listings Stranded Co', website: 'https://listingsstranded.invalid',
+    canonicalName: 'Listings Stranded Co', website: 'https://listingsstranded.example-co',
     phone: '904-555-9401', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'listings:fixture' }));
@@ -328,7 +328,7 @@ test('every automated discovery source the product writes is covered by the swee
 
 test('an imported company is still the operator’s decision, not the sweep’s', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Imported Co', website: 'https://importedco.invalid',
+    canonicalName: 'Imported Co', website: 'https://importedco.example-co',
     phone: '904-555-9402', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'import' }));
   await query(

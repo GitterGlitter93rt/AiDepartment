@@ -69,7 +69,7 @@ test('D1 the population checks become real judgments once there is a population'
   await makeUser('D1 Rep', 'SALES_REP');
   await withTransaction((client) => upsertAccount(client, {
     canonicalName: 'Block D Fresh Co',
-    website: 'https://blockd-fresh.invalid', phone: '904-555-8801',
+    website: 'https://blockd-fresh.example-co', phone: '904-555-8801',
     city: 'St. Augustine', state: 'FL', postalCode: '32095', verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
   await query(

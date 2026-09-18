@@ -36,7 +36,7 @@ async function account(name: string): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: `https://ads${sequence}.invalid`,
+    website: `https://ads${sequence}.example-co`,
     phone: `904-555-${String(7000 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',

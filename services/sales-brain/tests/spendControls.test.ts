@@ -276,7 +276,7 @@ test('a market we already paid for is still collected when the budget is gone', 
       collections += 1;
       return {
         status: 'OK' as const,
-        observations: observationsFor([{ name: 'Collected Air', website: 'https://collectedair.invalid',
+        observations: observationsFor([{ name: 'Collected Air', website: 'https://collectedair.example-co',
           phone: '904-555-0311', city: 'St. Augustine', state: 'FL', postalCode: '32095' }]),
         reason: 'collected', providerTaskId: 'paid-task-1',
       };

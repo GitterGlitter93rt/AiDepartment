@@ -1584,3 +1584,60 @@ instructive way. In `resolveObservations` it fired on fixtures for a reason inci
 what they tested. As a hard rejection it turned "we cannot tell" into "definitely not a
 company". And counting a reserved domain toward admission while refusing to store it would
 have created Accounts whose websites silently vanished.
+
+## DEC-048 — What the Apollo pilot measured
+
+**Date:** 2026-09-18  **Status:** Measured. Apollo remains off and undeployed.
+
+Twenty Accounts from the authorized private snapshot, in the mix Michael specified: eight
+with a named decision maker and no attributable route, eight verified companies with no
+decision maker, four whose own site is unreadable but whose identity is corroborated.
+
+| | |
+|---|---|
+| Accounts | 20 |
+| returned any candidate | 10 |
+| candidates seen (free) | 68 |
+| decision makers selected | 5 |
+| paid enrichments | 3 |
+| high-confidence matches | 3 |
+| professional emails, all new, all attributable | **3** |
+| no match | 14 |
+| ambiguous | 1 |
+| provider errors | 0 |
+| **estimated credits** | **3** |
+
+One credit per new attributable owner email, and none of the three duplicated anything we
+held. Zero per cent of paid enrichments bought nothing.
+
+**The capability, verified live.** People search is available and free and reports
+`has_email` per person; people enrichment, bulk enrichment and organization enrichment are
+all available. `usage_stats` answers **403** on this scoped key, and Apollo exposes no
+credit-balance endpoint at all, so credits before and after are **UNKNOWN** and the figure
+above is an estimate from the documented schedule. Phone reveal and both waterfalls were
+not tested, by design: a mobile costs eight credits and there is no way to ask whether it
+would work without asking.
+
+**Coverage is the constraint, not price.** Half the Accounts returned no candidate at all —
+Apollo simply does not hold people for many small local contractors. Where it does hold
+somebody, the answer is cheap, confident and new. That shape argues for using Apollo on the
+gaps rather than across the estate.
+
+## DEC-049 — A domain-scoped search proves the employer only if the domain is the company's
+
+**Date:** 2026-09-18  **Status:** Implemented
+
+Caught by the pilot's quality gate before any credit was spent on it. An Account called
+"Acosta Climate Solutions" carries the domain `manus.space`, and a domain-scoped Apollo
+search duly returned the people who work at manus.space. Treating the scope as proof of
+employer would have attributed a stranger to Acosta and paid for the privilege.
+
+So the scope is evidence only once the domain is corroborated — by agreeing with the
+company's name, or by Apollo's own name for that organisation agreeing with ours. Where
+neither holds, the candidate falls through to the ordinary comparison, which refuses it.
+
+This is the second half of a lesson the free tier teaches. People search withholds the
+surname and the organization id, so it gives enough to *rank* and not enough to *identify*;
+the first version of the scoring read the redacted surname as a single token and rejected
+every real person, and the correction to that had to stop short of trusting the scope
+blindly. Identity is still re-judged in full after enrichment returns the real record.

@@ -46,7 +46,9 @@
     "identity:estate": "tsx src/bin/site-identity.ts",
     "remediation:apply": "tsx src/bin/remediation-apply.ts",
     "markets:plan": "tsx src/bin/markets-plan.ts",
-    "yield:report": "tsx src/bin/yield-report.ts"
+    "yield:report": "tsx src/bin/yield-report.ts",
+    "apollo:capability": "tsx src/bin/apollo-capability.ts",
+    "apollo:pilot": "tsx src/bin/apollo-pilot.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

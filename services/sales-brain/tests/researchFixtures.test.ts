@@ -116,7 +116,7 @@ test('a signal a vertical does not declare is never recorded, however clear the 
   // The profile decides what matters; this decides only whether the words are there.
   const signals = await extractFirstPartySignals({
     verticalProfileId: 'law-firms',
-    pages: [{ url: 'https://x.invalid/', text: 'Financing available on all roof work.' }],
+    pages: [{ url: 'https://x.example-co/', text: 'Financing available on all roof work.' }],
   });
   const declared = (await readableSignalsFor('law-firms')).map((signal) => signal.claimKey);
   for (const signal of signals) {
@@ -139,7 +139,7 @@ test('a clear site yields people, a route, and the signals it states', async () 
     '/contact': `<html><body><p>Request a quote online and we will call back.</p>
       <p>Ask about our maintenance plan.</p></body></html>`,
   });
-  const accountId = await account('coastalair.invalid');
+  const accountId = await account('coastalair.example-co');
   await research(accountId);
 
   const keys = await evidenceKeys(accountId);
@@ -168,7 +168,7 @@ test('a signal one vertical declares is recorded for that vertical', async () =>
     '/': `<html><body><h1>Plan Plumbing</h1>
       <p>Ask about our maintenance plan for members.</p></body></html>`,
   });
-  const accountId = await account('planplumbing.invalid', 'plumbing');
+  const accountId = await account('planplumbing.example-co', 'plumbing');
   await research(accountId);
   assert.ok((await evidenceKeys(accountId)).includes('membership_program'),
     'a signal plumbing declares was not recorded from a page that states it');
@@ -179,7 +179,7 @@ test('a signal on the page is quoted in the company’s own words', async () => 
     '/': `<html><body><p>We offer 24/7 emergency service, every day of the year.</p>
       </body></html>`,
   });
-  const accountId = await account('quotable.invalid');
+  const accountId = await account('quotable.example-co');
   await research(accountId);
 
   const { rows } = await query<{ claim_text: string; source_reference: string }>(
@@ -187,7 +187,7 @@ test('a signal on the page is quoted in the company’s own words', async () => 
       where account_id = $1 and claim_key = 'emergency_24_7_service'`, [accountId]);
   assert.match(rows[0]!.claim_text, /every day of the year/,
     'the evidence is our summary rather than what the company said');
-  assert.match(rows[0]!.source_reference, /quotable\.invalid/,
+  assert.match(rows[0]!.source_reference, /quotable\.example-co/,
     'the evidence cannot be traced to the page it came from');
 });
 
@@ -199,7 +199,7 @@ test('a site with a phone and no named person gives a route, not an invented own
       <p>Serving the First Coast since 2004. Call (904) 555-0122.</p>
       <p>Same-day repair available.</p></body></html>`,
   });
-  const accountId = await account('anonymousair.invalid');
+  const accountId = await account('anonymousair.example-co');
   await research(accountId);
 
   const picture = await researchPictureFor(accountId);
@@ -221,7 +221,7 @@ test('a tracking number is not promoted to the main line', async () => {
       <p>Call now: <a href="tel:+18005550199">(800) 555-0199</a></p>
       <p>Office: (904) 555-0133</p></body></html>`,
   });
-  const accountId = await account('trackedheating.invalid');
+  const accountId = await account('trackedheating.example-co');
   await research(accountId);
 
   const { rows } = await query<{ normalized_value: string; endpoint_role: string;
@@ -248,7 +248,7 @@ test('a domain that now belongs to somebody else does not lend its facts', async
       <p>Cosmetic dentistry in Jacksonville. 24/7 emergency service.</p>
       <p>Dr Amara Osei, Principal Dentist</p></body></html>`,
   });
-  const accountId = await account('rebranded.invalid');
+  const accountId = await account('rebranded.example-co');
   await research(accountId);
 
   // The company we hold is an HVAC firm named "Fixture Co N". The crawl cannot know
@@ -292,7 +292,7 @@ test('a directory page pretending to be a company site is not first-party eviden
 
 test('a blocked site explains the thin record rather than looking like a thin company', async () => {
   serve({ '/': '' }, { status: { '/': 403 } });
-  const accountId = await account('blocked.invalid');
+  const accountId = await account('blocked.example-co');
   await research(accountId);
 
   const picture = await researchPictureFor(accountId);
@@ -307,7 +307,7 @@ test('a site that says nothing records nothing, and no negatives', async () => {
   serve({
     '/': '<html><body><h1>Quiet Air</h1><p>Heating and cooling.</p></body></html>',
   });
-  const accountId = await account('quietair.invalid');
+  const accountId = await account('quietair.example-co');
   await research(accountId);
 
   assert.deepEqual(await evidenceKeys(accountId), [],
@@ -335,7 +335,7 @@ test('marketing copy about comfort is not an emergency-cover claim', async () =>
       <p>We care about your comfort around the clock, all year long.</p>
       </body></html>`,
   });
-  const accountId = await account('comfortfirst.invalid');
+  const accountId = await account('comfortfirst.example-co');
   await research(accountId);
   assert.ok(!(await evidenceKeys(accountId)).includes('emergency_24_7_service'),
     'copy about caring around the clock was read as 24/7 emergency cover');
@@ -349,7 +349,7 @@ test('a company with branches records more than one location', async () => {
       <p>We have three locations across St. Johns and Duval counties.</p>
       </body></html>`,
   });
-  const accountId = await account('threebranch.invalid');
+  const accountId = await account('threebranch.example-co');
   await research(accountId);
   assert.ok((await evidenceKeys(accountId)).includes('multiple_locations'));
 });
@@ -363,7 +363,7 @@ test('what the site said reaches the score, with its lineage intact', async () =
       <p>We are hiring installers. Our locations span two counties.</p>
       </body></html>`,
   });
-  const accountId = await account('scoredair.invalid');
+  const accountId = await account('scoredair.example-co');
   await research(accountId);
   await scoreAccount(accountId);
 
@@ -377,7 +377,7 @@ test('what the site said reaches the score, with its lineage intact', async () =
   for (const component of earned) {
     assert.ok(component.evidence.length > 0, `${component.ruleId} scored with no evidence`);
     for (const item of component.evidence) {
-      assert.ok(item.sourceReference?.includes('scoredair.invalid')
+      assert.ok(item.sourceReference?.includes('scoredair.example-co')
         || item.sourceProvider !== null,
         `${component.ruleId} cites evidence with no source`);
     }
@@ -386,7 +386,7 @@ test('what the site said reaches the score, with its lineage intact', async () =
 
 test('a quiet site scores zero and is not punished for it', async () => {
   serve({ '/': '<html><body><h1>Sparse Air</h1></body></html>' });
-  const accountId = await account('sparseair.invalid');
+  const accountId = await account('sparseair.example-co');
   await research(accountId);
   const result = await scoreAccount(accountId);
 

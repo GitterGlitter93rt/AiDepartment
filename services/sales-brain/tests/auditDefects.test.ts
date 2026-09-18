@@ -155,7 +155,10 @@ test('a reserved domain is never a website and never worth retrying', () => {
     'ten hours of DNS lookups against a name that cannot resolve');
   assert.match(verdict.reason, /RFC 2606/);
 
-  for (const bad of ['x.test', 'y.example-co', 'z.localhost', 'example.com', '10.0.0.1', 'nodots']) {
+  // Reserved by RFC 2606 and RFC 6761, and deliberately spelled out here: the corpus
+  // migration moved fixture *company* domains off these, and this test is the one place
+  // that must keep naming them, because it is what asserts they are refused.
+  for (const bad of ['x.test', 'y.example', 'z.localhost', 'example.com', '10.0.0.1', 'nodots']) {
     assert.equal(isUsableWebsiteDomain(bad), false, `${bad} is not a company website`);
   }
   for (const good of ['colderofmiamiinc.com', 'theairbros.com', 'masterrepairplumbing.com',

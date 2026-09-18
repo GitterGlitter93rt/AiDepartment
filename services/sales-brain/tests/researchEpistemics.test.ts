@@ -38,7 +38,7 @@ async function account(options: {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Salazar Roofing ${sequence}`,
-    website: options.website === undefined ? `https://salazar${sequence}.invalid` : options.website,
+    website: options.website === undefined ? `https://salazar${sequence}.example-co` : options.website,
     phone: options.phone === undefined ? `904-555-${String(4000 + sequence).slice(-4)}` : options.phone,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'roofing',
@@ -70,13 +70,13 @@ async function markResearched(accountId: string, pagesFetched: number): Promise<
 // ------------------------------------------------------- the Salazar failure ----
 
 test('a company whose website we hold is never reported as having none', async () => {
-  const accountId = await account({ website: 'https://salazarroofing.invalid' });
+  const accountId = await account({ website: 'https://salazarroofing.example-co' });
   await markResearched(accountId, 0);
 
   const website = fact(await researchPictureFor(accountId), 'website');
   assert.equal(website.state, 'YES',
     'the website we hold was reported as absent, which is the live Salazar failure');
-  assert.match(website.detail, /salazarroofing\.invalid/);
+  assert.match(website.detail, /salazarroofing\.example-co/);
 });
 
 test('the website is known from either place the schema keeps it', async () => {
@@ -86,7 +86,7 @@ test('the website is known from either place the schema keeps it', async () => {
   await query(
     `insert into account_domains (account_id, hostname, canonical_url, domain_role,
                                   verification_status)
-     values ($1, 'onlyindomains.invalid', 'https://onlyindomains.invalid', 'primary',
+     values ($1, 'onlyindomains.example-co', 'https://onlyindomains.example-co', 'primary',
              'unverified')`, [accountId]);
 
   const { rows } = await query<{ canonical_domain: string | null }>(
@@ -99,7 +99,7 @@ test('the website is known from either place the schema keeps it', async () => {
 });
 
 test('a website we hold but could not read explains the thin record', async () => {
-  const accountId = await account({ website: 'https://blocked.invalid' });
+  const accountId = await account({ website: 'https://blocked.example-co' });
   await markResearched(accountId, 0);
 
   const picture = await researchPictureFor(accountId);
@@ -230,7 +230,7 @@ test('sources that disagree are a conflict, not a quiet winner', async () => {
 // -------------------------------------------------------------- on the page ----
 
 test('a rep sees which kind of not-knowing each one is', async () => {
-  const accountId = await account({ website: 'https://salazarroofing.invalid' });
+  const accountId = await account({ website: 'https://salazarroofing.example-co' });
   const manager = await makeUser(`Epistemics Manager ${Date.now()}`, 'SALES_MANAGER');
   const detail = await getAccountDetail(accountId,
     { userId: manager.userId, role: 'SALES_MANAGER' });

@@ -29,7 +29,7 @@ async function seed(name: string, phone?: string) {
   const number = phone ?? `904-555-${String(6000 + sequence).slice(-4)}`;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://agent${sequence}.invalid`,
+      canonicalName: name, website: `https://agent${sequence}.example-co`,
       phone: number, city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'agent-test' }));
   const rep = await makeUser(`Agent Rep ${sequence}`);
@@ -190,7 +190,7 @@ test('a company name that tries to give orders is quoted, not obeyed', async () 
   sequence += 1;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: hostile, website: 'https://hostilename.invalid',
+      canonicalName: hostile, website: 'https://hostilename.example-co',
       phone: '904-555-6800', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'agent-test' }));
   const rep = await makeUser('Hostile Rep');

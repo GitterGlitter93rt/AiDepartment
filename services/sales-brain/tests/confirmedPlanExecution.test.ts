@@ -80,11 +80,11 @@ beforeEach(async () => {
   clearDiscoveryAdapters();
   calls = [];
   await createUser({
-    email: 'ops@confirmed.invalid', displayName: 'Confirming Ops',
+    email: 'ops@confirmed.example-co', displayName: 'Confirming Ops',
     role: 'SALES_MANAGER', password: PASSWORD });
   const login = await app.inject({
     method: 'POST', url: '/login',
-    payload: { email: 'ops@confirmed.invalid', password: PASSWORD } });
+    payload: { email: 'ops@confirmed.example-co', password: PASSWORD } });
   cookie = `yad_sales_session=${login.cookies.find(
     (item) => item.name === 'yad_sales_session')!.value}`;
 });
@@ -475,7 +475,7 @@ test('the observations of a confirmed run are still resolved and recorded', asyn
       return {
         status: 'OK', costUsd: 0.006,
         observations: observationsFor([
-          { name: 'Confirmed Path Roofing', website: 'https://confirmedpath.invalid',
+          { name: 'Confirmed Path Roofing', website: 'https://confirmedpath.example-co',
             phone: '904-555-3301' },
         ]),
       };

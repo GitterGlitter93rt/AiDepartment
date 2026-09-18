@@ -41,7 +41,7 @@ async function account(options: {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: `Completeness Co ${sequence}`,
-    website: `https://completeness${sequence}.invalid`,
+    website: `https://completeness${sequence}.example-co`,
     phone: `904-555-${String(8000 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',

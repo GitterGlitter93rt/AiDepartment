@@ -65,7 +65,7 @@ function marketItems(): Record<string, unknown>[] {
         : `Golden HVAC ${index}`,
       domain: phoneOnly ? undefined : `${slug(index)}.example-co`,
       phone: phoneOnly ? `+1 904-555-${String(2000 + index).slice(-4)}` : undefined,
-      url: phoneOnly ? undefined : `https://${slug(index)}.invalid/ac-repair`,
+      url: phoneOnly ? undefined : `https://${slug(index)}.example-co/ac-repair`,
       description: 'Licensed and insured.',
     });
   }
@@ -79,7 +79,7 @@ function marketItems(): Record<string, unknown>[] {
       type: 'organic', rank_group: rank, rank_absolute: rank,
       title: `Golden HVAC ${target} — Service Area`,
       domain: `${slug(target)}.example-co`,
-      url: `https://${slug(target)}.invalid/service-area`,
+      url: `https://${slug(target)}.example-co/service-area`,
     });
   }
 

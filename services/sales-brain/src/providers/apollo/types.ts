@@ -61,6 +61,16 @@ export interface ApolloOrganization {
  */
 export interface ApolloPersonCandidate {
   apolloPersonId: string;
+  /**
+   * True when Apollo returned the surname redacted.
+   *
+   * People search is free precisely because it withholds this: it gives enough to choose
+   * a candidate and not enough to identify or contact one. So a search candidate carries
+   * a first name and `last_name_obfuscated`, and the full name only arrives with the paid
+   * enrichment. Identity is therefore judged after enrichment, not before -- judging it
+   * before rejects every real person for looking like a single token.
+   */
+  nameIsPartial: boolean;
   firstName: string | null;
   lastName: string | null;
   fullName: string | null;
@@ -160,6 +170,22 @@ export interface PersonEnrichRequest {
  * reason to call, and there is no general "call Apollo" escape hatch, because that is how
  * a provider's shape leaks into a codebase.
  */
+/**
+ * Rate limits per endpoint, which is what Apollo exposes about usage.
+ *
+ * Deliberately not a credit balance: `usage_stats` reports consumption against rate
+ * limits and nothing about credits. It is listed here so nobody later mistakes one for
+ * the other and reports a balance we were never told.
+ */
+export interface ApolloUsageStats {
+  perEndpoint: {
+    endpoint: string;
+    day: { limit: number | null; consumed: number | null; leftOver: number | null };
+    hour: { limit: number | null; consumed: number | null; leftOver: number | null };
+    minute: { limit: number | null; consumed: number | null; leftOver: number | null };
+  }[];
+}
+
 export interface ApolloAdapter {
   readonly name: string;
   isConfigured(): boolean;
@@ -172,4 +198,6 @@ export interface ApolloAdapter {
     Promise<ApolloResponse<ApolloPerson[]>>;
   /** Paid, one credit. Only where the free path cannot answer. */
   enrichOrganization(domain: string): Promise<ApolloResponse<ApolloOrganization>>;
+  /** Free. Rate limits per endpoint, which doubles as a capability probe. */
+  usageStats(): Promise<ApolloResponse<ApolloUsageStats>>;
 }

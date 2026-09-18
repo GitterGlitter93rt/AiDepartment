@@ -31,7 +31,7 @@ beforeEach(async () => { await resetDatabase(); await syncVerticalProfiles(); })
 function facts(overrides: Partial<StageDFacts> = {}): StageDFacts {
   return {
     companyName: 'Sunbright HVAC LLC',
-    domain: 'sunbrightair.invalid',
+    domain: 'sunbrightair.example-co',
     knownPersonName: null,
     knownPersonRole: null,
     publishedStreet: null,
@@ -137,7 +137,7 @@ test('the price comes from what we have actually been charged', async () => {
 test('a batch preview prices what it would ask, and buys nothing', async () => {
   for (let i = 0; i < 3; i += 1) {
     await withTransaction((client) => upsertAccount(client, {
-      canonicalName: `Preview Air ${i}`, website: `https://preview${i}.invalid`,
+      canonicalName: `Preview Air ${i}`, website: `https://preview${i}.example-co`,
       phone: `407-555-01${10 + i}`, verticalProfileId: 'hvac',
     }, { discoverySource: 'import' }));
   }
@@ -160,7 +160,7 @@ test('a batch preview prices what it would ask, and buys nothing', async () => {
 
 test('a query is never built from a location the company did not publish', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Unpublished Air', website: 'https://unpublished.invalid',
+    canonicalName: 'Unpublished Air', website: 'https://unpublished.example-co',
     phone: '407-555-0155', verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
   await query(`update accounts set entity_status = 'verified' where account_id = $1`,
@@ -219,13 +219,13 @@ test('a mailbox whose role says "person" with no person attached is not a named 
     // them is linked to a contact. Counting them as named emails would report the
     // measurement this whole experiment exists to take as already solved.
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
-      canonicalName: 'Shaped Like A Name Air', website: 'https://shaped.invalid',
+      canonicalName: 'Shaped Like A Name Air', website: 'https://shaped.example-co',
       phone: '407-555-0177', verticalProfileId: 'hvac',
     }, { discoverySource: 'import' }));
     await query(
       `insert into contact_endpoints
          (account_id, endpoint_type, normalized_value, display_value, endpoint_role)
-       values ($1, 'EMAIL', 'dana@shaped.invalid', 'dana@shaped.invalid',
+       values ($1, 'EMAIL', 'dana@shaped.example-co', 'dana@shaped.example-co',
                'DIRECT_PERSON_EMAIL')`, [accountId]);
 
     const measured = await measureContactYield(10);

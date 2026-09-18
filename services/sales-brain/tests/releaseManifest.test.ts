@@ -76,7 +76,7 @@ test('the content hash changes with the definition and nothing else', () => {
 
 test('a research run records which profile produced its evidence', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Manifest Co', website: 'https://manifestco.invalid',
+    canonicalName: 'Manifest Co', website: 'https://manifestco.example-co',
     phone: '904-555-0701', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));

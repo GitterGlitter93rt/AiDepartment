@@ -24,7 +24,7 @@ after(async () => { await pool.end(); });
  */
 
 const NOW = new Date('2026-09-17T12:00:00Z');
-const PAGE = 'https://example.invalid/contact';
+const PAGE = 'https://example.example-co/contact';
 
 // ----------------------------------------------------------------- structured
 
@@ -178,10 +178,10 @@ test('the same office on four pages is one location', () => {
   const text = 'Head office: 2100 Principal Row, Orlando, FL 32837';
 
   const { addresses } = extractAddresses([
-    { url: 'https://example.invalid/', jsonLd, text },
-    { url: 'https://example.invalid/contact', jsonLd, text },
-    { url: 'https://example.invalid/about', text },
-    { url: 'https://example.invalid/locations', text },
+    { url: 'https://example.example-co/', jsonLd, text },
+    { url: 'https://example.example-co/contact', jsonLd, text },
+    { url: 'https://example.example-co/about', text },
+    { url: 'https://example.example-co/locations', text },
   ], NOW);
 
   assert.equal(addresses.length, 1);
@@ -195,7 +195,7 @@ test('one office written two ways is one location', () => {
   // it out, and the page text abbreviates it and names the unit. Keying on the raw text
   // put the same office on the rep's page twice.
   const { addresses } = extractAddresses([{
-    url: 'https://example.invalid/contact',
+    url: 'https://example.example-co/contact',
     jsonLd: [{
       '@type': 'HVACBusiness', name: 'The Service Pros',
       address: {
@@ -214,7 +214,7 @@ test('one office in two spellings of its state is one location', () => {
   // Live on an Orlando company's site: the schema.org block writes "Florida" and the
   // page writes "FL". Keying on the spelling put the same office on the page twice.
   const { addresses } = extractAddresses([{
-    url: 'https://example.invalid/',
+    url: 'https://example.example-co/',
     jsonLd: [{
       '@type': 'LocalBusiness', name: 'Degree Seventy One',
       address: {
@@ -233,7 +233,7 @@ test('a directional is normalized and never dropped', () => {
   // "100 Main St N" and "100 Main St S" are two places. A key that ignored the letter
   // in the name of tidiness would merge two companies' neighbours into one location.
   const { addresses } = extractAddresses([{
-    url: 'https://example.invalid/locations',
+    url: 'https://example.example-co/locations',
     text: 'North shop: 100 Main St N, Orlando, FL 32801. '
       + 'Our second yard: 100 Main St S, Orlando, FL 32801.',
   }], NOW);
@@ -242,7 +242,7 @@ test('a directional is normalized and never dropped', () => {
 
 test('two branches published as two addresses stay two locations', () => {
   const { addresses } = extractAddresses([{
-    url: 'https://example.invalid/locations',
+    url: 'https://example.example-co/locations',
     jsonLd: [{
       '@type': 'Organization', name: 'Two Branch Air',
       department: [
@@ -270,7 +270,7 @@ test('two branches published as two addresses stay two locations', () => {
 
 test('a crawl that read nothing produces no location at all', () => {
   const { addresses, serviceAreas } = extractAddresses([
-    { url: 'https://example.invalid/', text: 'Fast, friendly service. Call today.' },
+    { url: 'https://example.example-co/', text: 'Fast, friendly service. Call today.' },
   ], NOW);
   assert.deepEqual(addresses, []);
   assert.deepEqual(serviceAreas, []);
@@ -286,7 +286,7 @@ test('a crawl that read nothing produces no location at all', () => {
  * loses its provenance, a location that ends up attached to nothing.
  */
 const SITES: Record<string, string> = {
-  'sunbrightair.invalid': `<html><head>
+  'sunbrightair.example-co': `<html><head>
     <script type="application/ld+json">${JSON.stringify({
       '@context': 'https://schema.org', '@type': 'HVACBusiness',
       name: 'Sunbright HVAC LLC',
@@ -301,7 +301,7 @@ const SITES: Record<string, string> = {
     <body><h1>Sunbright HVAC</h1>
     <p>Proudly serving Winter Park, FL 32789 and the surrounding area.</p>
     </body></html>`,
-  'noaddressair.invalid': `<html><body><h1>No Address Air</h1>
+  'noaddressair.example-co': `<html><body><h1>No Address Air</h1>
     <p>Serving all of Central Florida. Call (407) 555-0122.</p></body></html>`,
 };
 
@@ -327,7 +327,7 @@ test('a research run records the address the site publishes, with where it read 
     await resetDatabase();
     await syncVerticalProfiles();
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
-      canonicalName: 'Sunbright HVAC LLC', website: 'https://sunbrightair.invalid',
+      canonicalName: 'Sunbright HVAC LLC', website: 'https://sunbrightair.example-co',
       phone: '407-555-0111', verticalProfileId: 'hvac',
     }, { discoverySource: 'import' }));
 
@@ -349,7 +349,7 @@ test('a research run records the address the site publishes, with where it read 
     // How it is known travels with it. A location whose basis is null is a location
     // nobody can account for, which is what the 66 legacy rows are.
     assert.equal(rows[0]!.basis, 'SCHEMA_ORG_POSTAL_ADDRESS');
-    assert.equal(rows[0]!.source_reference, 'https://sunbrightair.invalid/');
+    assert.equal(rows[0]!.source_reference, 'https://sunbrightair.example-co/');
     assert.ok(rows[0]!.last_verified_at);
 
     // The service area is recorded as a service area, and never as a place.
@@ -373,7 +373,7 @@ test('a company that publishes no address gets no location at all', async () => 
   await resetDatabase();
   await syncVerticalProfiles();
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'No Address Air', website: 'https://noaddressair.invalid',
+    canonicalName: 'No Address Air', website: 'https://noaddressair.example-co',
     phone: '407-555-0122', verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
 
@@ -388,7 +388,7 @@ test('a company that publishes no address gets no location at all', async () => 
 test('the database refuses a physical location with no street', async () => {
   await resetDatabase();
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Constraint Air', website: 'https://constraint.invalid',
+    canonicalName: 'Constraint Air', website: 'https://constraint.example-co',
     phone: '407-555-0133',
   }, { discoverySource: 'import' }));
 
@@ -405,7 +405,7 @@ test('the rep sees the published address, its source, and what is not an address
     await resetDatabase();
     await syncVerticalProfiles();
     const { accountId } = await withTransaction((client) => upsertAccount(client, {
-      canonicalName: 'Sunbright HVAC LLC', website: 'https://sunbrightair.invalid',
+      canonicalName: 'Sunbright HVAC LLC', website: 'https://sunbrightair.example-co',
       phone: '407-555-0111', verticalProfileId: 'hvac',
     }, { discoverySource: 'import' }));
     await withStubbedSites(() => runContactResearch(accountId, 'newly_discovered'));
@@ -425,7 +425,7 @@ test('the rep sees the published address, its source, and what is not an address
       assert.match(page.body, /Published address/);
       assert.match(page.body, /1969 S Alafaya Trl Suite 233, Orlando, FL 32828/);
       // Where it was read from, so a rep can check the claim rather than trust it.
-      assert.match(page.body, /sunbrightair\.invalid/);
+      assert.match(page.body, /sunbrightair\.example-co/);
       // And the service area is labelled as travel, not as a location.
       assert.match(page.body, /Says it serves/);
       assert.match(page.body, /not where they\s+are/);

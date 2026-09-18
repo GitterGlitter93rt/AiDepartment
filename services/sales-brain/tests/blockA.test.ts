@@ -42,7 +42,7 @@ async function account(name: string, vertical = 'hvac'): Promise<string> {
   fixtureSeq += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: `https://${name.replace(/\W+/g, '')}-${fixtureSeq}.invalid`,
+    website: `https://${name.replace(/\W+/g, '')}-${fixtureSeq}.example-co`,
     phone: `904-555-${String(7700 + fixtureSeq).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: vertical, contactTitle: 'Owner', contactName: 'Dana Fielder',
@@ -239,7 +239,7 @@ test('a wrong number is not resurrected by rediscovery', async () => {
   // protection has to live in the upsert rather than in the provider's data.
   await withTransaction((client) => upsertAccount(client, {
     canonicalName: walk.companyName,
-    website: `https://blocka-${walk.accountId.slice(0, 8)}.invalid`,
+    website: `https://blocka-${walk.accountId.slice(0, 8)}.example-co`,
     phone: dead,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',

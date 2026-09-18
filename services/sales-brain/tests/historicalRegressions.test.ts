@@ -138,7 +138,7 @@ test('5. a provider that searched and found nothing is a genuine zero', async ()
 test('6. a provider that found only companies we hold is coverage, not zero', async () => {
   sequence += 1;
   await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Already Ours', website: `https://hist${sequence}.invalid`,
+    canonicalName: 'Already Ours', website: `https://hist${sequence}.example-co`,
     phone: '904-555-1201', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'apollo_purchased_import' }));
 
@@ -157,7 +157,7 @@ test('6. a provider that found only companies we hold is coverage, not zero', as
 test('7. a provider finding an Apollo company keeps one Account and both sources', async () => {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Dual Provenance Co', website: `https://hist${sequence}.invalid`,
+    canonicalName: 'Dual Provenance Co', website: `https://hist${sequence}.example-co`,
     phone: '904-555-1301', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'apollo_purchased_import' }));
 
@@ -181,7 +181,7 @@ test('7. a provider finding an Apollo company keeps one Account and both sources
 test('8. the provider is not asked for "advertiser_first hvac 32095"', async () => {
   const captured: any[] = [];
   const config: DataForSeoConfig = {
-    login: 'u', password: 'p', baseUrl: 'https://api.example.invalid/v3', mode: 'live',
+    login: 'u', password: 'p', baseUrl: 'https://api.example.example-co/v3', mode: 'live',
     governanceReviewed: true, enabled: true, maxQueriesPerRun: 25, resultDepth: 100,
     maxRetries: 0, maxPollAttempts: 1, pollIntervalMs: 0,
   };
@@ -229,7 +229,7 @@ test('10. a discovered Account is researched rather than left as a name', async 
 test('11. an Account whose research is RUNNING is not queued behind itself', async () => {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Being Researched', website: `https://hist${sequence}.invalid`,
+    canonicalName: 'Being Researched', website: `https://hist${sequence}.example-co`,
     phone: '904-555-1501', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'market_miner:dataforseo' }));
   // Stands for a candidate the resolver promoted: the only way a machine
@@ -251,7 +251,7 @@ test('11. an Account whose research is RUNNING is not queued behind itself', asy
 test('12. an operator can retry an Account the sweep is holding back', async () => {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Held Back', website: `https://hist${sequence}.invalid`,
+    canonicalName: 'Held Back', website: `https://hist${sequence}.example-co`,
     phone: '904-555-1601', city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'market_miner:dataforseo' }));
   // Stands for a candidate the resolver promoted: the only way a machine

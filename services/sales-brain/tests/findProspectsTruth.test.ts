@@ -39,7 +39,7 @@ async function seedAccount(name: string): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: `https://findtruth${sequence}.invalid`,
+    website: `https://findtruth${sequence}.example-co`,
     phone: `904-555-${String(8000 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'hvac',
@@ -332,7 +332,7 @@ test('a company with a branch in the ZIP is in that market', async () => {
 
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: 'Two Location Roofing',
-    website: 'https://twolocation.invalid',
+    website: 'https://twolocation.example-co',
     phone: '904-555-2401',
     city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'market_miner:dataforseo' }));

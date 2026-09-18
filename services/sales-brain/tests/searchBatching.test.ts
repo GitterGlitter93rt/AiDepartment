@@ -69,10 +69,16 @@ test('a plan of one is the highest-intent term, not a concatenation', async () =
 test('asking for ten gives ten different searches', async () => {
   const plan = await planDiscoverySearches(planRequest(10));
 
-  // The hvac profile defines eight terms, so ten is honestly eight.
-  assert.equal(plan.searches.length, plan.available);
+  /*
+   * Ten distinct searches, or every term the profile has when it has fewer. Derived
+   * rather than hard-coded to eight: the V3 taxonomy expansion took HVAC to fifteen
+   * entity-discovery terms, and the subject of this test is that a count of ten is ten
+   * searches rather than one query carrying ten words.
+   */
+  assert.equal(plan.searches.length, Math.min(plan.requested, plan.available));
   assert.equal(plan.requested, 10);
-  assert.equal(plan.limitedBy, 'TAXONOMY');
+  // Nothing limited the plan once the taxonomy has more terms than were asked for.
+  assert.equal(plan.limitedBy, plan.available < plan.requested ? 'TAXONOMY' : null);
 
   const keywords = plan.searches.map((search) => search.keyword);
   assert.equal(new Set(keywords).size, keywords.length, 'two planned searches are identical');
@@ -206,7 +212,7 @@ function countingAdapter(state: { seen: DiscoveryQuery['search'][] }) {
       return {
         status: 'OK',
         observations: observationsFor([{
-          name: `batch${index}.invalid`, website: `https://batch${index}.invalid`,
+          name: `batch${index}.example-co`, website: `https://batch${index}.example-co`,
           phone: null, city: null, state: null, postalCode: null,
           resultType: 'PAID_SEARCH_TEXT', query: request.search?.term ?? null,
         }]),
@@ -249,7 +255,7 @@ test('each search gets its own outcome, not a shared one', async () => {
       const index = request.search?.index ?? 0;
       if (index === 1) {
         return { status: 'OK',
-          observations: observationsFor([{ name: 'first.invalid', website: 'https://first.invalid', phone: null,
+          observations: observationsFor([{ name: 'first.example-co', website: 'https://first.example-co', phone: null,
             city: null, state: null, postalCode: null }]),
           costUsd: 0.006 };
       }
@@ -293,7 +299,7 @@ test('a search already owed is collected while its siblings are still bought', a
     async collect(providerTaskId): Promise<DiscoveryResult> {
       collections += 1;
       return { status: 'OK',
-        observations: observationsFor([{ name: 'collected.invalid', website: 'https://collected.invalid',
+        observations: observationsFor([{ name: 'collected.example-co', website: 'https://collected.example-co',
           phone: null, city: null, state: null, postalCode: null }]),
         providerTaskId };
     },

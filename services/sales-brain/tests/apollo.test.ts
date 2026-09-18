@@ -50,7 +50,8 @@ beforeEach(async () => {
 
 function candidate(over: Partial<ApolloPersonCandidate> = {}): ApolloPersonCandidate {
   return {
-    apolloPersonId: 'p_1', firstName: 'John', lastName: 'Smith', fullName: 'John Smith',
+    apolloPersonId: 'p_1', nameIsPartial: false,
+    firstName: 'John', lastName: 'Smith', fullName: 'John Smith',
     title: 'Owner', seniority: 'owner', organizationName: 'ABC Air Conditioning',
     apolloOrganizationId: 'o_1', hasEmail: true, hasDirectPhone: false,
     city: 'Tampa', state: 'FL', linkedinUrl: null, lastRefreshedAt: null, ...over,

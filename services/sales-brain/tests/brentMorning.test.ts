@@ -52,18 +52,18 @@ beforeEach(async () => {
 
 async function brent(): Promise<string> {
   await createUser({
-    email: 'brent@morning.invalid', displayName: 'Brent', role: 'SALES_REP',
+    email: 'brent@morning.example-co', displayName: 'Brent', role: 'SALES_REP',
     password: PASSWORD });
   const response = await app.inject({
     method: 'POST', url: '/login',
-    payload: { email: 'brent@morning.invalid', password: PASSWORD } });
+    payload: { email: 'brent@morning.example-co', password: PASSWORD } });
   const cookie = response.cookies.find((item) => item.name === 'yad_sales_session')!;
   return `yad_sales_session=${cookie.value}`;
 }
 
 async function opsUser(): Promise<string> {
   const { userId } = { userId: await createUser({
-    email: `ops${Date.now()}${Math.random()}@morning.invalid`, displayName: 'Night Ops',
+    email: `ops${Date.now()}${Math.random()}@morning.example-co`, displayName: 'Night Ops',
     role: 'RESEARCH_OPS', password: PASSWORD }) };
   return userId;
 }
@@ -77,13 +77,13 @@ function foundCompanies(): void {
       return {
         status: 'OK' as const,
         observations: observationsFor([
-          { name: 'coastalair.invalid', website: 'https://coastalair.invalid',
+          { name: 'coastalair.example-co', website: 'https://coastalair.example-co',
             phone: '904-555-0701', city: null, state: null, postalCode: null,
             resultType: 'PAID_SEARCH_TEXT', advertisedService: 'ac repair',
             adHeadline: 'Same-Day AC Repair — 24/7', query: 'ac repair 32095',
-            position: 1, landingUrl: 'https://coastalair.invalid/ac',
+            position: 1, landingUrl: 'https://coastalair.example-co/ac',
             observedAt: new Date('2026-09-05T04:12:00Z') },
-          { name: 'matanzas.invalid', website: 'https://matanzas.invalid',
+          { name: 'matanzas.example-co', website: 'https://matanzas.example-co',
             phone: '904-555-0702', city: null, state: null, postalCode: null,
             resultType: 'ORGANIC', query: 'ac repair 32095', position: 4 },
         ]),
@@ -202,7 +202,7 @@ test('the company found overnight comes with the ad he can quote, and its date',
   const cookie = await brent();
 
   const { rows } = await query<{ account_id: string }>(
-    `select account_id from accounts where canonical_domain = 'coastalair.invalid'`);
+    `select account_id from accounts where canonical_domain = 'coastalair.example-co'`);
   const response = await app.inject({
     method: 'GET', url: `/accounts/${rows[0]!.account_id}`, headers: { cookie } });
   assert.equal(response.statusCode, 200);
@@ -227,7 +227,7 @@ test('nothing on the page asserts a signal nobody has observed', async () => {
   const cookie = await brent();
 
   const { rows } = await query<{ account_id: string }>(
-    `select account_id from accounts where canonical_domain = 'matanzas.invalid'`);
+    `select account_id from accounts where canonical_domain = 'matanzas.example-co'`);
   const response = await app.inject({
     method: 'GET', url: `/accounts/${rows[0]!.account_id}`, headers: { cookie } });
 
@@ -251,11 +251,11 @@ test('the operations page accounts for the night: work done, money spent, build'
   await recordHeartbeat();
 
   await createUser({
-    email: 'nightmanager@morning.invalid', displayName: 'Night Manager',
+    email: 'nightmanager@morning.example-co', displayName: 'Night Manager',
     role: 'SALES_MANAGER', password: PASSWORD });
   const login = await app.inject({
     method: 'POST', url: '/login',
-    payload: { email: 'nightmanager@morning.invalid', password: PASSWORD } });
+    payload: { email: 'nightmanager@morning.example-co', password: PASSWORD } });
   const cookie = `yad_sales_session=${login.cookies.find((c) => c.name === 'yad_sales_session')!.value}`;
 
   const response = await app.inject({
@@ -281,7 +281,7 @@ test('a market Brent refreshes himself does not re-buy a search already paid for
     async collect() {
       collections += 1;
       return { status: 'OK' as const,
-        observations: observationsFor([{ name: 'morning.invalid', website: 'https://morning.invalid',
+        observations: observationsFor([{ name: 'morning.example-co', website: 'https://morning.example-co',
           phone: '904-555-0710', city: null, state: null, postalCode: null }]),
         providerTaskId: 'night-task-1' };
     },
@@ -295,6 +295,6 @@ test('a market Brent refreshes himself does not re-buy a search already paid for
   assert.equal(collections, 1, 'the task paid for overnight was never collected');
 
   const { rows } = await query<{ n: number }>(
-    `select count(*)::int as n from accounts where canonical_domain = 'morning.invalid'`);
+    `select count(*)::int as n from accounts where canonical_domain = 'morning.example-co'`);
   assert.equal(rows[0]!.n, 1);
 });

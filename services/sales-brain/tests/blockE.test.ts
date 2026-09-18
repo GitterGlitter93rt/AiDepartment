@@ -164,8 +164,17 @@ test('E1 budgetExhausted means this run was refused, not that it might have been
   assert.equal(progress['budgetExhausted'], true,
     'a run that had submissions refused for cost does not say so');
   assert.ok(Number(progress['budgetRefusals']) > 0);
-  // The searches that did happen are still reported as having happened.
-  assert.equal(progress['searchesPlanned'], 8);
+  /*
+   * The searches that did happen are still reported as having happened.
+   *
+   * The count itself is not the subject and used to be hard-coded to eight, which the V3
+   * HVAC taxonomy expansion invalidated. What must hold is that a run refused on cost
+   * still reports the plan it made, and that the plan was capped by the taxonomy rather
+   * than by the twenty-five asked for.
+   */
+  const planned = Number(progress['searchesPlanned']);
+  assert.ok(planned > 0, 'a budget refusal must not erase the plan that was made');
+  assert.ok(planned < 25, 'the taxonomy, not the request, decided how many searches exist');
 });
 
 // =============================================================================

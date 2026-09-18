@@ -26,7 +26,7 @@ import { planDiscoverySearches } from '../src/miner/searchPlan.js';
  */
 
 const READY: DataForSeoConfig = {
-  login: 'user', password: 'secret', baseUrl: 'https://api.example.invalid/v3',
+  login: 'user', password: 'secret', baseUrl: 'https://api.example.example-co/v3',
   mode: 'live', governanceReviewed: true, enabled: true,
   maxQueriesPerRun: 25, resultDepth: 100, maxRetries: 0, maxPollAttempts: 1,
   pollIntervalMs: 0,
@@ -61,7 +61,7 @@ async function seedAccountIn(city: string, state: string, postalCode: string): P
   fixtureSequence += 1;
   await withTransaction((client) => upsertAccount(client, {
     canonicalName: `${city} Fixture Co ${fixtureSequence}`,
-    website: `https://fixture${fixtureSequence}.invalid`,
+    website: `https://fixture${fixtureSequence}.example-co`,
     phone: `904-555-${String(3000 + fixtureSequence).slice(-4)}`,
     city, state, postalCode,
   }, { discoverySource: 'payload-test' }));

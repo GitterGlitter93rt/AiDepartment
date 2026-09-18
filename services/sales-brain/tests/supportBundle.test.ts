@@ -25,7 +25,7 @@ import { resetBuildIdentity } from '../src/release/identity.js';
 
 const SECRETS = {
   DATAFORSEO_PASSWORD: 'bundle-secret-dataforseo',
-  DATAFORSEO_LOGIN: 'bundle-login@example.invalid',
+  DATAFORSEO_LOGIN: 'bundle-login@example.example-co',
   ANTHROPIC_API_KEY: 'bundle-secret-anthropic',
   TWILIO_AUTH_TOKEN: 'bundle-secret-twilio',
   SESSION_SECRET: 'bundle-secret-session-value-long',
@@ -96,7 +96,7 @@ test('redaction does not blank the shell user out of every file path', async () 
 
 test('no company name, phone number or email address appears', async () => {
   await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Zzyzx Distinctive Roofing', website: 'https://zzyzxdistinct.invalid',
+    canonicalName: 'Zzyzx Distinctive Roofing', website: 'https://zzyzxdistinct.example-co',
     phone: '904-555-7654', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
@@ -119,7 +119,7 @@ test('no company name, phone number or email address appears', async () => {
 
 test('no page content reaches the bundle', async () => {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Content Co', website: 'https://contentco.invalid', phone: null,
+    canonicalName: 'Content Co', website: 'https://contentco.example-co', phone: null,
     city: 'St. Augustine', state: 'FL', postalCode: '32095', verticalProfileId: 'hvac',
   }, { discoverySource: 'import' }));
   await query(

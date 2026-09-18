@@ -21,7 +21,7 @@ import { canaryPacket, renderCanaryPacket } from '../src/release/canaryPacket.js
 
 const SECRETS = {
   DATAFORSEO_PASSWORD: 'packet-secret-password-value',
-  DATAFORSEO_LOGIN: 'packet-login@example.invalid',
+  DATAFORSEO_LOGIN: 'packet-login@example.example-co',
   ANTHROPIC_API_KEY: 'packet-secret-anthropic-key',
 };
 

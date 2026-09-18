@@ -53,29 +53,29 @@ const ZIP = '32095';
 
 /** The market as the provider sees it: five roofers, two of them advertising. */
 const MARKET = [
-  { slug: 'coastalroof', name: 'coastalroof.invalid', paid: true },
-  { slug: 'ancientcityroof', name: 'ancientcityroof.invalid', paid: true },
-  { slug: 'matanzasroof', name: 'matanzasroof.invalid', paid: false },
-  { slug: 'firstcoastroof', name: 'firstcoastroof.invalid', paid: false },
-  { slug: 'nocatchroof', name: 'nocatchroof.invalid', paid: false },
+  { slug: 'coastalroof', name: 'coastalroof.example-co', paid: true },
+  { slug: 'ancientcityroof', name: 'ancientcityroof.example-co', paid: true },
+  { slug: 'matanzasroof', name: 'matanzasroof.example-co', paid: false },
+  { slug: 'firstcoastroof', name: 'firstcoastroof.example-co', paid: false },
+  { slug: 'nocatchroof', name: 'nocatchroof.example-co', paid: false },
 ];
 
 /** What each company's own site says. */
 const SITES: Record<string, string> = {
-  'coastalroof.invalid': `<html><body><h1>Coastal Roofing</h1>
+  'coastalroof.example-co': `<html><body><h1>Coastal Roofing</h1>
     <p>24/7 emergency roof repair across St. Johns County.</p>
     <p>Request a quote online. Financing available.</p>
     <h3>Dana Fielder</h3><p>Owner</p>
     <p>Call <a href="tel:+19045551001">(904) 555-1001</a></p></body></html>`,
-  'ancientcityroof.invalid': `<html><body><h1>Ancient City Roofing</h1>
+  'ancientcityroof.example-co': `<html><body><h1>Ancient City Roofing</h1>
     <p>Emergency service. Book online for a free estimate.</p>
     <p>Office: (904) 555-1002</p></body></html>`,
-  'matanzasroof.invalid': `<html><body><h1>Matanzas Roofing</h1>
+  'matanzasroof.example-co': `<html><body><h1>Matanzas Roofing</h1>
     <p>Residential roofing since 1998. Call (904) 555-1003.</p></body></html>`,
-  'firstcoastroof.invalid': `<html><body><h1>First Coast Roofing</h1>
+  'firstcoastroof.example-co': `<html><body><h1>First Coast Roofing</h1>
     <p>We are hiring installers. Our locations span two counties.</p>
     <p>(904) 555-1004</p></body></html>`,
-  'nocatchroof.invalid': '<html><body><h1>No Catch Roofing</h1></body></html>',
+  'nocatchroof.example-co': '<html><body><h1>No Catch Roofing</h1></body></html>',
 };
 
 let realFetch: typeof globalThis.fetch;
@@ -107,22 +107,22 @@ before(async () => {
     return new Response(body, { status: 200, headers: { 'content-type': 'text/html' } });
   }) as typeof globalThis.fetch;
 
-  repId = await createUser({ email: 'rep@repday.invalid', displayName: 'Brent',
+  repId = await createUser({ email: 'rep@repday.example-co', displayName: 'Brent',
     role: 'SALES_REP', password: PASSWORD });
-  opsId = await createUser({ email: 'ops@repday.invalid', displayName: 'Night Ops',
+  opsId = await createUser({ email: 'ops@repday.example-co', displayName: 'Night Ops',
     role: 'RESEARCH_OPS', password: PASSWORD });
-  managerId = await createUser({ email: 'manager@repday.invalid',
+  managerId = await createUser({ email: 'manager@repday.example-co',
     displayName: 'Manager', role: 'SALES_MANAGER', password: PASSWORD });
 
   const login = await app.inject({ method: 'POST', url: '/login',
-    payload: { email: 'rep@repday.invalid', password: PASSWORD } });
+    payload: { email: 'rep@repday.example-co', password: PASSWORD } });
   repCookie = `yad_sales_session=${login.cookies.find(
     (cookie) => cookie.name === 'yad_sales_session')!.value}`;
 
   // A neighbour already in inventory, so the ZIP resolves to a town.
   await withTransaction((client) => upsertAccount(client, {
     canonicalName: 'Existing Roofing of St Augustine',
-    website: 'https://existingroof.invalid', phone: '904-555-1000',
+    website: 'https://existingroof.example-co', phone: '904-555-1000',
     city: 'St. Augustine', state: 'FL', postalCode: ZIP, verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
 
@@ -215,14 +215,14 @@ test('what each site said is what we recorded, and only what the profile asks', 
   // declares booking and financing as signals and does *not* declare emergency
   // cover -- storm work is its own signal in that profile. So the extractor records
   // two of the three, which is the profile deciding what matters rather than the page.
-  const coastal = await researchPictureFor(await accountId('coastalroof.invalid'));
+  const coastal = await researchPictureFor(await accountId('coastalroof.example-co'));
   for (const key of ['online_quote_booking', 'financing_promoted']) {
     assert.equal(coastal.facts.find((fact) => fact.key === key)!.state, 'YES', key);
   }
   assert.ok(!coastal.facts.some((fact) => fact.key === 'emergency_24_7_service'),
     'a signal the roofing profile does not declare was recorded from the page anyway');
 
-  const quiet = await researchPictureFor(await accountId('nocatchroof.invalid'));
+  const quiet = await researchPictureFor(await accountId('nocatchroof.example-co'));
   for (const key of ['online_quote_booking', 'financing_promoted']) {
     const fact = quiet.facts.find((item) => item.key === key)!;
     assert.equal(fact.state, 'NOT_OBSERVED',
@@ -245,7 +245,7 @@ test('the rep sees the market, ordered, with only real tiers', async () => {
 
   // The two advertisers outrank the three that only have site signals.
   const top = (found.results as any[])[0]!;
-  assert.ok(['coastalroof.invalid', 'ancientcityroof.invalid'].includes(top.canonical_domain),
+  assert.ok(['coastalroof.example-co', 'ancientcityroof.example-co'].includes(top.canonical_domain),
     `the top of the list is ${top.canonical_domain}, which is not an advertiser`);
 });
 
@@ -283,8 +283,8 @@ test('the canary would not re-buy the market it already searched', async () => {
 // ---------------------------------------------------- the rep picks one and works --
 
 test('the best prospect is rep-ready, and the thin one is not', async () => {
-  const best = (await readinessFor(await accountId('coastalroof.invalid')))!;
-  const thin = (await readinessFor(await accountId('nocatchroof.invalid')))!;
+  const best = (await readinessFor(await accountId('coastalroof.example-co')))!;
+  const thin = (await readinessFor(await accountId('nocatchroof.example-co')))!;
 
   // Neither has been DNC-screened, so neither is REP_READY yet -- and the contract
   // says so rather than pretending.
@@ -297,18 +297,18 @@ test('the best prospect is rep-ready, and the thin one is not', async () => {
 });
 
 test('completeness tells the rich record from the blank one', async () => {
-  const rich = await computeCompleteness(await accountId('coastalroof.invalid'));
-  const blank = await computeCompleteness(await accountId('nocatchroof.invalid'));
+  const rich = await computeCompleteness(await accountId('coastalroof.example-co'));
+  const blank = await computeCompleteness(await accountId('nocatchroof.example-co'));
   assert.ok(rich.score > blank.score,
     `a site stating four things scored ${rich.score} and a blank one ${blank.score}`);
   assert.ok(rich.observed > blank.observed);
 });
 
 test('the call pack says who to ask for and how sure we are', async () => {
-  const pack = await buildCallPack(await accountId('coastalroof.invalid'));
+  const pack = await buildCallPack(await accountId('coastalroof.example-co'));
   assert.ok(pack, 'no call pack for the best prospect in the market');
 
-  const standing = await primaryContactStanding(await accountId('coastalroof.invalid'));
+  const standing = await primaryContactStanding(await accountId('coastalroof.example-co'));
   assert.equal(pack!.contactConfidence, standing!.standing.confidence,
     'the call pack and the contact record disagree about how sure we are');
 
@@ -322,7 +322,7 @@ test('the call pack says who to ask for and how sure we are', async () => {
 });
 
 test('claiming, calling and following up leaves one consistent history', async () => {
-  const target = await accountId('coastalroof.invalid');
+  const target = await accountId('coastalroof.example-co');
   const claimed = await claimAccount(target,
     { userId: repId, role: 'SALES_REP', activeClaimTarget: null });
   assert.equal(claimed.ok, true, JSON.stringify(claimed));
@@ -359,13 +359,13 @@ test('claiming, calling and following up leaves one consistent history', async (
 test('another rep can browse the record and cannot act on it', async () => {
   // Inventory is shared on purpose -- a rep looking a company up is how they avoid
   // calling somebody else's prospect. What must not happen is acting on it.
-  const other = await createUser({ email: 'other@repday.invalid',
+  const other = await createUser({ email: 'other@repday.example-co',
     displayName: 'Other Rep', role: 'SALES_REP', password: PASSWORD });
   const login = await app.inject({ method: 'POST', url: '/login',
-    payload: { email: 'other@repday.invalid', password: PASSWORD } });
+    payload: { email: 'other@repday.example-co', password: PASSWORD } });
   const cookie = `yad_sales_session=${login.cookies.find(
     (item) => item.name === 'yad_sales_session')!.value}`;
-  const target = await accountId('coastalroof.invalid');
+  const target = await accountId('coastalroof.example-co');
 
   const page = await app.inject({
     method: 'GET', url: `/accounts/${target}`, headers: { cookie } });

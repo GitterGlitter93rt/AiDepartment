@@ -262,7 +262,7 @@ test('a manual retry of a terminally failed job is possible', async () => {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: 'Retryable Co',
-    website: `https://poison${sequence}.invalid`,
+    website: `https://poison${sequence}.example-co`,
     phone: `904-555-${String(9800 + sequence).slice(-4)}`,
     city: 'St. Augustine', state: 'FL', postalCode: '32095',
   }, { discoverySource: 'market_miner:dataforseo' }));

@@ -37,7 +37,7 @@ async function buildAccount(name: string, vertical: string | null = 'hvac'): Pro
   const phone = `904-555-${String(9000 + sequence).slice(-4)}`;
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.invalid`,
+      canonicalName: name, website: `https://${name.toLowerCase().replace(/\W+/g, '')}.example-co`,
       phone, city: 'Jacksonville', state: 'FL', postalCode: '32256',
       verticalProfileId: vertical,
     }, { discoverySource: 'analytics-test' }));

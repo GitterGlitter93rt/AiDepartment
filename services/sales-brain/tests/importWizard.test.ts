@@ -393,9 +393,9 @@ test('duplicates inside one file are previewed as one company, not several', asy
   const ops = await makeUser(`Dupe Preview ${Date.now()}`, 'RESEARCH_OPS');
   const csv = [
     'company,website,phone,city,state',
-    'Coastal Air,https://coastalair.invalid,904-555-0101,St. Augustine,FL',
-    'Coastal Air,https://coastalair.invalid,904-555-0101,St. Augustine,FL',
-    'Coastal Air LLC,https://coastalair.invalid,904-555-0102,St. Augustine,FL',
+    'Coastal Air,https://coastalair.example-co,904-555-0101,St. Augustine,FL',
+    'Coastal Air,https://coastalair.example-co,904-555-0101,St. Augustine,FL',
+    'Coastal Air LLC,https://coastalair.example-co,904-555-0102,St. Augustine,FL',
   ].join('\n');
 
   const session = await createSession({
@@ -419,11 +419,11 @@ test('the preview count is exactly what confirming produces', async () => {
   const ops = await makeUser(`Exact Preview ${Date.now()}`, 'RESEARCH_OPS');
   const csv = [
     'company,website,phone,city,state',
-    'Alpha Roofing,https://alpharoofing.invalid,904-555-0201,St. Augustine,FL',
-    'Alpha Roofing,https://alpharoofing.invalid,904-555-0201,St. Augustine,FL',
-    'Beta Plumbing,https://betaplumbing.invalid,904-555-0202,St. Augustine,FL',
-    'Gamma Air,https://gammaair.invalid,904-555-0203,St. Augustine,FL',
-    'Gamma Air Inc,https://gammaair.invalid,904-555-0204,St. Augustine,FL',
+    'Alpha Roofing,https://alpharoofing.example-co,904-555-0201,St. Augustine,FL',
+    'Alpha Roofing,https://alpharoofing.example-co,904-555-0201,St. Augustine,FL',
+    'Beta Plumbing,https://betaplumbing.example-co,904-555-0202,St. Augustine,FL',
+    'Gamma Air,https://gammaair.example-co,904-555-0203,St. Augustine,FL',
+    'Gamma Air Inc,https://gammaair.example-co,904-555-0204,St. Augustine,FL',
   ].join('\n');
 
   const session = await createSession({
@@ -446,8 +446,8 @@ test('previewing writes nothing, however much it has to try', async () => {
   const ops = await makeUser(`Rollback Preview ${Date.now()}`, 'RESEARCH_OPS');
   const csv = [
     'company,website,phone,city,state',
-    'Rollback Air,https://rollbackair.invalid,904-555-0301,St. Augustine,FL',
-    'Rollback Roofing,https://rollbackroofing.invalid,904-555-0302,St. Augustine,FL',
+    'Rollback Air,https://rollbackair.example-co,904-555-0301,St. Augustine,FL',
+    'Rollback Roofing,https://rollbackroofing.example-co,904-555-0302,St. Augustine,FL',
   ].join('\n');
 
   const session = await createSession({
@@ -473,8 +473,8 @@ test('previewing twice gives the same answer', async () => {
   const ops = await makeUser(`Twice Preview ${Date.now()}`, 'RESEARCH_OPS');
   const csv = [
     'company,website,phone,city,state',
-    'Twice Air,https://twiceair.invalid,904-555-0401,St. Augustine,FL',
-    'Twice Air,https://twiceair.invalid,904-555-0401,St. Augustine,FL',
+    'Twice Air,https://twiceair.example-co,904-555-0401,St. Augustine,FL',
+    'Twice Air,https://twiceair.example-co,904-555-0401,St. Augustine,FL',
   ].join('\n');
   const session = await createSession({
     content: csv, fileName: 'twice.csv', sourceName: 'twice', createdBy: ops.userId });

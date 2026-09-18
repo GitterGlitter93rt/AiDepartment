@@ -45,7 +45,7 @@ async function seedAccount(name: string, options: {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: name,
-      website: `https://${name.toLowerCase().replace(/\W+/g, '')}${sequence}.invalid`,
+      website: `https://${name.toLowerCase().replace(/\W+/g, '')}${sequence}.example-co`,
       phone, city: options.city ?? 'Jacksonville', state: 'FL',
       postalCode: options.postalCode ?? '32256',
     }, { discoverySource: 'inbound-test' }));
@@ -263,7 +263,7 @@ test('a positive email reply followed by a call is a callback', async () => {
      values ('inbound test', 'smartlead', 'ACTIVE') returning email_campaign_id`);
   const { rows: enrollment } = await query<{ enrollment_id: string }>(
     `insert into email_enrollments (email_campaign_id, account_id, normalized_email, status)
-     values ($1, $2, 'ray@replied.invalid', 'REPLIED') returning enrollment_id`,
+     values ($1, $2, 'ray@replied.example-co', 'REPLIED') returning enrollment_id`,
     [campaign[0]!.email_campaign_id, fixture.accountId]);
   await query(
     `insert into email_events (enrollment_id, account_id, provider, provider_event_id,
@@ -285,7 +285,7 @@ test('a negative email reply is not a callback signal', async () => {
      values ('inbound test 2', 'smartlead', 'ACTIVE') returning email_campaign_id`);
   const { rows: enrollment } = await query<{ enrollment_id: string }>(
     `insert into email_enrollments (email_campaign_id, account_id, normalized_email, status)
-     values ($1, $2, 'ray@notinterested.invalid', 'REPLIED') returning enrollment_id`,
+     values ($1, $2, 'ray@notinterested.example-co', 'REPLIED') returning enrollment_id`,
     [campaign[0]!.email_campaign_id, fixture.accountId]);
   await query(
     `insert into email_events (enrollment_id, account_id, provider, provider_event_id,

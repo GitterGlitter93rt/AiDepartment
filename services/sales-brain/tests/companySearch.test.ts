@@ -41,7 +41,7 @@ async function seed(name: string, website?: string): Promise<string> {
   sequence += 1;
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
     canonicalName: name,
-    website: website ?? `https://company${sequence}.invalid`,
+    website: website ?? `https://company${sequence}.example-co`,
     phone: `904-555-${String(7000 + sequence).slice(-4)}`,
     city: 'Orlando', state: 'FL', postalCode: '32801',
     verticalProfileId: 'hvac',
