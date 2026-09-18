@@ -4,10 +4,9 @@ import { normalizeEmail, normalizePhone } from '../domain/normalize.js';
  * Deciding whether a published route belongs to a named person or to the company.
  *
  * The defect this exists to close, measured on production: `contact_id` is null on all
- * 609 communication endpoints. Sales Brain can independently discover "Yadiel Castro,
- * Owner & Lead HVAC Contractor" and `yadielcastro2@gmail.com`, both published on
- * colderofmiamiinc.com/contact, and never connect the two. Person extraction and endpoint
- * extraction run alongside each other and never meet.
+ * 609 communication endpoints. Sales Brain can independently discover a named owner and
+ * that owner's personal address on the same contact page, and never connect the two.
+ * Person extraction and endpoint extraction run alongside each other and never meet.
  *
  * The obvious fix is the wrong one. Attributing an endpoint to a person because both
  * appear somewhere on the same site would hand every owner the company's `info@` address,
@@ -85,8 +84,8 @@ export function isRoleMailbox(email: string): boolean {
  * Whether an email's local part spells this person's name.
  *
  * Both name parts have to appear, so "jsmith@" does not claim John Smith on the strength
- * of one letter and a common surname, and "yadielcastro2@gmail.com" does claim Yadiel
- * Castro. A single-token person can never satisfy this, which is the right outcome: one
+ * of one letter and a common surname, and "alexmorgan2@example.test" does claim Alex
+ * Morgan. A single-token person can never satisfy this, which is the right outcome: one
  * name is not enough identity to own a mailbox by.
  */
 export function localPartNamesPerson(email: string, personName: string): boolean {

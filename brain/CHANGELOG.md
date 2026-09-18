@@ -77,9 +77,9 @@ decision-maker authority now, and a lone capitalised name is carried by context 
 deleted -- losing a real single-name owner is the other way to be wrong.
 
 **No route in the estate belongs to anybody.** `contact_id` is null on all 609 endpoints.
-Sales Brain found "Yadiel Castro, Owner" and `yadielcastro2@gmail.com` on the same contact
-page and connected neither. Attribution now needs a stated reason, ranked; a role mailbox
-is never a person however the page is laid out; and a phone cannot spell a name.
+Sales Brain found a named owner and that owner's personal address on the same contact page
+and connected neither. Attribution now needs a stated reason, ranked; a role mailbox is
+never a person however the page is laid out; and a phone cannot spell a name.
 
 **Retrying harder turned out not to be the answer.** Of 42 unreadable Accounts probed
 across every apex/www and http/https variant, exactly one became readable. The other 41
@@ -807,4 +807,3 @@ consults.
 
 Still not `MINER_LIVE_CANARY_READY`. Nothing was deployed, no live provider was called, no prospect
 was contacted, and `OUTBOUND_DIAL_ENABLED` remains false.
-

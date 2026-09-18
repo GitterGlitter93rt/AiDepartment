@@ -74,18 +74,17 @@ test('one name is not enough on its own, and is not deleted either', () => {
 /* ---------------------------------------------- B. contact route attribution --- */
 
 test("the owner's own address is attributed to the owner", () => {
-  // colderofmiamiinc.com/contact publishes both of these under "Email Address". Sales
-  // Brain found the person, found the address, and linked neither: contact_id is null on
-  // all 609 production endpoints.
+  // This synthetic fixture preserves the production defect's shape without publishing
+  // the real prospect's personal address: the local part spells the person's full name.
   const direct = attributeEndpoint({
-    endpointKind: 'EMAIL', value: 'yadielcastro2@gmail.com', personName: 'Yadiel Castro',
+    endpointKind: 'EMAIL', value: 'alexmorgan2@example.test', personName: 'Alex Morgan',
     observedBasis: 'SAME_CONTACT_CARD' });
   assert.equal(direct.role, 'DIRECT_PERSON_EMAIL');
-  assert.equal(direct.attributedTo, 'Yadiel Castro');
+  assert.equal(direct.attributedTo, 'Alex Morgan');
   assert.equal(direct.confidence, 'HIGH', 'the card and the spelling agree');
-  assert.match(direct.reasons.join(' '), /local part spells Yadiel Castro/);
+  assert.match(direct.reasons.join(' '), /local part spells Alex Morgan/);
 
-  assert.equal(localPartNamesPerson('yadielcastro2@gmail.com', 'Yadiel Castro'), true);
+  assert.equal(localPartNamesPerson('alexmorgan2@example.test', 'Alex Morgan'), true);
   // One matching token is not a claim on a mailbox.
   assert.equal(localPartNamesPerson('yadiel@example-co.test', 'Yadiel Castro'), false);
   assert.equal(localPartNamesPerson('jsmith@example-co.test', 'John Smith'), false);

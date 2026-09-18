@@ -1364,10 +1364,10 @@ Evidence: `SalesBrain-Audit-Data`, `research-audits/claude-2026-09-17`, commit
 **Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
 
 `contact_id` is null on **all 609** production communication endpoints. Sales Brain can
-independently discover "Yadiel Castro, Owner & Lead HVAC Contractor" and
-`yadielcastro2@gmail.com`, both published on colderofmiamiinc.com/contact, and connect
-neither — person extraction and endpoint extraction run alongside each other and never
-meet. It is why the estate holds 131 named people and zero person-attributed routes.
+independently discover a named owner and that owner's personal address on the same contact
+page, and connect neither — person extraction and endpoint extraction run alongside each
+other and never meet. It is why the estate holds 131 named people and zero
+person-attributed routes.
 
 The obvious fix is the wrong one. Attributing an endpoint because both appear somewhere on
 the same site would hand every owner the company's `info@`, which is worse than nothing: a
