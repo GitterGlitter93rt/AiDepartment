@@ -117,7 +117,7 @@ async function fixture(): Promise<Fixture> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: 'Read Authorization Co',
-      website: 'https://readauth.example',
+      website: 'https://readauth.example-co',
       phone: '904-555-0181', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
 

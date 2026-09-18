@@ -100,8 +100,8 @@ test('a different company is still a different company', async () => {
 });
 
 test('a domain still finds its company', async () => {
-  await seed('Southern Air', 'https://southernair.example');
-  assert.deepEqual(await found('southernair.example'), ['Southern Air']);
+  await seed('Southern Air', 'https://southernair.example-co');
+  assert.deepEqual(await found('southernair.example-co'), ['Southern Air']);
   assert.deepEqual(await found('southernair'), ['Southern Air']);
 });
 
@@ -132,15 +132,15 @@ test('a short run of digits is not treated as a phone number', async () => {
 });
 
 test('an email address finds the company that published it', async () => {
-  const accountId = await seed('Southern Air', 'https://southernair.example');
+  const accountId = await seed('Southern Air', 'https://southernair.example-co');
   await query(
     `insert into contact_endpoints
        (account_id, endpoint_type, normalized_value, display_value, endpoint_role)
-     values ($1, 'EMAIL', 'dispatch@southernair.example', 'dispatch@southernair.example',
+     values ($1, 'EMAIL', 'dispatch@southernair.example-co', 'dispatch@southernair.example-co',
              'ROLE_EMAIL')`,
     [accountId]);
 
-  assert.deepEqual(await found('dispatch@southernair.example'), ['Southern Air']);
+  assert.deepEqual(await found('dispatch@southernair.example-co'), ['Southern Air']);
 });
 
 test('search still refuses to show a suppressed company', async () => {

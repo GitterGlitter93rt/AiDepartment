@@ -34,7 +34,7 @@ async function prepare(): Promise<void> {
 
 function eligible(vertical = 'hvac') {
   return analyzeForm({
-    form: parseFormHtml(ORDINARY.html, 'https://fixture.example/contact'),
+    form: parseFormHtml(ORDINARY.html, 'https://fixture.example-co/contact'),
     verticalProfileId: vertical,
   });
 }
@@ -44,7 +44,7 @@ async function makeAccount(name: string, phone: string): Promise<string> {
     `insert into accounts (canonical_name, normalized_name, canonical_domain,
                            primary_vertical_profile_id, account_type)
      values ($1,$2,$3,'hvac','independent_business') returning account_id`,
-    [name, name.toLowerCase(), `${name.toLowerCase().replace(/\W+/g, '')}.example`]);
+    [name, name.toLowerCase(), `${name.toLowerCase().replace(/\W+/g, '')}.example-co`]);
   const accountId = rows[0]!.account_id;
   await pool.query(
     `insert into contact_endpoints (account_id, endpoint_type, normalized_value,
@@ -67,11 +67,11 @@ async function submittedProbe(name: string, phone: string): Promise<{
      on conflict (e164) do nothing`, [poolE164]);
   const accountId = await makeAccount(name, phone);
   const plan = await planProbe({
-    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example-co',
     identityId: ident.rows[0]!.probe_identity_id, now: NOW });
   await dryRunSubmit({
-    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example',
+    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example-co',
     verticalProfileId: 'hvac', now: NOW });
   return { probeId: plan.probeId!, accountId, poolE164 };
 }
@@ -318,7 +318,7 @@ test('unknown hours produce null, and never a zero anybody could quote', async (
 
 test('an optional preference checkbox is not classified from other fields’ labels', async () => {
   const fixture = fixtureForm('optional_checkbox');
-  const form = parseFormHtml(fixture.html, 'https://x.example');
+  const form = parseFormHtml(fixture.html, 'https://x.example-co');
   const box = form.checkboxes.find((item) => item.name === 'newsletter')!;
 
   assert.match(box.label, /Subscribe to updates/,
@@ -338,7 +338,7 @@ test('label association follows the DOM, both with for= and by wrapping', async 
     <label><input name="b" type="checkbox"> Send me seasonal tips and newsletter</label>
     <label>I agree to receive automated calls and texts <input name="c" type="checkbox" required></label>
   </form>`;
-  const form = parseFormHtml(both, 'https://x.example');
+  const form = parseFormHtml(both, 'https://x.example-co');
   const byName = new Map(form.checkboxes.map((box) => [box.name, box]));
   assert.equal(byName.get('b')!.klass, 'OPTIONAL_PREFERENCE');
   // Text before the input, rather than after it, must work too.
@@ -354,7 +354,7 @@ test('consent gating is not loosened by the parser fix', async () => {
     ['mandatory_terms_gate', 'INELIGIBLE_TERMS_GATE'],
   ] as const) {
     const verdict = analyzeForm({
-      form: parseFormHtml(fixtureForm(key).html, 'https://x.example'),
+      form: parseFormHtml(fixtureForm(key).html, 'https://x.example-co'),
       verticalProfileId: 'hvac' });
     assert.equal(verdict.eligible, false, key);
     assert.ok(verdict.blockers.some((blocker) => blocker.reason === expected), key);
@@ -365,7 +365,7 @@ test('consent gating is not loosened by the parser fix', async () => {
     form: parseFormHtml(`<form><label for="n">Name</label><input name="n" required>
       <label for="p">Phone</label><input name="p" type="tel" required>
       <label><input name="x" type="checkbox" required> Please acknowledge the above</label>
-      </form>`, 'https://x.example'),
+      </form>`, 'https://x.example-co'),
     verticalProfileId: 'hvac' });
   assert.equal(mystery.reason, 'INELIGIBLE_CONSENT_GATE');
 });
@@ -434,7 +434,7 @@ test('probe-audit suppression stops probes and not ordinary outreach', async () 
     [accountId]);
 
   const plan = await planProbe({
-    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example-co',
     identityId: null, now: NOW });
   assert.equal(plan.refusal, 'PROBE_SUPPRESSED', 'future audits are refused');
 
@@ -457,7 +457,7 @@ test('do-not-contact language still suppresses outreach, alongside the probe', a
     [accountId]);
 
   const plan = await planProbe({
-    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example-co',
     identityId: null, now: NOW });
   assert.ok(plan.refusal === 'PROBE_SUPPRESSED' || plan.refusal === 'ACCOUNT_SUPPRESSED');
 
@@ -480,7 +480,7 @@ test('an ambiguous suppression fails closed for probing', async () => {
   // OTHER_APPROVED is not in the probe gate's refusal list, so this asserts the
   // conservative default explicitly rather than assuming it.
   const plan = await planProbe({
-    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example-co',
     identityId: null, now: NOW });
   assert.notEqual(plan.planned, true,
     'an unclear request must not result in a probe being submitted');
@@ -547,7 +547,7 @@ test('an ambiguous event picks no probe and leaves no candidate able to claim si
       `insert into accounts (canonical_name, normalized_name, canonical_domain,
                              primary_vertical_profile_id, account_type)
        values ($1,$2,$3,'hvac','independent_business') returning account_id`,
-      [name, name.toLowerCase(), `twin-${offset}.example`]);
+      [name, name.toLowerCase(), `twin-${offset}.example-co`]);
     const accountId = rows[0]!.account_id;
     await pool.query(
       `insert into contact_endpoints (account_id, endpoint_type, normalized_value,
@@ -555,11 +555,11 @@ test('an ambiguous event picks no probe and leaves no candidate able to claim si
        values ($1,'PHONE',$2,$2,'MAIN_BUSINESS_LINE','PUBLIC_OBSERVED_UNVERIFIED',
                'COMPANY_WEBSITE','fresh')`, [accountId, `+1904555700${offset}`]);
     const plan = await planProbe({
-      accountId, eligibility: eligible(), targetFormUrl: 'https://x.example',
+      accountId, eligibility: eligible(), targetFormUrl: 'https://x.example-co',
       identityId: null, now: NOW });
     await dryRunSubmit({
-      probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-      identityName: 'A. Fixture', emailAlias: `probe+t${offset}@probes.example`,
+      probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+      identityName: 'A. Fixture', emailAlias: `probe+t${offset}@probes.example-co`,
       verticalProfileId: 'hvac', now: NOW });
     twins.push({ probeId: plan.probeId!, accountId });
   }
@@ -635,7 +635,7 @@ test('the final window can terminate a probe whose first sweep never ran', async
   // The Account is free again: a later probe is refused by cooldown, not by a
   // permanently open predecessor.
   const again = await planProbe({
-    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligible(), targetFormUrl: 'https://x.example-co',
     identityId: null, now: new Date(NOW.getTime() + 200 * 24 * 3_600_000) });
   assert.notEqual(again.refusal, 'ALREADY_OPEN',
     'a stranded probe would lock this Account out of every future audit');

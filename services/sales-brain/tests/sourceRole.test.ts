@@ -60,7 +60,7 @@ test('a domain carrying several businesses is serving other people\'s businesses
 
   // Lead generation is a directory that also wants the visitor's details.
   const leadGen = classifySourceRole({
-    url: 'https://quotesite.example/get-quotes/hvac',
+    url: 'https://quotesite.example-co/get-quotes/hvac',
     title: 'HVAC quotes',
     bodyText: 'Get free quotes from top pros near you. Get matched with a contractor today.',
     distinctBusinessesOnDomain: 12,
@@ -99,14 +99,14 @@ test('a real company is recognised from evidence, not from ranking', () => {
 
 test('two supporting signals stand in for one strong one, and one does not', () => {
   const one = classifySourceRole({
-    url: 'https://unrelated.example/', title: 'Home',
-    companyName: 'Some Company', canonicalUrl: 'https://unrelated.example/',
+    url: 'https://unrelated.example-co/', title: 'Home',
+    companyName: 'Some Company', canonicalUrl: 'https://unrelated.example-co/',
   });
   assert.equal(one.role, 'UNKNOWN', 'a self-canonical URL proves only that a page exists');
 
   const two = classifySourceRole({
-    url: 'https://unrelated.example/', title: 'Home',
-    companyName: 'Some Company', canonicalUrl: 'https://unrelated.example/',
+    url: 'https://unrelated.example-co/', title: 'Home',
+    companyName: 'Some Company', canonicalUrl: 'https://unrelated.example-co/',
     sameOriginPaths: ['/about-us', '/contact'],
     distinctBusinessesOnDomain: 1,
   });

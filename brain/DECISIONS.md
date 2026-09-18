@@ -1474,3 +1474,113 @@ estate.
 Three of three sites crawled return a full-size branded body for `/team`, `/leadership`,
 `/staff` and for a nonsense path — with an honest `HTTP 404`. A crawler judging "is this a
 real page" by body size would ingest all of them; ours reads the status.
+
+## DEC-043 — Apollo runs last, and search is free
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`,
+not deployed, not enabled
+
+Michael authorized Apollo.io as a paid enrichment provider with roughly 1,200 credits. The
+integration extends what the codebase already reserved for it rather than adding a
+parallel subsystem: `LICENSED_CONTACT_PROVIDER` has sat at priority 70 in the resolver
+since it was written — below every first-party and public source — and Stage H of contact
+research is the paid slot that has always been skipped.
+
+**The waterfall, in order:** company discovery, entity resolution, first-party research,
+DataForSEO and public-web enrichment, reconciliation, work out what is still missing, and
+only then Apollo. That ordering is not politeness. The 2026-09-17 audit found a named
+owner's own email published on the company's own contact page, and Apollo would have been
+paid to tell us the same thing.
+
+**The economics decide the design.** Verified against docs.apollo.io on 2026-09-18:
+
+| endpoint | cost |
+|---|---|
+| `POST /mixed_people/api_search` | **0 credits**, and reports `has_email` per person |
+| `POST /people/match` | 1 credit for demographics or email; **+8 if a mobile is returned**; nothing when `match_confidence` is `none` |
+| `POST /people/bulk_match` | up to 10 people, same per person |
+| `GET /organizations/enrich` | 1 credit |
+
+Because search is free and says whether an address exists, the expensive decision is made
+on free information: search, rank the candidates, and buy only when there is something to
+buy. An Account whose chosen decision maker has `has_email: false` costs nothing at all.
+
+A mobile costs nine times an email and arrives asynchronously through a webhook, so
+`APOLLO_PHONE_ENRICHMENT_ENABLED` defaults off and both waterfalls default off until the
+plain email yield has been measured. Apollo is off globally by default; every other flag is
+subordinate to that one.
+
+## DEC-044 — A worker restart must not buy the same answer twice
+
+**Date:** 2026-09-18  **Status:** Implemented
+
+`apollo_requests` carries a deterministic idempotency key built from the inputs that would
+change the answer: the Account, its resolved domain, the person, the operation, the mode
+and the fields requested. It excludes the time, the job and the worker, because a question
+asked twice is the same question.
+
+The row is written **before** the provider is called, and a partial unique index covers
+`IN_FLIGHT` as well as `MATCHED` and `NO_MATCH`. A second worker asking the same question
+in the same moment conflicts and stands down rather than both discovering afterwards that
+they each paid. `ERROR` is excluded, so a timeout may be retried — a timeout is not an
+answer.
+
+Asking for a phone after asking for an email is a different fingerprint, because it is
+genuinely a new purchase rather than a repeat of the old one.
+
+## DEC-045 — Do not invent a credit count
+
+**Date:** 2026-09-18  **Status:** Implemented
+
+Apollo does not return a per-call charge on these endpoints. The ledger therefore records
+`credits_charged` as null and keeps an estimate beside it from the documented schedule, and
+the spend report states which it is holding. A fabricated number reconciles against
+nothing, and the first time somebody compares it to an invoice they stop trusting the
+whole ledger.
+
+`credit_consuming` is `YES`, `NO` or `UNKNOWN` — never a guess dressed as a fact. A search
+is recorded `NO` because the documentation states zero, and a refused call is recorded `NO`
+because nothing was bought.
+
+## DEC-046 — Apollo is evidence, and it is the weakest kind we hold
+
+**Date:** 2026-09-18  **Status:** Implemented
+
+Apollo data never enters as `COMPANY_FIRST_PARTY`. It keeps the provider, the Apollo person
+and organization ids, the request id, the match confidence and the observed time, and it
+sits at priority 70 where the reconciler already places licensed providers — below the
+company's own website, below public registries, below licensing records.
+
+A conflict is kept rather than resolved by overwriting. Where the company's own team page
+says Owner and Apollo says President, both claims stand with their provenance and the
+stronger source wins the display, because erasing first-party evidence to agree with a
+vendor is how an estate stops being checkable.
+
+An Apollo person passes the same `judgePersonIdentity` gate as a name scraped from a
+website footer. One rule, so the two paths cannot disagree about what a person is.
+
+## DEC-047 — Reserved domains are refused at admission, and the fixtures moved
+
+**Date:** 2026-09-18  **Status:** Closed
+
+DEC-038 left this open and said so: reserved domains were blocked from recovery and
+canonical promotion, but not at discovery, because the whole test corpus uses RFC 2606
+names as ordinary company websites.
+
+It is now closed in the layer it belongs in — `isUsableBusiness`, which is Account
+admission. A reserved name no longer counts as a website, so it cannot be the thing that
+makes a record admissible. The guard is deliberately narrow: a real company with a bad
+website and a good phone is still admitted on the phone, and what it may not do is arrive
+claiming a website it cannot have.
+
+The corpus was migrated rather than worked around: 40 test files moved from the bare
+`.example` and `.invalid` TLDs to `.example-co`, which is not a real TLD, does not resolve,
+and is not reserved. `example.com` was left alone by a boundary-anchored pattern. Two
+generator functions and two hand-written URLs needed individual attention; everything else
+was mechanical.
+
+Three earlier attempts at this guard are worth recording because each was wrong in an
+instructive way. In `resolveObservations` it fired on fixtures for a reason incidental to
+what they tested. As a hard rejection it turned "we cannot tell" into "definitely not a
+company". And counting a reserved domain toward admission while refusing to store it would
+have created Accounts whose websites silently vanished.

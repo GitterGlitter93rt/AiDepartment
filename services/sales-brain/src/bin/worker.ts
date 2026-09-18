@@ -13,6 +13,7 @@ import '../workers/marketMiner.js';       // registers market_mine / zip_researc
 import '../workers/websiteRecovery.js';  // registers website_recovery
 import '../workers/domainResolution.js'; // registers domain_resolution
 import '../workers/alternativeSourceResearch.js'; // registers alternative_source_research
+import '../workers/apolloEnrichment.js';  // registers apollo_enrichment
 
 // Discovery providers. Registered in both processes so the API answers "can this
 // system find a new business" the same way the worker would; registering an
@@ -33,6 +34,7 @@ const { SWEEP_INTERVAL_MS } = await import('../workers/marketScheduler.js');
 const { expireStaleEvidence, refreshAccountFreshness } = await import('../workers/marketMiner.js');
 const { reconcilePendingBookings } = await import('../booking/webhooks.js');
 const { sweepWebsiteRecovery } = await import('../workers/websiteRecovery.js');
+const { sweepApolloDue } = await import('../workers/apolloEnrichment.js');
 const { reconcileMissingResearch, recomputeStaleScores, scoreUnscoredResearched } =
   await import('../workers/researchReconcile.js');
 const { scheduleDueMarkets } = await import('../workers/marketScheduler.js');
@@ -84,6 +86,14 @@ const sweep = setInterval(async () => {
     if (recovery.opened > 0 || recovery.requeued > 0) {
       console.log(`[worker] website recovery: opened ${recovery.opened} campaign(s), `
         + `re-queued ${recovery.requeued} due attempt(s)`);
+    }
+
+    // Accounts whose Apollo check has come round. The sweep is daily; the provider calls
+    // are only for the Accounts that are due, which is what keeps a daily sweep from
+    // becoming a daily bill.
+    const apollo = await sweepApolloDue();
+    if (apollo.queued > 0) {
+      console.log(`[worker] apollo: ${apollo.queued} of ${apollo.due} due Account(s) queued`);
     }
 
     // A booking the provider never confirmed must stop looking upcoming.

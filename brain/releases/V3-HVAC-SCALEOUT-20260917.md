@@ -224,6 +224,81 @@ regex form after the rest had moved.
 pre-existing `$0.2760`, and no paid HVAC acquisition has started. ChatGPT Work's full
 312-Account audit merges before qualification and deployment.
 
-## 6. Results
+## 6. Apollo — paid enrichment, last in the waterfall
+
+Authorized by Michael on 2026-09-18 with roughly 1,200 credits. Built, tested and
+documented on the branch. **Not deployed, not enabled, never called.**
+
+### The API, as verified on 2026-09-18
+
+Read from docs.apollo.io rather than assumed. Authentication is the `x-api-key` header.
+
+| endpoint | method | credits |
+|---|---|---|
+| `/mixed_people/api_search` | POST | **0** — and returns `has_email` / `has_direct_phone` per person |
+| `/people/match` | POST | 1 for demographics or email; **+8 if a mobile is returned**; 0 when `match_confidence` is `none` |
+| `/people/bulk_match` | POST | up to 10 per call, same per person |
+| `/organizations/enrich` | GET | 1 per organization |
+
+Two documented behaviours shaped the whole design. Search is free and says whether an
+address exists, so the paid decision is made on free information. And `reveal_phone_number`
+makes the call asynchronous and requires a `webhook_url`, on top of costing nine times an
+email — which is why it is off rather than merely discouraged.
+
+Bulk result ordering is **not documented**, so results are correlated by Apollo person id
+and never by array position.
+
+### What was built
+
+| piece | file |
+|---|---|
+| normalised types and the adapter contract | `src/providers/apollo/types.ts` |
+| the only place that knows Apollo's JSON | `src/providers/apollo/client.ts` |
+| eligibility: is this a business, and is anything still missing | `src/providers/apollo/eligibility.ts` |
+| candidate scoring and selection | `src/providers/apollo/candidates.ts` |
+| idempotency and the credit ledger | `src/providers/apollo/ledger.ts` |
+| the worker and the daily due-sweep | `src/workers/apolloEnrichment.ts` |
+| schema | `migrations/058_apollo_enrichment.sql` |
+
+Apollo enters where the resolver already reserved a place for it —
+`LICENSED_CONTACT_PROVIDER`, priority 70, below every first-party and public source — and
+runs in Stage H, the paid slot that has always been skipped.
+
+### Defaults
+
+`APOLLO_ENABLED=false`. Phone enrichment off. Both waterfalls off. People search on,
+because it is free. No outbound capability is touched, and none becomes enabled as a side
+effect.
+
+### Freshness
+
+A daily sweep reads `next_check_at` and queues only the Accounts that are due, so a daily
+sweep is not a daily bill. Missing decision maker or missing route: 30 days. No match: 60
+days, doubling to a ceiling of four times. Complete: 90 days. A material change of
+organisation identity — a different canonical domain — makes an Account eligible at once,
+because a prior answer is about a company we are no longer asking about.
+
+### Pilot — NOT RUN
+
+`APOLLO_API_KEY` is present in the environment and empty. Nothing else blocks the live
+capability check or the authorized ~20-Account pilot.
+
+**To install it**, on the box that runs Sales Brain:
+
+```
+# Edit the worker's environment file and set the value, without echoing it:
+#   /home/roothecks/YAD-Sales-Brain/services/sales-brain/.env
+# Change the existing empty line
+#   APOLLO_API_KEY=
+# to
+#   APOLLO_API_KEY=<the key from Apollo > Settings > Integrations > API>
+chmod 600 /home/roothecks/YAD-Sales-Brain/services/sales-brain/.env
+```
+
+Do not paste the key into chat. Once it is in place, the capability check and the pilot can
+run without deploying anything, because both read the snapshot and call the provider
+directly.
+
+## 7. Results
 
 _Filled in when the scale-out runs._

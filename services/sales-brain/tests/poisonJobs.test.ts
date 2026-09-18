@@ -65,7 +65,7 @@ test('credential shapes are redacted even when nothing is configured', () => {
     'Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l',
     'sent Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     'connect failed postgres://yad:hunter2@db:5432/yad',
-    'called https://api.example/serp?api_key=abcd1234efgh',
+    'called https://api.example-co/serp?api_key=abcd1234efgh',
     'config was password=correcthorsebattery',
   ];
   for (const text of cases) {

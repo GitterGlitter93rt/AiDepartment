@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { providerAnswered, type DiscoveryStatus } from '../miner/discoveryStatus.js';
 import { query, withTransaction } from '../db/pool.js';
 import { runContactResearch } from './contactResearch.js';
+import { isUsableWebsiteDomain } from '../domain/domainValidity.js';
 import { registerHandler, type JobRecord, type JobOutcome } from './runner.js';
 import type { EntityCandidate } from '../discovery/resolve.js';
 import { mayPromote, registrableDomain } from '../discovery/sourceClass.js';
@@ -1447,9 +1448,35 @@ export interface IngestionCounts {
 export function isUsableBusiness(business: DiscoveredBusiness): boolean {
   const name = (business.name ?? '').trim();
   if (name.length < 2) return false;
-  const hasDomain = Boolean((business.website ?? '').trim());
+  /**
+   * A reserved name is not a website, so it cannot be the thing that makes a record
+   * admissible.
+   *
+   * proofroof.invalid reached the live estate and became a workable Account whose only
+   * identity was a domain RFC 2606 guarantees can never resolve. This is the layer that
+   * decision belongs in -- admission -- rather than in `resolveObservations`, which
+   * answers what identities a result set contains and not what may be sold to.
+   *
+   * Deliberately narrow. A real company with a bad website and a good phone is still a
+   * real company, so the phone still admits it; what it may not do is arrive claiming a
+   * website it cannot have. `promoteWebsite` below is what keeps that claim off the
+   * Account.
+   */
+  const hasDomain = isUsableWebsiteDomain(business.website ?? null);
   const hasPhone = Boolean((business.phone ?? '').trim());
   return hasDomain || hasPhone;
+}
+
+/**
+ * The website an Account may be given, which is not always the one that was observed.
+ *
+ * Returns null for anything that cannot be a public site, so the Account keeps its other
+ * evidence and simply has no website -- which is the true state of affairs.
+ */
+export function promoteWebsite(website: string | null | undefined): string | null {
+  const value = (website ?? '').trim();
+  if (!value) return null;
+  return isUsableWebsiteDomain(value) ? value : null;
 }
 
 /**

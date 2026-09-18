@@ -55,7 +55,7 @@ async function fixture() {
   await createUser({
     email: 'm@sec.local', displayName: 'Manager', role: 'SALES_MANAGER', password: PASSWORD });
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Security Fixture Co', website: 'https://secfixture.example',
+    canonicalName: 'Security Fixture Co', website: 'https://secfixture.example-co',
     phone: '904-555-0301', city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
   return {
@@ -85,7 +85,7 @@ test('injected website text is fenced, labelled and never becomes an instruction
         accountId: f.accountId, category: 'business_profile',
         claimKey: `injection_${index}`, claimText: injection,
         confidence: 'confirmed', canStateAsFact: true, sourceType: 'COMPANY_WEBSITE',
-        sourceReference: 'https://secfixture.example/about',
+        sourceReference: 'https://secfixture.example-co/about',
       });
     }
   });
@@ -264,7 +264,7 @@ test('a redirect target always stays inside the application', async () => {
   const f = await fixture();
   const response = await app.inject({
     method: 'POST', url: '/ai/pilot/switch', headers: { cookie: f.manager },
-    payload: { field: 'outbound_mode', value: 'OFF', reason: 'https://attacker.example/' },
+    payload: { field: 'outbound_mode', value: 'OFF', reason: 'https://attacker.example-co/' },
   });
   const location = String(response.headers.location ?? '');
   assert.ok(location.startsWith('/'), `redirected to ${location}`);

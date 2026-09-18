@@ -58,7 +58,7 @@ function queueingAdapter(): Fake {
         return { status: 'PENDING', observations: observationsFor([]), providerTaskId: taskId };
       }
       return { status: 'OK', providerTaskId: taskId,
-        observations: observationsFor([{ name: 'Collected Co', website: 'collected.example', phone: '904-555-0111' }]) };
+        observations: observationsFor([{ name: 'Collected Co', website: 'collected.example-co', phone: '904-555-0111' }]) };
     },
     async tasksReady(): Promise<string[] | null> { return fake.readyIds; },
   };

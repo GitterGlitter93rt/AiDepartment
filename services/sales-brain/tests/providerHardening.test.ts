@@ -61,7 +61,7 @@ const LOOKUP: LineTypeConfig = {
 async function seedEndpoint(endpointRole: string): Promise<{ accountId: string; endpointId: string }> {
   return withTransaction(async (client) => {
     const { accountId } = await upsertAccount(client, {
-      canonicalName: 'Lookup Fixture Co', website: 'https://lookup.example',
+      canonicalName: 'Lookup Fixture Co', website: 'https://lookup.example-co',
       phone: '904-555-0177', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' });
     const endpointId = (await upsertEndpoint(client, {

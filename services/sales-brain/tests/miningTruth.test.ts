@@ -635,7 +635,7 @@ test('a discovered advertiser is actually stored as an observation', async () =>
         observations: observationsFor([
           { name: 'Paid Ad Roofing', website: null, phone: '904-555-7701',
             resultType: 'PAID_SEARCH_TEXT', advertisedService: 'roof repair',
-            landingUrl: 'https://paidad.example/roofing' },
+            landingUrl: 'https://paidad.example-co/roofing' },
           { name: 'Local Pack Roofing', website: null, phone: '904-555-7702',
             resultType: 'MAPS_LOCAL' },
           { name: 'Organic Roofing', website: null, phone: '904-555-7703',

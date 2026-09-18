@@ -43,7 +43,7 @@ function fakeAdapter(options: {
     },
     async createEvent(request) {
       options.onCreate?.(request.idempotencyKey);
-      return options.createResult ?? { ok: true, providerEventId: 'evt-123', webLink: 'https://outlook.example/evt-123' };
+      return options.createResult ?? { ok: true, providerEventId: 'evt-123', webLink: 'https://outlook.example-co/evt-123' };
     },
   };
 }
@@ -60,7 +60,7 @@ beforeEach(async () => { await resetDatabase(); setCalendarAdapter(fakeAdapter()
 async function seedAccount(): Promise<string> {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example',
+      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example-co',
       phone: '904-555-0100', city: 'Jacksonville', state: 'FL',
     }, { discoverySource: 'test' }),
   );
@@ -240,7 +240,7 @@ test('a confirmed booking requires a provider event id, and writes the timeline'
   assert.equal(result.ok, true);
   assert.equal(result.providerEventId, 'evt-123');
   assert.match(result.spokenConfirmation, /confirmed/i);
-  assert.match(result.spokenConfirmation, /dana@northgate\.example\.com/);
+  assert.match(result.spokenConfirmation, /dana@northgate\.example-co\.com/);
 
   const booking = await query<{ status: string; provider_event_id: string; confirmed_at: Date; activity_id: number }>(
     'select status, provider_event_id, confirmed_at, activity_id from meeting_bookings where booking_id = $1',

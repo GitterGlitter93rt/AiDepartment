@@ -24,8 +24,8 @@ let rep: Awaited<ReturnType<typeof makeUser>>;
 
 const CSV = [
   'Company Name,Website,Business Phone,First Name,Last Name,Title,Email,City,State,Zip,Primary Industry',
-  '"Northgate Air & Heating, LLC",https://northgate.example,(904) 555-0101,Dana,Fielder,Owner,dana@northgate.example.com,Jacksonville,FL,32256,"Heating & AC"',
-  '"Riverbend Plumbing Inc.",https://riverbend.example,904.555.0202,Riley,Marsh,General Manager,riley@riverbend.example.com,Jacksonville,FL,32224,Plumbing',
+  '"Northgate Air & Heating, LLC",https://northgate.example-co,(904) 555-0101,Dana,Fielder,Owner,dana@northgate.example.com,Jacksonville,FL,32256,"Heating & AC"',
+  '"Riverbend Plumbing Inc.",https://riverbend.example-co,904.555.0202,Riley,Marsh,General Manager,riley@riverbend.example.com,Jacksonville,FL,32224,Plumbing',
   'Sable Run Roofing,,904-555-0303,Jordan,Quill,Sales Manager,,St. Augustine,FL,32084,Roofing',
   'X,,,,,,,,,,',
 ].join('\n');
@@ -78,7 +78,7 @@ test('the preview shows exactly what confirming would do', async () => {
 test('the preview names the account a row would merge into', async () => {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example',
+      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example-co',
       city: 'Jacksonville', state: 'FL',
     }, { discoverySource: 'market_miner' }));
 
@@ -98,7 +98,7 @@ test('the preview names the account a row would merge into', async () => {
 test('the preview warns before merging into another rep\'s account', async () => {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example',
+      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example-co',
     }, { discoverySource: 'market_miner' }));
   // A mined company the resolver promoted. Without the stamp the claim is refused and
   // this test stops being about the import preview.
@@ -119,7 +119,7 @@ test('the preview warns before merging into another rep\'s account', async () =>
 test('the preview flags a suppressed company before anything is written', async () => {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example',
+      canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example-co',
     }, { discoverySource: 'market_miner' }));
   // A mined company the resolver promoted. Without the stamp the claim is refused and
   // this test stops being about the import preview.

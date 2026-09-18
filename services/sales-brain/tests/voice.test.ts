@@ -30,7 +30,7 @@ async function endpointFor(phone: string): Promise<{ endpointId: string; account
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
       canonicalName: 'Riverbend Roofing',
-      website: 'https://riverbend.example',
+      website: 'https://riverbend.example-co',
       phone,
       city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
@@ -176,7 +176,7 @@ function calendar(options: { createResult?: CreateEventResult } = {}): CalendarA
     async getBusy() { return { ok: true, busy: [] }; },
     async createEvent() {
       return options.createResult
-        ?? { ok: true, providerEventId: 'evt-live-1', webLink: 'https://cal.example/evt-live-1' };
+        ?? { ok: true, providerEventId: 'evt-live-1', webLink: 'https://cal.example-co/evt-live-1' };
     },
   };
 }

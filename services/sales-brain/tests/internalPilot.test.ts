@@ -44,7 +44,7 @@ async function armInternalTest(userId: string) {
 
 async function seedAccount(name = 'Internal Pilot Fixture Co'): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: name, website: 'https://internal-fixture.example',
+    canonicalName: name, website: 'https://internal-fixture.example-co',
     phone: '904-555-0142', city: 'Jacksonville', state: 'FL', postalCode: '32256',
   }, { discoverySource: 'test' }));
   await query(

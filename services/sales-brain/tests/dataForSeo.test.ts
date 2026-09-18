@@ -303,7 +303,7 @@ function countingAdapter(options: { costPerTask?: number; results?: number } = {
       async discover() {
         state.calls += 1;
         const businesses = Array.from({ length: options.results ?? 2 }, (_unused, index) => ({
-          name: `Result ${index}`, website: `https://result${index}.example`,
+          name: `Result ${index}`, website: `https://result${index}.example-co`,
           phone: `904-555-90${index.toString().padStart(2, '0')}`,
           resultType: index === 0 ? 'PAID_SEARCH_TEXT' : 'ORGANIC',
         }));

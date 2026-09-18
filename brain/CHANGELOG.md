@@ -1,5 +1,41 @@
 # Operational Brain Changelog
 
+## 2026-09-18 — Apollo, last in the waterfall, and the reserved-domain hole closed
+
+Apollo.io is integrated as a paid enrichment provider. It is built, tested and documented;
+it is **not deployed, not enabled, and has never been called** -- the credential is absent.
+
+The integration extends what the codebase already reserved rather than adding a parallel
+subsystem. `LICENSED_CONTACT_PROVIDER` has sat at priority 70 in the resolver since it was
+written, below every first-party and public source, and Stage H of contact research is the
+paid slot that has always been skipped.
+
+**Apollo's own prices decided the design.** People search costs nothing and reports whether
+an email exists for each person; enrichment costs one credit and charges nothing when it
+does not match; a mobile costs eight more and arrives through a webhook. So the expensive
+decision is made on free information -- search, rank, and buy only when Apollo has already
+said there is something to buy. An Account whose chosen owner has no address on file costs
+zero.
+
+Phone enrichment and both waterfalls default off. Apollo itself defaults off.
+
+**A worker restart cannot buy the same answer twice.** The claim is a row written before
+the provider is called, and a partial unique index covering IN_FLIGHT means a second worker
+asking the same question stands down rather than both paying. A timeout is not an answer,
+so it may be retried.
+
+**The ledger does not invent credit counts.** Apollo returns no per-call charge, so
+`credits_charged` is null with an estimate beside it, and the report says which it holds.
+
+**DEC-038's known hole is closed.** Reserved domains are refused at Account admission --
+`isUsableBusiness`, the correct layer -- and the test corpus was migrated rather than
+worked around: 40 files moved off the bare `.example` and `.invalid` TLDs to `.example-co`,
+which does not resolve and is not reserved. A real company with a bad website and a good
+phone is still admitted; what it cannot do is arrive claiming a website that cannot exist.
+
+Blocked on one thing only: `APOLLO_API_KEY` is present in the environment and empty, so the
+live capability check and the 20-Account pilot have not run.
+
 ## 2026-09-18 — Six defects the estate showed us, turned into code
 
 A hand audit of the production snapshot found six structural defects. Each is now a guard

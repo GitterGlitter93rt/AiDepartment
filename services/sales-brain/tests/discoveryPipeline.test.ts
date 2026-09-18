@@ -185,7 +185,7 @@ test('every adapter reaches inventory through one resolution', () => {
 
 test('A. an entity-discovery query may create Accounts', async () => {
   adapterReturning(observationsFor([
-    { name: 'Primary Discovery Roofing', website: 'https://primarydiscovery.invalid',
+    { name: 'Primary Discovery Roofing', website: 'https://primarydiscovery.example-co',
       phone: '904-555-0201' },
   ]));
   await mine({ queryBudget: 1 });
@@ -210,7 +210,7 @@ test('B. a commercial-intelligence query may not introduce a company', async () 
       return {
         status: 'OK',
         observations: observationsFor([
-          { name: 'National Roof Financing Group', website: 'https://rooffinance.invalid',
+          { name: 'National Roof Financing Group', website: 'https://rooffinance.example-co',
             phone: '800-555-0301' },
         ]),
         costUsd: 0,
@@ -231,7 +231,7 @@ test('B. a commercial-intelligence query may not introduce a company', async () 
   // Kept, not lost: the identity and the reason are on record.
   const { rows: candidates } = await query<{ entity_status: string; reasons: string[] }>(
     `select entity_status, reasons from discovery_candidates
-      where identity = 'rooffinance.invalid'`);
+      where identity = 'rooffinance.example-co'`);
   assert.equal(candidates[0]?.entity_status, 'NEEDS_REVIEW');
   assert.match(candidates[0]!.reasons.join(' '), /about what this market sells/);
 });
@@ -239,7 +239,7 @@ test('B. a commercial-intelligence query may not introduce a company', async () 
 test('C. a commercial-intelligence query may confirm a company we already hold',
   async () => {
   await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Held Roofing Co', website: 'https://heldroofing.invalid',
+    canonicalName: 'Held Roofing Co', website: 'https://heldroofing.example-co',
     phone: '904-555-0401', verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
 
@@ -253,7 +253,7 @@ test('C. a commercial-intelligence query may confirm a company we already hold',
       return {
         status: 'OK',
         observations: observationsFor([
-          { name: 'Held Roofing Co', website: 'https://heldroofing.invalid',
+          { name: 'Held Roofing Co', website: 'https://heldroofing.example-co',
             phone: '904-555-0401' },
         ]),
         costUsd: 0,
@@ -289,7 +289,7 @@ test('MAPS_LOCAL with no phone and no address is not an identified business', ()
 test('MAPS_LOCAL with an observed address is an identified business', () => {
   const run = resolveObservations([{
     providerNativeId: null, observedName: 'Addressed Roofing LLC',
-    observedDomain: 'addressedroofing.invalid', observedPhone: null,
+    observedDomain: 'addressedroofing.example-co', observedPhone: null,
     observedBusinessAddress: '120 King St, St. Augustine, FL',
     observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: 'St. Augustine,Florida,United States',
@@ -322,7 +322,7 @@ test('the physical locations table never receives the provider search target',
   async () => {
   adapterReturning([{
     providerNativeId: null, observedName: 'No Address Roofing',
-    observedDomain: 'noaddressroofing.invalid', observedPhone: '904-555-0601',
+    observedDomain: 'noaddressroofing.example-co', observedPhone: '904-555-0601',
     observedBusinessAddress: null,
     observedCity: null, observedRegion: null, observedPostalCode: null,
     searchLocationName: 'St. Augustine,Florida,United States',
@@ -349,7 +349,7 @@ test('the physical locations table never receives the provider search target',
 
 async function minedAccount(name: string, status: string): Promise<string> {
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: name, website: `https://${name.toLowerCase().replace(/[^a-z]/g, '')}.invalid`,
+    canonicalName: name, website: `https://${name.toLowerCase().replace(/[^a-z]/g, '')}.example-co`,
     phone: '904-555-0701', verticalProfileId: 'roofing',
   }, { discoverySource: 'market_miner:dataforseo' }));
   await query('update accounts set entity_status = $2 where account_id = $1',
@@ -379,7 +379,7 @@ test('an imported record that predates verification keeps working', async () => 
   // The migration marks nothing verified, so the status alone cannot tell an
   // imported company from a SERP row. How it was found can.
   const { accountId } = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Imported Legacy Roofing', website: 'https://importedlegacy.invalid',
+    canonicalName: 'Imported Legacy Roofing', website: 'https://importedlegacy.example-co',
     phone: '904-555-0801', verticalProfileId: 'roofing',
   }, { discoverySource: 'import' }));
   const rep = await makeUser('Import Rep', 'SALES_REP');
@@ -400,7 +400,7 @@ test('the pilot fails closed for an unverified record', async () => {
 test('cold inventory does not list what cannot be claimed', async () => {
   await minedAccount('Junk Canary Roofing', 'legacy_unverified');
   const real = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Real Canary Roofing', website: 'https://realcanary.invalid',
+    canonicalName: 'Real Canary Roofing', website: 'https://realcanary.example-co',
     phone: '904-555-0901', city: 'St. Augustine', state: 'FL', postalCode: '32095',
     verticalProfileId: 'roofing',
   }, { discoverySource: 'market_miner:dataforseo' }));
@@ -422,7 +422,7 @@ test('ingestListings marks what a listings provider resolved', async () => {
     provider: 'google_places', verticalProfileId: 'roofing', marketId: null, jobId: null,
     listings: [{
       providerListingId: 'places-1', name: 'Listings Verified Roofing',
-      domain: 'listingsverified.invalid', phone: '904-555-1001',
+      domain: 'listingsverified.example-co', phone: '904-555-1001',
       address: '1 Bay St', city: 'St. Augustine', state: 'FL', postalCode: '32084',
       category: 'Roofing contractor', rating: 4.7, reviewCount: 31, observedAt: new Date(),
     }],
@@ -454,7 +454,7 @@ test('the account page says what is known about the entity, not just the researc
 test('reprocess reports what a run would do today and changes nothing', async () => {
   adapterReturning([
     ...observationsFor([{ name: 'Reprocess Real Roofing',
-      website: 'https://reprocessreal.invalid', phone: '904-555-1101' }]),
+      website: 'https://reprocessreal.example-co', phone: '904-555-1101' }]),
     ...junkObservations(2),
   ]);
   const job = await mine();
@@ -517,7 +517,7 @@ test('a discovery query does not enrich a record nothing has verified', async ()
   const junk = await minedAccount('Rediscovered Junk Roofing', 'legacy_unverified');
   adapterReturning(observationsFor([
     { name: 'Rediscovered Junk Roofing',
-      website: 'https://rediscoveredjunkroofing.invalid',
+      website: 'https://rediscoveredjunkroofing.example-co',
       phone: '904-555-0701', resultType: 'PAID_SEARCH_TEXT' },
   ]));
   const job = await mine();
@@ -542,7 +542,7 @@ test('a discovery query does not enrich a record nothing has verified', async ()
 test('a verified company is still enriched by the search that finds it again', async () => {
   const verified = await minedAccount('Verified Again Roofing', 'verified');
   adapterReturning(observationsFor([
-    { name: 'Verified Again Roofing', website: 'https://verifiedagainroofing.invalid',
+    { name: 'Verified Again Roofing', website: 'https://verifiedagainroofing.example-co',
       phone: '904-555-0701', resultType: 'PAID_SEARCH_TEXT' },
   ]));
   const job = await mine();
@@ -562,7 +562,7 @@ function threeSightings(order: ('organic' | 'paid' | 'maps')[]): ProviderObserva
   const base = {
     providerNativeId: null as string | null,
     observedName: 'Permutation Roofing',
-    observedDomain: 'permutationroofing.invalid',
+    observedDomain: 'permutationroofing.example-co',
     observedPhone: '904-555-4401',
     observedBusinessAddress: null as string | null,
     observedCity: null as string | null,
@@ -657,7 +657,7 @@ test('a company seen in both a text ad and a Local Services ad earns both claims
 
 test('the market vocabulary includes the place the provider was asked about', async () => {
   // The ZIP alone was not enough. "St Augustine Plumbing" on
-  // `staugustineplumbing.example` still corroborated itself, because "plumbing" was
+  // `staugustineplumbing.example-co` still corroborated itself, because "plumbing" was
   // generic and "augustine" was not -- and the city's name is written down in the
   // provider's normalised location, not in the operator's ZIP.
   const { genericTermsFor } = await import('../src/miner/searchTaxonomy.js');
@@ -676,7 +676,7 @@ test('the market vocabulary includes the place the provider was asked about', as
 
 test('a city-and-trade domain is not verified by a real run of that market', async () => {
   adapterReturning(observationsFor([
-    { name: 'St Augustine Roofing', website: 'https://staugustineroofing.invalid',
+    { name: 'St Augustine Roofing', website: 'https://staugustineroofing.example-co',
       resultType: 'ORGANIC',
       // What a real response carries on every row: the place the provider searched.
       searchLocationName: 'St. Augustine,Florida,United States' },
@@ -698,7 +698,7 @@ test('two equally strong rows at the same rank resolve the same either way', asy
   const shared = {
     providerNativeId: null as string | null,
     observedName: 'Tie Break Roofing',
-    observedDomain: 'tiebreakroofing.invalid',
+    observedDomain: 'tiebreakroofing.example-co',
     observedPhone: '904-555-5501',
     observedBusinessAddress: null as string | null,
     observedCity: null as string | null,

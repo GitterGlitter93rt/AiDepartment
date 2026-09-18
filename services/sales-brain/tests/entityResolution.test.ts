@@ -337,12 +337,12 @@ test('two businesses on the same site builder are two businesses', () => {
 });
 
 test('a URL and a bare host are the same identity', () => {
-  // Inventory stores `https://acme.invalid`; the resolver stores `acme.invalid`. When
+  // Inventory stores `https://acme.example-co`; the resolver stores `acme.example-co`. When
   // these disagreed, linking an observation to the Account it became matched nothing
   // and the evidence was left unattached.
-  assert.equal(registrableDomain('https://acme.invalid/roofing?utm=1'), 'acme.invalid');
-  assert.equal(registrableDomain('acme.invalid'), 'acme.invalid');
-  assert.equal(registrableDomain('HTTPS://WWW.Acme.Invalid:8443/x'), 'acme.invalid');
+  assert.equal(registrableDomain('https://acme.example-co/roofing?utm=1'), 'acme.example-co');
+  assert.equal(registrableDomain('acme.example-co'), 'acme.example-co');
+  assert.equal(registrableDomain('HTTPS://WWW.Acme.Example-Co:8443/x'), 'acme.example-co');
 });
 
 // ----------------------------------------- corroboration must be distinctive --
@@ -370,7 +370,7 @@ test('a trade word shared with the domain does not establish ownership', () => {
 
 test('a company word and a place name are not distinctive either', () => {
   assert.equal(brandMatchesDomain(
-    'Jacksonville Roofing Company', 'roofingcompanyflorida.example',
+    'Jacksonville Roofing Company', 'roofingcompanyflorida.example-co',
     new Set(['roofing', 'roofer', 'jacksonville'])), false,
     'generic category and place words were accepted as a brand match');
 });
@@ -386,10 +386,10 @@ test('two rows from one unknown directory are not two sources', () => {
   // A directory is made of a profile page and a category page. Both are pages on that
   // domain, and their agreeing with each other is the site repeating itself.
   const resolved = resolveCandidates([
-    row({ observedName: 'Salazar Plumbing', observedDomain: 'unknownplumbingdir.example',
-          landingUrl: 'https://unknownplumbingdir.example/fl/salazar-plumbing' }),
-    row({ observedName: 'Salazar Plumbing', observedDomain: 'unknownplumbingdir.example',
-          landingUrl: 'https://unknownplumbingdir.example/category/plumbers' }),
+    row({ observedName: 'Salazar Plumbing', observedDomain: 'unknownplumbingdir.example-co',
+          landingUrl: 'https://unknownplumbingdir.example-co/fl/salazar-plumbing' }),
+    row({ observedName: 'Salazar Plumbing', observedDomain: 'unknownplumbingdir.example-co',
+          landingUrl: 'https://unknownplumbingdir.example-co/category/plumbers' }),
   ], PLUMBING_GENERIC);
   assert.equal(resolved.length, 1);
   assert.notEqual(resolved[0]!.status, 'VERIFIED',
@@ -400,9 +400,9 @@ test('two rows from one unknown directory are not two sources', () => {
 test('a provider listing tied to the domain is still corroboration', () => {
   const resolved = resolveCandidates([
     row({ resultType: 'MAPS_LOCAL', observedName: 'Salazar Plumbing',
-          observedDomain: 'salazarplumbingco.example', observedPhone: '904-555-0190',
+          observedDomain: 'salazarplumbingco.example-co', observedPhone: '904-555-0190',
           observedBusinessAddress: '12 Bay St, St. Augustine, FL' }),
-    row({ observedName: 'Salazar Plumbing', observedDomain: 'salazarplumbingco.example' }),
+    row({ observedName: 'Salazar Plumbing', observedDomain: 'salazarplumbingco.example-co' }),
   ], PLUMBING_GENERIC);
   assert.equal(resolved.length, 1);
   assert.equal(resolved[0]!.status, 'VERIFIED');
@@ -425,13 +425,13 @@ const PLUMBING_IN_ST_AUGUSTINE = new Set([
 
 test('a city and a trade together do not prove a domain belongs to a company', () => {
   assert.equal(
-    brandMatchesDomain('St Augustine Plumbing', 'staugustineplumbing.example',
+    brandMatchesDomain('St Augustine Plumbing', 'staugustineplumbing.example-co',
       PLUMBING_IN_ST_AUGUSTINE),
     false, 'a city-plus-trade domain corroborated itself');
 
   const candidate = only([row({
-    observedName: 'St Augustine Plumbing', observedDomain: 'staugustineplumbing.example',
-    landingUrl: 'https://staugustineplumbing.example/',
+    observedName: 'St Augustine Plumbing', observedDomain: 'staugustineplumbing.example-co',
+    landingUrl: 'https://staugustineplumbing.example-co/',
   })], PLUMBING_IN_ST_AUGUSTINE);
   assert.notEqual(candidate.status, 'VERIFIED');
   assert.equal(candidate.status, 'NEEDS_REVIEW');
@@ -439,7 +439,7 @@ test('a city and a trade together do not prove a domain belongs to a company', (
 
 test('a distinctive surname still corroborates in the same market', () => {
   assert.equal(
-    brandMatchesDomain('Burchfield Plumbing', 'burchfieldplumbing.example',
+    brandMatchesDomain('Burchfield Plumbing', 'burchfieldplumbing.example-co',
       PLUMBING_IN_ST_AUGUSTINE),
     true, 'a real brand match was refused');
 });
@@ -448,7 +448,7 @@ test('the same shape in another market behaves the same way', () => {
   const jacksonvilleRoofing = new Set([
     'roofing', 'roofer', 'roof', 'jacksonville', 'florida', 'united', 'states']);
   assert.equal(
-    brandMatchesDomain('Jacksonville Roofing', 'jacksonvilleroofing.example',
+    brandMatchesDomain('Jacksonville Roofing', 'jacksonvilleroofing.example-co',
       jacksonvilleRoofing),
     false, 'a city-plus-trade domain corroborated itself in a second vertical');
 });
@@ -458,7 +458,7 @@ test('a provider business listing verifies however generic the name is', () => {
   // stronger fact than anything a name and a domain can agree about.
   const candidate = only([row({
     resultType: 'MAPS_LOCAL', observedName: 'St Augustine Plumbing',
-    observedDomain: 'staugustineplumbing.example', observedPhone: '904-555-0170',
+    observedDomain: 'staugustineplumbing.example-co', observedPhone: '904-555-0170',
     observedBusinessAddress: '9 Center St, St. Augustine, FL',
   })], PLUMBING_IN_ST_AUGUSTINE);
   assert.equal(candidate.status, 'VERIFIED');

@@ -40,7 +40,7 @@ const ORDINARY = fixtureForm('ordinary');
 
 function eligibleFor(vertical = 'hvac') {
   return analyzeForm({
-    form: parseFormHtml(ORDINARY.html, 'https://fixture.example/contact'),
+    form: parseFormHtml(ORDINARY.html, 'https://fixture.example-co/contact'),
     verticalProfileId: vertical,
   });
 }
@@ -53,7 +53,7 @@ async function makeAccount(input: {
                            primary_vertical_profile_id, account_type)
      values ($1,$2,$3,$4,'independent_business') returning account_id`,
     [input.name, input.name.toLowerCase(),
-     input.domain ?? `${input.name.toLowerCase().replace(/\W+/g, '')}.example`,
+     input.domain ?? `${input.name.toLowerCase().replace(/\W+/g, '')}.example-co`,
      input.vertical ?? 'hvac']);
   const accountId = rows[0]!.account_id;
   await pool.query(
@@ -93,12 +93,12 @@ test('one open probe per Account, enforced by the database and not by hope', asy
   const identityId = await identity();
 
   const first = await planProbe({
-    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example-co',
     identityId, now: NOW });
   assert.equal(first.planned, true);
 
   const second = await planProbe({
-    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example-co',
     identityId, now: NOW });
   assert.equal(second.planned, false);
   assert.equal(second.refusal, 'ALREADY_OPEN');
@@ -110,13 +110,13 @@ test('a re-probe inside cooldown is refused, not queued', async () => {
   const identityId = await identity();
 
   const first = await planProbe({
-    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example-co',
     identityId, now: NOW });
   await transitionProbe({ probeId: first.probeId!, to: 'CANCELLED',
     reason: 'test', actor: 'test' });
 
   const again = await planProbe({
-    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example-co',
     identityId, now: new Date(NOW.getTime() + 24 * 3_600_000) });
   assert.equal(again.planned, false);
   assert.equal(again.refusal, 'IN_COOLDOWN');
@@ -132,7 +132,7 @@ test('"do not audit us" stops probing without stopping ordinary outreach', async
     [accountId]);
 
   const plan = await planProbe({
-    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example-co',
     identityId, now: NOW });
   assert.equal(plan.refusal, 'PROBE_SUPPRESSED');
 
@@ -153,7 +153,7 @@ test('a company suppressed for contact is never probed', async () => {
      values ('ACCOUNT',$1,'DNC','PROSPECT_REQUEST')`, [accountId]);
 
   const plan = await planProbe({
-    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example',
+    accountId, eligibility: eligibleFor(), targetFormUrl: 'https://x.example-co',
     identityId, now: NOW });
   assert.equal(plan.refusal, 'ACCOUNT_SUPPRESSED');
 });
@@ -171,15 +171,15 @@ test('two franchise locations sharing a toll-free line cannot share a pool numbe
     tollFree: '+18005551000' });
 
   const first = await planProbe({ accountId: a, eligibility: eligibleFor(),
-    targetFormUrl: 'https://x.example', identityId, now: NOW });
+    targetFormUrl: 'https://x.example-co', identityId, now: NOW });
   const firstSubmit = await dryRunSubmit({
-    probeId: first.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example',
+    probeId: first.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example-co',
     verticalProfileId: 'hvac', now: NOW });
   assert.equal(firstSubmit.poolNumberE164, '+19045559000');
 
   const second = await planProbe({ accountId: b, eligibility: eligibleFor(),
-    targetFormUrl: 'https://x.example', identityId, now: NOW });
+    targetFormUrl: 'https://x.example-co', identityId, now: NOW });
   const allocation = await allocateForProbe({ probeId: second.probeId!, now: NOW });
   assert.equal(allocation.allocated, false);
   assert.equal(allocation.allocated === false && allocation.reason, 'DEFERRED_COLLISION');
@@ -199,10 +199,10 @@ test('a dry run prepares everything and sends nothing', async () => {
   const accountId = await makeAccount({ name: 'Marsh Point Air', phone: '+19045550177' });
 
   const plan = await planProbe({ accountId, eligibility: eligibleFor(),
-    targetFormUrl: 'https://fixture.example/contact', identityId, now: NOW });
+    targetFormUrl: 'https://fixture.example-co/contact', identityId, now: NOW });
   const result = await dryRunSubmit({
-    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://fixture.example/contact'),
-    identityName: 'A. Fixture', emailAlias: 'probe+abcdef0123456789@probes.example',
+    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://fixture.example-co/contact'),
+    identityName: 'A. Fixture', emailAlias: 'probe+abcdef0123456789@probes.example-co',
     verticalProfileId: 'hvac', zipOrCity: '32256', now: NOW });
 
   assert.equal(result.submitted, false);
@@ -220,10 +220,10 @@ test('a crash between preparing and confirming is left for a person, never retri
   const accountId = await makeAccount({ name: 'Crashy Co', phone: '+19045550444' });
 
   const plan = await planProbe({ accountId, eligibility: eligibleFor(),
-    targetFormUrl: 'https://x.example', identityId, now: NOW });
+    targetFormUrl: 'https://x.example-co', identityId, now: NOW });
   const result = await dryRunSubmit({
-    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example',
+    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example-co',
     verticalProfileId: 'hvac', now: NOW,
     simulate: { kind: 'CRASH_BEFORE_CONFIRMATION' } });
 
@@ -240,10 +240,10 @@ test('a 500 from the form is a fact about the form, and is not retried', async (
   const accountId = await makeAccount({ name: 'Broken Form Co', phone: '+19045550555' });
 
   const plan = await planProbe({ accountId, eligibility: eligibleFor(),
-    targetFormUrl: 'https://x.example', identityId, now: NOW });
+    targetFormUrl: 'https://x.example-co', identityId, now: NOW });
   const result = await dryRunSubmit({
-    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example',
+    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example-co',
     verticalProfileId: 'hvac', now: NOW,
     simulate: { kind: 'SERVER_ERROR', statusCode: 500 } });
 
@@ -264,10 +264,10 @@ async function submittedProbe(name: string, phone: string): Promise<{
   await makePoolNumber(poolE164);
   const accountId = await makeAccount({ name, phone });
   const plan = await planProbe({ accountId, eligibility: eligibleFor(),
-    targetFormUrl: 'https://x.example', identityId, now: NOW });
+    targetFormUrl: 'https://x.example-co', identityId, now: NOW });
   await dryRunSubmit({
-    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example',
+    probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+    identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example-co',
     verticalProfileId: 'hvac', now: NOW });
   return { probeId: plan.probeId!, accountId, poolE164 };
 }
@@ -368,15 +368,15 @@ test('ambiguous attribution produces no measurement at all', async () => {
   // Two similarly named companies with nothing in common but their name, so the
   // allocator legitimately puts both on one number.
   const a = await makeAccount({ name: 'Coastal Air Services', phone: '+19045550601',
-    domain: 'coastalairservices.example' });
+    domain: 'coastalairservices.example-co' });
   const b = await makeAccount({ name: 'Coastal Air and Heating', phone: '+19045550602',
-    domain: 'coastalairheating.example' });
+    domain: 'coastalairheating.example-co' });
   for (const accountId of [a, b]) {
     const plan = await planProbe({ accountId, eligibility: eligibleFor(),
-      targetFormUrl: 'https://x.example', identityId, now: NOW });
+      targetFormUrl: 'https://x.example-co', identityId, now: NOW });
     await dryRunSubmit({
-      probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example'),
-      identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example',
+      probeId: plan.probeId!, form: parseFormHtml(ORDINARY.html, 'https://x.example-co'),
+      identityName: 'A. Fixture', emailAlias: 'probe+a@probes.example-co',
       verticalProfileId: 'hvac', now: NOW });
   }
 

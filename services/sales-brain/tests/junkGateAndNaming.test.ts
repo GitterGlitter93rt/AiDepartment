@@ -101,7 +101,7 @@ test('a real local listing is still promoted', async () => {
   // The gate must refuse pages, not companies. A provider entity listing with a name
   // and a number to ring is the strongest thing a SERP gives us.
   await mine([
-    { name: 'Southern Air', website: 'https://southernair.example', phone: '407-555-0150',
+    { name: 'Southern Air', website: 'https://southernair.example-co', phone: '407-555-0150',
       resultType: 'MAPS_LOCAL', observedBusinessAddress: '120 Main St, Orlando, FL' },
   ]);
 
@@ -113,10 +113,10 @@ test('a company is named from its listing, not from its page title', async () =>
   // The production shape: the same company appears in the local pack under its name
   // and organically under an SEO title. The rep's list read the title.
   await mine([
-    { name: 'Southern Air', website: 'https://southernair.example', phone: '407-555-0150',
+    { name: 'Southern Air', website: 'https://southernair.example-co', phone: '407-555-0150',
       resultType: 'MAPS_LOCAL', observedBusinessAddress: '120 Main St, Orlando, FL' },
     { name: 'Southern Air | AC Repair & Installation in Orlando FL | Call Now',
-      website: 'https://southernair.example', phone: '407-555-0150', resultType: 'ORGANIC' },
+      website: 'https://southernair.example-co', phone: '407-555-0150', resultType: 'ORGANIC' },
   ]);
 
   const names = await accountNames();

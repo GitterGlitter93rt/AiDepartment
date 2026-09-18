@@ -72,12 +72,12 @@ const poolNumber = (
 
 test('two locations of one franchise share a collision key', () => {
   const a = collisionKeys({ phones: ['+19045550101'], alternatePhones: ['+18005551000'],
-    domain: 'jax.example' });
+    domain: 'jax.example-co' });
   const b = collisionKeys({ phones: ['+19045550202'], alternatePhones: ['+18005551000'],
-    domain: 'staug.example' });
+    domain: 'staug.example-co' });
   assert.ok(collides(a, b), 'a shared toll-free line is one phone system to a caller');
 
-  const unrelated = collisionKeys({ phones: ['+19045559999'], domain: 'other.example' });
+  const unrelated = collisionKeys({ phones: ['+19045559999'], domain: 'other.example-co' });
   assert.equal(collides(a, unrelated), false);
 });
 
@@ -132,7 +132,7 @@ test('a quarantined number is not reused while a late response could still arriv
 
 test('every fixture form analyzes to its expected verdict', () => {
   for (const fixture of FIXTURE_FORMS) {
-    const form = parseFormHtml(fixture.html, 'https://fixture.example/contact');
+    const form = parseFormHtml(fixture.html, 'https://fixture.example-co/contact');
     const verdict = analyzeForm({ form, verticalProfileId: 'hvac' });
     assert.equal(verdict.eligible, fixture.expectEligible,
       `${fixture.key}: expected eligible=${fixture.expectEligible}, got `
@@ -143,7 +143,7 @@ test('every fixture form analyzes to its expected verdict', () => {
 test('a mandatory consent checkbox makes the form ineligible and is never ticked', () => {
   const fixture = FIXTURE_FORMS.find((form) => form.key === 'mandatory_consent_gate')!;
   const verdict = analyzeForm({
-    form: parseFormHtml(fixture.html, 'https://x.example'), verticalProfileId: 'hvac' });
+    form: parseFormHtml(fixture.html, 'https://x.example-co'), verticalProfileId: 'hvac' });
   assert.equal(verdict.reason, 'INELIGIBLE_CONSENT_GATE');
   // Presented, recorded verbatim, and unchecked.
   assert.ok(verdict.checkboxesPresented.some((box) => box.required));
@@ -155,14 +155,14 @@ test('an unrecognised mandatory checkbox fails closed rather than being assumed 
     <label><input name="mystery" type="checkbox" required> Please acknowledge the above</label>
     </form>`;
   const verdict = analyzeForm({
-    form: parseFormHtml(html, 'https://x.example'), verticalProfileId: 'hvac' });
+    form: parseFormHtml(html, 'https://x.example-co'), verticalProfileId: 'hvac' });
   assert.equal(verdict.reason, 'INELIGIBLE_CONSENT_GATE');
 });
 
 test('an optional checkbox is not a gate', () => {
   const fixture = FIXTURE_FORMS.find((form) => form.key === 'optional_checkbox')!;
   const verdict = analyzeForm({
-    form: parseFormHtml(fixture.html, 'https://x.example'), verticalProfileId: 'hvac' });
+    form: parseFormHtml(fixture.html, 'https://x.example-co'), verticalProfileId: 'hvac' });
   assert.equal(verdict.eligible, true);
   assert.equal(verdict.checkboxesPresented[0]!.klass, 'OPTIONAL_PREFERENCE');
 });
@@ -170,7 +170,7 @@ test('an optional checkbox is not a gate', () => {
 test('a real but unapproved vertical is refused as not-in-V1, not as excluded', () => {
   const ordinary = FIXTURE_FORMS.find((form) => form.key === 'ordinary')!;
   const verdict = analyzeForm({
-    form: parseFormHtml(ordinary.html, 'https://x.example'),
+    form: parseFormHtml(ordinary.html, 'https://x.example-co'),
     verticalProfileId: 'garage-door' });
   assert.equal(verdict.reason, 'INELIGIBLE_VERTICAL');
   assert.match(verdict.detail, /not in the V1 eligible set/);
@@ -180,7 +180,7 @@ test('excluded verticals are refused whatever the form looks like', () => {
   const ordinary = FIXTURE_FORMS.find((form) => form.key === 'ordinary')!;
   for (const vertical of ['law-firms', 'dental', 'restoration', 'med-spas']) {
     const verdict = analyzeForm({
-      form: parseFormHtml(ordinary.html, 'https://x.example'),
+      form: parseFormHtml(ordinary.html, 'https://x.example-co'),
       verticalProfileId: vertical });
     assert.equal(verdict.reason, 'INELIGIBLE_VERTICAL', `${vertical} must be refused`);
   }
@@ -189,7 +189,7 @@ test('excluded verticals are refused whatever the form looks like', () => {
 test('a form needing a VIN or a claim number would require inventing a fact', () => {
   const fixture = FIXTURE_FORMS.find((form) => form.key === 'requires_fabricated_fact')!;
   const verdict = analyzeForm({
-    form: parseFormHtml(fixture.html, 'https://x.example'),
+    form: parseFormHtml(fixture.html, 'https://x.example-co'),
     verticalProfileId: 'collision-repair' });
   assert.equal(verdict.reason, 'INELIGIBLE_REQUIRES_FABRICATED_FACT');
 });
@@ -197,7 +197,7 @@ test('a form needing a VIN or a claim number would require inventing a fact', ()
 test('a plus-rejecting email field switches the alias to a catch-all subdomain', () => {
   const fixture = FIXTURE_FORMS.find((form) => form.key === 'plus_address_rejected')!;
   const verdict = analyzeForm({
-    form: parseFormHtml(fixture.html, 'https://x.example'), verticalProfileId: 'hvac' });
+    form: parseFormHtml(fixture.html, 'https://x.example-co'), verticalProfileId: 'hvac' });
   assert.equal(verdict.eligible, true);
   assert.equal(verdict.plusAddressingAllowed, false);
 
@@ -321,7 +321,7 @@ test('durations read the way a rep would say them', () => {
 
 const candidate = (over: Partial<OpenProbeCandidate> = {}): OpenProbeCandidate => ({
   probeId: 'p1', accountId: 'a1', probeToken: 'abcdef0123456789',
-  accountName: 'Marsh Point Air', accountDomain: 'marshpointair.example',
+  accountName: 'Marsh Point Air', accountDomain: 'marshpointair.example-co',
   phones: ['+19045550177'], alternatePhones: [], alternatesAreExclusive: true,
   ...over,
 });
@@ -380,7 +380,7 @@ test('T4: an answered identification question resolves an unknown ANI', () => {
   const result = attributeInboundEvent({
     channel: 'CALL', fromNumber: null, identificationAnswer: 'Marsh Point Air',
     candidates: [candidate(), candidate({ probeId: 'p2', accountName: 'Other Co',
-      accountDomain: 'other.example', phones: ['+19045550999'] })] });
+      accountDomain: 'other.example-co', phones: ['+19045550999'] })] });
   assert.equal(result.tier, 'T4_IDENTIFICATION_ANSWER');
   assert.equal(result.confidence, 'HIGH');
   assert.equal(result.probeId, 'p1');
@@ -391,9 +391,9 @@ test('T4: two similarly named companies stay AMBIGUOUS', () => {
     channel: 'CALL', fromNumber: null, identificationAnswer: 'Coastal Air',
     candidates: [
       candidate({ probeId: 'p1', accountName: 'Coastal Air Services',
-        accountDomain: 'coastalairservices.example', phones: ['+19045550111'] }),
+        accountDomain: 'coastalairservices.example-co', phones: ['+19045550111'] }),
       candidate({ probeId: 'p2', accountName: 'Coastal Air and Heating',
-        accountDomain: 'coastalairheating.example', phones: ['+19045550222'] }),
+        accountDomain: 'coastalairheating.example-co', phones: ['+19045550222'] }),
     ] });
   assert.equal(result.state, 'AMBIGUOUS');
   assert.equal(result.probeId, null);
@@ -413,7 +413,7 @@ test('sole occupancy is not attribution', () => {
 test('T0: an alias token beats everything, because only one company had it', () => {
   const result = attributeInboundEvent({
     channel: 'EMAIL', toEmail: 'probe+abcdef0123456789@example.ai',
-    fromEmail: 'someone@marshpointair.example', candidates: [candidate()] });
+    fromEmail: 'someone@marshpointair.example-co', candidates: [candidate()] });
   assert.equal(result.tier, 'T0_EMAIL_TOKEN');
   assert.equal(result.confidence, 'HIGH');
 });
@@ -429,16 +429,16 @@ test('an event on a number with no open probes attributes nothing and blames nob
 
 test('the payload is built only from things we control', () => {
   const fixture = FIXTURE_FORMS.find((form) => form.key === 'ordinary')!;
-  const form = parseFormHtml(fixture.html, 'https://fixture.example/contact');
+  const form = parseFormHtml(fixture.html, 'https://fixture.example-co/contact');
   const payload = buildPayload({
     form, identityName: 'A. Fixture', poolNumberE164: '+19045559000',
-    emailAlias: 'probe+abcdef0123456789@probes.example', verticalProfileId: 'hvac',
+    emailAlias: 'probe+abcdef0123456789@probes.example-co', verticalProfileId: 'hvac',
     zipOrCity: '32256',
   });
 
   assert.equal(payload.fields['name'], 'A. Fixture');
   assert.equal(payload.fields['phone'], '+19045559000');
-  assert.equal(payload.fields['email'], 'probe+abcdef0123456789@probes.example');
+  assert.equal(payload.fields['email'], 'probe+abcdef0123456789@probes.example-co');
   assert.match(payload.fields['message']!, /information about replacing my AC/);
   assert.deepEqual(payload.checkboxesChecked, [],
     'V1 ticks no third-party checkbox, ever');
@@ -451,7 +451,7 @@ test('the payload is built only from things we control', () => {
 });
 
 test('the digest is stable across runs and changes when the payload does', () => {
-  const base = { url: 'https://x.example', fields: { a: '1', b: '2' },
+  const base = { url: 'https://x.example-co', fields: { a: '1', b: '2' },
     checkboxesChecked: [], omitted: [] };
   assert.equal(digestPayload(base), digestPayload({ ...base, fields: { b: '2', a: '1' } }),
     'key order must not change the digest');

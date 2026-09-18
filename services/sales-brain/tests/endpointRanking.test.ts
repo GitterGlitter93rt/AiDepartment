@@ -30,7 +30,7 @@ beforeEach(async () => {
     password: 'endpoint-rank-password-not-a-secret' });
   viewer = { userId, role: 'SALES_MANAGER' };
   const created = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Southern Air', website: 'https://southernair.example',
+    canonicalName: 'Southern Air', website: 'https://southernair.example-co',
     phone: '407-555-0150', city: 'Orlando', state: 'FL', postalCode: '32801',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));
@@ -126,21 +126,21 @@ test('the role order within working numbers is still the intended one', async ()
 });
 
 test('a confirmed value beats a guessed one at the same role', async () => {
-  await addEndpoint({ value: 'guess@southernair.example', type: 'EMAIL',
+  await addEndpoint({ value: 'guess@southernair.example-co', type: 'EMAIL',
     role: 'ROLE_EMAIL', quality: 'GUESSED_UNVERIFIED' });
-  await addEndpoint({ value: 'dispatch@southernair.example', type: 'EMAIL',
+  await addEndpoint({ value: 'dispatch@southernair.example-co', type: 'EMAIL',
     role: 'ROLE_EMAIL', quality: 'YAD_CONFIRMED_DELIVERABLE' });
 
-  assert.equal((await order())[0], 'dispatch@southernair.example',
+  assert.equal((await order())[0], 'dispatch@southernair.example-co',
     'a guessed address was offered before a confirmed one');
 });
 
 test('a bounced address is not offered first', async () => {
-  await addEndpoint({ value: 'bounced@southernair.example', type: 'EMAIL',
+  await addEndpoint({ value: 'bounced@southernair.example-co', type: 'EMAIL',
     role: 'DIRECT_PERSON_EMAIL', quality: 'HARD_BOUNCE' });
-  await addEndpoint({ value: 'office@southernair.example', type: 'EMAIL',
+  await addEndpoint({ value: 'office@southernair.example-co', type: 'EMAIL',
     role: 'GENERAL_BUSINESS_EMAIL', quality: 'DOMAIN_VALID_UNVERIFIED' });
 
-  assert.equal((await order())[0], 'office@southernair.example',
+  assert.equal((await order())[0], 'office@southernair.example-co',
     'a hard-bounced address was offered before a working one');
 });

@@ -72,7 +72,7 @@ async function evidence(accountId: string, claimKey: string, options: {
      values ($1, 'paid_acquisition', $2, $3, 'yes', 'confirmed', true, 'provider_serp',
              $4, $5, now() + interval '48 hours', 'fresh')`,
     [accountId, claimKey, options.text ?? `${claimKey} observed`,
-     options.provider ?? 'dataforseo', options.reference ?? 'https://serp.example/check'],
+     options.provider ?? 'dataforseo', options.reference ?? 'https://serp.example-co/check'],
   );
 }
 
@@ -220,7 +220,7 @@ test('the answer to "why is this guy Tier A" is reasons with evidence', async ()
   const accountId = await account();
   await evidence(accountId, 'active_google_search_ad', {
     text: 'AC repair ad, top of page', provider: 'dataforseo',
-    reference: 'https://serp.example/check/32095' });
+    reference: 'https://serp.example-co/check/32095' });
   await evidence(accountId, 'active_meta_ad', { text: 'Meta ad library entry' });
   await evidence(accountId, 'emergency_24_7_service', { text: '24/7 emergency service' });
   await scoreAccount(accountId);
@@ -234,7 +234,7 @@ test('the answer to "why is this guy Tier A" is reasons with evidence', async ()
   assert.equal(google.pointsAwarded, 4);
   assert.equal(google.evidence.length, 1);
   assert.equal(google.evidence[0]!.sourceProvider, 'dataforseo');
-  assert.equal(google.evidence[0]!.sourceReference, 'https://serp.example/check/32095');
+  assert.equal(google.evidence[0]!.sourceReference, 'https://serp.example-co/check/32095');
   assert.equal(google.evidence[0]!.current, true);
   assert.match(google.evidence[0]!.claimText ?? '', /top of page/);
 

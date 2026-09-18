@@ -28,7 +28,7 @@ async function seedEndpoint(options: {
 } = {}): Promise<{ accountId: string; endpointId: string }> {
   return withTransaction(async (client) => {
     const { accountId } = await upsertAccount(client, {
-      canonicalName: 'Northgate Air', website: 'https://northgate.example',
+      canonicalName: 'Northgate Air', website: 'https://northgate.example-co',
       city: 'Jacksonville', state: 'FL', timezone: options.timezone ?? 'America/New_York',
     }, { discoverySource: 'test' });
     const endpointId = await upsertEndpoint(client, {
@@ -257,7 +257,7 @@ test('a blocked account keeps its identity so rediscovery cannot resurrect it', 
 
   const rediscovered = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Northgate Air', website: 'https://northgate.example', phone: '904-555-0100',
+      canonicalName: 'Northgate Air', website: 'https://northgate.example-co', phone: '904-555-0100',
     }, { discoverySource: 'market_miner' }));
   // Stands for a candidate the resolver promoted: the only way a machine
   // makes an Account now.

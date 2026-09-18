@@ -436,3 +436,23 @@ export async function enqueueAlternativeSourceResearch(input: {
     runAfter: input.runAfter ?? null,
   });
 }
+
+/**
+ * An Apollo look at one Account.
+ *
+ * Keyed by Account alone: two sweeps, a restart and a manual request between them produce
+ * one job. Priority sits below research and above mining, because a paid provider is
+ * worth less than reading the company's own site and more than buying a new search.
+ */
+export async function enqueueApolloEnrichment(input: {
+  accountId: string; runAfter?: Date | null;
+}): Promise<EnqueueResult> {
+  return enqueue({
+    jobType: 'apollo_enrichment',
+    idempotencyKey: `apollo_enrichment:${input.accountId}`,
+    payload: { account_id: input.accountId },
+    accountId: input.accountId,
+    priority: 62,
+    runAfter: input.runAfter ?? null,
+  });
+}

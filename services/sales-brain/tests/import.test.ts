@@ -65,9 +65,9 @@ test('source industry is a hint, never authority', () => {
 
 const LIST = [
   'Company Name,Website,Business Phone,Direct Phone,First Name,Last Name,Title,Email,City,State,Zip,Primary Industry,Apollo ID',
-  '"Northgate Air & Heating, LLC",https://www.northgate.example,(904) 555-0101,904-555-9101,Dana,Fielder,Owner,dana@northgate.example.com,Jacksonville,FL,32256-1234,"Heating & AC",APL-001',
-  'Northgate Air and Heating,northgate.example,9045550101,,,,,info@northgate.example.com,Jacksonville,Florida,32256,HVAC,APL-001',
-  '"Riverbend Plumbing Inc.",http://riverbend.example/,904.555.0202,,Riley,Marsh,General Manager,riley@riverbend.example.com,Jacksonville,FL,32224,Plumbing,APL-002',
+  '"Northgate Air & Heating, LLC",https://www.northgate.example-co,(904) 555-0101,904-555-9101,Dana,Fielder,Owner,dana@northgate.example.com,Jacksonville,FL,32256-1234,"Heating & AC",APL-001',
+  'Northgate Air and Heating,northgate.example-co,9045550101,,,,,info@northgate.example.com,Jacksonville,Florida,32256,HVAC,APL-001',
+  '"Riverbend Plumbing Inc.",http://riverbend.example-co/,904.555.0202,,Riley,Marsh,General Manager,riley@riverbend.example.com,Jacksonville,FL,32224,Plumbing,APL-002',
   ',,,,,,,,,,,,',
   'X,,,,,,,,,,,,',
 ].join('\n');
@@ -96,7 +96,7 @@ test('a list arriving after discovery merges into the account the miner already 
       client,
       {
         canonicalName: 'Northgate Air & Heating',
-        website: 'https://northgate.example',
+        website: 'https://northgate.example-co',
         phone: '904-555-0101',
         city: 'Jacksonville', state: 'FL', postalCode: '32256',
       },
@@ -157,7 +157,7 @@ test('a new import cannot resurrect a suppressed company', async () => {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(
       client,
-      { canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example', phone: '904-555-0101' },
+      { canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example-co', phone: '904-555-0101' },
       { discoverySource: 'market_miner' },
     ),
   );
@@ -194,7 +194,7 @@ test('an import does not reset ownership or contact history', async () => {
   const { accountId } = await withTransaction((client) =>
     upsertAccount(
       client,
-      { canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example', phone: '904-555-0101' },
+      { canonicalName: 'Northgate Air & Heating', website: 'https://northgate.example-co', phone: '904-555-0101' },
       { discoverySource: 'market_miner' },
     ),
   );

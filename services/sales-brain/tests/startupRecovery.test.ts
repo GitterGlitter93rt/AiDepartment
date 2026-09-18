@@ -145,7 +145,7 @@ test('the API refuses to start without the environment it needs, and says which'
 
   assert.match(message, /DATABASE_URL/,
     'a missing variable must be named; "cannot read property of undefined" is not an answer');
-  assert.match(message, /\.env\.example/, 'and it must say where to look');
+  assert.match(message, /\.env\.example-co/, 'and it must say where to look');
 });
 
 test('a clean worker stop is not reported as an outage', async () => {
@@ -221,7 +221,7 @@ test('a callback saved from the portal lands at the hour the rep typed', async (
     email: 'clock@test.local', displayName: 'Clock', role: 'SALES_REP', password: PASSWORD });
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'Clock Co', website: 'https://clock.example',
+      canonicalName: 'Clock Co', website: 'https://clock.example-co',
       phone: '904-555-0221', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
   await claimAccount(accountId, { userId: repUserId, role: 'SALES_REP', activeClaimTarget: null }, null);
@@ -251,7 +251,7 @@ test('a callback with no time is still refused', async () => {
     email: 'notime@test.local', displayName: 'No Time', role: 'SALES_REP', password: PASSWORD });
   const { accountId } = await withTransaction((client) =>
     upsertAccount(client, {
-      canonicalName: 'No Time Co', website: 'https://notime.example',
+      canonicalName: 'No Time Co', website: 'https://notime.example-co',
       phone: '904-555-0223', city: 'Jacksonville', state: 'FL', postalCode: '32256',
     }, { discoverySource: 'test' }));
   const rep = { userId: repUserId, role: 'SALES_REP' as const, activeClaimTarget: null };

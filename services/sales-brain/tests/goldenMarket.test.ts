@@ -30,7 +30,7 @@ import { searchProspects, coverageFor } from '../src/domain/search.js';
  */
 
 const CREDENTIALLED: NodeJS.ProcessEnv = {
-  DATAFORSEO_LOGIN: 'golden@example.invalid', DATAFORSEO_PASSWORD: 'golden-secret',
+  DATAFORSEO_LOGIN: 'golden@example.example-co', DATAFORSEO_PASSWORD: 'golden-secret',
   DATAFORSEO_ENABLED: 'true', DATAFORSEO_GOVERNANCE_REVIEWED: 'true',
   DATAFORSEO_POLL_INTERVAL_MS: '0', DATAFORSEO_MODE: 'live',
 };
@@ -63,7 +63,7 @@ function marketItems(): Record<string, unknown>[] {
       title: paid
         ? `Emergency AC Repair — Book Today #${index}`
         : `Golden HVAC ${index}`,
-      domain: phoneOnly ? undefined : `${slug(index)}.invalid`,
+      domain: phoneOnly ? undefined : `${slug(index)}.example-co`,
       phone: phoneOnly ? `+1 904-555-${String(2000 + index).slice(-4)}` : undefined,
       url: phoneOnly ? undefined : `https://${slug(index)}.invalid/ac-repair`,
       description: 'Licensed and insured.',
@@ -78,7 +78,7 @@ function marketItems(): Record<string, unknown>[] {
     items.push({
       type: 'organic', rank_group: rank, rank_absolute: rank,
       title: `Golden HVAC ${target} — Service Area`,
-      domain: `${slug(target)}.invalid`,
+      domain: `${slug(target)}.example-co`,
       url: `https://${slug(target)}.invalid/service-area`,
     });
   }
@@ -325,7 +325,7 @@ test('two rows with no identifier in common stay two candidates', async () => {
   const { rows } = await query<{ identity: string; entity_status: string }>(
     `select identity, entity_status from discovery_candidates
       where identity = $1 or identity like $2 order by identity`,
-    [`${slug(target)}.invalid`, `%${String(2000 + target).slice(-4)}%`]);
+    [`${slug(target)}.example-co`, `%${String(2000 + target).slice(-4)}%`]);
   assert.equal(rows.length, 2,
     'the resolver merged an ad and an organic result that share no identifier, which '
     + 'is a guess about which company is which');
@@ -334,7 +334,7 @@ test('two rows with no identifier in common stay two candidates', async () => {
 
   const accounts = await query<{ n: number }>(
     `select count(*)::int as n from accounts where canonical_domain = $1`,
-    [`${slug(target)}.invalid`]);
+    [`${slug(target)}.example-co`]);
   assert.equal(accounts.rows[0]!.n, 1);
 });
 

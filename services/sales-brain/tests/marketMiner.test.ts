@@ -34,7 +34,7 @@ async function seedMarketAccounts(count: number, zip = '32256'): Promise<string[
         client,
         {
           canonicalName: `Riverbend Air ${i}`,
-          website: `https://riverbend${i}.example`,
+          website: `https://riverbend${i}.example-co`,
           phone: `904-555-${String(1000 + i).slice(0, 4)}`,
           city: 'Jacksonville', state: 'FL', postalCode: zip,
           // The same vertical the mining jobs below ask for, so a refresh plan
@@ -151,7 +151,7 @@ test('fresh inventory is not needlessly re-researched', async () => {
 
 test('expired evidence is marked stale so it stops reading as current', async () => {
   const { accountId } = await withTransaction((client) =>
-    upsertAccount(client, { canonicalName: 'Sable Air', website: 'https://sable.example' },
+    upsertAccount(client, { canonicalName: 'Sable Air', website: 'https://sable.example-co' },
       { discoverySource: 'test' }),
   );
   await withTransaction((client) => recordEvidence(client, {
@@ -250,9 +250,9 @@ test('discovered businesses dedupe into existing Accounts and keep ownership', a
       status: 'OK' as const,
       observations: observationsFor([
         // The same company the rep already owns, spelled differently.
-        { name: 'Riverbend Air 0 LLC', website: 'https://riverbend0.example',
+        { name: 'Riverbend Air 0 LLC', website: 'https://riverbend0.example-co',
           city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
-        { name: 'Brand New Air', website: 'https://brandnew.example',
+        { name: 'Brand New Air', website: 'https://brandnew.example-co',
           city: 'Jacksonville', state: 'FL', postalCode: '32256', resultType: 'paid_search' },
       ]),
       }),

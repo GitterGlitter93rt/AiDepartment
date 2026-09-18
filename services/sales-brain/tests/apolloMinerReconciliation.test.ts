@@ -91,11 +91,11 @@ async function mine(): Promise<Record<string, any>> {
 
 test('a company already bought is matched, not created a second time', async () => {
   await importedAccount({
-    name: 'Coastal Roofing LLC', domain: 'coastalroof.example', phone: '904-555-9001' });
+    name: 'Coastal Roofing LLC', domain: 'coastalroof.example-co', phone: '904-555-9001' });
 
   registerDiscoveryAdapter(minerFinding([
     // The provider spells it differently, as providers do.
-    { name: 'Coastal Roofing', website: 'https://coastalroof.example', phone: '904-555-9001' },
+    { name: 'Coastal Roofing', website: 'https://coastalroof.example-co', phone: '904-555-9001' },
   ]));
 
   const job = await mine();
@@ -112,9 +112,9 @@ test('a company already bought is matched, not created a second time', async () 
 
 test('both source facts survive the reconciliation', async () => {
   const accountId = await importedAccount({
-    name: 'Sable Run Roofing', domain: 'sablerun.example', phone: '904-555-9002' });
+    name: 'Sable Run Roofing', domain: 'sablerun.example-co', phone: '904-555-9002' });
   registerDiscoveryAdapter(minerFinding([
-    { name: 'Sable Run Roofing', website: 'https://sablerun.example' },
+    { name: 'Sable Run Roofing', website: 'https://sablerun.example-co' },
   ]));
   await mine();
 
@@ -132,9 +132,9 @@ test('both source facts survive the reconciliation', async () => {
 
 test('a second sighting by the same source on the same day is not a thousand rows', async () => {
   const accountId = await importedAccount({
-    name: 'Repeat Roofing', domain: 'repeatroof.example', phone: '904-555-9003' });
+    name: 'Repeat Roofing', domain: 'repeatroof.example-co', phone: '904-555-9003' });
   registerDiscoveryAdapter(minerFinding([
-    { name: 'Repeat Roofing', website: 'https://repeatroof.example' },
+    { name: 'Repeat Roofing', website: 'https://repeatroof.example-co' },
   ]));
 
   await mine();
@@ -151,7 +151,7 @@ test('a second sighting by the same source on the same day is not a thousand row
 
 test('mining may enrich a suppressed Account and may never unsuppress it', async () => {
   const accountId = await importedAccount({
-    name: 'Do Not Call Roofing', domain: 'dnc.example', phone: '904-555-9004' });
+    name: 'Do Not Call Roofing', domain: 'dnc.example-co', phone: '904-555-9004' });
   const rep = { userId: manager.userId, role: 'SALES_MANAGER' as const, activeClaimTarget: null };
   await claimAccount(accountId, rep, null);
   const dnc = await recordDisposition({
@@ -165,7 +165,7 @@ test('mining may enrich a suppressed Account and may never unsuppress it', async
   assert.equal(before.rows[0]!.is_suppressed, true);
 
   registerDiscoveryAdapter(minerFinding([
-    { name: 'Do Not Call Roofing', website: 'https://dnc.example' },
+    { name: 'Do Not Call Roofing', website: 'https://dnc.example-co' },
   ]));
   await mine();
 
@@ -182,7 +182,7 @@ test('mining may enrich a suppressed Account and may never unsuppress it', async
 
 test('ownership, notes, opportunities and meetings survive being re-discovered', async () => {
   const accountId = await importedAccount({
-    name: 'Owned Roofing', domain: 'ownedroof.example', phone: '904-555-9005' });
+    name: 'Owned Roofing', domain: 'ownedroof.example-co', phone: '904-555-9005' });
   const repUserId = await createUser({
     email: 'brent.reconcile@test.local', displayName: 'Brent', role: 'SALES_REP',
     password: 'reconcile-password' });
@@ -206,7 +206,7 @@ test('ownership, notes, opportunities and meetings survive being re-discovered',
   assert.ok(opportunity.ok, opportunity.message);
 
   registerDiscoveryAdapter(minerFinding([
-    { name: 'Owned Roofing', website: 'https://ownedroof.example' },
+    { name: 'Owned Roofing', website: 'https://ownedroof.example-co' },
   ]));
   await mine();
 
@@ -231,7 +231,7 @@ test('ownership, notes, opportunities and meetings survive being re-discovered',
 
 test('a wrong number stays wrong after the provider reports it again', async () => {
   const accountId = await importedAccount({
-    name: 'Reassigned Roofing', domain: 'reassigned.example', phone: '904-555-9006' });
+    name: 'Reassigned Roofing', domain: 'reassigned.example-co', phone: '904-555-9006' });
 
   const { rows: endpoints } = await query<{ endpoint_id: string }>(
     `select endpoint_id from contact_endpoints where account_id = $1`, [accountId]);
@@ -242,7 +242,7 @@ test('a wrong number stays wrong after the provider reports it again', async () 
 
   registerDiscoveryAdapter(minerFinding([
     // The provider still lists the old number, because a directory does not know.
-    { name: 'Reassigned Roofing', website: 'https://reassigned.example',
+    { name: 'Reassigned Roofing', website: 'https://reassigned.example-co',
       phone: '904-555-9006' },
   ]));
   await mine();
@@ -257,10 +257,10 @@ test('a wrong number stays wrong after the provider reports it again', async () 
 
 test('a genuinely different company in the same market is a new Account', async () => {
   await importedAccount({
-    name: 'Coastal Roofing LLC', domain: 'coastalroof.example', phone: '904-555-9007' });
+    name: 'Coastal Roofing LLC', domain: 'coastalroof.example-co', phone: '904-555-9007' });
   registerDiscoveryAdapter(minerFinding([
-    { name: 'Coastal Roofing', website: 'https://coastalroof.example', phone: '904-555-9007' },
-    { name: 'Anastasia Island Roofing', website: 'https://anastasia.example',
+    { name: 'Coastal Roofing', website: 'https://coastalroof.example-co', phone: '904-555-9007' },
+    { name: 'Anastasia Island Roofing', website: 'https://anastasia.example-co',
       phone: '904-555-9008' },
   ]));
 

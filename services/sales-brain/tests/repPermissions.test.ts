@@ -51,7 +51,7 @@ beforeEach(async () => {
   manager = await signIn('boss@test.local');
 
   const created = await withTransaction((client) => upsertAccount(client, {
-    canonicalName: 'Southern Air', website: 'https://southernair.example',
+    canonicalName: 'Southern Air', website: 'https://southernair.example-co',
     phone: '407-555-0150', city: 'Orlando', state: 'FL', postalCode: '32801',
     verticalProfileId: 'hvac',
   }, { discoverySource: 'market_miner:dataforseo' }));

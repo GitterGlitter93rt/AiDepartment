@@ -13,6 +13,7 @@ export async function resetDatabase(): Promise<void> {
   // Truncate in one statement so FK order does not matter.
   await pool.query(`
     truncate table
+      apollo_requests, apollo_account_state,
       website_recovery_attempts, website_recovery_campaigns,
       audit_log, ownership_events, activities, follow_ups, suppressions, prospect_statements,
       evidence_records, search_observations, research_runs, canonical_scores, research_completeness,

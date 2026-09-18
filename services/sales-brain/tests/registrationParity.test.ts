@@ -15,6 +15,7 @@ import '../src/workers/marketMiner.js';
 import '../src/workers/websiteRecovery.js';
 import '../src/workers/domainResolution.js';
 import '../src/workers/alternativeSourceResearch.js';
+import '../src/workers/apolloEnrichment.js';
 
 /**
  * One source of registration truth.

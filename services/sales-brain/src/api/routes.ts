@@ -8,6 +8,9 @@ import { enqueueContactResearch, enqueueMarketResearch } from '../workers/enqueu
 import { requireApiUser, requirePermission } from './server.js';
 import { preflightCall, evaluateAccount } from '../compliance/eligibility.js';
 import { ingestBookingWebhook, verifySignature } from '../booking/webhooks.js';
+import {
+  apolloWebhookConfigured, ingestApolloPhoneWebhook, verifyApolloWebhookSecret,
+} from '../providers/apollo/webhook.js';
 import { handleSmartleadWebhook } from '../email/smartleadWebhook.js';
 import { rescheduleStrategyCall, cancelStrategyCall } from '../booking/service.js';
 import { buildPrepBrief } from '../booking/brief.js';
@@ -141,6 +144,31 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       ok: result.ok, duplicate: result.duplicate, eventType: result.eventType,
       applied: result.applied,
     });
+  });
+
+  /**
+   * Apollo's asynchronous phone delivery.
+   *
+   * Staged and switched off: phone enrichment is disabled, so nothing asks for a number
+   * and nothing arrives here. The route exists because Apollo delivers a revealed phone
+   * out of band, and a capability without a delivery path loses what it paid for.
+   *
+   * Refused unless the secret is configured, and a delivery naming a request we never
+   * made is rejected rather than trusted.
+   */
+  app.post('/api/webhooks/apollo/phone', async (request, reply) => {
+    if (!apolloWebhookConfigured()) {
+      return reply.code(503).send({ ok: false,
+        message: 'Apollo phone delivery is not enabled.' });
+    }
+    const provided = request.headers['x-apollo-webhook-secret'] as string | undefined;
+    if (!verifyApolloWebhookSecret(provided, process.env['APOLLO_WEBHOOK_SECRET'] ?? null)) {
+      request.log.warn({ ip: request.ip }, 'apollo webhook rejected: bad secret');
+      return reply.code(401).send({ ok: false, message: 'Invalid secret.' });
+    }
+    const result = await ingestApolloPhoneWebhook(request.body);
+    return reply.code(result.ok ? 200 : 400)
+      .send({ ok: result.ok, duplicate: result.duplicate });
   });
 
   /**
