@@ -316,9 +316,13 @@ only — and only once the domain is corroborated as the company's own (DEC-049)
 | credits per new attributable email | **1.00** |
 | paid enrichments that bought nothing | **0%** |
 
-`ehaeck@hawkinsserviceco.com` (President), `jgreen@greensenergy.com` (Owner/President),
-`lmills@millsair.com` (President) — each attributed `DIRECT_PERSON_EMAIL` on a
-`PROVIDER_STATED` basis at high confidence, and each a route the estate did not have.
+Three named company principals — a President, an Owner/President and a President — each
+attributed `DIRECT_PERSON_EMAIL` on a `PROVIDER_STATED` basis at high confidence, and each
+a route the estate did not have.
+
+The addresses themselves are deliberately not here. This repository is public; the raw
+rows are in the private audit repository at
+`GitterGlitter93rt/SalesBrain-Audit-Data`, `research-audits/apollo-pilot-2026-09-18/`.
 
 **Coverage is the constraint, not price.** Half the Accounts returned no candidate at all.
 
