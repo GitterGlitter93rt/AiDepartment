@@ -44,7 +44,9 @@
     "contact:yield": "tsx src/bin/contact-yield.ts",
     "research:estate": "tsx src/bin/re-research-estate.ts",
     "identity:estate": "tsx src/bin/site-identity.ts",
-    "remediation:apply": "tsx src/bin/remediation-apply.ts"
+    "remediation:apply": "tsx src/bin/remediation-apply.ts",
+    "markets:plan": "tsx src/bin/markets-plan.ts",
+    "yield:report": "tsx src/bin/yield-report.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

@@ -82,6 +82,54 @@ search_taxonomy:
       priority: 2
       recommended_for_paid_serp: true
       recommended_for_places_gap_fill: true
+    # V3. Added for the HVAC scale-out, and each carries its own family so that the
+    # yield of a query family can be measured and a bad one stopped. Every query here
+    # returns HVAC businesses by construction -- it names the trade or the work -- which
+    # is what entitles it to define who is in the market. A query about money or about a
+    # symptom belongs in the groups below, which may enrich a market and may not decide
+    # who is in it.
+    - query: air conditioning repair
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: heating contractor
+      family: heating
+      intent_weight: 3
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: AC repair company
+      family: core
+      intent_weight: 4
+      priority: 2
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: HVAC installation
+      family: installation
+      intent_weight: 4
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: air conditioning installation
+      family: installation
+      intent_weight: 4
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: furnace repair
+      family: heating
+      intent_weight: 4
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
+    - query: commercial HVAC contractor
+      family: commercial
+      intent_weight: 3
+      priority: 3
+      recommended_for_paid_serp: true
+      recommended_for_places_gap_fill: true
   high_intent_queries:
     - query: AC repair
       family: urgent_service

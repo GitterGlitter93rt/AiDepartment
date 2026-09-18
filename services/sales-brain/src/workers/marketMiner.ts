@@ -1610,14 +1610,17 @@ async function ingestDiscoveries(
       `insert into discovery_candidates
          (job_id, vertical_profile_id, identity, source_class, entity_status,
           resolved_name, name_basis, observed_domain, observed_phone, observed_location,
-          observation_count, reasons, discovered_for_geography_type, discovered_for_geography)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+          observation_count, reasons, discovered_for_geography_type, discovered_for_geography,
+          source_role, source_role_confidence, source_role_reasons)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         job.job_id, verticalProfileId, candidate.identity, candidate.sourceClass,
         candidate.status, candidate.resolvedName, candidate.nameBasis,
         candidate.domain, candidate.phone, candidate.observedBusinessAddress,
         candidate.observationCount, candidate.reasons.map((r) => r.slice(0, 300)),
         searchedGeographyType, searchedGeography,
+        candidate.sourceRole, candidate.sourceRoleConfidence,
+        candidate.sourceRoleReasons.map((r) => r.slice(0, 300)),
       ]);
     if (candidate.status === 'REJECTED') counts.entitiesRejected += 1;
     if (candidate.status === 'NEEDS_REVIEW') counts.entitiesNeedingReview += 1;

@@ -1,5 +1,47 @@
 # Operational Brain Changelog
 
+## 2026-09-18 — Six defects the estate showed us, turned into code
+
+A hand audit of the production snapshot found six structural defects. Each is now a guard
+with the record that exposed it pinned as a fixture. Nothing is deployed and no provider
+money has been spent.
+
+**One in five named "people" is not a person.** 27 of 135 records: CMS usernames
+(`wpadmin`, `degreeadm`, `actuate`), the web agency that built the site, the company's own
+name as its own owner, schema.org literals like `Organization`. Only a person may hold
+decision-maker authority now, and a lone capitalised name is carried by context rather than
+deleted -- losing a real single-name owner is the other way to be wrong.
+
+**No route in the estate belongs to anybody.** `contact_id` is null on all 609 endpoints.
+Sales Brain found "Yadiel Castro, Owner" and `yadielcastro2@gmail.com` on the same contact
+page and connected neither. Attribution now needs a stated reason, ranked; a role mailbox
+is never a person however the page is laid out; and a phone cannot spell a name.
+
+**Retrying harder turned out not to be the answer.** Of 42 unreadable Accounts probed
+across every apex/www and http/https variant, exactly one became readable. The other 41
+refuse an ordinary client too. So an exhausted, terminal or robots-disallowed campaign now
+routes to `alternative_source_research` -- third-party by construction, never stated as
+fact, and never borrowing a first-party role from the server that refused us.
+
+**The server was telling us why all along.** 37 of 42 answer `sg-captcha: challenge` in a
+response header, on 25 of 25 domains re-probed. We were inferring from body shape what the
+server states outright.
+
+**A cutting-tool SKU page is a workable HVAC contractor.** "Tool # 32806" on harveytool.com,
+with three named people. Caught on shape, not by name, because the next one will be a
+different manufacturer.
+
+**A reserved domain is on a live Account.** `proofroof.invalid` can never resolve by
+design. Discovery refuses reserved names and recovery never opens a campaign against one.
+
+Two behaviours were measured and found already correct -- the form-placeholder address that
+was never ingested, and the 404 pages with full-size bodies that our fetcher declines on
+status. Both are pinned so nobody re-derives them or "fixes" them.
+
+Evidence for all of it: `SalesBrain-Audit-Data`, `research-audits/claude-2026-09-17`,
+commit `b5af52fedc1e09c448035dbb32382684a5b33b62`. ChatGPT Work still owns the full
+312-Account audit; its findings merge before V3 qualification and deployment.
+
 ## 2026-09-17 — V2: what the inventory actually contains, and what the product may say about it
 
 Seven work items on `feature/sales-brain-v2`, all built from the live V1 production SHA

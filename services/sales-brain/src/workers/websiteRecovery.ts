@@ -1,6 +1,10 @@
 import { query } from '../db/pool.js';
 import { registerHandler, type JobRecord, type JobResult } from './runner.js';
-import { enqueueAccountResearch, enqueueDomainResolution, enqueueWebsiteRecovery } from './enqueue.js';
+import {
+  enqueueAccountResearch, enqueueAlternativeSourceResearch, enqueueDomainResolution,
+  enqueueWebsiteRecovery,
+} from './enqueue.js';
+import { judgeDomain } from '../domain/domainValidity.js';
 import { numeric } from '../config.js';
 import {
   crossDomainDestination, isTerminalForDomain, probeVariant, urlVariants,
@@ -62,6 +66,20 @@ export async function openCampaign(input: {
   if (input.sourceState === 'DISALLOWED') return null;
   if (!RECOVERABLE_STATES.has(input.sourceState)) return null;
   if (!input.url || !urlVariants(input.url).length) return null;
+
+  /**
+   * A reserved name is not a website, so there is nothing to recover.
+   *
+   * proofroof.invalid is on a live Account. Ten hours of hourly DNS lookups against a
+   * name RFC 2606 guarantees will never resolve is the clearest possible waste, and the
+   * Account's real problem -- it has no website at all -- is a different job.
+   */
+  const domain = judgeDomain(input.url);
+  if (!domain.worthRecovering) {
+    await enqueueDomainResolution({ accountId: input.accountId,
+      reason: `the stored domain is not usable: ${domain.reason}` });
+    return null;
+  }
 
   const { rows } = await query<{ campaign_id: string }>(
     `insert into website_recovery_campaigns
@@ -216,6 +234,8 @@ registerHandler('website_recovery', async (job: JobRecord): Promise<JobResult> =
       'robots.txt asks us not to read this site. That is an instruction, not an '
       + 'obstacle, so the campaign stops here and the Account goes to alternative '
       + 'public sources. It is not evidence about the company.');
+    await enqueueAlternativeSourceResearch({ accountId: campaign.account_id,
+      reason: 'robots.txt disallows first-party research' });
     return { outcome: 'COMPLETED', outcomeReason: 'robots.txt disallows; campaign ended' };
   }
 
@@ -236,6 +256,8 @@ registerHandler('website_recovery', async (job: JobRecord): Promise<JobResult> =
       + `${campaign.max_attempts} hours. That is a fact about our research, not about `
       + 'the company: the Account keeps its trade, its name and its place in inventory, '
       + 'and goes to alternative public sources and review.');
+    await enqueueAlternativeSourceResearch({ accountId: campaign.account_id,
+      reason: `the site refused ${campaign.max_attempts} ordinary attempts` });
     return { outcome: 'COMPLETED',
       outcomeReason: `campaign exhausted after ${campaign.max_attempts} attempts` };
   }

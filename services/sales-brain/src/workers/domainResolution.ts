@@ -3,6 +3,7 @@ import { registerHandler, type JobRecord, type JobResult } from './runner.js';
 import { availableDiscoveryAdapters } from './marketMiner.js';
 import { classifySourceRole, nameMatchesDomain, addressesMatch } from '../discovery/sourceRole.js';
 import { registrableDomain } from '../discovery/sourceClass.js';
+import { judgeDomain } from '../domain/domainValidity.js';
 import { normalizePhone } from '../domain/normalize.js';
 
 /**
@@ -51,6 +52,9 @@ export function chooseDomain(input: {
   for (const row of input.observations) {
     const domain = registrableDomain(row.observedDomain ?? row.landingUrl);
     if (!domain) continue;
+    // A name that cannot resolve publicly is never the answer to "where is this
+    // company's website". proofroof.invalid is the production instance.
+    if (!judgeDomain(domain).usableAsWebsite) continue;
 
     // A directory, a publisher or a licensing portal can carry a company's name and
     // phone and still not be its website. The role model decides that, not the fact

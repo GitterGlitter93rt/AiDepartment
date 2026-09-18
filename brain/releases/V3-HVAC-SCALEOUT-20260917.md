@@ -164,6 +164,66 @@ before them reports accurately and uselessly that the company published no names
 president|principal` added to the anchors worth following. Raised rather than removed:
 this is somebody else's web server and every extra page is another 1.5 seconds of it.
 
-## 4. Results
+## 4. What the estate taught us — the 2026-09-17 hand audit
 
-_Filled in as the sprint proceeds._
+Before any of the scale-out ran, a hand audit was made of the production snapshot. It is
+the evidence base for everything in section 5, and it lives in the private repository
+`GitterGlitter93rt/SalesBrain-Audit-Data`, `research-audits/claude-2026-09-17`, commit
+`b5af52fedc1e09c448035dbb32382684a5b33b62`.
+
+**Scope, stated honestly.** It is not the full 312-Account audit; ChatGPT Work owns that
+and holds a checkpoint of 111 Accounts, 31 findings and four artifacts that does not exist
+on this machine. Three passes were completed: every URL variant of 42 of the 53 unreadable
+Accounts (the other 11 are robots-disallowed and were not fetched), all 135 named-person
+records, and three official sites crawled page by page.
+
+**The finding that reordered the sprint.** Of the 42 unreadable Accounts probed across
+apex/www and http/https, **exactly one** became readable — `masterrepairplumbing.com`, a
+www-only host. The other 41 refuse an ordinary honest client too: 37 behind a captcha
+challenge, one parked, one deactivated by its website provider, one silent.
+
+Sales Brain's `REFUSED` state is therefore **accurate**, and a better crawler recovers
+almost none of these 52 Accounts. That inverts the expected conclusion and moves the work
+from crawling to alternative sources.
+
+| what the audit measured | number |
+|---|---|
+| unreadable Accounts probed | 42 of 53 |
+| readable by an ordinary client where the miner failed | **1** |
+| carrying `sg-captcha: challenge` in a response header | 37 (25 of 25 re-probed) |
+| named-person records that are not people | **27 of 135 (20%)** |
+| endpoints attributed to any person, estate-wide | **0 of 609** |
+| Accounts on a reserved, non-resolvable domain | 1 |
+| non-contractor product pages in workable inventory | ≥1 confirmed |
+
+## 5. The six defects, and what each became
+
+| | defect | measured | now |
+|---|---|---|---|
+| A | a name in a person-shaped place became a person | 27 of 135 | `judgePersonIdentity`, seven verdicts, only two hold authority |
+| B | routes belong to nobody | `contact_id` null on 609 of 609 | `attributeEndpoint`, six ranked bases, role mailboxes never promote |
+| C | a reserved domain was a website | `proofroof.invalid`, live | `judgeDomain`; recovery never opens a campaign, domain resolution never adopts one. A discovery-time guard is deferred: the fixture corpus is built on RFC 2606 names, and see DEC-038 |
+| D | the block was inferred, not read | 37 of 42 | the `sg-captcha` header is read and kept as evidence |
+| E | retrying was treated as the answer | 1 of 42 recovered | an exhausted campaign queues `alternative_source_research` |
+| F | a product page was a contractor | "Tool # 32806" on harveytool.com | `PRODUCT_PAGE`, decided on shape before ownership |
+
+Two behaviours were measured and found already correct, and are pinned so nobody
+re-derives or "fixes" them: the form-field placeholder `xyz@123.com` that was never
+ingested, and the 404 pages that return a full-size branded body and are declined on
+status rather than on size.
+
+**Qualification of this change.** 209 tests across the fifteen affected suites, run
+serially because they share a database. `npm run check` clean, `npm run build` clean,
+`npm audit --omit=dev` 0 vulnerabilities. Three defects were found in the fixes themselves
+before they shipped: the person-identity rules were ordered so that a contractor's own name
+read as somebody else's firm; the reserved-domain guard was in the wrong layer and fired on
+test fixtures; and two of my own recovery fixtures still named `.invalid` hosts in escaped
+regex form after the rest had moved.
+
+**Not deployed.** V3 remains undeployed, no provider money has been spent beyond the
+pre-existing `$0.2760`, and no paid HVAC acquisition has started. ChatGPT Work's full
+312-Account audit merges before qualification and deployment.
+
+## 6. Results
+
+_Filled in when the scale-out runs._

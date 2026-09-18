@@ -3,6 +3,7 @@ import { upsertEndpoint, recordEvidence } from '../domain/accounts.js';
 import { splitPersonName } from '../domain/normalize.js';
 import type { ContactPath, DecisionMakerIdentity, ResolutionResult, SourceClass } from './types.js';
 import { SOURCE_PRIORITY } from './types.js';
+import { judgePersonIdentity } from './personIdentity.js';
 
 /**
  * Writes a resolution into canonical state.
@@ -44,6 +45,11 @@ export interface PersistResult {
   endpointsWritten: number;
   evidenceWritten: number;
   retiredContacts: number;
+  /** The Account's own name, so a candidate person can be compared against it. */
+  companyName?: string | null;
+  /** Names refused because they were not people. Reported, never silently dropped. */
+  identitiesRefused?: number;
+  identityRefusals?: { name: string; validity: string; reason: string }[];
 }
 
 export async function persistResolution(
@@ -54,7 +60,7 @@ export async function persistResolution(
 ): Promise<PersistResult> {
   const result: PersistResult = {
     primaryContactId: null, contactsWritten: 0, endpointsWritten: 0,
-    evidenceWritten: 0, retiredContacts: 0,
+    evidenceWritten: 0, retiredContacts: 0, identitiesRefused: 0, identityRefusals: [],
   };
 
   // People reported as gone are retired, not deleted: the record stays so a later
@@ -166,10 +172,38 @@ async function upsertIdentity(
   }
 
   const fullName = identity.personName!;
-  const { first, last } = splitPersonName(fullName);
-  const bestSource = identity.supportingObservations
+
+  /**
+   * A name found in a person-shaped place is not yet a person.
+   *
+   * Measured on production: 27 of 135 named-person records are not people -- CMS
+   * usernames (wpadmin, degreeadm, actuate), the web agency that built the site (Stryker
+   * Digital), the company's own name as its own owner, schema.org type literals
+   * (Organization). Each was found somewhere a person legitimately appears, which is why
+   * the extractors produced them and why the gate belongs here rather than in a regex
+   * further up.
+   *
+   * Refused rather than corrected. We do not know who the owner is, and writing a
+   * plausible-looking substitute would be worse than the gap.
+   */
+  const bestSourceForIdentity = identity.supportingObservations
     .slice()
     .sort((a, b) => SOURCE_PRIORITY[a.sourceClass] - SOURCE_PRIORITY[b.sourceClass])[0];
+  const personhood = judgePersonIdentity({
+    name: fullName,
+    companyName: result.companyName ?? null,
+    rawTitle: identity.rawTitle ?? null,
+    sourceReference: bestSourceForIdentity?.sourceReference ?? null,
+  });
+  if (!personhood.mayHoldDecisionMakerAuthority) {
+    result.identitiesRefused = (result.identitiesRefused ?? 0) + 1;
+    result.identityRefusals = [...(result.identityRefusals ?? []),
+      { name: fullName, validity: personhood.validity, reason: personhood.reasons.join('; ') }];
+    return null;
+  }
+
+  const { first, last } = splitPersonName(fullName);
+  const bestSource = bestSourceForIdentity;
 
   const { rows: existing } = await client.query<{ contact_id: string; status: string }>(
     `select contact_id, status from contacts

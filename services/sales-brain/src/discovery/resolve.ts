@@ -2,6 +2,7 @@ import {
   classifyObservation, mayPromote, registrableDomain,
   type ClassifiableObservation, type SourceClass,
 } from './sourceClass.js';
+import { classifySourceRole, mayPromoteRole, type SourceRole } from './sourceRole.js';
 
 /**
  * Turning a page of search results into candidate businesses.
@@ -41,6 +42,10 @@ export interface EntityCandidate {
   identity: string;
   status: EntityStatus;
   sourceClass: SourceClass;
+  /** The evidence-based role. See src/discovery/sourceRole.ts and DEC-033. */
+  sourceRole: SourceRole;
+  sourceRoleConfidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  sourceRoleReasons: string[];
   /** Only set when we can defend it. Never a raw page title we do not trust. */
   resolvedName: string | null;
   /** How the name was arrived at, so the UI never implies more than we know. */
@@ -268,6 +273,29 @@ export function resolveCandidates(
     const reasons = [...classified.reasons];
     let sourceClass = classified.sourceClass;
 
+    /**
+     * What this source actually is, judged on evidence rather than on what is left.
+     *
+     * `classifyObservation` answers "what shape is this row" and ends by calling
+     * anything unrecognised OFFICIAL_SITE. That is how homeyou.com, uhaul.com and
+     * myfloridalicense.com are recorded in production as contractors' own websites, and
+     * it is the reason nothing downstream could tell a directory from a contractor.
+     *
+     * Asked with everything this result set knows, including how many different
+     * businesses the domain carried -- the one signal that catches a directory nobody
+     * has heard of.
+     */
+    const roleVerdict = classifySourceRole({
+      url: best.landingUrl ?? (best.observedDomain ? `https://${best.observedDomain}` : null),
+      title: best.observedName,
+      companyName: best.observedName,
+      companyPhone: best.observedPhone,
+      companyAddress: best.observedBusinessAddress,
+      publishedPhones: best.observedPhone ? [best.observedPhone] : [],
+      publishedAddresses: best.observedBusinessAddress ? [best.observedBusinessAddress] : [],
+      distinctBusinessesOnDomain: distinctNames.get(identity) ?? 0,
+    });
+
     // Structural directory test, applied after the per-row class so it can override a
     // row that looked like somebody's own site.
     const carried = distinctNames.get(identity) ?? 0;
@@ -297,6 +325,10 @@ export function resolveCandidates(
       if (named) {
         candidates.push({
           identity, status: 'VERIFIED', sourceClass: 'BUSINESS_LISTING',
+          // A provider resolved this entity; the listing is about a business by
+          // construction, whatever a URL-shaped role test would make of having no URL.
+          sourceRole: 'COMPANY_OWNED_SITE', sourceRoleConfidence: 'HIGH',
+          sourceRoleReasons: ['a provider business listing, with no website to judge'],
           resolvedName: named.observedName!.trim(), nameBasis: 'provider_listing',
           domain: null, phone: best.observedPhone, category,
           observedBusinessAddress: best.observedBusinessAddress ?? null,
@@ -306,7 +338,10 @@ export function resolveCandidates(
         continue;
       }
       candidates.push({
-        identity, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
+        identity, status: 'NEEDS_REVIEW', sourceClass,
+        sourceRole: roleVerdict.role, sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
+        resolvedName: null,
         nameBasis: 'unresolved', domain: null, phone: null, category,
         observedBusinessAddress: null, observationCount: rows.length,
         reasons: ['a phone number somebody is advertising, with no name we can trust '
@@ -317,7 +352,10 @@ export function resolveCandidates(
 
     if (!mayPromote(sourceClass)) {
       candidates.push({
-        identity, category, status: 'REJECTED', sourceClass, resolvedName: null,
+        identity, category, status: 'REJECTED', sourceClass,
+        sourceRole: roleVerdict.role, sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
+        resolvedName: null,
         nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
         phone: null, observedBusinessAddress: null, observationCount: rows.length, reasons,
       });
@@ -329,6 +367,9 @@ export function resolveCandidates(
       // statements about the business rather than text scraped off a page.
       candidates.push({
         identity, category, status: 'VERIFIED', sourceClass,
+        sourceRole: roleVerdict.role,
+        sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
         resolvedName: best.observedName!.trim(), nameBasis: 'provider_listing',
         domain: registrableDomain(best.observedDomain), phone: best.observedPhone ?? null,
         observedBusinessAddress: best.observedBusinessAddress ?? null,
@@ -378,9 +419,34 @@ export function resolveCandidates(
       : brandAgrees ? 'the company name and the domain agree'
       : null;
 
+    /**
+     * A source that is decisively somebody else's is not promoted, whatever agrees.
+     *
+     * Corroboration below accepts a company name that agrees with its domain, and that
+     * is exactly what a licensing portal, a government registry and a trade directory
+     * named after the trade all have. "National Roofing Directory" on
+     * nationalroofingdirectory.com agrees with itself perfectly. The role is asked
+     * first so that agreeing with yourself cannot promote you.
+     */
+    if (!mayPromoteRole(roleVerdict.role) && roleVerdict.confidence === 'HIGH') {
+      candidates.push({
+        identity, category, status: 'REJECTED', sourceClass,
+        sourceRole: roleVerdict.role,
+        sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
+        resolvedName: null, nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
+        phone: null, observedBusinessAddress: null, observationCount: rows.length,
+        reasons: [...reasons, ...roleVerdict.reasons],
+      });
+      continue;
+    }
+
     if (nameable && corroboration) {
       candidates.push({
         identity, category, status: 'VERIFIED', sourceClass,
+        sourceRole: roleVerdict.role,
+        sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
         resolvedName: nameable.observedName!.trim(), nameBasis: 'own_site_title',
         domain,
         phone: best.observedPhone ?? null,
@@ -398,6 +464,9 @@ export function resolveCandidates(
       // them apart. Kept for verification rather than guessed either way.
       candidates.push({
         identity, category, status: 'NEEDS_REVIEW', sourceClass,
+        sourceRole: roleVerdict.role,
+        sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
         resolvedName: null, nameBasis: 'unresolved', domain,
         phone: null, observedBusinessAddress: null, observationCount: rows.length,
         reasons: [...reasons,
@@ -430,6 +499,9 @@ export function resolveCandidates(
     if (paidPlacement && registrableDomain(best.observedDomain) && listingForSameDomain) {
       candidates.push({
         identity, category, status: 'VERIFIED', sourceClass,
+        sourceRole: roleVerdict.role,
+        sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons,
         resolvedName: registrableDomain(best.observedDomain), nameBasis: 'domain',
         domain: registrableDomain(best.observedDomain),
         phone: best.observedPhone ?? null, observedBusinessAddress: best.observedBusinessAddress ?? null,
@@ -448,7 +520,10 @@ export function resolveCandidates(
     // still paid for.
     const named = looksLikeCompanyName(best.observedName);
     candidates.push({
-      identity, category, status: 'NEEDS_REVIEW', sourceClass, resolvedName: null,
+      identity, category, status: 'NEEDS_REVIEW', sourceClass,
+        sourceRole: roleVerdict.role,
+        sourceRoleConfidence: roleVerdict.confidence,
+        sourceRoleReasons: roleVerdict.reasons, resolvedName: null,
       nameBasis: 'unresolved', domain: registrableDomain(best.observedDomain),
       // A phone read off a page we have not established ownership of is not this
       // company's phone.

@@ -103,13 +103,13 @@ test('the candidate hosts are the finite set, deduplicated', () => {
 /* ------------------------------------------------------------------- recovering --- */
 
 test('https fails and http succeeds: the site is http-only, not broken', async () => {
-  const id = await account('httponly.invalid');
+  const id = await account('httponly-fixture.com');
   serve((url) => {
     if (url.protocol === 'https:') throw Object.assign(new Error('bad cert'), { code: 'ERR_TLS_CERT_ALTNAME_INVALID' });
     return page();
   });
 
-  await openCampaign({ accountId: id, url: 'https://httponly.invalid', sourceState: 'UNREACHABLE' });
+  await openCampaign({ accountId: id, url: 'https://httponly-fixture.com', sourceState: 'UNREACHABLE' });
   await runDueJobs();
 
   const campaign = await campaignOf(id);
@@ -127,7 +127,7 @@ test('https fails and http succeeds: the site is http-only, not broken', async (
 });
 
 test('apex fails and www succeeds', async () => {
-  const id = await account('apexdown.invalid');
+  const id = await account('apexdown-fixture.com');
   serve((url) => {
     if (!url.hostname.startsWith('www.')) {
       throw Object.assign(new Error('nope'), { code: 'ENOTFOUND' });
@@ -135,12 +135,12 @@ test('apex fails and www succeeds', async () => {
     return page();
   });
 
-  await openCampaign({ accountId: id, url: 'https://apexdown.invalid', sourceState: 'UNREACHABLE' });
+  await openCampaign({ accountId: id, url: 'https://apexdown-fixture.com', sourceState: 'UNREACHABLE' });
   await runDueJobs();
 
   const campaign = await campaignOf(id);
   assert.equal(campaign?.state, 'RECOVERED');
-  assert.match(campaign!.recovered_url!, /www\.apexdown\.invalid/);
+  assert.match(campaign!.recovered_url!, /www\.apexdown-fixture\.com/);
 
   // Air Worth is why this case exists: the apex challenged and www answered 202.
   const { rows } = await query<{ dns_result: string | null }>(
@@ -150,22 +150,22 @@ test('apex fails and www succeeds', async () => {
 });
 
 test('www fails and apex succeeds', async () => {
-  const id = await account('wwwdown.invalid');
+  const id = await account('wwwdown-fixture.com');
   serve((url) => {
     if (url.hostname.startsWith('www.')) {
       throw Object.assign(new Error('nope'), { code: 'ENOTFOUND' });
     }
     return page();
   });
-  await openCampaign({ accountId: id, url: 'https://www.wwwdown.invalid', sourceState: 'UNREACHABLE' });
+  await openCampaign({ accountId: id, url: 'https://www.wwwdown-fixture.com', sourceState: 'UNREACHABLE' });
   await runDueJobs();
   const campaign = await campaignOf(id);
   assert.equal(campaign?.state, 'RECOVERED');
-  assert.match(campaign!.recovered_url!, /^https:\/\/wwwdown\.invalid/);
+  assert.match(campaign!.recovered_url!, /^https:\/\/wwwdown-fixture\.com/);
 });
 
 test('a timeout on one attempt and a read on the next', async () => {
-  const id = await account('slowthenup.invalid');
+  const id = await account('slowthenup-fixture.com');
   let attempt = 0;
   serve(() => {
     attempt += 1;
@@ -173,7 +173,7 @@ test('a timeout on one attempt and a read on the next', async () => {
     return page();
   });
 
-  await openCampaign({ accountId: id, url: 'https://slowthenup.invalid', sourceState: 'TIMEOUT' });
+  await openCampaign({ accountId: id, url: 'https://slowthenup-fixture.com', sourceState: 'TIMEOUT' });
   await runDueJobs();
   assert.equal((await campaignOf(id))?.state, 'ACTIVE', 'still trying after one bad hour');
 
@@ -195,11 +195,11 @@ test('a timeout on one attempt and a read on the next', async () => {
 });
 
 test('a success cancels the attempts that were already scheduled', async () => {
-  const id = await account('recovers.invalid');
+  const id = await account('recovers-fixture.com');
   let calls = 0;
   serve(() => { calls += 1; return page(); });
 
-  await openCampaign({ accountId: id, url: 'https://recovers.invalid', sourceState: 'REFUSED' });
+  await openCampaign({ accountId: id, url: 'https://recovers-fixture.com', sourceState: 'REFUSED' });
   await runDueJobs();
   assert.equal((await campaignOf(id))?.state, 'RECOVERED');
 
@@ -215,14 +215,14 @@ test('a success cancels the attempts that were already scheduled', async () => {
 /* --------------------------------------------------------------- what it refuses --- */
 
 test('robots.txt is never bypassed, and ends the campaign rather than being retried', async () => {
-  const id = await account('noindex.invalid');
+  const id = await account('noindex-fixture.com');
   let pageRequests = 0;
   serve((url) => {
     if (url.pathname !== '/robots.txt') pageRequests += 1;
     return page();
   }, 'User-agent: *\nDisallow: /\n');
 
-  await openCampaign({ accountId: id, url: 'https://noindex.invalid', sourceState: 'REFUSED' });
+  await openCampaign({ accountId: id, url: 'https://noindex-fixture.com', sourceState: 'REFUSED' });
   await runDueJobs();
 
   const campaign = await campaignOf(id);
@@ -237,11 +237,11 @@ test('robots.txt is never bypassed, and ends the campaign rather than being retr
 
   // And a campaign is never opened for a DISALLOWED source in the first place.
   assert.equal(await openCampaign({
-    accountId: id, url: 'https://noindex.invalid', sourceState: 'DISALLOWED' }), null);
+    accountId: id, url: 'https://noindex-fixture.com', sourceState: 'DISALLOWED' }), null);
 });
 
 test('a 403 is retried as itself and never with a different identity', async () => {
-  const id = await account('waf.invalid');
+  const id = await account('waf-fixture.com');
   const agents = new Set<string>();
   globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
     const url = new URL(String(input));
@@ -253,7 +253,7 @@ test('a 403 is retried as itself and never with a different identity', async () 
     return new Response('Forbidden', { status: 403 });
   }) as typeof globalThis.fetch;
 
-  await openCampaign({ accountId: id, url: 'https://waf.invalid', sourceState: 'REFUSED' });
+  await openCampaign({ accountId: id, url: 'https://waf-fixture.com', sourceState: 'REFUSED' });
   await runDueJobs();
   await query(`update jobs set run_after = now() where job_type = 'website_recovery'`);
   await runDueJobs();
@@ -269,10 +269,10 @@ test('a 403 is retried as itself and never with a different identity', async () 
 
 test('ten attempts end the campaign, and the Account loses nothing', async () => {
   process.env['WEBSITE_RECOVERY_MAX_ATTEMPTS'] = '3';
-  const id = await account('never.invalid');
+  const id = await account('never-fixture.com');
   serve(() => new Response('Forbidden', { status: 403 }));
 
-  await openCampaign({ accountId: id, url: 'https://never.invalid', sourceState: 'REFUSED' });
+  await openCampaign({ accountId: id, url: 'https://never-fixture.com', sourceState: 'REFUSED' });
   for (let i = 0; i < 5; i += 1) {
     await query(`update jobs set run_after = now() where job_type = 'website_recovery'`);
     await runDueJobs();
@@ -298,25 +298,25 @@ test('ten attempts end the campaign, and the Account loses nothing', async () =>
 /* ------------------------------------------------------------------ what it holds --- */
 
 test('a redirect to another domain is a candidate, never a rewrite', async () => {
-  const id = await account('oldname.invalid');
+  const id = await account('oldname-fixture.com');
   serve((url) => {
     if (url.hostname.includes('oldname')) {
-      return new Response('', { status: 301, headers: { location: 'https://newname.invalid/' } });
+      return new Response('', { status: 301, headers: { location: 'https://newname-fixture.com/' } });
     }
     return page();
   });
 
-  await openCampaign({ accountId: id, url: 'https://oldname.invalid', sourceState: 'UNREACHABLE' });
+  await openCampaign({ accountId: id, url: 'https://oldname-fixture.com', sourceState: 'UNREACHABLE' });
   await runDueJobs();
 
   const campaign = await campaignOf(id);
   assert.equal(campaign?.state, 'RECOVERED');
-  assert.equal(campaign?.candidate_domain, 'newname.invalid');
+  assert.equal(campaign?.candidate_domain, 'newname-fixture.com');
 
   // A company that moved, a parked domain and an acquisition all look like this.
   const { rows } = await query<{ canonical_domain: string }>(
     `select canonical_domain from accounts where account_id = $1`, [id]);
-  assert.equal(rows[0]?.canonical_domain, 'oldname.invalid',
+  assert.equal(rows[0]?.canonical_domain, 'oldname-fixture.com',
     "the Account's website is not changed by a redirect");
 
   // The redirect chain is kept, so the candidate can be judged later.
@@ -327,10 +327,10 @@ test('a redirect to another domain is a candidate, never a rewrite', async () =>
 });
 
 test('a dead domain stops the retries and asks where the company went', async () => {
-  const id = await account('gone.invalid');
+  const id = await account('gone-fixture.com');
   serve(() => new Response('Not found', { status: 404 }));
 
-  await openCampaign({ accountId: id, url: 'https://gone.invalid', sourceState: 'HTTP_ERROR' });
+  await openCampaign({ accountId: id, url: 'https://gone-fixture.com', sourceState: 'HTTP_ERROR' });
   await runDueJobs();
   assert.equal((await campaignOf(id))?.state, 'ACTIVE', 'one 404 could be a deploy');
 
@@ -349,11 +349,11 @@ test('a dead domain stops the retries and asks where the company went', async ()
 });
 
 test('NO_WEBSITE is not retried, because there is no URL to retry', async () => {
-  const id = await account('nowebsite.invalid');
+  const id = await account('nowebsite-fixture.com');
   assert.equal(await openCampaign({
     accountId: id, url: null, sourceState: 'NO_WEBSITE' }), null);
   assert.equal(await openCampaign({
-    accountId: id, url: 'https://x.invalid', sourceState: 'NO_WEBSITE' }), null,
+    accountId: id, url: 'https://x-fixture.com', sourceState: 'NO_WEBSITE' }), null,
     'NO_WEBSITE is not in the recoverable set whatever URL is passed');
   assert.equal(RECOVERABLE_STATES.has('NO_WEBSITE'), false);
 });
@@ -361,9 +361,9 @@ test('NO_WEBSITE is not retried, because there is no URL to retry', async () => 
 /* ------------------------------------------------------------------- durability --- */
 
 test('a campaign survives a restart, because it is a row and not a timer', async () => {
-  const id = await account('restart.invalid');
+  const id = await account('restart-fixture.com');
   serve(() => new Response('Forbidden', { status: 403 }));
-  await openCampaign({ accountId: id, url: 'https://restart.invalid', sourceState: 'REFUSED' });
+  await openCampaign({ accountId: id, url: 'https://restart-fixture.com', sourceState: 'REFUSED' });
   await runDueJobs();
 
   const before = await campaignOf(id);
@@ -385,9 +385,9 @@ test('a campaign survives a restart, because it is a row and not a timer', async
 });
 
 test('two workers cannot start or schedule the same campaign twice', async () => {
-  const id = await account('once.invalid');
-  const first = await openCampaign({ accountId: id, url: 'https://once.invalid', sourceState: 'REFUSED' });
-  const second = await openCampaign({ accountId: id, url: 'https://once.invalid', sourceState: 'REFUSED' });
+  const id = await account('once-fixture.com');
+  const first = await openCampaign({ accountId: id, url: 'https://once-fixture.com', sourceState: 'REFUSED' });
+  const second = await openCampaign({ accountId: id, url: 'https://once-fixture.com', sourceState: 'REFUSED' });
 
   assert.equal(first?.created, true);
   assert.equal(second?.created, false, 'the second caller joined the first');
@@ -408,10 +408,10 @@ test('two workers cannot start or schedule the same campaign twice', async () =>
 test('every probe is recorded, including the ones that failed before the one that worked', () => {
   // "apex failed and www worked" is the fact an operator needs; discarding the failures
   // would make a recovery look like the original URL had simply started working.
-  assert.equal(crossDomainDestination('https://a.invalid',
-    { sourceState: 'READ', finalUrl: 'https://b.invalid/' } as never), 'b.invalid');
-  assert.equal(crossDomainDestination('https://a.invalid',
-    { sourceState: 'READ', finalUrl: 'https://www.a.invalid/x' } as never), null);
-  assert.equal(crossDomainDestination('https://a.invalid',
-    { sourceState: 'REFUSED', finalUrl: 'https://b.invalid/' } as never), null);
+  assert.equal(crossDomainDestination('https://a-fixture.com',
+    { sourceState: 'READ', finalUrl: 'https://b-fixture.com/' } as never), 'b-fixture.com');
+  assert.equal(crossDomainDestination('https://a-fixture.com',
+    { sourceState: 'READ', finalUrl: 'https://www.a-fixture.com/x' } as never), null);
+  assert.equal(crossDomainDestination('https://a-fixture.com',
+    { sourceState: 'REFUSED', finalUrl: 'https://b-fixture.com/' } as never), null);
 });

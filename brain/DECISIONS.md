@@ -1326,3 +1326,151 @@ The only mechanism relied on is that a site's own state may change.
 
 Retry eligibility is not evidence about a company. An exhausted campaign routes the
 Account to alternative public sources and review, and never to suppression.
+
+## DEC-036 — A name found where people appear is not yet a person
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+Measured against the live estate: **27 of 135 named-person records are not people.** CMS
+usernames (`wpadmin`, `degreeadm`, `actuate`), the web agency that built the site (`Stryker
+Digital`, `MosierData`), the company's own name recorded as its own owner (`Benjamin
+Franklin Plumbing`), schema.org type literals (`Organization`, `admin`), and bare single
+tokens (`Mauricio`).
+
+The extractors were not wrong to find these strings — each genuinely sits where a person
+legitimately appears. What was wrong is that finding text in a person-shaped place was
+treated as having found a person, and a person is what receives decision-maker authority
+and eventually a phone call.
+
+`judgePersonIdentity` returns one of seven verdicts and only `VALID_PERSON` and
+`LIKELY_PERSON` may hold authority. It is conservative in both directions: a lone
+capitalised token is insufficient on its own but is carried by a person's title on a page
+about the company's people, because deleting a real owner who goes by one name is the
+other way to be wrong.
+
+Two generic rules do most of the work. A single lower-case token is a login, because a
+person never writes their own name in lower case and a system always does. A single word
+with a capital inside it is a brand, because personal names do not have internal capitals.
+
+Order matters and cost a fix: a contractor's own name contains trade words by definition,
+so the company comparison runs before the firm-word test, or "Benjamin Franklin Plumbing"
+reads as some other firm rather than as this one.
+
+Evidence: `SalesBrain-Audit-Data`, `research-audits/claude-2026-09-17`, commit
+`b5af52fedc1e09c448035dbb32382684a5b33b62`.
+
+## DEC-037 — A route belongs to a person only when something published says so
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+`contact_id` is null on **all 609** production communication endpoints. Sales Brain can
+independently discover "Yadiel Castro, Owner & Lead HVAC Contractor" and
+`yadielcastro2@gmail.com`, both published on colderofmiamiinc.com/contact, and connect
+neither — person extraction and endpoint extraction run alongside each other and never
+meet. It is why the estate holds 131 named people and zero person-attributed routes.
+
+The obvious fix is the wrong one. Attributing an endpoint because both appear somewhere on
+the same site would hand every owner the company's `info@`, which is worse than nothing: a
+rep who believes they have the owner's direct line stops looking for it.
+
+So attribution needs a stated reason, and the reasons are ranked: a mailto wrapped around
+the person's name, a shared contact card, a structured person record, prose that says so, a
+provider that stated it, or a local part that spells the person's name. Anything weaker
+stays company-level, which is not a failure — it is the truth about what was published.
+
+Two rules are absolute. A role mailbox is never a person, wherever it sits on the page and
+whatever basis is offered. And a phone cannot spell a name, so a number needs layout or an
+explicit statement; a co-occurrence never promotes one.
+
+## DEC-038 — A reserved domain is not a website, and not worth an hour of retries
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+`proofroof.invalid` sits on a live, workable Account called Proof Roofing. `.invalid` is
+reserved by RFC 2606 precisely so that it never resolves, so this is fixture data that
+reached the estate.
+
+Two costs, and the second is why this is a guard rather than a cleanup: an Account built on
+a reserved name is not a prospect, and the V3 recovery campaign would otherwise spend ten
+hours asking DNS about a name guaranteed not to exist. A recovery campaign is never opened
+against one — it routes to domain resolution instead — and domain resolution never adopts
+one as an Account's website. Existing records keep their domain as historical evidence.
+
+**Where the guard is not, and why.** The first attempt put it in `resolveObservations`, and
+it was wrong in two ways. Conceptually, that function answers "what identities are in this
+result set", and whether a name can be a *website* is a promotion question rather than a
+resolution one. Practically, RFC 2606 reserves these names so that tests can use them, so
+this entire test corpus is built on `.invalid` and `.example` — the guard fired on fixtures
+for a reason incidental to what they were testing, turning a promoted business into a
+review item in one case and a determinism test into an empty result in another.
+
+So a discovery-time guard is **deferred, not forgotten**. Closing it properly means
+migrating the fixture corpus off reserved names, which is a mechanical change that should
+not ride along with six behavioural fixes. Until then the hole is that a reserved domain
+could still arrive from discovery; what is closed is the waste it caused and the chance of
+it becoming an Account's canonical website.
+
+## DEC-039 — Read the server's own statement of a block
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+37 of 42 unreadable Accounts answer `HTTP 202` with the response header
+`sg-captcha: challenge` and a 167-byte meta refresh to `/.well-known/sgcaptcha/`. The
+header was present on **25 of 25** domains re-probed for it.
+
+We were inferring from body shape what the server says outright. The header is now read and
+kept as evidence, and it is decisive where the heuristic is a guess — it also catches the
+case the heuristic cannot, a challenge whose body happens to look like a page. The
+body-shape test stays for the servers that say nothing.
+
+It is evidence about our access and never about the company, and it is never a thing to
+work around: the challenge page carries `x-robots-tag: noindex`.
+
+## DEC-040 — Retrying harder is not the answer for a site that refuses everybody
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+The measurement that reordered V3's priorities. Of 42 unreadable Accounts probed by hand
+across every apex/www and http/https variant, **exactly one** became readable —
+`masterrepairplumbing.com`, a www-only host. The other 41 refuse an ordinary honest client
+too: 37 behind a captcha challenge, one parked, one deactivated by its website provider,
+one silent.
+
+So the hourly recovery campaign stays, and stops being described as the solution. It is
+worth having for the transient and variant cases, which is about one Account in forty. For
+the rest, an exhausted, terminal or robots-disallowed campaign now queues
+`alternative_source_research`: the company's own inaccessible server is not our only source.
+
+What that gathers is third-party by construction. A directory saying something about a
+company is not the company saying it, so `can_state_as_fact` stays false for all of it, and
+a first-party role on the same domain that refused us is skipped rather than borrowed —
+recording it would launder a refusal into a reading.
+
+## DEC-041 — A product page is not a contractor
+
+**Date:** 2026-09-18  **Status:** Implemented on `feature/sales-brain-v3-hvac-scaleout`
+
+Account `05d63b3f` is stored as **"Tool # 32806"** on harveytool.com and sits in workable
+contractor inventory with three named people attached. Harvey Tool makes miniature carbide
+cutting tools; the stored name is a product SKU page title.
+
+Caught on shape rather than by name. A denylist naming Harvey Tool would pass a test and
+teach us nothing, and the next one will be a different manufacturer. `PRODUCT_PAGE` is
+decided before ownership, because ownership is not the question — Harvey Tool does own
+harveytool.com. What the record claims is that a cutting-tool SKU page is an HVAC
+contractor, and the page's own shape refutes that without needing to know the trade.
+
+## DEC-042 — Two things measured and found already correct
+
+**Date:** 2026-09-18  **Status:** Pinned as regression tests, no change made
+
+The same audit checked two behaviours and found them sound. Recorded so nobody re-derives
+them and nobody "fixes" working code.
+
+`allianceairsolutions.com` publishes `xyz@123.com` as a form-field placeholder attribute.
+Sales Brain did not ingest it, and no placeholder-shaped address exists anywhere in the
+estate.
+
+Three of three sites crawled return a full-size branded body for `/team`, `/leadership`,
+`/staff` and for a nonsense path — with an honest `HTTP 404`. A crawler judging "is this a
+real page" by body size would ingest all of them; ours reads the status.

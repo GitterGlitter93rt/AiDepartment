@@ -412,3 +412,27 @@ export async function enqueueDomainResolution(input: {
     runAfter: input.runAfter ?? null,
   });
 }
+
+/**
+ * Research from sources that are not the company's own server.
+ *
+ * The finding that reordered V3's priorities. Of 42 unreadable Accounts probed by hand,
+ * exactly one became readable through ordinary URL variants -- the rest genuinely refuse
+ * an ordinary client too. So retrying harder recovers almost nothing, and the Accounts
+ * behind a challenge are not short of a crawler, they are short of a different source.
+ *
+ * Queued when a recovery campaign ends without a read, including when robots.txt is what
+ * ended it. Never queued for a domain that cannot exist.
+ */
+export async function enqueueAlternativeSourceResearch(input: {
+  accountId: string; reason: string; runAfter?: Date | null;
+}): Promise<EnqueueResult> {
+  return enqueue({
+    jobType: 'alternative_source_research',
+    idempotencyKey: `alternative_source_research:${input.accountId}`,
+    payload: { account_id: input.accountId, reason: input.reason },
+    accountId: input.accountId,
+    priority: 65,
+    runAfter: input.runAfter ?? null,
+  });
+}

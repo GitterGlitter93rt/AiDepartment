@@ -30,6 +30,8 @@ export type SourceRole =
   | 'MARKETPLACE'
   | 'AGGREGATOR'
   | 'MANUFACTURER_LOCATOR'
+  /** A manufacturer's own product or catalogue page. Sells a thing; is not a contractor. */
+  | 'PRODUCT_PAGE'
   | 'VIDEO'
   | 'FORUM'
   | 'UNKNOWN';
@@ -103,6 +105,23 @@ const SERVICE_PATH = /\/(services?|repair|installation|maintenance|ac-repair|hva
 const KNOWN_SOCIAL = /^(facebook|instagram|twitter|x|linkedin|tiktok|pinterest|nextdoor)\./;
 const KNOWN_VIDEO = /^(youtube|youtu|vimeo)\./;
 const KNOWN_FORUM = /^(reddit|quora|answers|city-data)\./;
+
+/**
+ * A page that sells a product rather than a service.
+ *
+ * Production example: Account 05d63b3f is stored as "Tool # 32806" on harveytool.com and
+ * sits in workable contractor inventory. Harvey Tool makes miniature carbide cutting
+ * tools; the stored name is a product SKU page title, and three "named people" came with
+ * it. Nothing about the URL or the title said contractor -- but nothing said company
+ * either, and the fallthrough supplied that.
+ *
+ * Deliberately shape-based. A denylist naming Harvey Tool would pass a test and teach us
+ * nothing, and the next one will be a different manufacturer.
+ */
+const PRODUCT_TITLE =
+  /^\s*(tool|item|part|product|model|sku|cat(alog)?)\s*#?\s*[:.#-]?\s*[a-z0-9-]{3,}\s*$|\b(sku|part\s*(no|number)|item\s*(no|number)|model\s*(no|number))\b[:.\s#]*[a-z0-9-]{3,}/i;
+const PRODUCT_PATH =
+  /\/(products?|catalog(ue)?|item|items|shop|store|sku|p|tool-?details?)\/|\/(products?|catalog(ue)?)\b/i;
 
 function hostOf(url: string | null): string {
   if (!url) return '';
@@ -252,6 +271,18 @@ export function classifySourceRole(evidence: SourceRoleEvidence): SourceRoleVerd
   }
   if (KNOWN_FORUM.test(`${domain}.`)) {
     return { role: 'FORUM', confidence: 'HIGH', reasons: ['a discussion forum'] };
+  }
+
+  /**
+   * A product page is not a contractor, whoever owns the domain.
+   *
+   * Asked before ownership, because ownership is not the question: Harvey Tool does own
+   * harveytool.com. What the record claims is that a cutting-tool SKU page is an HVAC
+   * contractor, and the page's own shape refutes that without needing to know the trade.
+   */
+  if (PRODUCT_TITLE.test(title) || PRODUCT_PATH.test(path)) {
+    return { role: 'PRODUCT_PAGE', confidence: 'HIGH',
+      reasons: ['a product or catalogue page, which sells a thing rather than performing a trade'] };
   }
 
   /**

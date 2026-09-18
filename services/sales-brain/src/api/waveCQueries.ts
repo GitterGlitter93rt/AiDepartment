@@ -246,11 +246,39 @@ export async function researchExceptions() {
                     else ''
                   end
                || coalesce(' (' || (r.adapter_results->'blocked_pages'->0->>'reason') || ')', '')
-               || '. That is a fact about our research, not about the company.',
+               || '. That is a fact about our research, not about the company.'
+               /*
+                * And what is being done about it.
+                *
+                * An operator reading "we could not read this" has one question --
+                * are we trying again? -- and until V3 the answer was no, silently,
+                * for ever. A campaign says which attempt it is on and when the next
+                * one is, so the row describes work in progress rather than a dead end.
+                */
+               || coalesce(
+                    case c.state
+                      when 'ACTIVE' then ' Attempt ' || c.attempts_made || ' of '
+                        || c.max_attempts || '; next retry in '
+                        || greatest(0, round(extract(epoch from (c.next_attempt_at - now())) / 60))
+                        || ' minutes.'
+                      when 'EXHAUSTED' then ' Retried ' || c.attempts_made
+                        || ' times over as many hours without success; now being '
+                        || 'researched from other public sources.'
+                      when 'DISALLOWED' then ' robots.txt asks us not to, so we stopped '
+                        || 'asking and are using other public sources.'
+                      when 'TERMINAL' then ' Every candidate host answers 404, so we are '
+                        || 'looking for where the company went.'
+                      else null
+                    end, ''),
              r.started_at
         from accounts a
         join research_runs r on r.account_id = a.account_id
+        left join website_recovery_campaigns c on c.account_id = a.account_id
+             and c.campaign_id = (select c2.campaign_id from website_recovery_campaigns c2
+                                   where c2.account_id = a.account_id
+                                   order by c2.started_at desc limit 1)
        where a.canonical_domain is not null and r.status = 'partial'
+         and coalesce(c.state, '') <> 'RECOVERED'
          and not exists (select 1 from evidence_records e
                           where e.account_id = a.account_id and e.source_type = 'COMPANY_FIRST_PARTY')
        limit 20)
@@ -277,4 +305,42 @@ export async function researchExceptions() {
      limit 60`,
   );
   return rows;
+}
+
+/**
+ * Website recovery, as an operator needs to read it.
+ *
+ * Separate from `researchExceptions` because a campaign in progress is not an exception:
+ * it is work happening. A recovered site is not an exception either, and showing it as
+ * one is how "we could not read this" came to look permanent.
+ */
+export async function websiteRecoveryStatus(): Promise<{
+  active: number; recovered: number; exhausted: number; disallowed: number;
+  terminal: number; recoveredByVariant: { variant: string; n: number }[];
+  dueWithin60Minutes: number;
+}> {
+  const { rows } = await query<{ state: string; n: string }>(
+    `select state, count(*)::text as n from website_recovery_campaigns group by state`);
+  const by = new Map(rows.map((r) => [r.state, Number(r.n)]));
+
+  const variants = await query<{ variant: string; n: string }>(
+    `select a.variant, count(*)::text as n
+       from website_recovery_attempts a
+       join website_recovery_campaigns c on c.campaign_id = a.campaign_id
+      where c.state = 'RECOVERED' and a.source_state = 'READ'
+      group by a.variant order by 2 desc`);
+
+  const due = await query<{ n: string }>(
+    `select count(*)::text as n from website_recovery_campaigns
+      where state = 'ACTIVE' and next_attempt_at <= now() + interval '60 minutes'`);
+
+  return {
+    active: by.get('ACTIVE') ?? 0,
+    recovered: by.get('RECOVERED') ?? 0,
+    exhausted: by.get('EXHAUSTED') ?? 0,
+    disallowed: by.get('DISALLOWED') ?? 0,
+    terminal: by.get('TERMINAL') ?? 0,
+    recoveredByVariant: variants.rows.map((r) => ({ variant: r.variant, n: Number(r.n) })),
+    dueWithin60Minutes: Number(due.rows[0]?.n ?? 0),
+  };
 }

@@ -12,6 +12,7 @@ import '../workers/contactResearch.js';   // registers contact_research / accoun
 import '../workers/marketMiner.js';       // registers market_mine / zip_research
 import '../workers/websiteRecovery.js';  // registers website_recovery
 import '../workers/domainResolution.js'; // registers domain_resolution
+import '../workers/alternativeSourceResearch.js'; // registers alternative_source_research
 
 // Discovery providers. Registered in both processes so the API answers "can this
 // system find a new business" the same way the worker would; registering an
