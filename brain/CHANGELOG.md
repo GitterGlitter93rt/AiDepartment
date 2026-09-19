@@ -823,3 +823,7 @@ consults.
 
 Still not `MINER_LIVE_CANARY_READY`. Nothing was deployed, no live provider was called, no prospect
 was contacted, and `OUTBOUND_DIAL_ENABLED` remains false.
+
+2026-09-18: Ported the production FIT refresh maintenance path and unrestricted researched-inventory
+Find Prospects browse semantics to V3. FIT remains the Module 4C score; Apollo contact quality stays
+separate. No deployment or provider activity is implied by this port.

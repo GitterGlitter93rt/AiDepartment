@@ -159,6 +159,63 @@ test('the recompute is idempotent: a second pass has nothing to do', async () =>
   assert.equal(second.recomputed, 0);
 });
 
+test('a material evidence change marks a current score stale', async () => {
+  const accountId = await account();
+  await scoreAccount(accountId);
+  await evidence(accountId, 'active_google_search_ad');
+
+  const result = await recomputeStaleScores();
+  assert.equal(result.stale, 1, 'new scoring evidence was not detected');
+  assert.equal(result.recomputed, 1);
+
+  const again = await recomputeStaleScores();
+  assert.equal(again.stale, 0, 'the refreshed score remained stale');
+});
+
+test('contradicting evidence used by the score marks it stale', async () => {
+  const accountId = await account();
+  await evidence(accountId, 'active_google_search_ad');
+  await scoreAccount(accountId);
+  const { rows: prior } = await query<{ evidence_id: string }>(
+    `select evidence_id from evidence_records
+      where account_id = $1 and claim_key = 'active_google_search_ad'
+      order by observed_at desc limit 1`, [accountId]);
+  const { rows: replacement } = await query<{ evidence_id: string }>(
+    `insert into evidence_records
+       (account_id, category, claim_key, claim_text, normalized_value, confidence,
+        can_state_as_fact, source_type, source_provider, source_reference,
+        expires_at, freshness)
+     values ($1, 'paid_acquisition', 'active_google_search_ad', 'No current ad observed',
+             'no', 'confirmed', true, 'provider_serp', 'dataforseo',
+             'https://serp.example/contradiction', now() + interval '48 hours', 'fresh')
+     returning evidence_id`, [accountId]);
+  await query(
+    `update evidence_records set contradicted_by_evidence_id = $2 where evidence_id = $1`,
+    [prior[0]!.evidence_id, replacement[0]!.evidence_id]);
+
+  const result = await recomputeStaleScores();
+  assert.equal(result.stale, 1, 'a contradiction of scored evidence was not detected');
+  assert.equal(result.recomputed, 1);
+});
+
+test('contact evidence does not mark FIT stale because contact quality is separate', async () => {
+  const accountId = await account();
+  await scoreAccount(accountId);
+  await query(
+    `insert into evidence_records
+       (account_id, category, claim_key, claim_text, normalized_value, confidence,
+        can_state_as_fact, source_type, source_provider, source_reference,
+        expires_at, freshness)
+     values ($1, 'contact', 'apollo_direct_email', 'A named professional email was found',
+             'yes', 'confirmed', true, 'provider_directory', 'apollo',
+             'apollo://person/test', now() + interval '30 days', 'fresh')`,
+    [accountId]);
+
+  const result = await recomputeStaleScores();
+  assert.equal(result.stale, 0, 'Apollo contact evidence must not alter FIT');
+  assert.equal(result.recomputed, 0);
+});
+
 test('a recompute killed halfway resumes rather than restarting', async () => {
   const ids: string[] = [];
   for (let index = 0; index < 6; index += 1) {

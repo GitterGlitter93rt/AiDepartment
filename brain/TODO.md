@@ -17,6 +17,12 @@ A task should appear in only one status section. Dependencies may be referenced 
 
 ## 🔴 High priority
 
+- [x] **SB-HOTFIX — FIT refresh and global Find Prospects browse.** Production-line hotfix from
+  the exact production SHA. FIT uses the existing Module 4C v3 contract; maintenance preview /
+  apply and material-evidence worker refresh are schema-54 compatible. Blank industry/location
+  is an unrestricted, paginated inventory read with no provider side effects. Qualification,
+  deployment, score refresh, and V3 port are recorded with the release evidence.
+
 - [x] **SB-V1 — Sales Brain V1 deployed to production.** `feature/outbound-sales-brain`
   fast-forwarded `d856bce` → `3e4a282` on 2026-09-17; 2.7s restart window, worker before
   API. **Gate verified:** forward 2171/2171, reverse 2171/2171, targeted 32 files /

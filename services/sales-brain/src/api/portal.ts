@@ -180,14 +180,17 @@ export async function registerPortalRoutes(app: FastifyInstance): Promise<void> 
 
     const params = new URLSearchParams((request.raw.url ?? '').split('?')[1] ?? '');
     const searchRequest = parseSearchQuery(params);
-    const hasQuery = Boolean(searchRequest.geography?.value || searchRequest.marketId || searchRequest.verticalProfileId);
-
     const [counts, verticals, markets] = await Promise.all([
       navCountsFull(user.userId, user.role), listVerticals(), marketOptions(),
     ]);
 
-    const response = hasQuery ? await searchProspects(searchRequest, user) : null;
-    if (response) await recordSearchContext(user.userId, searchRequest, response.total);
+    // A blank primary query is an unrestricted read of the researched inventory.
+    // It must not be treated as an invalid search or start any provider work.
+    const response = await searchProspects(searchRequest, user);
+    const hasPrimaryConstraint = Boolean(
+      searchRequest.geography?.value || searchRequest.marketId || searchRequest.verticalProfileId,
+    );
+    if (hasPrimaryConstraint) await recordSearchContext(user.userId, searchRequest, response.total);
 
     return reply.type('text/html').send(renderFindPage({
       user, counts, verticals, request: searchRequest, response, queryString: params, markets,
