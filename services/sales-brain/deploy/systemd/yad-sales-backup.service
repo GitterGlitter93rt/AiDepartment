@@ -1,0 +1,15 @@
+[Unit]
+Description=YAD Sales Brain PostgreSQL backup
+Documentation=file:///home/roothecks/YAD-Sales-Brain/docs/09-software/SALES-BRAIN-RUNTIME.md
+
+[Service]
+Type=oneshot
+# The dedicated Sales Brain worktree, not the general repository checkout. The old
+# path was /home/roothecks/AiDepartment/services/sales-brain, which was switched to a
+# website branch that does not track services/ -- taking this unit's ExecStart with
+# it. See SALES-BRAIN-RUNTIME.md.
+WorkingDirectory=/home/roothecks/YAD-Sales-Brain/services/sales-brain
+# Refuses to run from a tree that is not the Sales Brain on its own branch, rather
+# than failing obscurely later.
+ExecStartPre=/home/roothecks/YAD-Sales-Brain/services/sales-brain/deploy/assert-runtime.sh
+ExecStart=/home/roothecks/YAD-Sales-Brain/services/sales-brain/deploy/backup.sh

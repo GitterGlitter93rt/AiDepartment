@@ -1,0 +1,179 @@
+schema_version: "1.0.0"
+contract: yad_sales_ai_precomputed_opening_v1
+purpose: >-
+  Precompile the claim-safe first spoken turn before dialing so human answer does not wait for a realtime LLM round trip.
+
+principles:
+  - first_turn_is_compiled_from_immutable_callpack_before_provider_call_creation
+  - no_live_web_research_required_for_greeting
+  - spoken_text_is_validated_before_dial
+  - route_class_determines_opening_shape
+  - realtime_model_takes_over_after_first_prospect_response_or_interruption
+  - precomputed_opening_cannot_override_late_preflight_block
+
+opening_pack:
+  required_fields:
+    - opening_pack_id
+    - account_id
+    - callpack_id
+    - generated_at
+    - source_versions
+    - route_class
+    - frame_version
+    - hook_family
+    - reason_context_class
+    - primary_process_question
+    - canonical_text
+    - spoken_text
+    - claim_references
+    - validation_status
+    - expires_at_or_refresh_by
+  optional_fields:
+    - target_contact_id
+    - target_name
+    - target_role
+    - pronunciation_overrides
+    - voicemail_text
+    - ai_disclosure_card_reference
+
+route_classes:
+  NAMED_DIRECT:
+    objective: immediate_researched_process_question
+    example_shape: >-
+      Hey [Name], [identity] with Your AI Department. Quick cold call — I'll keep it short.
+      [claim_safe_reason] [one_process_question]
+    requirements:
+      - named_person_current_enough_for_callpack
+      - endpoint_route_supports_named_target
+      - reason_claim_safe
+
+  NAMED_VIA_MAIN_LINE:
+    objective: confirm_or_route_to_named_target_without_pitching_front_desk
+    example_shape: >-
+      Hey, maybe you can point me in the right direction. I'm trying to reach [Name] about a quick question around [process].
+      Is [Name] still the right person for that?
+    requirements:
+      - named_target_supported
+      - main_line_not_mislabeled_direct
+
+  ROLE_VIA_MAIN_LINE:
+    objective: identify_workflow_owner
+    example_shape: >-
+      Hey, maybe you can point me in the right direction. Who normally oversees [process] there — operations, the owner, or somebody else?
+    requirements:
+      - role_or_process_route_supported
+      - no_invented_name
+
+  GENERIC_MAIN_LINE:
+    objective: obtain_routing_intelligence_with_minimal_pitch
+    example_shape: >-
+      Hey, quick question — who normally handles [specific_process] on your side?
+    requirements:
+      - process_question_safe_for_gatekeeper
+    caution: >-
+      Do not launch the decision-maker cold-call pitch before learning whether the person answering owns the workflow.
+
+  REQUESTED_CALLBACK:
+    objective: continue_prior_context_not_cold_open
+    example_shape: >-
+      Hey [Name], [identity] with Your AI Department. You asked me to call back around now about [prior_verified_topic].
+    requirements:
+      - requested_callback_evidence
+      - prior_context_verified
+
+  INBOUND_SALES_CALLBACK:
+    objective: acknowledge_return_call_and_listen
+    note: inbound_callback_uses_separate_callback_pack_not_cold_opening_pack
+
+validation:
+  before_ready:
+    - account_identity_current
+    - contact_route_current
+    - selected_reason_supported
+    - ad_claim_fresh_if_used
+    - hook_allowed_for_target_role
+    - no_unsupported_loss_spend_roi_claim
+    - no_fake_referral_or_familiarity
+    - vertical_language_pack_applied_if_supported
+    - phone_email_number_tokens_spoken_normalization_applied
+    - sentence_length_within_opening_budget
+    - one_question_only
+  result:
+    values:
+      - VALID
+      - NEEDS_REFRESH
+      - BLOCKED
+
+answer_runtime:
+  sequence:
+    - provider_call_connects
+    - current_preflight_still_ALLOW
+    - selected_opening_pack_still_valid
+    - begin_precomputed_spoken_text_immediately_on_human_first_turn_path
+    - allow_barge_in_from_first_audio
+    - on_prospect_speech_cancel_unsent_stale_opening_audio
+    - feed_actual_heard_or_cancelled_opening_state_into_working_memory
+    - realtime_model_responds_to_prospect_intent
+  no_model_roundtrip_before_first_audio: true
+  exception:
+    - if_amd_or_transport_architecture_requires_waiting_for_a_signal_benchmark_it_explicitly
+
+interruption_examples:
+  - scenario: prospect_interrupts_with_who_is_this
+    expected:
+      - cancel_remaining_precomputed_audio
+      - record_identity_and_reason_portions_actually_spoken_if_known
+      - answer_identity_question
+      - never_restart_entire_opening
+  - scenario: prospect_interrupts_with_stop_calling
+    expected:
+      - cancel_audio
+      - durable_dnc
+      - short_acknowledgement
+      - end
+  - scenario: prospect_interrupts_with_wrong_number
+    expected:
+      - cancel_audio
+      - endpoint_correction
+      - end
+
+freshness:
+  invalidate_if:
+    - account_merged_or_identity_changed
+    - target_contact_changed
+    - endpoint_changed
+    - ad_evidence_used_in_reason_became_stale
+    - hook_reselected
+    - frame_version_changed
+    - vertical_profile_materially_changed
+    - current_relationship_became_callback_meeting_opportunity_dnc
+
+telemetry:
+  capture:
+    - opening_pack_id
+    - first_audio_started_at
+    - number_of_opening_words_scheduled
+    - number_or_estimate_of_words_played_before_interrupt
+    - interrupted
+    - interruption_intent
+    - first_question_completed
+    - first_question_answered
+    - opening_hangup
+    - answer_to_first_audio_ms
+
+experiments:
+  frame_changes:
+    requirement: compile_new_opening_pack_version_before_call
+  do_not:
+    - ask_realtime_model_to_improvise_reason_for_call_on_first_turn
+    - generate_current_ad_claim_live_after_answer
+    - use_one_generic_pre_recorded_pitch_for_all_accounts
+
+voice_quality:
+  - opening_must_use_same_selected_tts_voice_as_live_conversation
+  - preserve_interruptible_behavior
+  - do_not_play_non_interruptible_recording_blob_if_it_breaks_barge_in
+  - spoken_normalization_and_pronunciation_dictionary_apply_before_dial
+
+core_rule: >-
+  The first good sales sentence should be an artifact of pre-call research, not an emergency inference after the prospect says hello. Precompute it, validate it, speak it immediately, and let the realtime model adapt from the first prospect response onward.

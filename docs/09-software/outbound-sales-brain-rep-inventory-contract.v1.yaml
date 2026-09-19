@@ -1,0 +1,285 @@
+version: 1
+name: yad_rep_inventory_contract
+status: architecture_authority
+
+product_model:
+  primary_interaction: browse_search_claim
+  forced_queue_primary: false
+  inventory_source: edge_xpert_market_miner
+  inventory_persistence: postgres
+  canonical_entity: account
+
+ownership_states:
+  - UNCLAIMED
+  - CLAIMED
+  - MANAGER_ASSIGNED
+  - ACTIVE_RELATIONSHIP
+  - ACTIVE_OPPORTUNITY
+  - CLIENT
+  - SUPPRESSED
+
+search_request:
+  fields:
+    vertical_profile_id:
+      required: true
+    geography:
+      required: true
+      accepted:
+        - zip_zcta
+        - city
+        - county
+        - state
+        - radius
+        - saved_market_id
+    mining_mode:
+      required: false
+      accepted:
+        - advertiser_first
+        - advertisers_only
+        - full_local_market
+        - no_verified_website
+        - weak_website
+        - imported_list
+    minimum_tier:
+      required: false
+      accepted: [A, B, C, D]
+    advertising_filters:
+      required: false
+      accepted:
+        - google_paid
+        - google_lsa
+        - meta_paid
+        - multichannel
+    contact_filters:
+      required: false
+      accepted:
+        - phone_available
+        - verified_business_phone
+        - email_available
+        - phone_and_email
+        - decision_maker_known
+        - contact_research_needed
+    ownership_filter:
+      default: UNCLAIMED
+      accepted:
+        - UNCLAIMED
+        - MINE
+        - CLAIMED_BY_OTHER
+        - ANY_VISIBLE
+    research_filters:
+      required: false
+      accepted:
+        - COMPLETE
+        - GOOD
+        - PARTIAL
+        - STALE
+
+search_behavior:
+  query_durable_inventory_first: true
+  block_on_live_mining: false
+  return_existing_results_immediately: true
+  allow_background_research_more: true
+  unknown_is_not_negative: true
+  dedupe_before_display: true
+
+result_summary:
+  required_fields:
+    - account_id
+    - company_name
+    - vertical_profile_id
+    - geography_summary
+    - manual_score
+    - manual_tier
+    - advertiser_evidence_summary
+    - contactability_summary
+    - why_this_prospect
+    - research_freshness
+    - ownership_state
+    - owner_user_id
+
+claim_command:
+  name: claim_accounts_to_me
+  inputs:
+    - account_ids
+    - actor_user_id
+    - search_context_id
+  requirements:
+    server_side: true
+    atomic_per_account: true
+    audited: true
+    respect_suppression: true
+    respect_client_state: true
+    respect_active_opportunity: true
+    first_valid_claim_wins: true
+  success_effects:
+    - set owner_user_id
+    - set ownership_state CLAIMED
+    - set claimed_at
+    - append ownership audit event
+    - expose under My Prospects
+  partial_batch_behavior:
+    all_or_nothing: false
+    return_each_account_result: true
+  reject_reasons:
+    - already_claimed
+    - suppressed
+    - client
+    - active_opportunity_owned_elsewhere
+    - permission_denied
+    - active_claim_limit
+
+release_command:
+  name: release_account
+  permitted_if:
+    - actor_is_current_owner_or_manager
+    - no_protected_relationship_state
+  protected_relationship_states:
+    - CALLBACK_REQUESTED
+    - POSITIVE_REPLY
+    - ACTIVE_OPPORTUNITY
+    - MEETING_SCHEDULED
+    - PROPOSAL
+    - CLIENT
+  audited: true
+
+reassign_command:
+  name: manager_reassign_account
+  manager_only: true
+  audited: true
+  require_reason: true
+
+my_prospects:
+  filters:
+    - NEWLY_CLAIMED
+    - NOT_CONTACTED
+    - CALL_READY
+    - EMAIL_READY
+    - CALL_AND_EMAIL
+    - CALLBACK_DUE
+    - POSITIVE_REPLY
+    - OPPORTUNITY
+    - tier
+    - advertiser_strength
+    - geography
+    - vertical
+  sorts:
+    - recommended_priority
+    - recently_claimed
+    - follow_up_due
+    - manual_tier
+    - advertiser_strength
+    - city
+
+channel_states:
+  - CALL_READY
+  - EMAIL_READY
+  - CALL_AND_EMAIL
+  - CONTACT_RESEARCH_NEEDED
+  - CALLBACK
+  - SUPPRESSED
+
+account_detail:
+  required_sections:
+    - identity_header
+    - best_contact
+    - why_reach_out
+    - primary_hypothesis
+    - suggested_approach
+    - do_not_claim
+    - evidence_signals
+    - account_timeline
+    - ownership_controls
+
+saved_market:
+  fields:
+    - market_id
+    - name
+    - geography
+    - vertical_profile_id
+    - mining_mode
+    - target_inventory_depth
+    - researched_count
+    - unclaimed_count
+    - claimed_count
+    - tier_a_count
+    - tier_b_count
+    - phone_email_count
+    - advertiser_count
+    - research_freshness
+    - last_mined_at
+    - state
+  states:
+    - ACTIVE
+    - SATURATED
+    - REFRESHING
+    - PAUSED
+
+rep_permissions:
+  may:
+    - search_inventory
+    - browse_markets
+    - claim_available_accounts
+    - work_owned_accounts
+    - create_disposition
+    - create_callback
+    - create_dnc
+  may_not:
+    - remove_dnc
+    - claim_suppressed_account
+    - override_other_rep_ownership
+    - enable_autonomous_outbound
+    - view_provider_credentials
+    - unrestricted_master_export
+
+manager_permissions:
+  may:
+    - all_rep_permissions_except_security_overrides
+    - assign_accounts
+    - reassign_accounts
+    - release_unworked_accounts
+    - configure_saved_markets
+    - request_market_refresh
+    - configure_claim_targets
+    - view_team_ownership
+
+hard_fail_fixtures:
+  - id: simultaneous_claim
+    given: two_reps_claim_same_unclaimed_account
+    expect: exactly_one_owner
+
+  - id: suppressed_hidden
+    given: account_is_dnc_suppressed
+    expect: not_claimable_for_cold_outreach
+
+  - id: client_hidden
+    given: account_is_client
+    expect: not_unclaimed_cold_inventory
+
+  - id: ownership_api_enforced
+    given: rep_changes_frontend_or_api_account_id
+    expect: cannot_work_other_rep_owned_account
+
+  - id: zip_search_cached_first
+    given: existing_fresh_inventory_for_zip
+    expect: return_before_new_mining_finishes
+
+  - id: zip_search_research_more
+    given: incomplete_coverage
+    expect:
+      - existing_results_visible
+      - background_job_may_start
+
+  - id: restart_persistence
+    given: account_claimed_and_callback_saved
+    when: application_restarts
+    expect:
+      - owner_persists
+      - callback_persists
+
+  - id: stale_ads
+    given: ad_evidence_expired
+    expect: no_current_tense_ad_claim
+
+  - id: duplicate_source
+    given: same_company_discovered_from_google_and_import
+    expect: one_canonical_account

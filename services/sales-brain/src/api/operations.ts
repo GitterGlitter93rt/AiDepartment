@@ -1,0 +1,610 @@
+import { query } from '../db/pool.js';
+import { HEARTBEAT_STALE_AFTER_MS } from '../workers/runner.js';
+import { DEFAULT_REFRESH_INTERVAL_HOURS } from '../workers/marketScheduler.js';
+import { schemaState } from '../db/migrate.js';
+import { SCORE_VERSION } from '../scoring/model.js';
+import { buildIdentity } from '../release/identity.js';
+import { dailyBudgetUsd } from '../miner/spend.js';
+
+/**
+ * One query that answers the questions an operator actually has.
+ * Authority: outbound-sales-brain-edge-xpert-sales-portal-deployment-spec.md §11-§13.
+ *
+ * This is not a second monitoring product. It reads the same tables every page
+ * reads and answers, in one round trip, the thirteen questions somebody running this
+ * box on a Monday morning needs answered: is anything broken, is anything backing
+ * up, is anything getting stale, is outbound AI still off, and is anyone waiting on
+ * a reply we have not sent.
+ *
+ * Every number here is a count of rows that exist. Nothing is inferred, and a
+ * question we cannot answer says so rather than returning zero.
+ */
+
+export type HealthState = 'OK' | 'ATTENTION' | 'BLOCKED' | 'UNKNOWN';
+
+/**
+ * The independent axes an operator has to be able to read separately.
+ *
+ * A single light cannot be right about all of these at once. The database can be up
+ * while the schema is behind; a worker can be alive while the discovery provider is
+ * unusable; the queue can be empty because everything is fine or because nothing is
+ * scheduling work. Rolling them together produces a green light that is true of
+ * nothing in particular.
+ */
+export type HealthDimension =
+  | 'DATABASE' | 'SCHEMA' | 'WORKER' | 'QUEUE' | 'DISCOVERY_PROVIDER'
+  | 'PROVIDER_TASKS' | 'RESEARCH' | 'SAVED_MARKETS' | 'SPEND' | 'INVENTORY' | 'SALES'
+  | 'COMPLIANCE';
+
+export interface OperationalCheck {
+  id: string;
+  dimension: HealthDimension;
+  question: string;
+  state: HealthState;
+  value: string;
+  detail?: string;
+}
+
+export interface OperationalSnapshot {
+  takenAt: string;
+  checks: OperationalCheck[];
+  counts: Record<HealthState, number>;
+}
+
+export async function operationalSnapshot(): Promise<OperationalSnapshot> {
+  const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
+  const discoveryAvailable = availableDiscoveryAdapters().length > 0;
+  const schema = await schemaState();
+  const { strandedResearchCount } = await import('../workers/researchReconcile.js');
+  const strandedResearch = await strandedResearchCount();
+
+  const { rows } = await query<Record<string, string | number | boolean | null>>(
+    `select
+       -- inventory and staleness
+       (select count(*)::int from accounts where not is_suppressed
+          and merged_into_account_id is null) as accounts,
+       (select count(*)::int from accounts where not is_suppressed
+          and merged_into_account_id is null and ownership_state = 'UNCLAIMED') as unclaimed,
+       (select count(*)::int from accounts where not is_suppressed
+          and merged_into_account_id is null
+          and (research_fresh_until is null or research_fresh_until <= now())) as stale_research,
+
+       -- worker liveness, from a heartbeat rather than from the absence of trouble
+       (select count(*)::int from worker_instances
+         where stopped_at is null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval) as workers_online,
+       -- Alive, heartbeating, and taking no new work. The queue behind a draining
+       -- worker is going nowhere, and it used to read as perfectly healthy.
+       (select count(*)::int from worker_instances
+         where stopped_at is null and draining_since is not null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval) as workers_draining,
+       (select count(*)::int from worker_instances) as workers_known,
+       -- Which builds are actually serving this queue. Two answers here means the
+       -- API and the worker, or two workers, are running different code.
+       (select count(distinct coalesce(build_sha, 'unknown'))::int from worker_instances
+         where stopped_at is null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval)
+         as worker_builds,
+       (select string_agg(distinct coalesce(build_sha, 'unknown'), ', ')
+          from worker_instances
+         where stopped_at is null
+           and last_heartbeat_at > now() - ($1::text || ' milliseconds')::interval)
+         as worker_build_list,
+       (select max(last_heartbeat_at) from worker_instances) as last_heartbeat_at,
+       (select coalesce(extract(epoch from (now() - max(last_heartbeat_at))), -1)::int
+          from worker_instances) as heartbeat_age_seconds,
+
+       -- the queue
+       (select count(*)::int from jobs where status = 'QUEUED') as jobs_queued,
+       (select count(*)::int from jobs where status = 'RUNNING'
+          and leased_until > now()) as jobs_running,
+       (select count(*)::int from jobs where status = 'RUNNING'
+          and leased_until <= now()) as jobs_stranded,
+       (select count(*)::int from jobs where status = 'FAILED'
+          and completed_at > now() - interval '24 hours') as jobs_failed_today,
+       (select coalesce(extract(epoch from (now() - min(run_after))), 0)::int
+          from jobs where status = 'QUEUED' and run_after <= now()) as queue_age_seconds,
+
+       -- providers
+       (select count(*)::int from provider_usage
+          where status = 'FAILED' and requested_at > now() - interval '24 hours') as provider_failures,
+       (select coalesce(sum(coalesce(actual_cost_usd, estimated_cost_usd, 0)), 0)::numeric
+          from provider_usage where requested_at > now() - interval '30 days') as provider_spend_30d,
+
+       -- imports
+       (select count(*)::int from import_batches
+          where status = 'FAILED' and created_at > now() - interval '7 days') as imports_failed,
+       (select count(*)::int from import_sessions
+          where status = 'RUNNING' and confirm_started_at < now() - interval '30 minutes')
+          as imports_stuck,
+
+       -- replies and follow-ups
+       (select count(*)::int from email_events e
+          where e.event_type = 'REPLIED'
+            and e.reply_class in ('POSITIVE_INTEREST','QUESTION','SEND_INFO')
+            and e.occurred_at < now() - interval '24 hours'
+            -- Only a touch that actually reached the prospect counts as an answer.
+            -- Any activity at all would do: discovery, research and claiming are all
+            -- activities, and a company discovered after the reply would have looked
+            -- like a reply we had sent.
+            and not exists (select 1 from activities a
+                             where a.account_id = e.account_id
+                               and a.occurred_at > e.occurred_at
+                               and a.activity_type in ('EMAIL_SENT','CALL_ATTEMPT',
+                                                       'VOICEMAIL','FIELD_VISIT',
+                                                       'MEETING_SCHEDULED'))) as replies_waiting,
+       (select count(*)::int from follow_ups
+          where status = 'OPEN' and due_at < now()) as followups_overdue,
+
+       -- bookings
+       (select count(*)::int from meeting_bookings
+          where status = 'PENDING' and created_at < now() - interval '30 minutes') as bookings_stuck,
+
+       -- the outbound switches
+       (select outbound_mode from voice_pilot_state) as outbound_mode,
+       (select outbound_dial_enabled from voice_pilot_state) as outbound_dial_enabled,
+       (select count(*)::int from voice_calls
+          where mode_at_start <> 'DRY_RUN' and started_at > now() - interval '24 hours')
+          as live_calls_today,
+
+       -- people
+       (select count(*)::int from users where is_active and role = 'SALES_REP') as reps,
+       (select count(*)::int from sessions where expires_at > now()) as active_sessions,
+
+       -- duplicates
+       (select count(*)::int from (
+          select normalized_name from accounts where merged_into_account_id is null
+           group by normalized_name having count(*) > 1) t) as duplicate_names,
+       (select count(*)::int from account_merges
+          where occurred_at > now() - interval '7 days') as merges_this_week,
+
+       -- mining truthfulness: a job that could not do what was asked
+       (select count(*)::int from jobs
+         where outcome in ('DISCOVERY_BLOCKED','PROVIDER_UNAVAILABLE')
+           and completed_at > now() - interval '24 hours') as blocked_jobs_today,
+
+       -- Provider work outstanding. A task submitted and never collected is money
+       -- spent for nothing, and no other number on this page would show it.
+       (select count(*)::int from provider_tasks where status = 'PENDING')
+         as provider_tasks_pending,
+       (select count(*)::int from provider_tasks
+         where status = 'PENDING' and submitted_at < now() - interval '1 day')
+         as provider_tasks_aged,
+       (select count(*)::int from provider_tasks
+         where status = 'ABANDONED' and collected_at > now() - interval '1 day')
+         as provider_tasks_abandoned,
+
+       -- Saved markets, which are what makes inventory maintain itself.
+       (select count(*)::int from saved_markets where enabled) as markets_enabled,
+       (select count(*)::int from saved_markets where enabled and blocker_reason is not null)
+         as markets_blocked,
+       (select count(*)::int from saved_markets where enabled and consecutive_failures > 0)
+         as markets_failing,
+
+       -- Enabled, due, and not moving.
+       --
+       -- The comment below this query has always said that is the number that
+       -- separates inventory which maintains itself from a page that looks busy, and
+       -- nothing computed it. A market with no failures and no blocker reads OK
+       -- however long it has been sitting there, so a worker that stopped sweeping,
+       -- or a backlog that never drains, or an in-flight ceiling nothing ever clears,
+       -- all present as "scheduled and none is failing".
+       --
+       -- "Due" on its own is normal -- a market becomes due and waits for the next
+       -- sweep. Overdue by more than its own refresh interval is not: it has missed a
+       -- whole cycle. That threshold comes from the market's own cadence rather than
+       -- from a constant invented here, so a market asking to be looked at hourly is
+       -- judged hourly and one asking daily is judged daily.
+       --
+       -- Markets already counted as blocked are excluded, because they are reported
+       -- with their reason and this would say the same thing twice.
+       (select count(*)::int from saved_markets
+         where enabled and blocker_reason is null and next_refresh_at is not null
+           and next_refresh_at < now()
+               - ((coalesce(refresh_interval_hours, $3)) || ' hours')::interval)
+         as markets_overdue,
+       (select coalesce(max(extract(epoch from (now() - next_refresh_at)) / 3600), 0)::int
+          from saved_markets
+         where enabled and blocker_reason is null and next_refresh_at is not null
+           and next_refresh_at < now()
+               - ((coalesce(refresh_interval_hours, $3)) || ' hours')::interval)
+         as markets_overdue_oldest_hours,
+
+       -- Today's provider spend, and how much of it is estimated rather than
+       -- confirmed: a day whose cost is mostly estimated is a day nobody can hold
+       -- the provider to.
+       (select coalesce(sum(coalesce(actual_cost_usd, estimated_cost_usd)), 0)
+          from provider_usage where requested_at >= date_trunc('day', now()))
+         as provider_spend_today,
+       (select coalesce(sum(case when actual_cost_usd is null
+                                 then estimated_cost_usd else 0 end), 0)
+          from provider_usage where requested_at >= date_trunc('day', now()))
+         as provider_spend_today_estimated,
+
+       -- Scores produced under a ruleset this build no longer runs.
+       (select count(*)::int from accounts
+         where manual_tier is not null and merged_into_account_id is null
+           and (score_version is null or score_version <> $2)) as scores_stale_policy`,
+    [String(HEARTBEAT_STALE_AFTER_MS), SCORE_VERSION,
+     String(DEFAULT_REFRESH_INTERVAL_HOURS)],
+  );
+  const row = rows[0]!;
+  const number = (key: string): number => Number(row[key] ?? 0);
+
+  const checks: OperationalCheck[] = [];
+  const DIMENSION: Record<string, HealthDimension> = {
+    database: 'DATABASE', schema: 'SCHEMA', worker: 'WORKER', queue: 'QUEUE',
+    discovery: 'DISCOVERY_PROVIDER', provider_tasks: 'PROVIDER_TASKS',
+    research_backlog: 'RESEARCH', providers: 'RESEARCH', markets: 'SAVED_MARKETS',
+    score_policy: 'RESEARCH', build_identity: 'WORKER',
+    inventory_freshness: 'INVENTORY', unclaimed: 'INVENTORY', duplicates: 'INVENTORY',
+    duplicate_queue: 'INVENTORY', contact_freshness: 'RESEARCH',
+    imports: 'INVENTORY',
+    // Its own axis, not the provider's. "Can we search" and "may we afford to" are
+    // different questions, and an unset budget must not make a working provider
+    // look unavailable.
+    spend: 'SPEND',
+    replies: 'SALES', followups: 'SALES', bookings: 'SALES', reps: 'SALES',
+    outbound_ai: 'COMPLIANCE',
+  };
+  const add = (
+    id: string, question: string, state: HealthState, value: string, detail?: string,
+  ): void => {
+    const dimension = DIMENSION[id] ?? 'INVENTORY';
+    checks.push(detail === undefined
+      ? { id, dimension, question, state, value }
+      : { id, dimension, question, state, value, detail });
+  };
+
+  // --- is anything broken -----------------------------------------------------
+  add('database', 'Is PostgreSQL answering?', 'OK', 'yes',
+    'This snapshot came from it, so the answer is yes by construction.');
+
+  // Does the code that is running match the database it is running against?
+  //
+  // This box has already shown the shape of that failure once: systemd reported the
+  // worker service active while the database reported no worker online, because the
+  // unit was running a build from before the heartbeat existed. A pending migration
+  // is the same disagreement, and without this check it arrives as a page of 500s
+  // with no explanation attached.
+  add('schema', 'Does the schema match this build?',
+    schema.changed.length > 0 ? 'BLOCKED'
+      : schema.pending.length > 0 ? 'BLOCKED'
+      : schema.unknown.length > 0 ? 'ATTENTION' : 'OK',
+    schema.changed.length > 0 ? `${schema.changed.length} changed after apply`
+      : schema.pending.length > 0 ? `${schema.pending.length} not applied`
+      : schema.unknown.length > 0 ? `${schema.unknown.length} ahead of this build`
+      : `${schema.applied} applied`,
+    schema.changed.length > 0
+      ? `Applied and then edited: ${schema.changed.join(', ')}. The database no longer `
+        + 'contains what this build thinks it contains.'
+      : schema.pending.length > 0
+        ? `Never run here: ${schema.pending.join(', ')}. Run npm run migrate. Until then `
+          + 'pages that touch the new tables will fail.'
+        : schema.unknown.length > 0
+          ? `This database has run migrations this build does not have: `
+            + `${schema.unknown.join(', ')}. The running code is older than the schema.`
+          : 'Every migration in this build has been applied, unchanged.');
+
+  // Are the API and the worker the same build?
+  //
+  // They are separate processes restarted separately, so a deploy that misses one
+  // leaves two builds against one database, and every symptom of that appears
+  // somewhere other than the skew: a job type nothing can run, a column one process
+  // writes and the other never reads. The runner's "no handler" message already
+  // blames "a worker running an older build than the queue it is serving" -- that
+  // was a guess, and this is the check behind it.
+  const apiBuild = buildIdentity();
+  const workerBuilds = String(row['worker_build_list'] ?? '') || null;
+  const distinctBuilds = number('worker_builds');
+  const skewed = workerBuilds !== null && workerBuilds !== apiBuild.sha;
+  add('build_identity', 'Are the API and the worker the same build?',
+    // Nothing to compare is not a match. This read OK whenever no worker had ever
+    // heartbeated, which is the same green a genuinely matching pair gets, on the
+    // question whose whole purpose is to catch two processes running different code.
+    distinctBuilds > 1 ? 'ATTENTION' : skewed ? 'ATTENTION'
+      : workerBuilds === null ? 'UNKNOWN' : 'OK',
+    workerBuilds === null ? `api ${apiBuild.sha}, no worker`
+      : distinctBuilds > 1 ? `${distinctBuilds} builds serving`
+      : skewed ? 'different builds' : apiBuild.sha,
+    workerBuilds === null
+      ? `This API is running ${apiBuild.sha}. No worker is heartbeating, so there is `
+        + 'nothing to compare it against.'
+      : distinctBuilds > 1
+        ? `Workers are running ${workerBuilds} at the same time, and this API is running `
+          + `${apiBuild.sha}. Whichever worker picks a job decides how it behaves.`
+        : skewed
+          ? `This API is running ${apiBuild.sha} and the worker is running ${workerBuilds}. `
+            + 'Restart whichever is behind: until then a page can read a column the '
+            + 'worker never writes, or queue a job it cannot run.'
+          : `Both processes are running ${apiBuild.sha}.`);
+
+  // Worker liveness, from a heartbeat.
+  //
+  // This used to be inferred from "0 stranded", which said a queue nobody had ever
+  // touched was healthy: a job that has never been picked up has no expired lease
+  // because it has no lease. The operator watched a job sit QUEUED while this page
+  // stayed green, and the only thing wrong was that no worker existed.
+  const online = number('workers_online');
+  const known = number('workers_known');
+  const queued = number('jobs_queued');
+  const heartbeatAge = number('heartbeat_age_seconds');
+  const stranded = number('jobs_stranded');
+
+  const draining = number('workers_draining');
+
+  // A worker that is draining is alive and is not going to pick anything up. With
+  // work waiting behind it that is a blockage, not a healthy queue.
+  const workerState: HealthState =
+    online > 0 && draining >= online
+      ? (queued > 0 ? 'BLOCKED' : 'ATTENTION')
+    : online > 0 ? (stranded > 0 ? 'ATTENTION' : 'OK')
+    : known === 0 ? (queued > 0 ? 'BLOCKED' : 'UNKNOWN')
+    : queued > 0 ? 'BLOCKED' : 'ATTENTION';
+
+  add('worker', 'Is a worker running?', workerState,
+    online > 0
+      ? (draining > 0 ? `${online} online, ${draining} draining` : `${online} online`)
+      : known === 0 ? 'never seen' : 'offline',
+    online > 0 && draining >= online
+      ? `Every worker has been asked to stop and is finishing what it holds. Nothing `
+        + `new is being picked up, so the ${queued} queued job(s) are waiting for a `
+        + 'worker to come back.'
+    : online > 0
+      ? `Last heartbeat ${heartbeatAge}s ago. ${stranded} job(s) hold an expired lease.`
+      : known === 0
+        ? 'No worker has ever reported in on this database. Jobs will queue and stay '
+          + 'queued: nothing is serving them.'
+        : `No heartbeat for ${heartbeatAge}s. The worker process is not running, so `
+          + `the ${queued} queued job(s) are going nowhere.`);
+
+  // Discovered and then forgotten: created, never researched, nothing queued.
+  add('research_backlog', 'Is any discovered company stranded?',
+    strandedResearch === 0 ? 'OK' : strandedResearch > 20 ? 'BLOCKED' : 'ATTENTION',
+    strandedResearch === 0 ? 'none' : `${strandedResearch} stranded`,
+    strandedResearch === 0
+      ? 'Every company a provider found has research done or on its way.'
+      : `${strandedResearch} discovered compan(ies) have never been researched and have nothing `
+        + 'queued. They are a name and a phone number until the sweep picks them up, '
+        + 'which happens on the worker\'s fifteen-minute cycle.');
+
+  // Scores produced under a ruleset we no longer run.
+  const staleScores = number('scores_stale_policy');
+  add('score_policy', 'Are any scores from an older ruleset?',
+    staleScores === 0 ? 'OK' : staleScores > 500 ? 'ATTENTION' : 'OK',
+    staleScores === 0 ? 'all current' : `${staleScores} to recompute`,
+    staleScores === 0
+      ? 'Every score was produced by the ruleset this build runs.'
+      : `${staleScores} Account(s) were scored under an older policy and are being `
+        + 'recomputed on the worker sweep. Until then, comparing two of them compares '
+        + 'two different rulesets.');
+
+  const queueAge = number('queue_age_seconds');
+  add('queue', 'Are jobs backing up?',
+    // A queue with nobody serving it is blocked whatever its age, because the age
+    // will only grow.
+    online === 0 && queued > 0 ? 'BLOCKED'
+      : queueAge < 300 ? 'OK' : queueAge < 3_600 ? 'ATTENTION' : 'BLOCKED',
+    `${queued} queued, oldest ${Math.round(queueAge / 60)} min`,
+    online === 0 && queued > 0
+      ? 'Nothing is serving this queue.'
+      : `${number('jobs_running')} running, ${number('jobs_failed_today')} failed today.`);
+
+  // --- is anything getting stale ----------------------------------------------
+  const accounts = number('accounts');
+  const stale = number('stale_research');
+  const stalePercent = accounts > 0 ? Math.round((stale / accounts) * 100) : 0;
+  add('inventory_freshness', 'Is inventory getting stale?',
+    accounts === 0 ? 'UNKNOWN' : stalePercent < 40 ? 'OK' : 'ATTENTION',
+    `${stale} of ${accounts} (${stalePercent}%)`,
+    accounts === 0 ? 'There is no inventory yet, so there is nothing to be stale.'
+      : 'Stale research is a reason to refresh, not a reason to stop calling.');
+
+  add('unclaimed', 'Is there work for the reps to claim?',
+    accounts === 0 ? 'UNKNOWN' : number('unclaimed') > 0 ? 'OK' : 'ATTENTION',
+    `${number('unclaimed')} unclaimed`,
+    number('unclaimed') === 0 && accounts > 0
+      ? 'Every researched Account is owned. A market needs mining or reassigning.'
+      : undefined);
+
+  // --- providers ---------------------------------------------------------------
+  const providerFailures = number('provider_failures');
+  add('providers', 'Are research providers failing?',
+    providerFailures === 0 ? 'OK' : providerFailures < 10 ? 'ATTENTION' : 'BLOCKED',
+    `${providerFailures} failures in 24h`,
+    'A failed provider call never marks research fresh, so a silent outage shows up '
+      + 'here rather than as confident stale data.');
+
+  // Today against the ceiling, not thirty days against nothing. A 24/7 miner that
+  // searches correctly and cheaply can still spend a great deal by morning, and the
+  // person who finds out should not be whoever reads the invoice.
+  const spentToday = Number(row['provider_spend_today'] ?? 0);
+  const estimatedToday = Number(row['provider_spend_today_estimated'] ?? 0);
+  // Through the ceiling's own reader, so this line cannot disagree with the guard
+  // that enforces it. A value nobody can parse is BLOCKED, not UNKNOWN: the miner
+  // will refuse to run on it, and the page should say the same.
+  let budget = 0;
+  let budgetUnreadable = false;
+  try { budget = dailyBudgetUsd(); }
+  catch { budgetUnreadable = true; }
+  const spendState: HealthState = budgetUnreadable ? 'BLOCKED'
+    : budget <= 0 ? 'UNKNOWN'
+    : spentToday >= budget ? 'BLOCKED'
+    : spentToday >= budget * 0.8 ? 'ATTENTION' : 'OK';
+
+  add('spend', 'Are we near a spend cap?', spendState,
+    budgetUnreadable
+      ? `$${spentToday.toFixed(2)} today, cap unreadable`
+      : budget > 0
+        ? `$${spentToday.toFixed(2)} of $${budget.toFixed(2)} today`
+        : `$${spentToday.toFixed(2)} today, no cap set`,
+    budgetUnreadable
+      ? 'DISCOVERY_DAILY_BUDGET_USD is set to something that is not a number, so the '
+        + 'miner refuses to run rather than treat it as no ceiling. Write it as '
+        + 'digits only, with no currency symbol.'
+      : budget <= 0
+      ? 'No daily provider budget is configured, so nothing stops a run of searches '
+        + 'from costing whatever they cost. Set DISCOVERY_DAILY_BUDGET_USD.'
+      : spentToday >= budget
+        ? 'The daily budget is spent. Market searches are refused until midnight, and '
+          + 'a refused search is reported as blocked rather than as an empty market.'
+        : `$${(budget - spentToday).toFixed(2)} left today.${estimatedToday > 0
+            ? ` $${estimatedToday.toFixed(2)} of today's figure is estimated rather than `
+              + 'confirmed by the provider.' : ''}`);
+
+  // --- imports -----------------------------------------------------------------
+  const importsStuck = number('imports_stuck');
+  add('imports', 'Are imports failing?',
+    number('imports_failed') === 0 && importsStuck === 0 ? 'OK' : 'ATTENTION',
+    `${number('imports_failed')} failed in 7 days, ${importsStuck} stuck`,
+    importsStuck > 0
+      ? 'An import has been confirming for over half an hour. It is either very large '
+        + 'or the process that was running it is gone.'
+      : undefined);
+
+  // --- people waiting ----------------------------------------------------------
+  const replies = number('replies_waiting');
+  add('replies', 'Is anyone waiting on a reply?',
+    replies === 0 ? 'OK' : replies < 5 ? 'ATTENTION' : 'BLOCKED',
+    `${replies} unanswered over 24h`,
+    'A prospect who asked a question and heard nothing is the most expensive thing '
+      + 'on this page.');
+
+  add('followups', 'How many follow-ups are overdue?',
+    number('followups_overdue') === 0 ? 'OK' : 'ATTENTION',
+    `${number('followups_overdue')} overdue`);
+
+  const bookings = number('bookings_stuck');
+  add('bookings', 'Are booking events stuck pending?',
+    bookings === 0 ? 'OK' : 'ATTENTION', `${bookings} pending over 30 min`,
+    bookings > 0
+      ? 'We asked the calendar and it has not confirmed. The prospect may believe '
+        + 'they have an invitation.'
+      : undefined);
+
+  // --- the switches -------------------------------------------------------------
+  const mode = String(row['outbound_mode'] ?? 'UNKNOWN');
+  const dialEnabled = row['outbound_dial_enabled'] === true;
+  const liveCalls = number('live_calls_today');
+  add('outbound_ai', 'Are outbound AI calls off?',
+    mode === 'OFF' && !dialEnabled && liveCalls === 0 ? 'OK' : 'BLOCKED',
+    `mode ${mode}, dialling ${dialEnabled ? 'ENABLED' : 'disabled'}`,
+    liveCalls > 0
+      ? `${liveCalls} call(s) today were not dry runs. This is the single most `
+        + 'important line on this page.'
+      : 'No call today was anything but a dry run.');
+
+  // --- people --------------------------------------------------------------------
+  add('reps', 'How many reps are set up?', number('reps') > 0 ? 'OK' : 'UNKNOWN',
+    `${number('reps')} active`, `${number('active_sessions')} live sessions.`);
+
+  // --- can the system do the thing it is being asked to do -------------------------
+  const blocked = number('blocked_jobs_today');
+  add('discovery', 'Can the system find a new business?',
+    discoveryAvailable ? 'OK' : 'BLOCKED',
+    discoveryAvailable ? 'a search provider is configured' : 'no search provider',
+    discoveryAvailable
+      ? undefined
+      : 'A market search can only re-research companies already in inventory. '
+        + `${blocked} job(s) in the last 24 hours were limited by this, and an empty `
+        + 'market result is not evidence that the market is empty.');
+
+  // --- duplicates -----------------------------------------------------------------
+  //
+  // The count used to stand alone, and a number an operator cannot act on is a
+  // number they stop reading: "7 possible duplicates" for ever, going nowhere. The
+  // queue is what makes it finite, so the check reports what is waiting for a
+  // decision rather than what merely looks alike.
+  const { duplicateQueueCounts } = await import('../domain/duplicateReview.js');
+  const queue = await duplicateQueueCounts();
+  add('duplicate_queue', 'Is anything waiting for somebody to judge it?',
+    queue.open > 20 ? 'ATTENTION' : 'OK',
+    queue.open === 0 ? 'nothing waiting' : `${queue.open} pair(s) to judge`,
+    queue.open === 0
+      ? `Nothing is waiting. ${queue.merged} pair(s) have been merged and `
+        + `${queue.notDuplicate} judged separate; a pair judged separate is never `
+        + 'asked about again.'
+      : `${queue.open} pair(s) look alike and identity resolution would not merge them `
+        + 'on its own. Each carries the case for and against. Deciding "not a '
+        + 'duplicate" is remembered, so the queue empties rather than resetting.');
+
+  // Named contacts nobody has re-checked.
+  //
+  // The resolver has set `refresh_due_at` on every contact since it was written and
+  // nothing ever read it, so confidence never decayed: a person resolved eighteen
+  // months ago read as current, and a rep asked the receptionist for somebody who
+  // left a year ago.
+  const { overdueContactCount } = await import('../domain/contactConfidence.js');
+  const contacts = await overdueContactCount();
+  add('contact_freshness', 'Are the names we hand reps still current?',
+    contacts.overdue > 0 && contacts.overdue >= contacts.named / 2 ? 'ATTENTION' : 'OK',
+    contacts.overdue === 0 ? 'all re-checked'
+      : `${contacts.overdue} of ${contacts.named} overdue`,
+    contacts.overdue === 0
+      ? 'Every named contact is inside its re-check window.'
+      : `${contacts.overdue} named contact(s) are past their re-check date. A rep is `
+        + 'still given the name, hedged: "ask for them, and confirm they still hold '
+        + 'the role". Nobody having looked is not the same as them having left.');
+
+  const duplicates = number('duplicate_names');
+  // Work the provider owes us. A task submitted and never collected is money spent
+  // for nothing, and it is invisible in every other number on this page.
+  const tasksPending = number('provider_tasks_pending');
+  const tasksAged = number('provider_tasks_aged');
+  const tasksAbandoned = number('provider_tasks_abandoned');
+  add('provider_tasks', 'Is the provider holding work of ours?',
+    tasksAged > 0 ? 'BLOCKED' : tasksPending > 0 ? 'ATTENTION' : 'OK',
+    tasksPending === 0 ? 'none outstanding' : `${tasksPending} outstanding`,
+    tasksAged > 0
+      ? `${tasksAged} search(es) were submitted more than a day ago and have never been `
+        + 'collected. Those were paid for and have produced nothing.'
+      : tasksPending > 0
+        ? `${tasksPending} search(es) are with the provider and will be collected rather `
+          + 'than submitted again.'
+        : `Nothing is outstanding.${tasksAbandoned > 0
+            ? ` ${tasksAbandoned} were given up on in the last day.` : ''}`);
+
+  // Saved markets. A market that is enabled, due and not moving is the difference
+  // between inventory that maintains itself and a page that looks busy.
+  const marketsEnabled = number('markets_enabled');
+  const marketsBlocked = number('markets_blocked');
+  const marketsFailing = number('markets_failing');
+  const marketsOverdue = number('markets_overdue');
+  const overdueHours = number('markets_overdue_oldest_hours');
+  add('markets', 'Are the saved markets being kept up?',
+    marketsEnabled === 0 ? 'UNKNOWN'
+      : marketsBlocked >= marketsEnabled ? 'BLOCKED'
+      // Ahead of the failure count: a market being backed off is still being
+      // scheduled, and one that has missed a whole cycle is not moving at all.
+      : marketsOverdue > 0 ? 'ATTENTION'
+      : marketsFailing > 0 ? 'ATTENTION' : 'OK',
+    marketsEnabled === 0 ? 'none configured' : `${marketsEnabled} enabled`,
+    marketsEnabled === 0
+      ? 'No saved market is enabled, so nothing is being maintained on its own. '
+        + 'Inventory only grows when somebody searches by hand.'
+      : marketsBlocked >= marketsEnabled
+        ? `Every enabled market is blocked: ${marketsBlocked} of ${marketsEnabled}. `
+          + 'None of them is being refreshed.'
+        : marketsOverdue > 0
+          ? `${marketsOverdue} market(s) are overdue by more than a full refresh `
+            + `interval, the oldest by ${overdueHours}h. They are enabled, nothing `
+            + 'says they are blocked, and nothing has failed -- so the scheduler or '
+            + 'the worker is not getting to them, which no other number here would '
+            + 'show.'
+        : marketsFailing > 0
+          ? `${marketsFailing} market(s) have failed at least once in a row and are being `
+            + 'backed off. They are still scheduled, just less often.'
+          : `${marketsEnabled} market(s) are scheduled and none is failing.`);
+
+  add('duplicates', 'Are we generating duplicates?',
+    accounts === 0 ? 'UNKNOWN'
+      : duplicates / Math.max(1, accounts) < 0.03 ? 'OK' : 'ATTENTION',
+    `${duplicates} names held by more than one Account`,
+    `${number('merges_this_week')} merged this week. Two companies can share a name `
+      + 'legitimately, so this is a number to watch rather than a fault.');
+
+  const counts: Record<HealthState, number> = { OK: 0, ATTENTION: 0, BLOCKED: 0, UNKNOWN: 0 };
+  for (const check of checks) counts[check.state] += 1;
+
+  return { takenAt: new Date().toISOString(), checks, counts };
+}

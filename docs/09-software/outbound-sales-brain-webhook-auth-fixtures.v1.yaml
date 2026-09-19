@@ -1,0 +1,103 @@
+schema_version: "1.0.0"
+fixture_set: yad_webhook_auth_v1
+purpose: >-
+  Define provider-specific webhook authentication/idempotency behavior so ingress tests use exact raw-body semantics rather than generic placeholder verification.
+
+providers:
+  calcom:
+    provider_id: CALCOM
+    signature_header: x-cal-signature-256
+    algorithm: HMAC_SHA256
+    signed_material: raw_request_body_bytes
+    secret_source: configured_webhook_secret
+    signature_format: lowercase_or_provider_hex_digest_compare_exactly_after_documented_normalization
+    idempotency:
+      preferred:
+        - provider_event_or_booking_event_identity_when_available
+        - deterministic_provider_event_hash
+      note: signature_is_authenticity_not_unique_event_id
+    subscriber_requirements:
+      - public_https_for_calcom_saas
+      - no_private_ip_or_localhost
+    tests:
+      - id: CAL_AUTH_001
+        scenario: correct_secret_exact_raw_body
+        expected: ACCEPT
+      - id: CAL_AUTH_002
+        scenario: wrong_secret
+        expected: REJECT_4XX
+      - id: CAL_AUTH_003
+        scenario: body_changed_after_signature
+        expected: REJECT_4XX
+      - id: CAL_AUTH_004
+        scenario: parse_json_then_reserialize_changes_whitespace_before_verification
+        expected: REJECT_IMPLEMENTATION_PATTERN
+        requirement: verify_raw_body_before_parser_mutation
+      - id: CAL_AUTH_005
+        scenario: missing_signature_header_on_secured_subscription
+        expected: REJECT_4XX
+      - id: CAL_AUTH_006
+        scenario: valid_signature_duplicate_event
+        expected: ACCEPT_HTTP_BUT_PROCESS_ONCE
+      - id: CAL_AUTH_007
+        scenario: meeting_started_payload_shape_differs_from_booking_created
+        expected: AUTHENTICATE_RAW_BODY_THEN_PROVIDER_SPECIFIC_PARSE
+
+  smartlead:
+    provider_id: SMARTLEAD
+    signature_header: X-Smartlead-Signature
+    algorithm: HMAC_SHA256
+    signed_material: raw_request_body_bytes
+    secret_source: configured_smartlead_webhook_signing_secret
+    signature_format: "sha256=<hex_digest>"
+    request_id_header: X-Request-Id
+    webhook_level_header: X-Webhook-Level
+    idempotency:
+      preferred:
+        - X-Request-Id
+        - payload_event_id
+        - deterministic_payload_hash_fallback
+    tests:
+      - id: SL_AUTH_001
+        scenario: correct_secret_exact_raw_body_and_request_id
+        expected: ACCEPT
+      - id: SL_AUTH_002
+        scenario: incorrect_hmac
+        expected: REJECT_4XX
+      - id: SL_AUTH_003
+        scenario: body_mutated_after_provider_signature
+        expected: REJECT_4XX
+      - id: SL_AUTH_004
+        scenario: same_X_Request_Id_retried
+        expected: ACCEPT_HTTP_BUT_PROCESS_ONCE
+      - id: SL_AUTH_005
+        scenario: valid_signature_missing_request_id
+        expected: ACCEPT_IF_PROVIDER_SCHEMA_ALLOWS_AND_USE_EVENT_ID_OR_HASH_IDEMPOTENCY
+      - id: SL_AUTH_006
+        scenario: malformed_json_with_valid_hmac
+        expected: REJECT_4XX_NO_CANONICAL_SIDE_EFFECT
+      - id: SL_AUTH_007
+        scenario: webhook_level_user
+        expected: STORE_LEVEL_AND_DEDUPE_AGAINST_POSSIBLE_CAMPAIGN_CLIENT_OVERLAP
+      - id: SL_AUTH_008
+        scenario: provider_retry_after_prior_5xx
+        expected: PROCESS_ONCE_AFTER_DURABLE_ACCEPTANCE
+
+common_security:
+  - read_body_with_size_limit
+  - preserve_raw_bytes_until_auth_complete
+  - constant_time_digest_comparison_where_applicable
+  - never_log_secret
+  - never_log_api_key_query_parameter
+  - do_not_accept_source_ip_as_only_authentication
+  - authenticate_before_llm_or_business_processing
+  - payload_strings_are_untrusted_data_not_prompt_instructions
+  - durable_inbox_before_success_ack_when_event_is_new
+
+ack_behavior:
+  success: 2xx_after_authenticated_durable_inbox_or_known_duplicate
+  permanent_invalid_request: 4xx
+  temporary_internal_failure_before_durable_acceptance: 5xx
+
+core_rule: >-
+  Verify the exact raw bytes the provider signed, dedupe retries independently from authentication, and do not expose business side effects until the event is authenticated and durably accepted.

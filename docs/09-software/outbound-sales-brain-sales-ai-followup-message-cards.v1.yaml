@@ -1,0 +1,255 @@
+schema_version: "1.0.0"
+card_set: yad_sales_ai_followup_message_cards_v1
+purpose: >-
+  Approved concise follow-up message shapes for outbound Sales AI and human-assist workflows.
+  Cards are topic-specific starting points populated only from canonical Account/conversation facts.
+
+principles:
+  - prove_yad_listened
+  - reference_only_actual_discussion_or_fact_safe_public_context
+  - one_primary_topic_per_message
+  - one_clear_next_step
+  - no_feature_dump
+  - no_invented_roi_case_study_or_integration
+  - no_stale_current_tense_ad_claim
+  - no_employee_replacement_positioning
+  - commercial_truth_controls_offer_language
+  - channel_policy_and_suppression_must_pass_before_send
+
+email_cards:
+
+  requested_email_lead_handling:
+    when:
+      - prospect_requested_email
+      - topic_is_lead_handling_or_missed_calls
+    subject_options:
+      - "Quick follow-up on lead handling at {{company_name}}"
+      - "The lead-handling question we discussed"
+    body_template: |-
+      {{first_name}},
+
+      Thanks for taking a minute with me. The reason I called was the question around {{confirmed_or_question_safe_workflow}}.
+
+      From what you mentioned, {{prospect_confirmed_summary}}.
+
+      Your AI Department looks at the full path from the inquiry to response, follow-up and the systems around it, then determines whether AI, automation, software or a process change would actually improve anything.
+
+      {{next_step_line}}
+
+      — Your AI Department
+    prohibited:
+      - claim_missed_revenue_without_prospect_inputs
+      - claim_ai_receptionist_is_required
+
+  requested_email_estimate_followup:
+    when:
+      - prospect_requested_email
+      - topic_is_unsold_estimate_or_proposal_followup
+    subject_options:
+      - "Follow-up on your estimate process"
+      - "The unsold-estimate question"
+    body_template: |-
+      {{first_name}},
+
+      Keeping this short like I promised. We were talking about what happens after an estimate or proposal doesn't close the first time.
+
+      {{prospect_confirmed_summary}}
+
+      That's the kind of workflow we'd map before recommending anything — who owns the follow-up, what system tracks it, what happens automatically, and where opportunities can go quiet.
+
+      {{next_step_line}}
+
+      — Your AI Department
+
+  requested_email_crm:
+    when:
+      - prospect_requested_email
+      - topic_is_crm_or_sales_process
+    subject_options:
+      - "Quick CRM/workflow follow-up"
+      - "What happens after the lead enters the CRM"
+    body_template: |-
+      {{first_name}},
+
+      Thanks for the quick conversation. I wasn't calling to tell you to replace your CRM.
+
+      The question was really what happens after a new lead gets into the system — assignment, response, follow-up, visibility and whether the process is actually measurable.
+
+      {{prospect_confirmed_summary}}
+
+      {{next_step_line}}
+
+      — Your AI Department
+
+  requested_email_attribution:
+    when:
+      - prospect_requested_email
+      - topic_is_marketing_attribution
+    subject_options:
+      - "Lead source to revenue"
+      - "The attribution question we discussed"
+    body_template: |-
+      {{first_name}},
+
+      The question I called about was whether you can follow a lead from the original marketing source through response, sale and actual revenue.
+
+      {{prospect_confirmed_summary}}
+
+      We're not assuming the marketing itself is the problem. We look at the whole chain and figure out where measurement or workflow breaks down, if anywhere.
+
+      {{next_step_line}}
+
+      — Your AI Department
+
+  requested_email_employee_capacity:
+    when:
+      - prospect_requested_email
+      - topic_is_admin_or_employee_capacity
+    subject_options:
+      - "The admin-workflow question"
+      - "Reducing repetitive work without replacing the team"
+    body_template: |-
+      {{first_name}},
+
+      Thanks for the minute earlier. The question was around {{prospect_confirmed_or_safe_process}} and how much employee time it takes today.
+
+      We don't approach this as "replace the staff." The goal is to identify repetitive work, handoffs or system gaps where the people you already have could be more effective.
+
+      {{next_step_line}}
+
+      — Your AI Department
+
+  generic_requested_email_after_short_call:
+    when:
+      - prospect_requested_email
+      - no_meaningful_process_fact_was_learned
+    subject_options:
+      - "Your AI Department — quick follow-up"
+    body_template: |-
+      {{first_name}},
+
+      Thanks for taking the call. I reached out because we work with businesses on things like lead handling, follow-up, employee workload, CRM/process design and marketing-to-revenue visibility.
+
+      I had a specific question around {{fact_safe_original_workflow_question}}, but we didn't get far enough for me to assume there's actually a problem.
+
+      If it's useful, {{next_step_line}}
+
+      — Your AI Department
+    prohibited:
+      - pretend_problem_was_confirmed
+
+  assessment_fallback:
+    when:
+      - prospect_wants_information_or_self_serve_next_step
+      - current_assessment_authority_available
+    subject_options:
+      - "Your AI Department Assessment"
+      - "Free AI Department Assessment"
+    body_template: |-
+      {{first_name}},
+
+      If you'd rather look at this on your own first, our free AI Department Assessment walks through areas like lead handling, CRM, follow-up, employee workload, marketing, operations and current AI usage, then gives you an initial score/recommendations.
+
+      {{tracked_assessment_link}}
+
+      No need to force a meeting first. If the results surface something worth digging into, we can take it from there.
+
+      — Your AI Department
+    requirements:
+      - tracked_assessment_link_must_come_from_current_funnel_authority
+      - do_not_hardcode_stale_url
+
+  gatekeeper_forward_note:
+    when:
+      - gatekeeper_requested_short_note
+      - target_decision_maker_known_or_role_known
+    subject_options:
+      - "Quick question for {{target_name_or_role}}"
+    body_template: |-
+      {{target_name_or_role}},
+
+      I reached out to {{company_name}} with one quick question about {{fact_safe_workflow}}.
+
+      We help businesses look for practical gaps around leads, follow-up, systems and employee workload, then determine whether AI, automation, software or process changes are actually warranted.
+
+      If {{fact_safe_question}} is relevant, happy to keep the conversation to 15 minutes.
+
+      — Your AI Department
+    prohibited:
+      - claim_gatekeeper_referred_us_unless_they_explicitly_did
+
+  requested_callback_confirmation:
+    when:
+      - callback_time_was_explicitly_requested
+      - email_confirmation_is_appropriate
+    subject_options:
+      - "Confirmed — {{callback_display_time}}"
+    body_template: |-
+      {{first_name}},
+
+      Confirming the callback for {{callback_display_time}} regarding {{confirmed_topic}}.
+
+      We'll keep it focused on that.
+
+      — Your AI Department
+
+  booked_strategy_call_internal_handoff_note:
+    internal_only: true
+    when:
+      - calcom_booking_confirmed
+    body_template: |-
+      BOOKED: {{company_name}} — {{attendee_name}}
+      Time: {{meeting_time_with_timezone}}
+      Topic: {{confirmed_problem_or_workflow}}
+      Prospect said: {{material_prospect_statement}}
+      Systems/numbers stated: {{prospect_stated_systems_numbers}}
+      Objections/concerns: {{objections}}
+      Michael should clarify: {{open_questions}}
+      Do not assume: {{proof_boundaries}}
+      Source call: {{call_reference}}
+
+  no_show_reschedule:
+    when:
+      - confirmed_no_show
+      - relationship_still_qualified
+      - recovery_touch_allowed
+    subject_options:
+      - "Want to reschedule the 15-minute call?"
+    body_template: |-
+      {{first_name}},
+
+      Looks like we missed each other for the strategy call. No problem.
+
+      If you still want to look at {{confirmed_topic}}, here's the reschedule option:
+      {{calcom_reschedule_link}}
+
+      If it's no longer a priority, that's fine too.
+
+      — Your AI Department
+    constraints:
+      - one_concise_recovery_touch_by_default
+      - do_not_restart_generic_cold_sequence
+
+next_step_lines:
+  strategy_call:
+    template: "If you'd like, Michael can spend 15 minutes mapping that workflow with you and figuring out whether there's actually a business case. {{calcom_or_reply_cta}}"
+  callback:
+    template: "I'll follow up {{agreed_callback_time}} like we discussed."
+  reply:
+    template: "If you want to send me how you're handling it today, I'll keep the follow-up focused on that."
+  assessment:
+    template: "I can send you the free AI Department Assessment instead if you'd rather look at it first."
+  no_pressure:
+    template: "If that process is already handled well, there's nothing we need to force."
+
+validation:
+  required_checks:
+    - recipient_is_correct
+    - account_relationship_current_enough
+    - suppression_and_channel_policy_pass
+    - conversation_fact_placeholders_have_sources
+    - current_offer_and_link_authority
+    - no_unverified_integration_claim
+    - no_unsupported_roi_or_customer_result
+    - no_contradictory_next_step
+    - no_duplicate_send_for_same_promise_and_idempotency_key

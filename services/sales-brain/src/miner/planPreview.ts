@@ -1,0 +1,447 @@
+import { createHash } from 'node:crypto';
+import { query } from '../db/pool.js';
+import { numeric } from '../config.js';
+import { normalizeGeography } from './geography.js';
+import { planDiscoverySearches } from './searchPlan.js';
+import { openProviderTask } from './providerTasks.js';
+import { assumedRunCostUsd, spendPosition } from './spend.js';
+import { normalizeMiningMode, DEFAULT_MINING_MODE } from './miningMode.js';
+
+/**
+ * What a paid search will cost, shown before it is bought, and proved at submission.
+ *
+ * `POST /api/mining/jobs` used to take a vertical and a ZIP and submit chargeable
+ * provider tasks straight away. What got bought was decided entirely server-side --
+ * which is right -- but nobody saw it first, and nothing recorded what a person had
+ * agreed to. The run could then report five searches and $0.03 against a request
+ * that, as far as the person who clicked was concerned, said "refresh this market".
+ *
+ * Two properties matter and they pull in opposite directions:
+ *
+ *   - the client must not be able to choose the queries. Accepting query text from a
+ *     browser makes the taxonomy advisory and the spend arbitrary.
+ *   - the person must see exactly what they are authorising.
+ *
+ * So the server builds the plan, shows it, and hashes it. Confirmation carries the
+ * plan id and the hash; the server builds the plan *again* and compares. Matching
+ * hashes mean nothing material moved between the two moments. A mismatch is refused
+ * with the plan re-shown, rather than buying whichever plan is current.
+ */
+
+/** How long a quote stands. A market's outstanding tasks move underneath it. */
+const PLAN_TTL_SECONDS = numeric('SEARCH_PLAN_TTL_SECONDS', 900, { min: 60 });
+
+export interface PlannedPaidSearch {
+  index: number;
+  term: string;
+  keyword: string;
+  locationName: string;
+  purpose: string;
+  coverageRole: string;
+  fingerprint: string;
+  /**
+   * Whether this search will be charged for.
+   *
+   * A task the provider already owes us is collected, not bought again. Saying so in
+   * the preview is the difference between "this costs $0.03" and "this costs $0.012
+   * and picks up three searches you have already paid for".
+   */
+  chargeable: boolean;
+  /**
+   * What this search is authorised to *do*, not merely what it was expected to cost.
+   *
+   * The preview knew a task was already outstanding and quoted the search at nothing;
+   * the worker then asked the same question again, and if the task had been collected
+   * or closed in between it found nothing pending and bought a replacement. The
+   * approval said "collect" and the execution said "buy", so actual spend could
+   * exceed the approved maximum -- which is the one direction it must never move.
+   *
+   * The intent is fixed at confirmation and hashed. `COLLECT_EXISTING` can never
+   * become a purchase; `BUY_NEW` may still turn into a collection if an equivalent
+   * task has appeared since, because that only makes the run cheaper.
+   */
+  executionDisposition: 'BUY_NEW' | 'COLLECT_EXISTING';
+  /**
+   * Our own id for the task the operator was told already existed.
+   *
+   * An internal `provider_tasks` key, not a provider credential and not the
+   * provider's own identifier. It is what makes "collect the task you were shown"
+   * mean one specific task rather than whatever happens to be pending later.
+   */
+  approvedProviderTaskId: string | null;
+}
+
+export interface PaidPlan {
+  verticalProfileId: string | null;
+  geographyType: string | null;
+  geographyValue: string | null;
+  /** What the provider is actually asked for, after normalization. */
+  geographyNormalized: string | null;
+  marketId: string | null;
+  miningMode: string;
+  /** Event-qualified terms only run when explicitly asked for. */
+  causes: string[];
+  provider: string;
+  providerMode: string;
+  searches: PlannedPaidSearch[];
+  chargeableTaskCount: number;
+  assumedCostPerTaskUsd: number;
+  estimatedCostUsd: number;
+  /**
+   * Set when this plan may not be bought at all. Nothing is chargeable.
+   *
+   * A refused plan is still built and still shown, because "why can I not search this
+   * market" is the question the operator actually has.
+   */
+  refusal: string | null;
+  refusalCode: PlanRefusalCode | null;
+  /** How much of today's ceiling is left, so the number below is read against it. */
+  remainingBudgetUsd: number;
+  /** True when the budget did not cover the vertical's primary discovery terms. */
+  partialDiscoveryCoverage: boolean;
+  /** Spend context, so the number is read against the ceiling it is spent under. */
+  spentTodayUsd: number;
+  dailyBudgetUsd: number;
+}
+
+export type PlanRefusalCode =
+  /** The vertical has no market-discovery query, so nothing can be planned. */
+  | 'NOT_DISCOVERABLE'
+  /** Nothing is configured that could execute this plan. */
+  | 'NO_PROVIDER'
+  /** The caller named a mining mode this product does not have. */
+  | 'UNKNOWN_MINING_MODE';
+
+export interface PlanRequest {
+  verticalProfileId: string | null;
+  geographyType: string | null;
+  geographyValue: string | null;
+  marketId: string | null;
+  miningMode?: string | null;
+  queryBudget?: number | null;
+  causes?: string[] | null;
+}
+
+/**
+ * Every field that changes what is bought, in a fixed order, as one string.
+ *
+ * Deliberately not `JSON.stringify(plan)`: key order in JavaScript is insertion
+ * order, so a plan rebuilt with its fields assigned in a different sequence would
+ * hash differently and refuse a submission that was in fact identical. And
+ * deliberately not a subset: if a field can change what the provider is asked or
+ * what it costs, it is in here, or a plan can change under a matching hash.
+ *
+ * Nothing secret is hashed: no credential, no login, no base URL. The plan is shown
+ * to a person and stored in a table an operator can read.
+ */
+export function canonicalPlanString(plan: PaidPlan): string {
+  /**
+   * Every field that decides what the worker does, labelled.
+   *
+   * `executionDisposition` and `approvedProviderTaskId` decide whether a search is
+   * bought or collected, and which task is collected, and they were not in here. The
+   * stored plan's execution authority could change without the hash moving, so the
+   * verification the worker performs would pass on a plan that had been altered
+   * underneath it.
+   *
+   * Labelled rather than positional, so a field cannot be inserted in the middle and
+   * silently shift the meaning of its neighbours, and so two hashes that differ can
+   * be diffed by a person.
+   */
+  const searches = plan.searches.map((search) => [
+    `index=${search.index}`,
+    `term=${search.term}`,
+    `keyword=${search.keyword}`,
+    `location=${search.locationName}`,
+    `purpose=${search.purpose}`,
+    `coverageRole=${search.coverageRole}`,
+    `fingerprint=${search.fingerprint}`,
+    `charge=${search.chargeable ? 'chargeable' : 'collect'}`,
+    `disposition=${search.executionDisposition}`,
+    `approvedTask=${search.approvedProviderTaskId ?? ''}`,
+  ].join(' '));
+  return [
+    `vertical=${plan.verticalProfileId ?? ''}`,
+    `geographyType=${plan.geographyType ?? ''}`,
+    `geographyValue=${plan.geographyValue ?? ''}`,
+    `geographyNormalized=${plan.geographyNormalized ?? ''}`,
+    `market=${plan.marketId ?? ''}`,
+    `mode=${plan.miningMode}`,
+    `causes=${[...plan.causes].sort().join(',')}`,
+    `provider=${plan.provider}`,
+    `providerMode=${plan.providerMode}`,
+    `chargeable=${plan.chargeableTaskCount}`,
+    `perTask=${plan.assumedCostPerTaskUsd.toFixed(4)}`,
+    `estimate=${plan.estimatedCostUsd.toFixed(4)}`,
+    `refusal=${plan.refusal ?? ''}`,
+    `refusalCode=${plan.refusalCode ?? ''}`,
+    `searches=${searches.length}`,
+    ...searches,
+  ].join('\n');
+}
+
+export function planHash(plan: PaidPlan): string {
+  return createHash('sha256').update(canonicalPlanString(plan)).digest('hex');
+}
+
+/**
+ * Builds the plan. No provider is called and nothing is charged.
+ *
+ * Called twice per submission -- once to show, once to check -- and it has to be a
+ * function of the request plus current state for that comparison to mean anything.
+ */
+export async function buildPaidPlan(request: PlanRequest): Promise<PaidPlan> {
+  const geography = normalizeGeography(request.geographyType, request.geographyValue);
+  const { availableDiscoveryAdapters } = await import('../workers/marketMiner.js');
+
+  // One provider, named in the plan, and the only one the run may use.
+  //
+  // The preview quoted `availableDiscoveryAdapters()[0]` and the worker looped over
+  // every adapter, so a second configured provider would have doubled the tasks and
+  // the cost without appearing anywhere in what the operator approved. A confirmed
+  // plan now says who is executing it, and the worker refuses anyone else. Fanning a
+  // manual purchase across providers is a product decision with its own disclosure,
+  // not something a registry length should decide silently.
+  const adapter = availableDiscoveryAdapters()[0] ?? null;
+  const spend = await spendPosition();
+  const perTask = assumedRunCostUsd();
+
+  const empty = (code: PlanRefusalCode, reason: string): PaidPlan => ({
+    verticalProfileId: request.verticalProfileId,
+    geographyType: request.geographyType,
+    geographyValue: request.geographyValue,
+    geographyNormalized: geography.ok ? geography.value : null,
+    marketId: request.marketId,
+    miningMode: normalizeMiningMode(request.miningMode) ?? DEFAULT_MINING_MODE,
+    causes: [...(request.causes ?? [])],
+    provider: adapter?.name ?? 'none',
+    providerMode: adapter?.mode ?? 'none',
+    searches: [],
+    chargeableTaskCount: 0,
+    assumedCostPerTaskUsd: perTask,
+    estimatedCostUsd: 0,
+    refusal: reason,
+    refusalCode: code,
+    partialDiscoveryCoverage: false,
+    spentTodayUsd: spend.spentTodayUsd,
+    dailyBudgetUsd: spend.budgetUsd,
+    remainingBudgetUsd: Math.max(0, Number((spend.budgetUsd - spend.spentTodayUsd).toFixed(4))),
+  });
+
+  // A mode nobody recognises cannot be planned, and must not fall back to a default
+  // the operator did not ask for: the mode is part of every search's identity.
+  const miningMode = normalizeMiningMode(request.miningMode);
+  if (!miningMode) {
+    return empty('UNKNOWN_MINING_MODE',
+      `"${String(request.miningMode)}" is not a way this product searches a market, so `
+      + 'nothing was planned.');
+  }
+
+  // Nothing configured can execute this, so there is nothing to buy.
+  //
+  // The plan used to be built anyway, with provider "none" and a page of chargeable
+  // searches, and the worker would discover there was no adapter and spend nothing.
+  // Safe, and a lie: it asks a person to approve a purchase that cannot happen.
+  if (!adapter) {
+    return empty('NO_PROVIDER',
+      'No discovery provider is configured and reviewed, so no search can be bought. '
+      + 'Nothing was planned and nothing would be charged.');
+  }
+
+  const plan = await planDiscoverySearches({
+    verticalProfileId: request.verticalProfileId,
+    geographyType: request.geographyType,
+    geographyValue: request.geographyValue,
+    miningMode,
+    count: request.queryBudget ?? 1,
+    ...(request.marketId ? { marketId: request.marketId } : {}),
+    ...(request.causes && request.causes.length > 0 ? { causes: request.causes } : {}),
+  });
+  if (plan.refusal) return empty('NOT_DISCOVERABLE', plan.refusal.reason);
+
+  const providerName = adapter.name;
+  const searches: PlannedPaidSearch[] = [];
+  for (const search of plan.searches) {
+    // Already paid for, so the preview must not quote for it again. This is the same
+    // question the run asks before it submits, asked early so the number a person
+    // approves is the number they are charged.
+    const outstanding = await openProviderTask(providerName, search.fingerprint);
+    searches.push({
+      index: search.index, term: search.term, keyword: search.keyword,
+      locationName: search.locationName, purpose: search.purpose,
+      coverageRole: search.coverageRole, fingerprint: search.fingerprint,
+      chargeable: !outstanding,
+      executionDisposition: outstanding ? 'COLLECT_EXISTING' : 'BUY_NEW',
+      approvedProviderTaskId: outstanding?.provider_task_id ?? null,
+    });
+  }
+
+  const chargeable = searches.filter((search) => search.chargeable).length;
+
+  return {
+    verticalProfileId: request.verticalProfileId,
+    geographyType: request.geographyType,
+    geographyValue: request.geographyValue,
+    geographyNormalized: geography.ok ? geography.value : null,
+    marketId: request.marketId,
+    miningMode,
+    causes: [...(request.causes ?? [])],
+    provider: providerName,
+    // The selected adapter's own mode, not whatever DataForSEO happens to be set to.
+    providerMode: adapter.mode ?? 'default',
+    searches,
+    chargeableTaskCount: chargeable,
+    assumedCostPerTaskUsd: perTask,
+    estimatedCostUsd: Number((chargeable * perTask).toFixed(4)),
+    refusal: null,
+    refusalCode: null,
+    partialDiscoveryCoverage: plan.partialDiscoveryCoverage ?? false,
+    spentTodayUsd: spend.spentTodayUsd,
+    dailyBudgetUsd: spend.budgetUsd,
+    remainingBudgetUsd: Math.max(0, Number((spend.budgetUsd - spend.spentTodayUsd).toFixed(4))),
+  };
+}
+
+export interface StoredPlan { planId: string; planHash: string; plan: PaidPlan; expiresAt: Date; }
+
+export async function persistPaidPlan(
+  plan: PaidPlan, requestedBy: string, request: PlanRequest,
+): Promise<StoredPlan> {
+  const hash = planHash(plan);
+  const { rows } = await query<{ plan_id: string; expires_at: Date }>(
+    `insert into search_plan_previews (plan_hash, plan, requested_by, expires_at)
+     values ($1, $2::jsonb, $3, now() + ($4 || ' seconds')::interval)
+     returning plan_id, expires_at`,
+    [hash, JSON.stringify({ plan, request }), requestedBy, String(PLAN_TTL_SECONDS)]);
+  return {
+    planId: rows[0]!.plan_id, planHash: hash, plan, expiresAt: rows[0]!.expires_at,
+  };
+}
+
+export type PlanConfirmationFailure =
+  'NOT_FOUND' | 'EXPIRED' | 'CHANGED' | 'ALREADY_USED' | 'NOT_YOURS' | 'REFUSED'
+  /** A run of this market is already in flight and it is not this plan. */
+  | 'ACTIVE_RUN_DIFFERS';
+
+export type PlanConfirmation =
+  | { ok: true; plan: PaidPlan; request: PlanRequest; planId: string }
+  | { ok: false; code: PlanConfirmationFailure; message: string; plan?: PaidPlan };
+
+/**
+ * The check that stands between a reviewed plan and a chargeable submission.
+ *
+ * The submitted hash is never trusted as a description of anything: it is only
+ * compared against a plan this process has just built from the stored request. A
+ * client that sends a hash for a plan it invented gets a mismatch, because the
+ * authoritative side of the comparison never came from the client.
+ */
+export async function confirmPaidPlan(input: {
+  planId: string; planHash: string; userId: string;
+}): Promise<PlanConfirmation> {
+  const { rows } = await query<{
+    plan_hash: string; plan: { plan: PaidPlan; request: PlanRequest };
+    requested_by: string | null; expires_at: Date; consumed_at: Date | null;
+  }>(
+    `select plan_hash, plan, requested_by, expires_at, consumed_at
+       from search_plan_previews where plan_id = $1`, [input.planId]);
+  const stored = rows[0];
+  if (!stored) {
+    return { ok: false, code: 'NOT_FOUND',
+      message: 'That research plan is no longer on record. Review a new plan before '
+        + 'submitting paid searches.' };
+  }
+  if (stored.requested_by && stored.requested_by !== input.userId) {
+    return { ok: false, code: 'NOT_YOURS',
+      message: 'That research plan was reviewed by somebody else. Review your own '
+        + 'plan before submitting paid searches.' };
+  }
+  if (stored.consumed_at) {
+    return { ok: false, code: 'ALREADY_USED',
+      message: 'That research plan has already been submitted. Review a new plan to '
+        + 'search again.' };
+  }
+  if (stored.expires_at.getTime() <= Date.now()) {
+    return { ok: false, code: 'EXPIRED',
+      message: 'That research plan has expired. Review the current plan before '
+        + 'submitting paid searches.' };
+  }
+
+  // The stored copy still hashes to its own hash.
+  //
+  // That row is the record of what a person was shown, and a refusal quotes from it.
+  // If it has been edited since it was written, it is no longer evidence of anything
+  // -- and the edit is invisible otherwise, because the authoritative comparison
+  // below rebuilds from the request and never reads the stored copy.
+  if (planHash(stored.plan.plan) !== stored.plan_hash) {
+    return { ok: false, code: 'CHANGED',
+      message: 'The research plan changed after you reviewed it. Review the updated '
+        + 'plan before submitting paid searches.' };
+  }
+
+  // The authoritative plan: built now, from the stored request, by this process.
+  const current = await buildPaidPlan(stored.plan.request);
+  const currentHash = planHash(current);
+
+  // Both comparisons, deliberately. The stored hash catches a plan built under
+  // different conditions; the submitted hash catches a client confirming a plan it
+  // never saw.
+  if (currentHash !== stored.plan_hash || currentHash !== input.planHash) {
+    return { ok: false, code: 'CHANGED', plan: current,
+      message: 'The research plan changed after you reviewed it. Review the updated '
+        + 'plan before submitting paid searches.' };
+  }
+  if (current.refusal) {
+    return { ok: false, code: 'REFUSED', plan: current, message: current.refusal };
+  }
+
+  // Something else is already searching this market, and it is not this.
+  //
+  // Fails closed rather than queueing a second paid run beside the first. The two
+  // would both execute: the confirmed plan is its own identity now, so it cannot be
+  // absorbed by the job in flight -- which is the point -- but that also means
+  // nothing else would stop the market being bought twice in the same minute.
+  const conflict = await activeRunFor(stored.plan.request, currentHash);
+  if (conflict) {
+    return { ok: false, code: 'ACTIVE_RUN_DIFFERS', plan: current,
+      message: 'A different search of this market is already running. Wait for it to '
+        + 'finish and review a new plan: running both would buy this market twice.' };
+  }
+
+  /**
+   * The claim is not taken here.
+   *
+   * It happens inside the transaction that creates the job, so that claiming a plan,
+   * queueing its run and binding the two together are one atomic step. Claiming here
+   * and enqueueing afterwards would leave a plan marked used against a job that may
+   * never have been created -- and would put a gap between the check above and the
+   * write, which is exactly where a double-click fits.
+   */
+  return { ok: true, plan: current, request: stored.plan.request, planId: input.planId };
+}
+
+/**
+ * A market_mine job already in flight for this market that is not this plan.
+ *
+ * Matched on the market the job is for rather than on its plan, because the job we
+ * are guarding against is precisely the one that was planned differently -- including
+ * an unattended saved-market refresh, which has no confirmed plan at all.
+ */
+async function activeRunFor(
+  request: PlanRequest, confirmedHash: string,
+): Promise<string | null> {
+  const geography = normalizeGeography(request.geographyType, request.geographyValue);
+  const geographyValue = geography.ok ? geography.value : request.geographyValue;
+  const { rows } = await query<{ job_id: string }>(
+    `select job_id from jobs
+      where job_type = 'market_mine'
+        and status in ('QUEUED', 'RUNNING')
+        and coalesce(payload->>'confirmed_plan_hash', '') <> $3
+        and (($1::text is not null and payload->>'market_id' = $1)
+             or ($1::text is null
+                 and payload->>'geography_value' is not distinct from $2
+                 and payload->>'vertical_profile_id' is not distinct from $4))
+      limit 1`,
+    [request.marketId, geographyValue, confirmedHash, request.verticalProfileId]);
+  return rows[0]?.job_id ?? null;
+}
+

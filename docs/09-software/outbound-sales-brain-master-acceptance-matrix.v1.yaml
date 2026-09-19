@@ -1,0 +1,255 @@
+acceptance_matrix_id: yad_outbound_sales_brain_v1
+version: 1.0.0
+status: architecture_authority
+
+principles:
+  - A file compiling is not a gate pass.
+  - Severe truth, DNC, identity, security, professional-boundary, or false-tool-success failures block release regardless of average score.
+  - Production autonomous prospect calling is not authorized by this matrix; explicit business/policy approval is still required.
+
+waves:
+  - wave: 0
+    name: Gate 0 Environment Audit
+    required_proof:
+      - current_repo_and_phone_agent_audited
+      - EdgeXpert_local_test_workflow_documented
+      - existing_Twilio_runtime_audited
+      - persistence_and_queue_state_identified
+      - reuse_vs_replace_map
+      - automatic_CI_remains_manual_only
+      - production_dialing_off
+
+  - wave: 1
+    name: Prospect Factory Core
+    required_proof:
+      - canonical_domain_schema_implemented
+      - durable_migrations
+      - evidence_claim_registry_semantics_pass
+      - module4c_all_fixtures_exact
+      - HVAC_and_Plumbing_profiles_validate
+      - geography_planner_passes_fixtures
+      - fake_provider_pipeline_passes
+      - SERP_normalizer_passes_provider_equivalence_tests
+      - entity_resolution_fixtures_pass
+      - website_security_SSRF_prompt_injection_tests_pass
+      - false_positive_fixtures_pass
+      - opportunity_hypothesis_tests_pass
+      - decision_maker_routing_tests_pass
+      - ready_queue_tests_pass
+
+  - wave: 1.5
+    name: First Real Market Miner Proof
+    required_proof:
+      - provider_docs_pricing_terms_revalidated
+      - Jacksonville_StAugustine_HVAC_run_completed
+      - no_contact_performed
+      - paid_observations_have_query_time_geography
+      - dedupe_quality_manual_audit
+      - at_least_20_ready_prospects_random_manual_audit
+      - scoring_exact_on_audit
+      - no_pixel_as_active_ad_errors
+      - no_failed_detection_as_negative_errors
+      - provider_cost_per_TierBplus_reported
+      - coverage_shortfall_reported_honestly_if_under_target
+
+  - wave: 2
+    name: Human Assist MVP
+    required_proof:
+      - internal_auth
+      - ranked_daily_brief
+      - prospect_evidence_score_explainer
+      - call_prep_view
+      - account_leases
+      - one_click_dispositions
+      - structured_notes
+      - prospect_memory
+      - callbacks
+      - DNC
+      - research_corrections
+      - existing_meeting_cold_queue_exclusion
+      - cross_vertical_relationship_continuity
+      - manager_basic_funnel
+
+  - wave: 3
+    name: Supply Autopilot
+    required_proof:
+      - approved_query_planner_only
+      - probe_expand_longtail_behavior
+      - saturation_cooldown
+      - false_positive_learning_proposals
+      - refresh_dependency_logic
+      - territory_recommendations_stay_in_approved_geography
+      - inventory_low_high_water
+      - provider_budget_circuit_breakers
+      - autopilot_fixtures_all_pass
+
+  - wave: 4
+    name: Sales Knowledge and QA
+    required_proof:
+      - CommercialTruthSnapshot_generated_from_current_authority
+      - SalesManual_RAG_gold_tests
+      - prompt_authority_order_enforced
+      - objection_intelligence_tests
+      - business_case_calculator_source_labels
+      - text_conversation_state_machine
+      - conversation_extraction_provenance
+      - roleplay_suite_pass
+      - QA_hard_fail_detection
+      - no_sale_behavior_passes
+
+  - wave: 5
+    name: Second Vertical Proof
+    required_proof:
+      - Plumbing_market_mining_uses_same_core
+      - HVAC_Plubming_same_account_no_duplicate
+      - profile_specific_queries_hooks_roles
+      - canonical_score_unchanged
+      - vertical_router_fixtures_pass
+
+  - wave: 6
+    name: Selective Vertical Expansion
+    required_proof:
+      - profile_registry_used_not_hardcoded_switches
+      - target_profile_fixture_set_passes
+      - safety_boundaries_enforced
+      - false_positive_rules_validated
+      - current_market_supply_benchmark
+      - HumanAssist_CallPack_manual_audit
+    profile_candidates:
+      - roofing-us-v1
+      - collision-repair-us-v1
+      - law-firms-us-v1
+      - pdr-hail-us-v1
+      - general-contractors-remodeling-us-v1
+      - electrical-us-v1
+      - restoration-us-v1
+      - garage-door-us-v1
+      - dental-us-v1
+      - med-spas-us-v1
+      - real-estate-brokerages-us-v1
+
+  - wave: 7
+    name: Closed Loop Learning
+    required_proof:
+      - full_outcome_lineage
+      - test_data_excluded
+      - query_market_provider_hook_role_reports
+      - sample_size_uncertainty
+      - optimization_proposal_workflow
+      - experiment_guardrails
+      - no_auto_score_compliance_commercial_truth_mutation
+
+  - wave: 8
+    name: Opportunity Proposal Delivery Chain
+    required_proof:
+      - progressive_qualification_states
+      - strategy_meeting_handoff
+      - scope_compiler_certainty_levels
+      - proposal_readiness_gate
+      - PromiseRegistry_enforced
+      - proposal_versioning
+      - third_party_cost_visibility
+      - sales_delivery_handoff
+      - client_responsibility_and_human_review
+      - proposal_scope_fixtures_pass
+
+  - wave: 9
+    name: Compliance Software
+    required_proof:
+      - deterministic_policy_engine
+      - durable_DNC
+      - attempt_history
+      - destination_local_time
+      - line_contact_basis_inputs
+      - recording_transcription_policy
+      - policy_version_audit
+      - unknown_defaults_conservative
+      - formal_business_policy_review_before_real_autonomous_calls
+
+  - wave: 10
+    name: Realtime Voice Benchmark
+    required_proof:
+      - STT_candidates_benchmarked
+      - realtime_model_candidates_benchmarked
+      - TTS_candidates_benchmarked
+      - end_to_end_p50_p95_latency
+      - barge_in_latency
+      - number_name_system_pronunciation
+      - roleplay_audio_quality
+      - provider_cost
+      - no_brand_preference_without_measurement
+
+  - wave: 11
+    name: Controlled Twilio Runtime
+    required_proof:
+      - allowlist_only
+      - signed_webhooks_or_provider_validation
+      - dial_idempotency
+      - account_attempt_lock
+      - global_kill_switch
+      - suppression_fail_closed
+      - AMD_voicemail_paths
+      - transfer_fallback
+      - inbound_callback_context
+      - caller_number_health
+      - no_number_churn_evasion
+      - no_real_prospect_calls
+
+  - wave: 12
+    name: Action Tools and Multichannel
+    required_proof:
+      - booking_success_verified
+      - booking_failure_no_false_claim
+      - CRM_durable_outbox
+      - email_SMS_policy_checks
+      - DNC_cancels_queued_followup
+      - Smartlead_or_email_relationship_sync_if_implemented
+      - field_phone_email_cross_channel_coordination
+      - rep_meeting_routing
+      - warm_transfer_context
+
+  - wave: 13
+    name: Audio Certification
+    required_proof:
+      - full_roleplay_audio_suite
+      - no_unresolved_hard_fail_classes
+      - DNC_priority_interrupt
+      - natural_short_turns
+      - no_ordinary_3_5_second_dead_air
+      - barge_in_reliable
+      - false_success_zero
+      - professional_boundary_tests
+      - language_routes_tested_for_enabled_languages
+
+  - wave: 14
+    name: Real Prospect Micro Pilot
+    requires_explicit_Michael_approval: true
+    required_before_start:
+      - technical_gates_green
+      - company_contact_policy_approved
+      - compliance_review_complete
+      - campaign_and_market_approved
+      - caller_number_reputation_controls
+      - tiny_pilot_size
+      - manual_batch_review_plan
+      - immediate_pause_criteria
+    stop_conditions:
+      - DNC_failure
+      - unsupported_claim
+      - duplicate_call_bug
+      - identity_mismatch
+      - material_complaint_anomaly
+      - reputation_issue
+      - technical_instability
+
+hard_fail_classes:
+  - unauthorized_real_prospect_call
+  - DNC_ignored_or_lost
+  - wrong_company_contacted_from_identity_merge
+  - material_unsupported_claim
+  - false_booking_transfer_email_success
+  - fabricated_price_discount_result_or_integration
+  - professional_safety_boundary_violation
+  - secret_or_sensitive_data_exposure
+  - crawler_SSRF_or_prompt_injection_control
+  - automatic_CI_reenabled_without_explicit_request

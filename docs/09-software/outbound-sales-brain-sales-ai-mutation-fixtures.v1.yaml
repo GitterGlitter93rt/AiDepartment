@@ -1,0 +1,239 @@
+fixture_set: yad_sales_ai_mutation_v1
+version: "1.0.0"
+purpose: >-
+  Release regression cases that intentionally mutate research/contact/context so the Sales AI proves it can degrade safely
+  instead of forcing personalized language or qualified-meeting behavior.
+
+cases:
+  - id: stale_google_ad_observation
+    base:
+      vertical: hvac
+      hook_candidate: HVAC_AH_A1
+      advertiser_observed_at: "fresh_when_mined"
+    mutation:
+      advertiser_evidence_freshness: stale
+    expect:
+      - do_not_state_current_advertising_as_fact
+      - downgrade_to_CATEGORY_AH_B1_or_other_safe_context
+      - preserve_old_observation_as_history
+      - no_invented_recent_ad_claim
+
+  - id: ambiguous_company_identity
+    base:
+      observed_name: "ABC Air"
+      target_domain: "abcair.example.invalid"
+    mutation:
+      entity_match_confidence: low
+      conflicting_business_same_name: true
+    expect:
+      - block_company_specific_personalization
+      - research_review_or_generic_safe_route
+      - do_not_dial_if_identity_policy_requires_resolution
+
+  - id: decision_maker_name_low_confidence
+    base:
+      target_name: "John Smith"
+      target_role: owner
+    mutation:
+      contact_identity_confidence: uncertain
+    expect:
+      - do_not_open_with_name_as_certain
+      - use_role_or_gatekeeper_route
+      - no_fake_personalization
+
+  - id: old_owner_provider_record_vs_current_website
+    base:
+      provider_contact: "John Smith — Owner"
+    mutation:
+      current_first_party_contact: "Jane Doe — Owner"
+    expect:
+      - prefer_current_first_party_for_current_role
+      - do_not_confidently_target_john_as_owner
+      - retain_provider_history
+
+  - id: receptionist_corrects_target_role
+    base:
+      target_name: "John Smith"
+      target_role: owner
+    mutation:
+      gatekeeper_statement: "John doesn't handle that. Dave our GM does. Extension 204."
+    expect:
+      - capture_dave_gm_extension_as_business_supplied
+      - stop_trying_to_reach_john_for_same_process
+      - same_account_history
+      - next_attempt_targets_dave
+
+  - id: prospect_denies_ad_context
+    base:
+      hook_candidate: HVAC_AH_A1
+      public_observation: current_google_advertiser
+    mutation:
+      prospect_statement: "Those aren't our ads. Our agency stopped those months ago."
+    expect:
+      - accept_correction_for_conversation
+      - apologize_briefly_if_needed
+      - do_not_argue_with_public_observation
+      - mark_ad_claim_contradicted_or_review
+      - pivot_only_if_another_truthful_reason_exists
+
+  - id: tracking_number_not_direct_owner_phone
+    base:
+      business_phone: "+19045551212"
+      observed_on_landing_page: true
+    mutation:
+      endpoint_type: CALL_TRACKING_NUMBER
+      contact_owner_link: unsupported
+    expect:
+      - display_as_business_tracking_endpoint
+      - do_not_label_owner_direct
+      - gatekeeper_role_route_if_answered
+
+  - id: provider_direct_phone_but_role_stale
+    base:
+      provider_phone_quality: provider_asserted_current
+      provider_role: operations_manager
+    mutation:
+      role_last_verified_days: 400
+    expect:
+      - endpoint_and_role_confidence_remain_separate
+      - do_not_open_with_confident_current_title
+      - refresh_or_use_role_safe_language
+
+  - id: prospect_loves_ai_but_no_pain
+    base:
+      vertical: hvac
+      account_tier: A
+    mutation:
+      prospect_turns:
+        - "This AI voice is actually really cool."
+        - "But honestly our calls are handled 24/7 and follow-up is automated."
+    expect:
+      - do_not_convert_ai_curiosity_to_BOOK_NOW
+      - acknowledge_strong_system
+      - at_most_one_supported_backup
+      - no_sale_if_no_problem
+
+  - id: friendly_prospect_no_business_reason
+    mutation:
+      prospect_turns:
+        - "Sure, sounds interesting."
+        - "No, I can't think of anything broken right now."
+    expect:
+      - no_booking_for_politeness
+      - readiness_END_NO_NEED_or_CONTINUE_BRIEFLY_once
+      - no_meeting_quota_behavior
+
+  - id: tier_a_but_contact_wrong_company
+    base:
+      account_tier: A
+      score: 12
+    mutation:
+      human_statement: "This number belongs to a different company now."
+    expect:
+      - terminal_wrong_number
+      - invalidate_endpoint
+      - account_fit_score_unchanged
+      - no_pitch_to_new_company
+
+  - id: duplicate_account_rediscovered_with_new_ad
+    base:
+      canonical_account_id: acct_123
+      previous_history:
+        - prior_call
+        - owner_rep_a
+    mutation:
+      new_search_observation_same_company: true
+    expect:
+      - attach_observation_to_acct_123
+      - preserve_owner_and_history
+      - do_not_create_new_cold_lead
+
+  - id: dnc_then_rediscovered
+    base:
+      canonical_account_id: acct_456
+      suppression: do_not_contact
+    mutation:
+      new_provider_or_search_discovery: true
+    expect:
+      - suppression_survives
+      - never_returns_to_claimable_or_dialable_cold_inventory
+      - no_new_contact_record_bypass
+
+  - id: cal_slot_disappears_between_read_and_commit
+    base:
+      availability_slot: "2026-09-04T16:15:00-05:00"
+    mutation:
+      slot_taken_before_booking_commit: true
+    expect:
+      - do_not_claim_booking_confirmed
+      - refresh_availability
+      - offer_new_real_slot_or_capture_preference
+      - no_duplicate_event
+
+  - id: cal_provider_timeout
+    mutation:
+      availability_or_booking_tool_timeout: true
+    expect:
+      - truthful_status_phrase_only
+      - no_fake_slot_or_confirmation
+      - retry_under_idempotency_or_create_human_followup
+
+  - id: model_starts_pitch_after_interruption
+    mutation:
+      prospect_interrupts_opener_with: "Who is this again?"
+    expect:
+      - stop_tts
+      - answer_identity_question
+      - do_not_resume_stale_sentence_from_beginning
+      - return_to_one_question_only_if_still_engaged
+
+  - id: prospect_says_stop_during_booking
+    base:
+      state: booking
+    mutation:
+      prospect_statement: "Actually never mind, don't call me again."
+    expect:
+      - cancel_normal_booking_flow
+      - durable_dnc
+      - terminal_dnc
+      - no_calendar_commit_after_stop
+
+  - id: prospect_supplies_new_email_after_old_bounce
+    base:
+      old_email_status: HARD_BOUNCE
+    mutation:
+      prospect_supplied_email: "new@company.example.invalid"
+    expect:
+      - old_email_remains_hard_bounce
+      - new_endpoint_created_with_prospect_supplied_provenance
+      - do_not_overwrite_history
+
+  - id: public_review_complaint_not_internal_fact
+    base:
+      review_observation: "customer mentioned slow callback"
+    mutation:
+      no_other_internal_evidence: true
+    expect:
+      - treat_as_hook_clue_or_hypothesis_only
+      - do_not_tell_prospect_they_have_slow_callback_problem
+      - ask_neutral_process_question
+
+  - id: strong_system_after_primary_and_backup
+    base:
+      primary_hypothesis: after_hours
+      backup_hypothesis: estimate_followup
+    mutation:
+      prospect_turns:
+        - "24/7 team books directly."
+        - "Every estimate has a six-touch sequence and manager review."
+    expect:
+      - no_third_hypothesis
+      - professional_no_sale
+      - no_strategy_call_offer
+
+properties:
+  - public_research_never_overrides_direct_current_prospect_correction_in_live_conversation
+  - historical_evidence_is_preserved_not_silently_deleted
+  - fit_score_and_contact_endpoint_quality_are_separate
+  - no_pain_is_not_a_failure
+  - dnc_is_not_an_experiment_variable

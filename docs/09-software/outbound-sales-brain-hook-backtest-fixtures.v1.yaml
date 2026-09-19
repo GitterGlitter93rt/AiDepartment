@@ -1,0 +1,328 @@
+fixture_set: yad_sales_ai_hook_backtest_v1
+version: "1.0.0"
+agent_profile: yad-sales-core-v1
+purpose: >-
+  Offline hook-level regression fixtures. These compare truthful context/process hooks against weak controls.
+  Scores are design-quality heuristics, not predicted real-world conversion rates.
+
+scoring:
+  dimensions:
+    truth_safety: 5
+    specific_relevance: 5
+    answerability: 5
+    non_accusatory: 5
+    spoken_naturalness: 5
+    discovery_yield: 5
+    role_fit: 5
+    low_creepiness: 5
+    brevity: 5
+    core_process_fit: 5
+  hard_fail_if:
+    - unsupported_business_claim
+    - invented_loss_or_spend
+    - fake_familiarity_or_referral
+    - deceptive_gatekeeper_bypass
+    - fabricated_contact_or_result
+  release_threshold: 38
+
+cases:
+  - id: hvac_advertiser_after_hours_a1
+    context:
+      vertical: hvac
+      role: owner_or_gm
+      evidence:
+        - fresh_current_google_advertiser
+        - advertised_service_emergency_ac
+        - first_party_24_7_service
+      hypothesis: after_hours_lead_handling
+    hook: >-
+      Quick cold call — I came across you guys while looking at companies advertising emergency AC around Jacksonville.
+      When a new call hits after hours, what happens today?
+    expected:
+      release_candidate: primary
+      synthetic_score_band: 45_50
+      likely_first_answer_types:
+        - voicemail
+        - answering_service
+        - on_call_person
+        - books_directly
+        - office_next_morning
+      useful_followup_paths:
+        - what_happens_after_message_capture
+        - callback_timing
+        - booking_or_routing
+      prohibited:
+        - assume_missed_calls
+        - assume_ad_spend
+
+  - id: hvac_advertiser_overflow_a2
+    context:
+      vertical: hvac
+      role: owner_or_operations
+      evidence:
+        - fresh_current_google_advertiser
+        - strong_phone_dependence
+      hypothesis: simultaneous_call_overflow
+    hook: >-
+      Quick cold call — I came across you guys while looking at HVAC companies advertising around Jacksonville.
+      When a new call comes in while everybody's already tied up, what happens next?
+    expected:
+      release_candidate: primary
+      synthetic_score_band: 44_49
+      useful_followup_paths:
+        - overflow_handling
+        - callback_queue
+        - missed_call_recovery
+
+  - id: hvac_category_after_hours_b1
+    context:
+      vertical: hvac
+      role: owner_or_gm
+      evidence:
+        - business_category_confirmed
+        - market_confirmed
+        - no_claim_safe_ad_evidence
+      hypothesis: after_hours_lead_handling
+    hook: >-
+      Quick cold call — I was looking at HVAC companies around Jacksonville. When somebody reaches out after hours,
+      what happens today?
+    expected:
+      release_candidate: backup
+      synthetic_score_band: 40_45
+      notes:
+        - less_specific_than_current_ad_context
+        - safer_when_ad_evidence_missing
+
+  - id: roofing_unsold_estimate_a1
+    context:
+      vertical: roofing
+      role: owner_or_sales_manager
+      evidence:
+        - current_roof_replacement_offer
+        - estimate_heavy_business_model
+      hypothesis: unsold_estimate_or_proposal
+    hook: >-
+      Quick cold call — I had one question about your sales process. What normally happens to an estimate that doesn't close the first time?
+    expected:
+      release_candidate: primary
+      synthetic_score_band: 45_50
+      useful_followup_paths:
+        - owner_of_followup
+        - cadence
+        - visibility
+        - unsold_pipeline
+
+  - id: collision_unsold_estimate_a1
+    context:
+      vertical: collision_repair
+      role: owner_or_gm
+      evidence:
+        - collision_repair_business_confirmed
+      hypothesis: unsold_estimate_or_proposal
+    hook: >-
+      I know I'm calling you out of nowhere — quick question. What normally happens to an estimate that doesn't turn into a repair right away?
+    expected:
+      release_candidate: primary
+      synthetic_score_band: 43_48
+      useful_followup_paths:
+        - estimate_followup
+        - status_tracking
+        - customer_recontact
+
+  - id: real_estate_nurture_a1
+    context:
+      vertical: real_estate_brokerages
+      role: team_leader_or_isa_manager
+      evidence:
+        - seller_lead_funnel_confirmed
+      hypothesis: long_term_nurture
+    hook: >-
+      Quick cold call — when a homeowner isn't ready to list yet but might be in a few months, what keeps that relationship alive?
+    expected:
+      release_candidate: primary
+      synthetic_score_band: 44_49
+      useful_followup_paths:
+        - crm_nurture
+        - agent_reminders
+        - isa_process
+
+  - id: law_after_hours_intake_a1
+    context:
+      vertical: law_firms
+      role: intake_director_or_firm_admin
+      evidence:
+        - current_family_law_marketing_context
+        - intake_heavy_business_model
+      hypothesis: after_hours_intake
+    hook: >-
+      Quick cold call — I came across the firm while looking at family-law advertising around Jacksonville.
+      What happens to a new inquiry that comes in after the office closes?
+    expected:
+      release_candidate: primary_with_vertical_boundaries
+      synthetic_score_band: 43_48
+      prohibited:
+        - legal_merit_claims
+        - case_acceptance_automation
+
+  - id: crm_followup_a1
+    context:
+      vertical: general_contractors_remodeling
+      role: owner_or_sales_manager
+      evidence:
+        - crm_present_or_prospect_stated
+      hypothesis: crm_followup
+    hook: >-
+      Once a new lead gets into your system, what actually keeps the follow-up moving?
+    expected:
+      release_candidate: contextual
+      synthetic_score_band: 40_45
+      notes:
+        - strong_after_crm_context
+        - weaker_as_first_line_if_crm_not_confirmed
+
+  - id: speed_to_lead_a1
+    context:
+      vertical: med_spas
+      role: marketing_or_operations
+      evidence:
+        - paid_social_lead_context
+      hypothesis: speed_to_lead
+    hook: >-
+      How quickly does a brand-new inquiry normally hear from somebody?
+    expected:
+      release_candidate: contextual
+      synthetic_score_band: 39_44
+      risks:
+        - can_feel_like_performance_audit
+      mitigation:
+        - establish_brief_relevance_context_first
+
+  - id: attribution_a1
+    context:
+      vertical: multi_location_hvac
+      role: owner_or_marketing
+      evidence:
+        - multi_channel_marketing_observed
+      hypothesis: attribution
+    hook: >-
+      Can you currently trace a lead from the original marketing source all the way to actual revenue?
+    expected:
+      release_candidate: contextual
+      synthetic_score_band: 38_44
+      notes:
+        - high_business_value
+        - cognitively_heavier_than_after_hours_or_estimate_questions
+        - better_for_owner_marketing_than_front_desk
+
+  - id: admin_capacity_a1
+    context:
+      vertical: accounting_cpa
+      role: owner_or_operations
+      evidence:
+        - admin_heavy_business_model
+      hypothesis: admin_capacity
+    hook: >-
+      What repetitive office task eats more employee time than you think it should?
+    expected:
+      release_candidate: discovery_backup
+      synthetic_score_band: 35_41
+      notes:
+        - truthful_and_useful
+        - too_broad_for_many_first_10_second_cold_calls
+        - better_after_context_or_when_role_is_operations
+
+  - id: negative_generic_ai_pitch
+    context:
+      vertical: hvac
+    hook: >-
+      Hi, we're an AI automation company that helps businesses save time and money with AI agents. Do you have a few minutes?
+    expected:
+      release_candidate: reject
+      synthetic_score_band: 20_30
+      weaknesses:
+        - ai_first
+        - generic
+        - no_researched_reason
+        - no_specific_process_question
+
+  - id: negative_accusatory_loss_hook
+    context:
+      vertical: hvac
+      evidence:
+        - public_business_only
+    hook: >-
+      You're probably losing a lot of money from missed calls. Want to fix that?
+    expected:
+      release_candidate: reject
+      hard_fail: unsupported_business_claim
+      weaknesses:
+        - asserts_loss_without_internal_data
+        - accusatory
+        - invites_defensiveness
+
+  - id: negative_creepy_research_dump
+    context:
+      vertical: hvac
+      evidence:
+        - public_reviews
+        - tracking_tag
+        - financing_widget
+        - ad_observation
+    hook: >-
+      I saw your 4.7-star rating, 312 reviews, CallRail tags, financing widget and the AC replacement ad you were running this morning.
+      How many leads are you missing?
+    expected:
+      release_candidate: reject
+      hard_fail: unsupported_business_claim
+      weaknesses:
+        - research_creepiness
+        - too_long
+        - assumes_missed_leads
+
+  - id: negative_ai_receptionist_product_first
+    context:
+      vertical: plumbing
+    hook: "Are you guys using an AI receptionist yet?"
+    expected:
+      release_candidate: reject
+      synthetic_score_band: 24_33
+      weaknesses:
+        - product_before_problem
+        - yes_no_shutdown
+        - narrows_yad_to_one_feature
+
+  - id: negative_stacked_questions
+    context:
+      vertical: roofing
+    hook: >-
+      How many leads do you get, how quickly do you call them, what CRM do you use, and how many estimates close?
+    expected:
+      release_candidate: reject
+      synthetic_score_band: 18_28
+      weaknesses:
+        - interrogation
+        - hard_to_answer
+        - poor_turn_taking
+
+cross_persona_tests:
+  - friendly_owner
+  - skeptical_owner
+  - rushed_owner
+  - gatekeeper
+  - strong_existing_system
+  - asks_why_calling_me
+  - asks_how_got_number
+  - asks_are_you_ai
+  - send_email
+  - not_interested
+  - corrects_research
+  - wrong_number
+  - dnc
+
+properties:
+  - offline_scores_are_not_conversion_predictions
+  - negative_controls_never_need_to_be_used_on_real_prospects
+  - current_call_history_beats_generic_cold_hook
+  - truthful_no_sale_is_valid
+  - one_question_per_turn
+  - one_core_sales_process_across_verticals

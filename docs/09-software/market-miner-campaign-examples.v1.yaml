@@ -1,0 +1,199 @@
+campaign_examples_id: yad_market_miner_campaign_examples_v1
+version: 1.0.0
+status: architecture_examples_not_production_authorization
+
+campaigns:
+  - campaign_id: example_jax_staug_hvac_advertiser
+    name: Jacksonville + St Augustine HVAC Advertiser-First
+    vertical_profile_id: hvac-us-v1
+    campaign_objective: protect_paid_demand
+    geography_policy:
+      state: FL
+      cities: [Jacksonville, St. Augustine]
+      expansion: fixed_plus_approved_search_cells
+    mining_mode: ADVERTISER_FIRST
+    search_policy:
+      approved_query_families:
+        - emergency_ac_repair
+        - ac_repair
+        - ac_replacement
+        - hvac_contractor
+        - heat_pump_installation
+        - hvac_financing
+      paid_search_priority: high
+    signal_requirements:
+      google_ads: preferred
+      LSA: preferred
+    qualification_policy:
+      minimum_tier: B
+    inventory_policy:
+      target_ready: 100
+      honest_shortfall: true
+    outreach_mode: RESEARCH_ONLY
+    note: First Gate 7 proof campaign; no prospect contact.
+
+  - campaign_id: example_jax_hvac_human_assist
+    name: Jacksonville HVAC Human Assist
+    vertical_profile_id: hvac-us-v1
+    campaign_objective: paid_lead_and_after_hours_workflow
+    geography_policy:
+      state: FL
+      city: Jacksonville
+    mining_mode: ADVERTISER_FIRST
+    qualification_policy:
+      minimum_tier: B
+    inventory_policy:
+      low_water: 75
+      high_water: 125
+    outreach_mode: HUMAN_ASSIST
+    channel_policy:
+      allowed: [human_phone, human_email]
+    assignment_policy:
+      team: sales
+    note: Only after first research-only market acceptance and Human Assist gate.
+
+  - campaign_id: example_staug_no_website_local
+    name: St Augustine No Verified Website SMBs
+    vertical_profile_id: null
+    campaign_objective: website_foundation
+    geography_policy:
+      state: FL
+      city: St. Augustine
+      radius_miles: 25
+    mining_mode: NO_VERIFIED_WEBSITE
+    search_policy:
+      business_categories: approved_target_vertical_categories
+    signal_requirements:
+      no_verified_website: required
+    qualification_policy:
+      minimum_tier: null
+      note: Website-foundation campaign uses separate fit criteria while preserving any Module 4C score if profile assigned.
+    outreach_mode: HUMAN_ASSIST
+    channel_policy:
+      allowed: [human_phone, field_visit]
+    note: Website absence must be sufficiently verified/current; do not use “no website” hook from one failed lookup.
+
+  - campaign_id: example_florida_pi_law_advertisers
+    name: Florida Personal Injury Law Advertisers Research
+    vertical_profile_id: law-firms-us-v1
+    practice_area_context: personal_injury
+    campaign_objective: intake_and_attribution
+    geography_policy:
+      state: FL
+      metros: [Jacksonville, Orlando, Tampa, Miami, West Palm Beach]
+    mining_mode: ADVERTISER_ONLY
+    search_policy:
+      approved_query_families:
+        - personal_injury_lawyer
+        - car_accident_lawyer
+      LSA: include_if_available
+    signal_requirements:
+      google_ads: required
+    qualification_policy:
+      minimum_tier: B
+    outreach_mode: RESEARCH_ONLY
+    note: Ad-specific language must remain PI context; legal intake/confidentiality boundaries apply.
+
+  - campaign_id: example_roofing_florida_advertiser
+    name: Florida Roofing Advertiser-First
+    vertical_profile_id: roofing-us-v1
+    campaign_objective: paid_lead_and_proposal_followup
+    geography_policy:
+      state: FL
+      expansion: approved_metros_only
+    mining_mode: ADVERTISER_FIRST
+    search_policy:
+      approved_query_families:
+        - roof_replacement
+        - roof_repair
+        - roofer
+        - hail_damage_roof
+        - storm_damage_roof
+    signal_requirements:
+      google_ads: preferred
+      financing: preferred
+    qualification_policy:
+      minimum_tier: B
+    outreach_mode: HUMAN_ASSIST
+    note: Example only; implementation timing follows waves.
+
+  - campaign_id: example_madison_hail_event_research
+    name: Madison Hail Event Research
+    vertical_profile_id: pdr-hail-us-v1
+    campaign_objective: event_market_research
+    geography_policy:
+      state: WI
+      market: Madison
+    mining_mode: EVENT_MARKET
+    search_policy:
+      approved_query_families:
+        - hail_damage_repair
+        - auto_hail_repair
+        - pdr_hail_repair
+    event_policy:
+      event_type: HAIL
+      current_event_required: true
+    qualification_policy:
+      minimum_tier: B
+    outreach_mode: RESEARCH_ONLY
+    note: Current event evidence required. Old hail market history cannot support current-event opener.
+
+  - campaign_id: example_medspa_orlando_meta_google
+    name: Orlando Med Spa Paid Lead Research
+    vertical_profile_id: med-spas-us-v1
+    campaign_objective: speed_to_lead_and_no_show
+    geography_policy:
+      state: FL
+      metro: Orlando
+    mining_mode: ADVERTISER_FIRST
+    search_policy:
+      google_queries:
+        - med spa
+        - laser hair removal
+        - body contouring
+      meta_evidence: preferred_if_reliable_approved_source
+    qualification_policy:
+      minimum_tier: B
+    outreach_mode: RESEARCH_ONLY
+    note: Clinical/privacy boundaries; Meta absence may remain unknown if source unavailable.
+
+  - campaign_id: example_jax_collision_advertisers
+    name: Jacksonville Collision Repair Advertisers
+    vertical_profile_id: collision-repair-us-v1
+    campaign_objective: estimate_lead_and_attribution
+    geography_policy:
+      state: FL
+      city: Jacksonville
+    mining_mode: ADVERTISER_FIRST
+    search_policy:
+      approved_query_families:
+        - collision_repair
+        - auto_body_repair
+        - body_shop
+        - hail_damage_repair
+    qualification_policy:
+      minimum_tier: B
+    outreach_mode: HUMAN_ASSIST
+    note: Ordinary collision campaign uses Collision profile even if PDR/Hail is a secondary service unless event context dictates otherwise.
+
+  - campaign_id: example_field_route_staug_trades
+    name: St Augustine High-Priority Field Route
+    vertical_profile_id: null
+    campaign_objective: field_sales
+    geography_policy:
+      state: FL
+      city: St. Augustine
+      radius_miles: 20
+    mining_mode: FIELD_ROUTE
+    qualification_policy:
+      preferred_tiers: [A, B]
+    field_policy:
+      location_types_allowed:
+        - customer_facing_storefront
+        - trade_shop_with_front_office
+        - professional_office
+      home_based_default: exclude_or_review
+    outreach_mode: HUMAN_ASSIST
+    channel_policy:
+      allowed: [field_visit]
+    note: Cross-vertical field route still uses active profile Call Pack for each Account.

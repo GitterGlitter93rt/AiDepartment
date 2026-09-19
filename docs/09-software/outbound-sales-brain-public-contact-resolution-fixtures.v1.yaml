@@ -1,0 +1,253 @@
+version: 1
+status: architecture_authority
+purpose: Regression fixtures for public-first decision-maker and contact-path resolution.
+
+fixtures:
+  - id: owner_confirmed_no_direct_phone
+    account:
+      company: ABC Air LLC
+      vertical: HVAC
+      hypothesis: paid_after_hours_lead_handling
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: John Smith is Founder and Owner
+        freshness: FRESH
+      - source: PUBLIC_COMPANY_REGISTRY
+        claim: John Smith is Manager of ABC Air LLC
+        freshness: FRESH
+      - source: COMPANY_FIRST_PARTY
+        claim: company main phone is 9045550100
+        freshness: FRESH
+    expected:
+      primary_person: John Smith
+      primary_role: OWNER
+      employer_match: CONFIRMED
+      endpoint_relationship: COMPANY_ROUTE
+      resolution_status: NAMED_MAINLINE_ROUTE_READY
+      direct_phone: null
+      hard_fail_if:
+        - main line labeled as John Smith direct number
+
+  - id: registered_agent_is_not_owner
+    account:
+      company: Sunshine Roofing LLC
+      vertical: ROOFING
+      hypothesis: proposal_followup
+    observations:
+      - source: PUBLIC_COMPANY_REGISTRY
+        claim: Legal Services Inc is registered agent
+      - source: COMPANY_FIRST_PARTY
+        claim: Maria Lopez is President
+    expected:
+      primary_person: Maria Lopez
+      primary_role: PRESIDENT
+      excluded_as_primary:
+        - Legal Services Inc
+      hard_fail_if:
+        - registered agent promoted to owner
+        - registered agent used as cold sales target solely from filing
+
+  - id: qualifier_plus_founder_reinforces_identity
+    account:
+      company: Cool Breeze Mechanical
+      vertical: HVAC
+      hypothesis: after_hours_calls
+    observations:
+      - source: PUBLIC_LICENSE_REGISTRY
+        claim: David Green is qualifying contractor
+      - source: COMPANY_FIRST_PARTY
+        claim: Founded by David Green
+      - source: COMPANY_FIRST_PARTY
+        claim: main office phone 9045550200
+    expected:
+      primary_person: David Green
+      employer_match: CONFIRMED
+      role_relevance: VALID_FALLBACK
+      resolution_status: NAMED_MAINLINE_ROUTE_READY
+      notes:
+        - qualifier evidence supports relationship but does not alone prove workflow ownership
+
+  - id: operations_beats_owner_for_hypothesis
+    account:
+      company: Metro Plumbing
+      vertical: PLUMBING
+      hypothesis: dispatch_capacity
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: Chris White is Owner
+      - source: COMPANY_FIRST_PARTY
+        claim: Ashley Brown is Director of Operations
+      - source: COMPANY_FIRST_PARTY
+        claim: Ashley Brown direct business email ashley@metroplumbing.example
+    expected:
+      primary_person: Ashley Brown
+      primary_role: OPERATIONS
+      alternate_person: Chris White
+      resolution_status: NAMED_EMAIL_READY
+      hard_fail_if:
+        - owner always outranks operations regardless of hypothesis
+
+  - id: stale_owner_conflicts_with_current_website
+    account:
+      company: Coastal HVAC
+      vertical: HVAC
+      hypothesis: paid_lead_response
+    observations:
+      - source: PUBLIC_BUSINESS_DIRECTORY
+        claim: Robert King is Owner
+        freshness: STALE
+      - source: COMPANY_FIRST_PARTY
+        claim: Dana King is President
+        freshness: FRESH
+    expected:
+      primary_person: Dana King
+      stale_contact: Robert King
+      resolution_status: NAMED_MAINLINE_ROUTE_READY
+      hard_fail_if:
+        - Robert personalized as current owner without refresh
+
+  - id: no_name_role_route_is_valid
+    account:
+      company: Quick Fix AC
+      vertical: HVAC
+      hypothesis: after_hours_calls
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: main phone 9045550300
+      - source: COMPANY_FIRST_PARTY
+        claim: emergency service available 24/7
+    expected:
+      primary_person: null
+      target_role: OPERATIONS_OR_GM
+      endpoint_relationship: COMPANY_ROUTE
+      resolution_status: ROLE_ROUTE_READY
+      hard_fail_if:
+        - invented decision maker name
+        - account removed from human assist solely because no person found
+
+  - id: published_business_mobile_can_be_direct
+    account:
+      company: Smith Roofing
+      vertical: ROOFING
+      hypothesis: paid_lead_intake
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: Team page lists Jane Smith, Owner, Call Jane directly at 9045550400
+    expected:
+      primary_person: Jane Smith
+      primary_role: OWNER
+      endpoint_relationship: DIRECT_CONFIRMED
+      phone_type: DIRECT_BUSINESS_LINE
+      resolution_status: NAMED_DIRECT_READY
+
+  - id: unrelated_personal_number_rejected
+    account:
+      company: Atlas Restoration
+      vertical: RESTORATION
+      hypothesis: emergency_lead_response
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: Mark Hall is General Manager
+      - source: SEARCH_RESULT_DISCOVERY
+        claim: unrelated people-search page claims personal cell 9045550500
+    expected:
+      primary_person: Mark Hall
+      direct_phone: null
+      resolution_status: NAMED_MAINLINE_ROUTE_READY
+      hard_fail_if:
+        - dubious personal number stored as business direct line
+
+  - id: guessed_email_not_smartlead_ready
+    account:
+      company: Northside Electric
+      vertical: ELECTRICAL
+      hypothesis: lead_followup
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: Erin Lee is Operations Manager
+      - source: DERIVED_PATTERN
+        claim: erin.lee@northside.example guessed from company pattern
+    expected:
+      email_quality: GUESSED_UNVERIFIED
+      smartlead_ready: false
+      resolution_status: NAMED_MAINLINE_ROUTE_READY
+      hard_fail_if:
+        - guessed email labeled verified
+        - guessed email auto-exported under verified-email policy
+
+  - id: gatekeeper_correction_becomes_current
+    account:
+      company: River City HVAC
+      vertical: HVAC
+      hypothesis: replacement_followup
+    observations:
+      - source: PUBLIC_BUSINESS_DIRECTORY
+        claim: Tom Reed is Sales Manager
+        freshness: AGING
+      - source: PROSPECT_OR_GATEKEEPER_SUPPLIED
+        claim: Tom left; Lisa Chen is Sales Manager, extension 204
+        freshness: FRESH
+    expected:
+      primary_person: Lisa Chen
+      primary_role: SALES_LEADERSHIP
+      extension: 204
+      stale_contact: Tom Reed
+      resolution_status: NAMED_MAINLINE_ROUTE_READY
+      hard_fail_if:
+        - stale directory overwrites gatekeeper correction
+
+  - id: franchise_corporate_executive_not_local_target
+    account:
+      company: Franchise HVAC Jacksonville LLC
+      vertical: HVAC
+      scope: LOCATION
+      hypothesis: local_after_hours_calls
+    observations:
+      - source: PUBLIC_BUSINESS_NEWS
+        claim: Corporate Brand CEO is Alex Global
+      - source: COMPANY_FIRST_PARTY
+        claim: Jacksonville location manager is Taylor Jones
+    expected:
+      primary_person: Taylor Jones
+      primary_role: LOCATION_MANAGER
+      excluded_as_primary:
+        - Alex Global
+      hard_fail_if:
+        - corporate executive targeted for local workflow without control evidence
+
+  - id: paid_enrichment_optional_not_required
+    account:
+      company: Premium Air Services
+      vertical: HVAC
+      tier: A
+      hypothesis: paid_lead_response
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: Samantha Reed is Director of Operations
+      - source: COMPANY_FIRST_PARTY
+        claim: main phone 9045550600
+    expected:
+      public_only_result: NAMED_MAINLINE_ROUTE_READY
+      may_offer_paid_enrichment: true
+      paid_enrichment_required_for_human_call: false
+      hard_fail_if:
+        - account blocked solely because Apollo is unavailable
+
+  - id: multi_location_scope_match
+    account:
+      company: Statewide Collision Group
+      vertical: COLLISION_REPAIR
+      scope: LOCATION
+      target_location: Jacksonville
+      hypothesis: front_office_overflow
+    observations:
+      - source: COMPANY_FIRST_PARTY
+        claim: Corporate Marketing Director is Paul West
+      - source: COMPANY_FIRST_PARTY
+        claim: Jacksonville GM is Renee Davis
+    expected:
+      primary_person: Renee Davis
+      primary_role: GENERAL_MANAGER
+      alternate_person: Paul West
+      hard_fail_if:
+        - corporate marketing selected for location front-office issue solely due seniority

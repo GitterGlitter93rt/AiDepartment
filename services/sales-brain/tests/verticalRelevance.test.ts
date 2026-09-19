@@ -1,0 +1,248 @@
+import './setup.js';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  discoveryVerticalRelevance, firstPartyVerticalRelevance,
+} from '../src/discovery/verticalRelevance.js';
+
+/**
+ * Ranking for a trade's query is not membership of the trade.
+ *
+ * Production put "U-Haul Locations in Miami, FL 33127" in front of a rep filtering for
+ * HVAC. The observation behind it: `result_type organic`, `position 51`, query
+ * "HVAC contractor 33127", provider category null. The miner stamped the searched
+ * vertical onto the Account, so a truck rental company became an HVAC prospect because
+ * of the question we had asked.
+ *
+ * The Find filter was correct throughout. The data it filtered was wrong.
+ */
+
+// The terms the HVAC profile actually declares, as `search_taxonomy.core_queries`.
+const HVAC = ['HVAC contractor', 'heating and cooling', 'air conditioning contractor'];
+const PLUMBING = ['plumber', 'plumbing contractor', 'drain cleaning'];
+
+test('a local business listing supports the trade', () => {
+  for (const resultType of ['local_result', 'local_pack', 'maps_search', 'google_business_listing']) {
+    assert.equal(
+      discoveryVerticalRelevance({ resultType, providerCategory: null, verticalTerms: HVAC }),
+      'SUPPORTED', `${resultType} was not treated as a business listing`);
+  }
+});
+
+test('an organic ranking supports nothing on its own', () => {
+  // The U-Haul case, generically: a page ranked, and that is all we know.
+  assert.equal(
+    discoveryVerticalRelevance({ resultType: 'organic', providerCategory: null, verticalTerms: HVAC }),
+    'INSUFFICIENT');
+  // Nor does a directory page, an informational block, or anything else that describes
+  // a page rather than a business.
+  for (const resultType of ['organic', '', 'people_also_ask', 'related_searches']) {
+    assert.equal(
+      discoveryVerticalRelevance({ resultType, providerCategory: null, verticalTerms: HVAC }),
+      'INSUFFICIENT', `${resultType} was treated as evidence about a business`);
+  }
+});
+
+test('a category-verified Local Services Ad is a statement about the business', () => {
+  // Google checks an LSA advertiser is a provider of that service before it runs, so
+  // the listing carries a verification somebody else performed.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_services_ad', providerCategory: null, verticalTerms: HVAC,
+    }), 'SUPPORTED');
+});
+
+test('buying the trade keyword is commercial intent, not membership of the trade', () => {
+  // Buying "HVAC contractor Orlando" proves a company wants that trade's customers.
+  // Manufacturers, equipment renters, lead sellers, home warranty companies,
+  // marketplaces and retailers all want them without being contractors -- and it is a
+  // truck rental company appearing under HVAC that this release exists to stop.
+  for (const resultType of ['paid_search', 'paid_search_text']) {
+    assert.equal(
+      discoveryVerticalRelevance({ resultType, providerCategory: null, verticalTerms: HVAC }),
+      'INSUFFICIENT', `${resultType} classified a business on its own`);
+  }
+
+  // It is real evidence, though, so it corroborates: with independent trade evidence
+  // it carries the classification that neither would carry by itself.
+  for (const resultType of ['paid_search', 'paid_search_text']) {
+    assert.equal(
+      discoveryVerticalRelevance({
+        resultType, providerCategory: null, verticalTerms: HVAC, corroborated: true,
+      }), 'SUPPORTED', `${resultType} was ignored even when corroborated`);
+  }
+
+  // Corroboration is not a bypass: it cannot promote a result type that says nothing.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: null, verticalTerms: HVAC, corroborated: true,
+    }), 'INSUFFICIENT', 'corroboration promoted a bare organic ranking');
+
+  // A product listing is a thing for sale, not a contractor.
+  for (const resultType of ['shopping_or_irrelevant_paid', 'paid_local']) {
+    assert.equal(
+      discoveryVerticalRelevance({ resultType, providerCategory: null, verticalTerms: HVAC }),
+      'INSUFFICIENT', `${resultType} was treated as trade evidence`);
+  }
+});
+
+test('a provider category naming the trade supports it, when one is ever supplied', () => {
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: 'HVAC contractor', verticalTerms: HVAC,
+    }), 'SUPPORTED');
+  // A category naming a different trade does not.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: 'Truck rental agency', verticalTerms: HVAC,
+    }), 'INSUFFICIENT');
+});
+
+test('a company that sells the trade on its own site earns it', () => {
+  const site = [
+    'Air conditioning contractor serving Orlando since 1994.',
+    'We handle heating and cooling for homes and light commercial.',
+  ];
+  assert.equal(firstPartyVerticalRelevance({ pageText: site, verticalTerms: HVAC }), 'SUPPORTED');
+});
+
+test('a passing mention is not a trade', () => {
+  // A moving company's site can say "air conditioning" once, about a truck cab.
+  const movers = [
+    'U-Haul truck rental, trailers, and self storage. Moving supplies and towing.',
+    'Every truck has air conditioning and a low deck.',
+  ];
+  assert.equal(firstPartyVerticalRelevance({ pageText: movers, verticalTerms: HVAC }),
+    'INSUFFICIENT', 'one incidental phrase established a trade');
+
+  // A retailer selling units is not a contractor either.
+  const retailer = ['Shop window air conditioning units, fans and heaters. Free delivery.'];
+  assert.equal(firstPartyVerticalRelevance({ pageText: retailer, verticalTerms: HVAC }),
+    'INSUFFICIENT');
+});
+
+test('a mixed-trade company is supported in each trade it actually sells', () => {
+  const site = [
+    'ABC Plumbing, Heating & Air. Plumbing contractor and HVAC contractor in one call.',
+    'Drain cleaning, water heaters, heating and cooling, air conditioning contractor services.',
+  ];
+  assert.equal(firstPartyVerticalRelevance({ pageText: site, verticalTerms: HVAC }), 'SUPPORTED');
+  assert.equal(firstPartyVerticalRelevance({ pageText: site, verticalTerms: PLUMBING }), 'SUPPORTED');
+});
+
+test('a plumbing-only company is not an HVAC company', () => {
+  const site = [
+    'Plumber serving St. Augustine. Drain cleaning, repiping, water heater replacement.',
+    'Plumbing contractor licensed in Florida.',
+  ];
+  assert.equal(firstPartyVerticalRelevance({ pageText: site, verticalTerms: PLUMBING }), 'SUPPORTED');
+  assert.equal(firstPartyVerticalRelevance({ pageText: site, verticalTerms: HVAC }), 'INSUFFICIENT');
+});
+
+test('no pages read supports nothing', () => {
+  // The site we could not fetch must not become a trade by default, in either direction.
+  assert.equal(firstPartyVerticalRelevance({ pageText: [], verticalTerms: HVAC }), 'INSUFFICIENT');
+  assert.equal(firstPartyVerticalRelevance({ pageText: ['   '], verticalTerms: HVAC }), 'INSUFFICIENT');
+});
+
+test('the search keyword alone never establishes the trade', () => {
+  // The exact shape of the bug: everything we knew about U-Haul at discovery.
+  const uhaul = discoveryVerticalRelevance({
+    resultType: 'organic', providerCategory: null, verticalTerms: HVAC,
+  });
+  assert.equal(uhaul, 'INSUFFICIENT');
+
+  // And its own site does not rescue it.
+  assert.equal(firstPartyVerticalRelevance({
+    pageText: ['U-Haul Locations in Miami, FL. Truck rental, trailer hitches, self storage.'],
+    verticalTerms: HVAC,
+  }), 'INSUFFICIENT');
+});
+
+test('an advertiser with a local listing is judged on the listing, not the ad', () => {
+  // The production shape of advertiser-first mining: the company appears as a paid ad
+  // and as a local listing in the same response, and the projection keeps the ad. Left
+  // to the ad alone, every advertiser we find loses its trade -- which is the entire
+  // output of the strategy.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'paid_search_text', providerCategory: null, verticalTerms: HVAC,
+      providerListing: true,
+    }), 'SUPPORTED', 'an advertiser with a local listing lost its trade');
+
+  // And a listing still decides it when the kept row says nothing either way.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: null, verticalTerms: HVAC,
+      providerListing: true,
+    }), 'SUPPORTED');
+});
+
+test('no listing means the ad is still not a classification', () => {
+  // The rule the correction is for: without a listing behind it, a bought keyword is
+  // commercial intent and nothing more.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'paid_search_text', providerCategory: null, verticalTerms: HVAC,
+      providerListing: false,
+    }), 'INSUFFICIENT');
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: null, verticalTerms: HVAC,
+      providerListing: false,
+    }), 'INSUFFICIENT');
+});
+
+// --------------------------------------------------------------------- SB-V2-7
+
+test('a provider category that names another trade beats the listing', () => {
+  // The V1 residual, in one line. `discoveryVerticalRelevance` returned SUPPORTED on
+  // `providerListing` before anything read the category, and the miner passed
+  // `providerCategory: null` -- so a business the provider had classified as a plumber,
+  // returned in the local pack for an HVAC search, became an HVAC prospect.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: 'Plumber',
+      verticalTerms: HVAC, providerListing: true,
+    }), 'INSUFFICIENT', 'a listing outranked the provider\'s own classification');
+
+  // And a category that agrees still settles it.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'organic', providerCategory: 'HVAC contractor',
+      verticalTerms: HVAC, providerListing: false,
+    }), 'SUPPORTED');
+});
+
+test('a trade is recognised by the words it uses for itself', () => {
+  // "Furnace repair service" is one of Google's real HVAC categories and it matches
+  // none of the profile's discovery queries. The profile has declared `service_aliases`
+  // since it was written and nothing ever read them -- which is why the category check
+  // would have been right to fire and wrong about the answer the moment it started
+  // firing, rejecting a real HVAC company on the strength of its own category.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: 'Furnace repair service',
+      verticalTerms: HVAC,
+      serviceAliases: ['air conditioning', 'AC', 'heating', 'cooling', 'heat pump', 'furnace'],
+      providerListing: true,
+    }), 'SUPPORTED');
+
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: 'Furnace repair service',
+      verticalTerms: HVAC, providerListing: true,
+    }), 'INSUFFICIENT',
+    'without the trade\'s own vocabulary its own category reads as another trade');
+});
+
+test('no category still means the listing decides, and says only what it can', () => {
+  // A listing with no category is the common case -- production has 93 of them -- and
+  // it remains evidence that this is a business in the trade the local pack answered
+  // for. What changed is that it no longer outranks a category when there is one.
+  assert.equal(
+    discoveryVerticalRelevance({
+      resultType: 'local_result', providerCategory: null,
+      verticalTerms: HVAC, providerListing: true,
+    }), 'SUPPORTED');
+});

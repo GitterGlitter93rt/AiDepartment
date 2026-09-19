@@ -1,0 +1,125 @@
+schema_version: "1.1.0"
+extends: outbound-sales-brain-ai-pilot-candidate-selection-contract.v1.yaml
+purpose: >-
+  Add explicit telecom line-type and structured channel-permission evidence to AI pilot candidate readiness.
+
+additional_inputs:
+  endpoint_classification:
+    required:
+      - telecom_line_type
+      - telecom_line_type_source
+      - telecom_line_type_checked_at
+      - business_context_class
+      - business_context_evidence_reference
+    optional:
+      - carrier_name
+      - provider_original_line_type
+  contact_basis:
+    required:
+      - current_contact_basis_status
+      - strongest_current_permission_evidence_id
+      - basis_types
+      - basis_scope_match
+      - revocation_state
+    optional:
+      - consent_or_exemption_policy_reference
+      - basis_valid_until
+      - requested_callback_context
+  jurisdiction:
+    required:
+      - destination_country
+      - destination_state
+      - destination_timezone
+      - policy_pack_version
+
+additional_hard_gates:
+  telecom_line_type:
+    rule: >-
+      If the current AI-voice policy requires a known telecom class, UNKNOWN/stale/provider-error cannot become ALLOW.
+      Line type is an input, not permission by itself.
+    never_infer:
+      - mobile_means_named_person_owns_number
+      - landline_means_business_legal_exemption
+      - toll_free_means_ai_voice_allowed
+  contact_basis:
+    rule: >-
+      PUBLIC_BUSINESS_CONTACT, BUSINESS_DIRECTORY_CONTACT or GATEKEEPER_SUPPLIED_BUSINESS_CONTACT
+      may support business context but cannot be silently upgraded to express AI-voice consent.
+    require:
+      - current_basis_evaluated_under_current_policy
+      - no_applicable_revocation
+      - basis_scope_matches_intended_channel_technology_and_purpose
+  ai_permission:
+    rule: >-
+      AUTONOMOUS_AI_VOICE may equal ALLOW only when the deterministic policy engine has an affirmative
+      current basis for the exact endpoint/called-party/jurisdiction/campaign. B2B/Tier/advertiser status cannot override.
+  policy_unknown:
+    result: NOT_AI_PILOT_READY
+
+candidate_output_additions:
+  - telecom_line_type
+  - telecom_line_type_status
+  - business_context_label
+  - contact_basis_summary
+  - contact_basis_status
+  - autonomous_ai_voice_reason_codes
+  - jurisdiction_policy_version
+
+manager_ui_additions:
+  AI_voice_detail_drawer:
+    show:
+      - final_status
+      - telecom_line_type
+      - business_context
+      - contact_basis_summary
+      - evaluated_at
+      - refresh_by
+      - short_reason_codes
+    hide:
+      - raw_dnc_registry_payload
+      - raw_provider_payload
+      - legal_opinion_language
+      - provider_secrets
+  example:
+    company_fit: "A · 13"
+    contact_route: "Named owner via main line"
+    human_call: "Allowed"
+    ai_voice: "Review required"
+    explanation: "AI voice contact basis not established for this endpoint."
+
+preflight_additions:
+  always_recheck:
+    - current_contact_basis_and_revocation
+    - line_type_freshness_if_policy_requires
+    - jurisdiction_policy_pack_current
+    - exact_AI_permission_reason_still_valid
+
+analytics_additions:
+  - candidate_line_type_distribution
+  - candidates_blocked_unknown_line_type
+  - candidates_blocked_insufficient_contact_basis
+  - candidates_human_allowed_ai_not_allowed
+  - AI_eligible_by_basis_type
+  - AI_eligible_by_telecom_line_type
+
+fixtures:
+  public_business_mobile_no_ai_consent:
+    fit: A
+    human_manual_call: POLICY_DEPENDENT
+    autonomous_ai_voice: REVIEW_REQUIRED_OR_BLOCK
+    candidate_state: NOT_AI_PILOT_READY
+  true_business_landline_public_only:
+    fit: A
+    autonomous_ai_voice: POLICY_DEPENDENT_NOT_AUTOMATIC
+  requested_callback_human_only_scope:
+    contact_basis: REQUESTED_CALLBACK
+    technology_scope: human_live_voice
+    autonomous_ai_voice: NOT_AUTOMATICALLY_ALLOWED
+  approved_explicit_ai_voice_basis:
+    contact_basis: EXPRESS_CONSENT_OR_REVIEWED_EQUIVALENT
+    line_type: CURRENT_SUPPORTED
+    other_policy_gates: PASS
+    autonomous_ai_voice: MAY_ALLOW_PER_POLICY
+
+core_rule: >-
+  A good prospect and a callable AI endpoint are separate decisions. The Pilot surface must explain both without turning line type, public business contact or B2B status into invented AI-voice permission.

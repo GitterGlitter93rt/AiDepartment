@@ -1,0 +1,520 @@
+schema_version: "1.0.0"
+fixture_set: yad_tomorrow_hvac_pilot_gold_v1
+status: fictional_test_data_only
+purpose: >-
+  End-to-end deterministic fixtures for testing the Sales Portal, Account/contact routing,
+  phone eligibility, Call Pack creation, hook selection, manual call workflow, Sales AI behavior,
+  disposition and booking without contacting real prospects.
+
+safety:
+  all_companies_are_fictional: true
+  all_domains_use_invalid_tld: true
+  all_emails_use_invalid_tld: true
+  phone_numbers_use_fictional_555_range: true
+  must_not_be_exported_as_real_prospects: true
+
+shared_context:
+  market: Jacksonville_St_Augustine_FL
+  vertical_profile_id: hvac-us-v1
+  timezone: America/New_York
+  manual_score_version: module_04c_v1
+  ai_agent: yad-sales-core-v1
+
+fixtures:
+  - id: GOLD_HVAC_001_DIRECT_DM_AD_AFTER_HOURS
+    account:
+      canonical_name: First Coast Comfort Labs
+      domain: https://firstcoastcomfort.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32256"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    research:
+      research_state: COMPLETE
+      freshness: FRESH
+      manual_score: 12
+      manual_tier: A
+      advertiser_evidence:
+        google_paid: confirmed
+        local_services: confirmed
+        observed_service: emergency_ac_repair
+        observed_at_age_hours: 3
+      first_party_signals:
+        after_hours_24_7: yes
+        phone_dependence: yes
+        financing: yes
+        prominent_call_cta: yes
+      primary_hypothesis:
+        category: after_hours_lead_handling
+        status: hypothesis_not_fact
+      hook:
+        expected_family: HVAC_AH_A1
+        expected_question: "When a new call hits after hours, what happens today?"
+    contact:
+      person_name: Sarah Jones
+      title: Operations Manager
+      role_match: primary_process_owner
+      employer_match: confirmed
+      currentness: fresh
+      phone:
+        e164: "+19045550101"
+        type: DIRECT_BUSINESS_LINE
+        relationship_to_person: direct_confirmed
+        source: first_party_company_team_page
+        quality: DIRECT_BUSINESS_CONFIRMED
+      email:
+        value: sarah@firstcoastcomfort.invalid
+        type: DIRECT_PERSON_EMAIL
+        quality: PUBLIC_OBSERVED_CURRENT
+    eligibility:
+      human_manual_call: ALLOW
+      autonomous_ai_voice: REVIEW_REQUIRED
+      expected_ui:
+        - "Sarah Jones · Operations Manager"
+        - "Direct business line"
+        - "Human Call Allowed"
+        - "AI Voice Review"
+    expected_portal:
+      claimable: true
+      after_claim_owner: test_rep_a
+      start_human_call_creates_contact_attempt: true
+      tel_action_available_after_preflight: true
+    expected_callpack:
+      top_confirmed_facts_max: 3
+      may_state_current_google_ad: true
+      may_state_24_7: true
+      must_not_claim:
+        - ad_spend
+        - missed_call_percentage
+        - crm_is_broken
+
+  - id: GOLD_HVAC_002_NAMED_DM_MAIN_LINE
+    account:
+      canonical_name: River City Airworks
+      domain: https://rivercityairworks.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32224"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    research:
+      research_state: COMPLETE
+      freshness: FRESH
+      manual_score: 10
+      manual_tier: A
+      advertiser_evidence:
+        google_paid: confirmed
+        observed_service: ac_replacement
+        observed_at_age_hours: 8
+      primary_hypothesis:
+        category: simultaneous_call_overflow
+        status: hypothesis_not_fact
+      hook:
+        expected_family: HVAC_OVERFLOW_A2
+        expected_question: "When a new call comes in while everybody's already tied up, what happens next?"
+    contact:
+      person_name: Marcus Lee
+      title: General Manager
+      role_match: strong_stakeholder
+      employer_match: confirmed
+      currentness: fresh
+      phone:
+        e164: "+19045550102"
+        type: MAIN_BUSINESS_LINE
+        relationship_to_person: company_route
+        source: official_company_contact_page
+        quality: CURRENT_BUSINESS_CONFIRMED
+    eligibility:
+      human_manual_call: ALLOW
+      autonomous_ai_voice: REVIEW_REQUIRED
+      expected_ui:
+        - "Marcus Lee · General Manager"
+        - "Call company main line — ask for Marcus Lee"
+        - "Human Call Allowed"
+    expected_behavior:
+      never_label_phone_as_direct: true
+      gatekeeper_route_is_valid_success: true
+
+  - id: GOLD_HVAC_003_ROLE_ROUTE_NO_PERSON
+    account:
+      canonical_name: Atlantic Breeze Mechanical
+      domain: https://atlanticbreeze.invalid
+      city: St. Augustine
+      state: FL
+      zip: "32084"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    research:
+      research_state: GOOD
+      freshness: FRESH
+      manual_score: 8
+      manual_tier: B
+      advertiser_evidence:
+        google_paid: unknown
+      first_party_signals:
+        after_hours_24_7: yes
+        phone_dependence: yes
+      primary_hypothesis:
+        category: after_hours_lead_handling
+      hook:
+        expected_family: CATEGORY_AH_B1
+        expected_question: "When somebody reaches out after hours, what happens today?"
+    contact:
+      person_name: null
+      target_role: Operations / General Manager
+      phone:
+        e164: "+19045550103"
+        type: MAIN_BUSINESS_LINE
+        relationship_to_person: role_route
+        source: official_company_website
+        quality: CURRENT_BUSINESS_CONFIRMED
+    eligibility:
+      human_manual_call: ALLOW
+      autonomous_ai_voice: REVIEW_REQUIRED
+      expected_ui:
+        - "Target: Operations / General Manager"
+        - "Company main line"
+        - "Ask who oversees new lead handling"
+    expected_behavior:
+      no_fabricated_person: true
+      no_current_ad_claim: true
+
+  - id: GOLD_HVAC_004_STALE_AD_DEGRADE_HOOK
+    account:
+      canonical_name: Ponte Vedra Cooling Co
+      domain: https://pvbcooling.invalid
+      city: Ponte Vedra Beach
+      state: FL
+      zip: "32082"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    research:
+      research_state: STALE_LIGHT
+      freshness: AGING
+      manual_score: 9
+      manual_tier: A
+      advertiser_evidence:
+        google_paid: previously_confirmed_now_stale
+        observed_service: emergency_ac_repair
+        observed_at_age_hours: 96
+      primary_hypothesis:
+        category: after_hours_lead_handling
+      hook:
+        requested_family: HVAC_AH_A1
+        expected_runtime_family: CATEGORY_AH_B1
+    contact:
+      person_name: Dana Brooks
+      title: Office Manager
+      role_match: primary_process_owner
+      phone:
+        e164: "+19045550104"
+        type: MAIN_BUSINESS_LINE
+        relationship_to_person: company_route
+        quality: CURRENT_BUSINESS_CONFIRMED
+    eligibility:
+      human_manual_call: ALLOW
+      autonomous_ai_voice: REVIEW_REQUIRED
+    expected_behavior:
+      current_ad_language_blocked: true
+      may_request_ad_refresh: true
+      account_remains_claimable_for_human_work_if_other_requirements_met: true
+
+  - id: GOLD_HVAC_005_HUMAN_ALLOW_AI_REVIEW
+    account:
+      canonical_name: Mandarin Air Response
+      domain: https://mandarinair.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32257"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    research:
+      research_state: COMPLETE
+      freshness: FRESH
+      manual_score: 11
+      manual_tier: A
+      advertiser_evidence:
+        google_paid: confirmed
+        observed_service: ac_repair
+        observed_at_age_hours: 5
+      primary_hypothesis:
+        category: simultaneous_call_overflow
+      hook:
+        expected_family: HVAC_OVERFLOW_A2
+    contact:
+      person_name: Aaron Price
+      title: Service Manager
+      phone:
+        e164: "+19045550105"
+        type: DIRECT_BUSINESS_LINE
+        relationship_to_person: direct_provider_asserted
+        quality: PROVIDER_ASSERTED_CURRENT
+    eligibility:
+      human_manual_call: ALLOW
+      autonomous_ai_voice: REVIEW_REQUIRED
+      ai_reason: required_ai_voice_policy_or_screen_not_yet_satisfied
+    expected_behavior:
+      portal_human_call_enabled: true
+      twilio_outbound_request_created: false
+      ownership_does_not_upgrade_ai: true
+
+  - id: GOLD_HVAC_006_DNC_UNIVERSAL_PHONE_BLOCK
+    account:
+      canonical_name: Duval Climate Works
+      domain: https://duvalclimate.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32218"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: DNC
+      ownership_state: SUPPRESSED
+    research:
+      research_state: COMPLETE
+      freshness: FRESH
+      manual_score: 13
+      manual_tier: A
+      advertiser_evidence:
+        google_paid: confirmed
+        local_services: confirmed
+        observed_service: emergency_ac_repair
+      primary_hypothesis:
+        category: after_hours_lead_handling
+    contact:
+      person_name: Chris Miller
+      title: Owner
+      phone:
+        e164: "+19045550106"
+        type: DIRECT_BUSINESS_LINE
+        quality: DIRECT_BUSINESS_CONFIRMED
+    suppression:
+      type: YAD_INTERNAL_DNC
+      scope: ACCOUNT
+      active: true
+      source: prior_prospect_request
+    eligibility:
+      human_manual_call: BLOCK
+      autonomous_ai_voice: BLOCK
+    expected_portal:
+      claimable_for_cold: false
+      active_tel_action: false
+      ordinary_rep_can_remove_dnc: false
+      account_remains_in_database: true
+    expected_behavior:
+      high_fit_score_does_not_override_dnc: true
+      rediscovery_does_not_reset_dnc: true
+
+  - id: GOLD_HVAC_007_WRONG_NUMBER_ACCOUNT_RETAINED
+    account:
+      canonical_name: San Marco Heating Lab
+      domain: https://sanmarcoheat.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32207"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: ATTEMPTED_NO_CONTACT
+      ownership_state: CLAIMED
+      owner_user_id: test_rep_a
+    contact:
+      person_name: Taylor Gray
+      title: General Manager
+      phone:
+        e164: "+19045550107"
+        type: MAIN_BUSINESS_LINE
+        quality: WRONG_NUMBER
+    eligibility:
+      human_manual_call: BLOCK
+      autonomous_ai_voice: BLOCK
+    expected_behavior:
+      account_disqualified: false
+      endpoint_disabled: true
+      contact_refresh_requested: true
+      alternate_email_can_remain_eligible: true
+
+  - id: GOLD_HVAC_008_CALLBACK_PROTECTED
+    account:
+      canonical_name: Beaches HVAC Systems
+      domain: https://beacheshvac.invalid
+      city: Jacksonville Beach
+      state: FL
+      zip: "32250"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: REQUESTED_CALLBACK
+      ownership_state: ACTIVE_RELATIONSHIP
+      owner_user_id: test_rep_a
+    contact:
+      person_name: Jamie Patel
+      title: Operations Director
+      phone:
+        e164: "+19045550108"
+        type: DIRECT_BUSINESS_LINE
+        quality: DIRECT_BUSINESS_CONFIRMED
+    callback:
+      requested_by_prospect: true
+      due_local: "2026-09-04T10:30:00-04:00"
+      timezone: America/New_York
+      topic: after_hours_lead_handling
+    eligibility:
+      human_manual_call: ALLOW_AT_REQUESTED_CALLBACK_TIME
+      autonomous_ai_voice: REVIEW_REQUIRED
+    expected_behavior:
+      appears_in_unclaimed_cold_inventory: false
+      other_rep_can_claim: false
+      callback_prioritized: true
+      callback_survives_restart: true
+
+  - id: GOLD_HVAC_009_EMAIL_ONLY
+    account:
+      canonical_name: Northside Air Studio
+      domain: https://northsideair.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32208"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    research:
+      research_state: COMPLETE
+      freshness: FRESH
+      manual_score: 8
+      manual_tier: B
+    contact:
+      person_name: Morgan Ellis
+      title: Marketing Manager
+      phone:
+        e164: "+19045550109"
+        type: MOBILE_UNKNOWN_USE
+        quality: PUBLIC_OBSERVED_UNVERIFIED
+      email:
+        value: morgan@northsideair.invalid
+        type: DIRECT_PERSON_EMAIL
+        quality: PUBLIC_OBSERVED_CURRENT
+    eligibility:
+      human_manual_call: REVIEW_REQUIRED
+      autonomous_ai_voice: REVIEW_REQUIRED
+      email: ALLOW
+    expected_ui:
+      primary_action: Email
+      phone_label: Review Required
+      summary: Email Only
+
+  - id: GOLD_HVAC_010_MEETING_BOOKED_REMOVED_FROM_COLD
+    account:
+      canonical_name: St Johns Cooling Group
+      domain: https://stjohnscooling.invalid
+      city: St. Augustine
+      state: FL
+      zip: "32086"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: MEETING_BOOKED
+      ownership_state: ACTIVE_RELATIONSHIP
+      owner_user_id: test_rep_a
+    contact:
+      person_name: Riley Chen
+      title: Owner
+      email:
+        value: riley@stjohnscooling.invalid
+        quality: PUBLIC_OBSERVED_CURRENT
+      phone:
+        e164: "+19045550110"
+        type: DIRECT_BUSINESS_LINE
+        quality: DIRECT_BUSINESS_CONFIRMED
+    booking:
+      provider: cal_com
+      status: CONFIRMED
+      event_type: YAD_15_MINUTE_AI_STRATEGY_CALL
+      attendee_calendar: michael@youraidepartment.ai
+      meeting_location: Cal_Video
+      start_local: "2026-09-04T15:00:00-04:00"
+    expected_behavior:
+      appears_in_generic_cold_inventory: false
+      generic_smartlead_paused: true
+      strategy_call_prep_brief_required: true
+      duplicate_outlook_event_created: false
+
+  - id: GOLD_HVAC_011_SIMULTANEOUS_CLAIM
+    account:
+      canonical_name: Orange Park Air Lab
+      domain: https://orangeparkair.invalid
+      city: Orange Park
+      state: FL
+      zip: "32073"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: NEVER_CONTACTED
+      ownership_state: UNCLAIMED
+    concurrent_actions:
+      - actor: test_rep_a
+        action: claim
+      - actor: test_rep_b
+        action: claim
+    expected:
+      successful_claim_count: 1
+      current_owner_count: 1
+      losing_rep_sees_current_owner: true
+      audit_successful_claim_events: 1
+
+  - id: GOLD_HVAC_012_IMPORT_REDUPLICATION_PRESERVES_HISTORY
+    account:
+      canonical_name: Intracoastal Comfort Systems
+      domain: https://intracoastalcomfort.invalid
+      city: Jacksonville
+      state: FL
+      zip: "32246"
+      identity_state: IDENTITY_RESOLVED
+      relationship_state: ATTEMPTED_NO_CONTACT
+      ownership_state: CLAIMED
+      owner_user_id: test_rep_b
+    existing_identity_signals:
+      normalized_domain: intracoastalcomfort.invalid
+      phone: "+19045550112"
+    new_import:
+      source: salesperson_airtable
+      company_name: Intracoastal Comfort Systems LLC
+      domain: https://intracoastalcomfort.invalid
+      phone: "+19045550112"
+      ai_inferred_pain_point: "customers complain about slow responses"
+    expected_behavior:
+      create_new_account: false
+      preserve_owner: test_rep_b
+      preserve_relationship_history: true
+      imported_pain_point_becomes_confirmed_fact: false
+      imported_pain_point_may_become_hypothesis_with_source: true
+
+end_to_end_acceptance:
+  portal:
+    - browse_search_claim
+    - direct_vs_main_line_semantics
+    - channel_specific_phone_status
+    - manual_call_preflight
+    - disposition
+    - callback
+    - dnc
+  research:
+    - evidence_freshness_controls_hook_language
+    - unknown_not_false
+    - hypothesis_not_fact
+  contact:
+    - named_direct
+    - named_main_line_route
+    - role_only_route
+    - wrong_number
+  phone_eligibility:
+    - human_allow_ai_review
+    - dnc_blocks_both
+    - email_only
+  sales_ai:
+    - hook_selection
+    - first_60_second_behavior
+    - no_unsupported_claims
+  booking:
+    - cal_com_is_authority
+    - confirmed_booking_removes_generic_cold
+    - no_duplicate_direct_outlook_event
+  identity:
+    - simultaneous_claim_single_owner
+    - imported_duplicate_preserves_history

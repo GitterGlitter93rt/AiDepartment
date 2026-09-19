@@ -1,0 +1,227 @@
+fixture_set: yad_expanded_vertical_intelligence_v1
+version: 1.0.0
+
+fixtures:
+  - id: gc_kitchen_remodel_advertiser
+    campaign_profile: general-contractors-remodeling-us-v1
+    observations:
+      provider_category: remodeling_contractor
+      website_services: [kitchen remodeling, bathroom remodeling, home additions]
+      paid_ad:
+        query: kitchen remodel Jacksonville
+        current: true
+      consultation_cta: true
+    expected:
+      include: true
+      primary_hook_any: [unsold_proposal_follow_up, paid_lead_response]
+      decision_role_any: [sales_leadership, general_manager, owner_founder]
+      forbidden_claims: [known_project_value, known_close_rate, ad_spend_amount]
+
+  - id: gc_handyman_false_positive
+    campaign_profile: general-contractors-remodeling-us-v1
+    observations:
+      provider_category: handyman
+      website_services: [small repairs, furniture assembly, punch list]
+      major_remodeling_evidence: false
+    expected:
+      include: false
+      classification_any: [excluded, review_required]
+      create_high_ticket_gc_call_pack: false
+
+  - id: electrical_emergency_advertiser
+    campaign_profile: electrical-us-v1
+    observations:
+      provider_category: electrician
+      paid_ad:
+        query: emergency electrician Orlando
+        current: true
+      website_signals: [24_7, phone_cta, panel_upgrades]
+    expected:
+      include: true
+      primary_hook: missed_call
+      backup_hook_any: [unsold_estimate_follow_up, attribution]
+      safety_boundary_required: electrical_safety
+      forbidden_claims: [AI_can_diagnose_electrical_conditions]
+
+  - id: electrical_supply_house
+    campaign_profile: electrical-us-v1
+    observations:
+      provider_category: electrical_supply
+      website_services: [wholesale wire, breakers, contractor counter]
+    expected:
+      include: false
+      create_call_pack: false
+      rejection_reason_any: [SUPPLY_HOUSE, WRONG_VERTICAL]
+
+  - id: dental_implant_advertiser
+    campaign_profile: dental-us-v1
+    observations:
+      provider_category: dentist
+      paid_ad:
+        query: dental implants St Augustine
+        current: true
+      website_signals: [implant_page, consultation_cta, online_booking]
+    expected:
+      include: true
+      primary_hook_any: [new_patient_response, unscheduled_treatment_follow_up]
+      decision_role_any: [practice_administrator, owner_founder]
+      required_boundaries: [dental_clinical, patient_privacy]
+      forbidden_claims: [known_patient_value, AI_can_recommend_treatment]
+
+  - id: dental_lab_false_positive
+    campaign_profile: dental-us-v1
+    observations:
+      provider_category: dental_lab
+      website_services: [crowns_for_dentists, lab_cases, dentist_portal]
+      patient_appointments: false
+    expected:
+      include: false
+      create_call_pack: false
+
+  - id: medspa_meta_lead_campaign
+    campaign_profile: med-spas-us-v1
+    observations:
+      provider_category: medical_spa
+      meta_ad:
+        service: laser hair removal
+        current: true
+      website_signals: [consultation_booking, membership]
+    expected:
+      include: true
+      primary_hook: speed_to_lead
+      backup_hook_any: [no_show_recovery, unbooked_follow_up, attribution]
+      decision_role_any: [marketing, operations, office_manager, owner_founder]
+      required_boundaries: [medspa_clinical, privacy]
+
+  - id: day_spa_without_medical_services
+    campaign_profile: med-spas-us-v1
+    observations:
+      provider_category: day_spa
+      website_services: [massage, relaxation facial, sauna]
+      medical_aesthetic_services: false
+    expected:
+      include: false
+      classification_any: [excluded, review_required]
+      create_medspa_call_pack: false
+
+  - id: restoration_24_7_paid_search
+    campaign_profile: restoration-us-v1
+    observations:
+      provider_category: water_damage_restoration
+      paid_ad:
+        query: emergency water removal Jacksonville
+        current: true
+      website_signals: [24_7, emergency_phone, commercial_restoration]
+    expected:
+      include: true
+      primary_hook: missed_call
+      backup_hook_any: [surge_capacity, attribution]
+      decision_role_any: [operations, dispatch, owner_founder]
+      required_boundary: restoration_safety
+      forbidden_claims: [AI_can_determine_insurance_coverage, every_missed_call_is_lost_job]
+
+  - id: art_restoration_false_positive
+    campaign_profile: restoration-us-v1
+    observations:
+      provider_category: art_restoration
+      website_services: [painting conservation, frame restoration]
+    expected:
+      include: false
+      create_call_pack: false
+
+  - id: garage_door_paid_repair
+    campaign_profile: garage-door-us-v1
+    observations:
+      provider_category: garage_door_service
+      paid_ad:
+        query: garage door repair Jacksonville
+        current: true
+      website_signals: [same_day_service, phone_cta, replacement_service]
+    expected:
+      include: true
+      primary_hook: missed_call
+      backup_hook_any: [replacement_follow_up, attribution]
+      decision_role_any: [operations, office_manager, owner_founder]
+      required_boundary: garage_door_safety
+
+  - id: garage_door_parts_supplier
+    campaign_profile: garage-door-us-v1
+    observations:
+      provider_category: garage_door_parts_supplier
+      website_services: [springs wholesale, rollers, remotes, dealer pricing]
+      customer_repair_service: false
+    expected:
+      include: false
+      create_call_pack: false
+
+  - id: healthcare_profile_does_not_weaken_privacy
+    component: vertical_router
+    observations:
+      account_services: [dental, facial_aesthetics]
+      assignments:
+        - dental-us-v1
+        - med-spas-us-v1
+    expected:
+      privacy_boundary: union_or_stricter
+      clinical_boundary: union_or_stricter
+      one_profile_may_relax_other: false
+
+  - id: urgent_home_service_shared_hook_but_distinct_safety
+    component: vertical_router
+    observations:
+      common_signal: current_google_ad_plus_urgent_phone_service
+      profiles:
+        - electrical-us-v1
+        - restoration-us-v1
+        - garage-door-us-v1
+    expected:
+      shared_possible_hook: missed_call
+      use_same_safety_policy_for_all: false
+      use_same_search_taxonomy_for_all: false
+      use_same_decision_role_defaults_for_all: false
+
+  - id: current_ads_never_prove_problem
+    component: opportunity_hypothesis
+    observations:
+      profile: any
+      active_google_ad: true
+      workflow_problem_confirmed: false
+    expected:
+      hypothesis_may_be_ranked: true
+      pain_claim_allowed: false
+      must_ask_question: true
+
+  - id: strong_workflow_no_sale
+    component: opportunity_hypothesis
+    observations:
+      profile: dental-us-v1
+      prospect_verified:
+        missed_calls_recovered: true
+        scheduling_reminders_strong: true
+        no_show_followup_strong: true
+        source_to_treatment_reporting_strong: true
+    expected:
+      fabricate_new_pain: false
+      no_sale_currently_allowed: true
+
+  - id: module4c_no_hidden_vertical_points
+    component: scoring
+    observations:
+      profile: med-spas-us-v1
+      meta_active: true
+      google_active: false
+      high_value_economics: true
+      important_lead_flow: true
+      appointment_intake_heavy: true
+      lead_capture: true
+      other_signals: false
+    expected:
+      score_components:
+        meta: 3
+        high_value: 2
+        lead_flow: 2
+        appointment_intake: 1
+        lead_capture: 1
+      expected_score: 9
+      expected_tier: A
+      bonus_for_being_medspa: 0

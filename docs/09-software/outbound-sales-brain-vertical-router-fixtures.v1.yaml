@@ -1,0 +1,444 @@
+fixture_set: yad_vertical_router_v1
+version: 1.0.0
+router_spec: docs/09-software/outbound-sales-brain-vertical-router-spec.md
+
+fixtures:
+  - id: roofing_current_advertiser
+    campaign_profile: roofing-us-v1
+    observations:
+      provider_category: roofing_contractor
+      website_services:
+        - roof replacement
+        - roof repair
+      paid_ad:
+        query: roof replacement Jacksonville
+        service: roof replacement
+        current: true
+      website_signals:
+        - free inspection
+        - financing
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: roofing-us-v1
+          confidence: confirmed
+      primary_hook_family: unsold_proposal_follow_up
+      acceptable_backup_hook: paid_lead_response
+      decision_role_priority_any:
+        - sales_leadership
+        - owner_founder
+        - operations
+      forbidden_language:
+        - you_are_losing_roofing_leads
+        - we_know_your_ad_spend
+
+  - id: general_contractor_incidental_roofing
+    campaign_profile: roofing-us-v1
+    observations:
+      provider_category: general_contractor
+      website_services:
+        - kitchens
+        - bathrooms
+        - additions
+      incidental_text:
+        - we can also coordinate roofing when needed
+      dedicated_roofing_page: false
+      roofing_paid_ad: false
+    expected:
+      campaign_inclusion: false
+      assignments:
+        - profile_id: roofing-us-v1
+          confidence: review_required
+      reason: Incidental mention does not establish roofing as meaningful target service.
+      no_roofing_specific_call_pack: true
+
+  - id: collision_only_shop
+    campaign_profile: collision-repair-us-v1
+    observations:
+      provider_category: auto_body_shop
+      website_services:
+        - collision repair
+        - paint
+        - structural repair
+      online_estimate: true
+      hail_service: false
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: collision-repair-us-v1
+          confidence: confirmed
+      primary_hook_family: estimate_call_overflow
+      prohibited_profile_language:
+        - storm_market_launch
+        - field_hail_leads
+
+  - id: collision_plus_hail_shop_in_collision_campaign
+    campaign_profile: collision-repair-us-v1
+    observations:
+      provider_category: auto_body_shop
+      website_services:
+        - collision repair
+        - hail repair
+        - PDR
+      dedicated_collision_pages: true
+      dedicated_hail_page: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: collision-repair-us-v1
+          confidence: confirmed
+          role: campaign_context
+        - profile_id: pdr-hail-us-v1
+          confidence: confirmed
+          role: secondary
+      primary_hook_family_any:
+        - estimate_call_overflow
+        - unsold_estimates
+      account_count: 1
+      prohibited_profile_language:
+        - assume_mobile_storm_operator
+
+  - id: collision_plus_hail_shop_in_hail_campaign
+    campaign_profile: pdr-hail-us-v1
+    observations:
+      provider_category: auto_body_shop
+      website_services:
+        - collision repair
+        - hail damage repair
+        - PDR
+      paid_ad:
+        query: auto hail repair Madison
+        service: hail repair
+        current: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: pdr-hail-us-v1
+          confidence: confirmed
+          role: campaign_context
+        - profile_id: collision-repair-us-v1
+          confidence: confirmed
+          role: secondary
+      primary_hook_family: storm_lead_surge
+      account_count: 1
+
+  - id: mobile_hail_operator
+    campaign_profile: pdr-hail-us-v1
+    observations:
+      website_services:
+        - automotive hail repair
+        - PDR
+      market_pages:
+        - Madison Wisconsin
+        - El Paso Texas
+      social_signal: new hail market launch
+      field_sales_language: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: pdr-hail-us-v1
+          confidence: confirmed
+      primary_hook_family_any:
+        - storm_lead_surge
+        - field_lead_capture
+        - market_launch
+      decision_role_priority_any:
+        - owner_operator
+        - market_operations
+        - sales_management
+
+  - id: pdr_training_school_false_positive
+    campaign_profile: pdr-hail-us-v1
+    observations:
+      provider_category: training_school
+      website_terms:
+        - PDR training
+        - dent tools
+        - certification course
+      customer_repair_service: false
+    expected:
+      campaign_inclusion: false
+      assignments: []
+      classification: excluded
+      no_call_pack: true
+
+  - id: personal_injury_law_advertiser
+    campaign_profile: law-firms-us-v1
+    observations:
+      provider_category: law_firm
+      practice_pages:
+        - personal injury
+      paid_ad:
+        query: personal injury lawyer Jacksonville
+        service: personal injury
+        current: true
+      consultation_cta: true
+      after_hours_language: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: law-firms-us-v1
+          confidence: confirmed
+      practice_area: personal_injury
+      primary_hook_family: after_hours_intake
+      decision_role_priority_any:
+        - intake
+        - operations
+        - managing_partner
+      required_boundaries:
+        - legal_advice
+        - confidentiality
+      forbidden_language:
+        - AI_can_decide_case_merit
+        - we_know_what_a_case_is_worth
+
+  - id: multi_practice_law_ad_context
+    campaign_profile: law-firms-us-v1
+    observations:
+      provider_category: law_firm
+      practice_pages:
+        - family law
+        - estate planning
+        - business law
+      paid_ad:
+        query: divorce lawyer Orlando
+        service: divorce
+        current: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: law-firms-us-v1
+          confidence: confirmed
+      practice_area_context: family_law
+      ad_specific_opener_may_reference: family_law
+      ad_specific_opener_may_not_reference:
+        - personal_injury
+        - estate_planning
+      primary_hook_family_any:
+        - first_response_follow_up
+        - attribution
+
+  - id: lawyer_directory_false_positive
+    campaign_profile: law-firms-us-v1
+    observations:
+      provider_category: directory
+      website_terms:
+        - find a lawyer
+        - lawyer listings
+      firm_client_service: false
+    expected:
+      campaign_inclusion: false
+      classification: excluded
+      no_call_pack: true
+
+  - id: brokerage_meta_seller_campaign
+    campaign_profile: real-estate-brokerages-us-v1
+    observations:
+      provider_category: real_estate_brokerage
+      website_services:
+        - buy a home
+        - sell your home
+      meta_ad:
+        service: home value seller lead
+        current: true
+      home_value_cta: true
+      team_signal: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: real-estate-brokerages-us-v1
+          confidence: confirmed
+      primary_hook_family_any:
+        - long_term_nurture
+        - seller_follow_up
+      decision_role_priority_any:
+        - ISA_lead_management
+        - broker_owner
+        - sales_operations
+      required_boundaries:
+        - licensed_real_estate
+        - fair_housing
+
+  - id: brokerage_with_property_management
+    campaign_profile: real-estate-brokerages-us-v1
+    observations:
+      provider_category: real_estate_brokerage
+      website_services:
+        - buyer representation
+        - listings
+        - property management
+      sales_pages_prominent: true
+      property_management_pages_prominent: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: real-estate-brokerages-us-v1
+          confidence: confirmed
+          role: campaign_context
+      secondary_profile_signal:
+        profile_id: property-management-us-future
+        status: unsupported_profile_record_signal_only
+      primary_hook_family: long_term_nurture
+      prohibited_profile_language:
+        - tenant_maintenance_hook
+
+  - id: real_estate_school_false_positive
+    campaign_profile: real-estate-brokerages-us-v1
+    observations:
+      provider_category: training_school
+      website_terms:
+        - real estate classes
+        - licensing course
+    expected:
+      campaign_inclusion: false
+      classification: excluded
+      no_call_pack: true
+
+  - id: combined_hvac_plumbing_account_hvac_campaign
+    campaign_profile: hvac-us-v1
+    observations:
+      provider_category: home_services_contractor
+      website_services:
+        - AC repair
+        - HVAC replacement
+        - plumbing
+        - drain cleaning
+      paid_ad:
+        query: AC repair Tampa
+        service: AC repair
+        current: true
+    expected:
+      campaign_inclusion: true
+      assignments:
+        - profile_id: hvac-us-v1
+          confidence: confirmed
+          role: campaign_context
+        - profile_id: plumbing-us-v1
+          confidence: confirmed
+          role: secondary
+      account_count: 1
+      primary_hook_from_profile: hvac-us-v1
+      prohibited_profile_language:
+        - plumbing_emergency_hook_unless_topic_changes
+
+  - id: combined_hvac_plumbing_account_plumbing_campaign_after_prior_contact
+    campaign_profile: plumbing-us-v1
+    observations:
+      canonical_account_already_exists: true
+      prior_contact:
+        campaign_profile: hvac-us-v1
+        disposition: follow_up_requested
+        follow_up_due_future: true
+      website_services:
+        - AC repair
+        - plumbing
+      current_plumbing_ad: true
+    expected:
+      create_new_account: false
+      assignments:
+        - profile_id: plumbing-us-v1
+          confidence: confirmed
+          role: campaign_context
+        - profile_id: hvac-us-v1
+          confidence: confirmed
+          role: secondary
+      autonomous_or_human_new_cold_contact: false
+      reason: Account-wide prior contact/follow-up state prevents treating another vertical as a new prospect.
+
+  - id: unknown_local_business
+    campaign_profile: roofing-us-v1
+    observations:
+      provider_category: home_services
+      website_services:
+        - exterior improvements
+      target_specific_evidence: none
+    expected:
+      campaign_inclusion: false
+      vertical_review_required: true
+      no_vertical_call_pack: true
+
+  - id: lead_generation_intermediary
+    campaign_profile: collision-repair-us-v1
+    observations:
+      paid_ad:
+        query: body shop Jacksonville
+        current: true
+        landing_domain: compare-auto-repair.example
+      website_role: lead_comparison_directory
+      downstream_business_unknown: true
+    expected:
+      campaign_inclusion: false
+      classification: intermediary
+      do_not_attribute_ad_to_specific_shop: true
+      no_call_pack: true
+
+  - id: same_company_two_locations
+    campaign_profile: roofing-us-v1
+    observations:
+      canonical_domain: example-roofing.com
+      locations:
+        - Jacksonville FL
+        - St Augustine FL
+      shared_brand: true
+      same_ownership_likely: true
+    expected:
+      account_count: 1
+      location_count: 2
+      assignments:
+        - profile_id: roofing-us-v1
+          confidence: confirmed
+      do_not_create_duplicate_accounts: true
+
+  - id: franchise_relationship_ambiguous
+    campaign_profile: real-estate-brokerages-us-v1
+    observations:
+      shared_brand: true
+      corporate_domain: true
+      separate_office_phones: true
+      ownership_relationship: unknown
+    expected:
+      auto_merge_legal_entities: false
+      review_required: true
+      preserve_locations: true
+      no_duplicate_contact_until_resolved: true
+
+  - id: law_after_hours_hook_with_no_current_ad
+    campaign_profile: law-firms-us-v1
+    observations:
+      law_firm_confirmed: true
+      practice_area: criminal_defense
+      current_paid_ad_evidence: false
+      after_hours_language: true
+    expected:
+      campaign_inclusion_if_mode_full_market: true
+      campaign_inclusion_if_mode_advertiser_only: false
+      primary_hook_family: after_hours_intake
+      opener_must_not_say:
+        - I_saw_you_are_currently_advertising
+
+  - id: strong_existing_system_no_sale
+    campaign_profile: collision-repair-us-v1
+    observations:
+      shop_confirmed: true
+      paid_ads_current: true
+      public_call_pack_hypothesis: attribution_gap
+      prospect_corrections:
+        missed_calls_measured_and_recovered: true
+        estimate_follow_up_strong: true
+        source_to_repair_revenue_attribution_strong: true
+        customer_status_automation_reliable: true
+    expected:
+      post_discovery_outcome: no_sale_or_relationship_nurture
+      must_not_manufacture_problem: true
+      QA_should_pass_if_rep_stops_selling: true
+
+property_assertions:
+  - A different vertical campaign never creates a second Account when entity resolution identifies the same business.
+  - DNC and contact history apply account-wide across vertical assignments.
+  - Campaign context selects the active profile; secondary profiles remain evidence/context, not mixed prompts.
+  - Classification confidence is separate from Module 4C fit score.
+  - A profile-specific ad opener requires fresh ad evidence for the same relevant service/practice area.
+  - Professional and safety boundaries accumulate; a secondary profile cannot weaken a primary/global boundary.
+  - Unsupported or unresolved verticals fail closed for vertical-specific Call Pack generation.
+  - No profile may add hidden fit points beyond canonical Module 4C.
+  - No-sale remains a valid high-quality outcome after prospect facts disprove the hypothesis.

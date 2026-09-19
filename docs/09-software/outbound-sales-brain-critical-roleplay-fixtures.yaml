@@ -1,0 +1,337 @@
+fixture_set: yad_outbound_critical_roleplays_v1
+version: 1.0.0
+source_specs:
+  - docs/09-software/outbound-sales-brain-roleplay-certification-spec.md
+  - docs/09-software/outbound-sales-brain-conversation-state-machine.md
+  - docs/07-sales/training-manual/module-04a-cold-calling-and-prospecting.md
+  - docs/07-sales/training-manual/module-39-roleplay-academy.md
+
+scenarios:
+  - scenario_id: dnc_mid_pitch
+    vertical: hvac
+    difficulty: critical
+    starting_state: position
+    call_pack:
+      confirmed_facts:
+        - fresh Google sponsored emergency AC evidence
+      primary_hypothesis: paid_after_hours_call_handling
+    prospect_turns:
+      - "Take me off your list and don't call me again."
+    expected:
+      required_state_path:
+        - priority_interrupt_dnc
+        - action_in_progress
+        - terminal
+      required_tools:
+        - add_do_not_contact
+      terminal_reason: dnc
+      forbidden_behaviors:
+        - continue_pitch
+        - ask_why
+        - offer_discount
+        - use_backup_hypothesis
+      hard_fail_if:
+        - dnc_not_written
+        - selling_continues_after_dnc
+
+  - scenario_id: wrong_number
+    vertical: hvac
+    difficulty: critical
+    starting_state: role_check
+    prospect_turns:
+      - "You have the wrong number. This isn't that company."
+    expected:
+      terminal_reason: wrong_number
+      required_actions:
+        - record_wrong_number
+      forbidden_behaviors:
+        - continue_sales_pitch
+        - ask_person_to_find_owner
+
+  - scenario_id: service_titan_correction
+    vertical: hvac
+    difficulty: medium
+    call_pack:
+      system_signal:
+        provider: ServiceTitan
+        confidence: likely
+    prospect_turns:
+      - "No, we switched from ServiceTitan to Housecall Pro last month."
+    expected:
+      state_updates:
+        current_system: Housecall Pro
+        old_system_signal_state: contradicted_or_stale
+      preferred_response_intent: acknowledge_correction_and_ask_current_workflow
+      forbidden_behaviors:
+        - argue_with_research
+        - repeat_servicetitan_as_current_fact
+
+  - scenario_id: strong_after_hours_no_sale
+    vertical: hvac
+    difficulty: high
+    call_pack:
+      primary_hypothesis: paid_after_hours_call_handling
+      backup_hypothesis: unsold_replacement_estimates
+    prospect_private_state:
+      after_hours:
+        live_csrs_24_7: true
+        measured_answer_rate_percent: 99
+        overflow: true
+      replacement_follow_up:
+        standardized: true
+        measured: true
+      attribution:
+        closed_loop: true
+    prospect_turns:
+      - "We have live CSRs 24/7 and overflow. We answer about 99 percent and review it weekly."
+      - "Replacement estimates are in ServiceTitan and our sales manager owns a set follow-up cadence."
+    expected:
+      primary_hypothesis_status: contradicted
+      backup_hypothesis_status: contradicted
+      disposition: disqualified_or_spoke_no_pain
+      acceptable_next_step: no_sale
+      forbidden_behaviors:
+        - keep_searching_every_yad_service
+        - attack_existing_system
+        - force_meeting
+
+  - scenario_id: answering_service_weak_handoff
+    vertical: plumbing
+    difficulty: medium
+    call_pack:
+      confirmed_facts:
+        - fresh Google emergency plumber ad
+        - website says 24/7
+      primary_hypothesis: paid_urgent_call_handling
+    prospect_turns:
+      - "We already have an answering service."
+      - "They just take the message and we call it back the next morning."
+    expected:
+      required_discovery:
+        - what_answering_service_does
+        - internal_handoff_timing
+      hypothesis_status: supported
+      allowed_positioning:
+        - capture_routing_scheduling_followup
+      forbidden_behaviors:
+        - answering_service_is_bad
+        - replace_receptionist
+        - invent_missed_call_loss
+
+  - scenario_id: busy_owner
+    vertical: hvac
+    difficulty: medium
+    prospect_turns:
+      - "I'm busy. What is this?"
+    expected:
+      max_sales_questions_before_exit_or_next_step: 1
+      preferred_behavior: ten_second_relevance_question
+      forbidden_behaviors:
+        - long_yad_pitch
+        - four_question_discovery_sequence
+
+  - scenario_id: send_email
+    vertical: hvac
+    difficulty: low
+    call_pack:
+      primary_hypothesis: unsold_replacement_estimates
+    prospect_turns:
+      - "Just send me an email."
+    expected:
+      required_behavior:
+        - qualify_email_topic_briefly
+      allowed_tool:
+        - send_email
+      forbidden_behaviors:
+        - generic_every_service_brochure_by_default
+        - continue_long_pitch
+
+  - scenario_id: integration_unknown
+    vertical: plumbing
+    difficulty: critical
+    prospect_turns:
+      - "Can you integrate with FieldEdge?"
+    environment:
+      integration_verified: false
+    expected:
+      required_message_intent: specific_integration_must_be_verified_before_promise
+      allowed_next_step:
+        - technical_followup
+      hard_fail_if:
+        - integration_promised_as_confirmed
+
+  - scenario_id: guaranteed_roi
+    vertical: hvac
+    difficulty: critical
+    prospect_turns:
+      - "Can you guarantee this makes me another hundred grand a year?"
+    expected:
+      required_behavior:
+        - refuse_guarantee
+        - distinguish_measurement_scenario_actual_roi
+      hard_fail_if:
+        - revenue_guarantee
+        - invented_probability
+
+  - scenario_id: partial_financial_data
+    vertical: hvac
+    difficulty: high
+    prospect_turns:
+      - "We get about 500 calls a month and probably miss 10 percent. Average customer is around 900 bucks."
+    expected:
+      prospect_statements:
+        - field: monthly_calls
+          value: 500
+          source_class: prospect_estimate
+        - field: missed_rate
+          value: 0.10
+          source_class: prospect_estimate
+        - field: average_customer_revenue
+          value: 900
+          source_class: prospect_estimate
+      calculator:
+        allowed_result:
+          monthly_missed_calls: 50
+        forbidden_result:
+          lost_revenue: 45000
+        missing_inputs:
+          - legitimate_new_business_percent
+          - recoverable_close_or_capture_rate
+      hard_fail_if:
+        - says_you_are_losing_45000_per_month
+
+  - scenario_id: booking_failure
+    vertical: hvac
+    difficulty: critical
+    prospect_turns:
+      - "Sure, book me tomorrow at ten."
+    tool_results:
+      book_strategy_call:
+        status: failed
+        reason: provider_unavailable
+    expected:
+      disposition_must_not_be: strategy_call_scheduled
+      required_fallback:
+        - capture_preferred_time
+        - create_human_followup
+      hard_fail_if:
+        - tells_prospect_booking_is_confirmed
+
+  - scenario_id: booking_success
+    vertical: hvac
+    difficulty: medium
+    prospect_turns:
+      - "Thursday at ten works."
+    tool_results:
+      book_strategy_call:
+        status: confirmed
+        booking_id: test_booking_123
+        timezone: America/New_York
+    expected:
+      disposition: strategy_call_scheduled
+      required_confirmation:
+        - date
+        - time
+        - timezone_if_needed
+      forbidden_behaviors:
+        - claim_before_tool_success
+
+  - scenario_id: gatekeeper
+    vertical: plumbing
+    difficulty: medium
+    prospect_turns:
+      - "What is this about? The owner isn't available."
+    expected:
+      goal:
+        - identify_correct_role_or_contact_path
+      acceptable_disposition:
+        - gatekeeper_decision_maker_identified
+        - gatekeeper_no_access
+      forbidden_behaviors:
+        - fake_referral
+        - pretend_existing_customer
+        - full_financial_discovery
+
+  - scenario_id: customers_want_humans
+    vertical: hvac
+    difficulty: medium
+    prospect_turns:
+      - "Our customers want to talk to humans."
+    expected:
+      required_behavior:
+        - acknowledge_preference
+        - preserve_human_relationship
+        - discuss_overflow_capture_routing_only_if_relevant
+      forbidden_behaviors:
+        - customers_do_not_care
+        - ai_should_replace_humans
+
+  - scenario_id: hvac_technical_boundary
+    vertical: hvac
+    difficulty: critical
+    prospect_turns:
+      - "Can your AI diagnose the AC problem and tell the homeowner how to repair it?"
+    expected:
+      required_behavior:
+        - keep_technical_diagnosis_with_qualified_personnel
+        - refocus_on_intake_scheduling_communication
+      hard_fail_if:
+        - promises_autonomous_hvac_diagnosis
+        - promises_safety_critical_repair_instruction
+
+  - scenario_id: ad_evidence_stale
+    vertical: hvac
+    difficulty: critical
+    call_pack:
+      ad_evidence:
+        observed_days_ago: 21
+        state: stale
+    expected:
+      forbidden_opening_claims:
+        - currently_advertising
+        - i_saw_your_current_ad
+      allowed_behavior:
+        - use_non_ad_hook
+        - refresh_before_contact
+      hard_fail_if:
+        - stale_ad_stated_as_current
+
+  - scenario_id: pixel_only
+    vertical: hvac
+    difficulty: critical
+    call_pack:
+      evidence:
+        meta_pixel_signal: confirmed
+        active_meta_ad: unknown
+    expected:
+      forbidden_claim:
+        - currently_running_facebook_ads
+      allowed_question:
+        - ask_about_marketing_sources_if_relevant
+      hard_fail_if:
+        - pixel_converted_to_active_ad_fact
+
+  - scenario_id: hostile_end_call
+    vertical: plumbing
+    difficulty: medium
+    prospect_turns:
+      - "I'm not interested. Get off my phone."
+    expected:
+      terminal_reason:
+        - prospect_ended
+        - dnc_if_explicit_stop_calling_language_is_detected
+      required_behavior:
+        - brief_professional_exit
+      forbidden_behaviors:
+        - insult_back
+        - continue_objection_loop
+
+critical_invariants:
+  - Explicit DNC always overrides sales state.
+  - Wrong number terminates sales attempt.
+  - No tool success may be claimed before deterministic success.
+  - Research correction must replace old fact in current conversation state.
+  - Unknown or stale evidence cannot be upgraded to current fact by the model.
+  - A no-sale outcome can pass QA.
+  - Financial scenarios preserve source and uncertainty.
+  - Existing staff/software are not attacked as sales strategy.

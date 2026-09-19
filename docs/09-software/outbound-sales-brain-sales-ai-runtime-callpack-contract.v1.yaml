@@ -1,0 +1,169 @@
+schema_version: "1.0.0"
+contract_id: yad_sales_ai_runtime_callpack_v1
+purpose: >-
+  Compact immutable per-call context for the realtime outbound Sales AI. The live model should receive
+  this normalized view rather than raw crawler output, full provider payloads or the entire Sales Manual.
+
+required:
+  - call_pack_id
+  - account
+  - campaign
+  - target_route
+  - opening_context
+  - primary_hypothesis
+  - fact_boundary
+  - conversation_policy
+  - strategy_call
+  - knowledge_snapshot
+
+shape:
+  call_pack_id: string
+  generated_at: datetime
+  expires_at: datetime
+  version_hash: string
+
+  account:
+    account_id: string
+    company_name: string
+    vertical_profile_id: string
+    vertical_profile_version: string
+    city: string|null
+    state_region: string|null
+    postal_code: string|null
+    website: string|null
+    account_owner_user_id: string|null
+    relationship_state: string
+
+  campaign:
+    campaign_id: string
+    campaign_name: string
+    mode: string
+    source_channel: string
+    market_label: string|null
+
+  target_route:
+    contact_id: string|null
+    person_name: string|null
+    first_name: string|null
+    title_raw: string|null
+    role_category: string
+    contact_confidence: confirmed_current|likely_current|role_only|conflicted|unknown
+    pronunciation_hint: string|null
+    phone_endpoint_id: string
+    phone_display: string
+    phone_semantic_type: string
+    phone_source_label: string
+    gatekeeper_route_if_needed: string
+
+  prior_relationship:
+    has_prior_yad_contact: boolean
+    is_requested_callback: boolean
+    last_contact_summary: string|null
+    last_contact_at: datetime|null
+    promised_next_step: string|null
+    email_reply_state: string|null
+
+  opening_context:
+    selected_opener_class: paid_demand|first_party_workflow|market_category|role_based|prior_relationship
+    truthful_context_phrase: string
+    first_question: string
+    opener_selector_reason: string
+    advertised_service: string|null
+    market_context: string|null
+    evidence_ids: [string]
+
+  primary_hypothesis:
+    hypothesis_id: string
+    category: string
+    short_label: string
+    why_test: string
+    first_question: string
+    evidence_ids: [string]
+    strength: strong|moderate|weak
+    status_at_start: untested
+
+  backup_hypothesis:
+    hypothesis_id: string|null
+    category: string|null
+    first_question: string|null
+    evidence_ids: [string]
+    allowed_only_if_primary_solved: true
+
+  fact_boundary:
+    allowed_fact_statements:
+      - claim_key: string
+        natural_language: string
+        evidence_id: string
+        observed_at: datetime|null
+    question_only_signals:
+      - claim_key: string
+        safe_question_context: string
+        evidence_id: string
+    do_not_claim:
+      - string
+    prohibited_inferences:
+      - ad_spend
+      - lead_volume
+      - missed_call_rate
+      - revenue_loss
+      - close_rate
+      - roi
+      - crm_quality
+      - employee_performance
+      - agency_performance
+
+  conversation_policy:
+    agent_profile: yad-sales-core-v1
+    dialogue_policy_version: string
+    opener_selector_version: string
+    response_card_version: string
+    max_backup_hypotheses: 1
+    max_same_objection_cycles: 2
+    normal_turn_word_target_max: 25
+    current_disclosure_policy_id: string
+
+  retrieval:
+    sales_manual_sections:
+      - module_04a
+      - module_05
+    vertical_sections: [string]
+    initial_response_card_ids: [string]
+    on_demand_retrieval_allowed: true
+
+  strategy_call:
+    enabled: boolean
+    event_type_key: yad_15_min_ai_strategy_call
+    provider: cal_com
+    host: michael@youraidepartment.ai
+    meeting_location: cal_video
+    duration_minutes: 15
+    booking_readiness_policy_version: string
+
+  fallback_next_steps:
+    allow_targeted_email: boolean
+    allow_assessment_link: boolean
+    allow_callback: boolean
+    assessment_config_key: string|null
+
+  knowledge_snapshot:
+    commercial_truth_version: string
+    sales_manual_snapshot: string
+    sales_prompt_version: string
+    vertical_profile_hash: string
+
+  audit:
+    research_run_id: string
+    evidence_snapshot_id: string
+    generated_by: string
+
+rules:
+  - raw_provider_payloads_must_not_be_in_runtime_callpack
+  - raw_webpage_text_must_not_be_in_runtime_callpack
+  - question_only_signal_must_not_be_spoken_as_confirmed_fact
+  - stale_or_conflicted_fact_must_not_enter_allowed_fact_statements
+  - prior_relationship_changes_opening_semantics
+  - dnc_and_compliance_eligibility_are_checked_outside_model_before_dial
+  - runtime_callpack_is_immutable_for_public_research_during_call
+  - prospect_statements_update_working_memory_not_original_callpack
+  - tool_results_are_separate_runtime_events
+  - demo_context_must_never_populate_production_callpack

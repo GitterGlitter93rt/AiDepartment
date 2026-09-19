@@ -1,0 +1,282 @@
+schema_version: "1.0.0"
+contract: yad_sales_ai_vertical_language_pack_v1
+purpose: >-
+  Let one YAD Sales AI use industry-appropriate business language without creating separate personalities,
+  scripts, unsupported expertise, or vertical-specific commercial claims.
+
+rules:
+  - vertical_language_modifies_terms_not_sales_personality
+  - use_only_when_vertical_classification_is_supported
+  - prospect_language_overrides_generic_dictionary_when_safe
+  - do_not_use_industry_jargon_just_to_sound_expert
+  - never_cross_professional_judgment_boundaries
+  - prefer_common_owner_language_over_vendor_marketing_language
+  - keep_problem_family_shared_across_verticals
+
+shared_problem_family_mapping:
+  after_hours_lead_handling:
+    generic: "new inquiry"
+  simultaneous_call_overflow:
+    generic: "new call"
+  missed_call_recovery:
+    generic: "new-business call"
+  unsold_estimate_or_proposal:
+    generic: "estimate or proposal"
+  speed_to_lead:
+    generic: "new inquiry"
+  crm_followup:
+    generic: "lead in your system"
+  long_term_nurture:
+    generic: "someone who isn't ready yet"
+  reactivation:
+    generic: "older leads or customers"
+  appointment_no_show:
+    generic: "appointment"
+  intake_qualification:
+    generic: "new inquiry"
+
+verticals:
+  hvac:
+    preferred_terms:
+      prospect: "customer or homeowner"
+      inbound_unit: "service call or new call"
+      high_value_sales_unit: "replacement estimate"
+      scheduling: "dispatch or scheduling"
+      field_worker: "technician"
+      after_hours: "after-hours or emergency call"
+      pipeline_unit: "estimate or opportunity"
+    natural_questions:
+      after_hours_lead_handling: "When a new emergency call hits after hours, what happens today?"
+      simultaneous_call_overflow: "When the phones stack up and everybody's tied up, what happens to the next new call?"
+      unsold_estimate_or_proposal: "What normally happens to a replacement estimate that doesn't close the first time?"
+      crm_followup: "Once a new lead is in your system, what actually keeps the follow-up moving until somebody connects or it gets closed out?"
+    avoid_terms:
+      - "patient"
+      - "case"
+      - "repair order"
+    safe_system_examples:
+      - ServiceTitan
+      - Housecall Pro
+      - Jobber
+    system_rule: system_name_may_be_used_only_if_confirmed_or_claim_safe_signal_is_labeled_as_signal
+
+  plumbing:
+    preferred_terms:
+      prospect: "customer or homeowner"
+      inbound_unit: "service call or new call"
+      high_value_sales_unit: "estimate"
+      scheduling: "dispatch"
+      field_worker: "technician or plumber"
+      after_hours: "emergency call"
+    natural_questions:
+      after_hours_lead_handling: "When somebody calls after hours with an urgent plumbing issue, what happens today?"
+      simultaneous_call_overflow: "When your dispatch or office team is already tied up, what happens to the next new call?"
+      unsold_estimate_or_proposal: "What happens to a larger estimate that doesn't get approved right away?"
+    avoid_terms:
+      - "repair order"
+      - "case intake"
+
+  roofing:
+    preferred_terms:
+      prospect: "homeowner or property owner"
+      inbound_unit: "lead or inspection request"
+      high_value_sales_unit: "estimate or proposal"
+      appointment: "inspection or appointment"
+      sales_role: "sales rep or estimator"
+      pipeline_unit: "proposal or opportunity"
+    natural_questions:
+      unsold_estimate_or_proposal: "What normally happens to a roof estimate or proposal that doesn't close the first time?"
+      speed_to_lead: "When a new inspection request comes in, how quickly does somebody usually connect with them?"
+      crm_followup: "Once the inspection or estimate is in your system, what keeps the follow-up moving?"
+    avoid_claims:
+      - "insurance will pay"
+      - "storm claim is covered"
+      - "they are losing claims"
+
+  collision_repair:
+    preferred_terms:
+      prospect: "vehicle owner or customer"
+      inbound_unit: "estimate request or new repair inquiry"
+      high_value_sales_unit: "estimate"
+      job_unit: "repair order or vehicle"
+      sales_role: "estimator or front office"
+      pipeline_unit: "open estimate or repair opportunity"
+      insurer_process: "insurance approval, supplement or inspection"
+    natural_questions:
+      unsold_estimate_or_proposal: "What normally happens to an estimate that doesn't turn into a repair right away?"
+      missed_call_recovery: "If somebody calls about a new repair and the front office can't get to it, what happens next?"
+      crm_followup: "How do you keep track of estimates that are still deciding and need another follow-up?"
+    avoid_terms:
+      - "lead funnel" 
+      - "patient"
+    boundaries:
+      - no_coverage_determination
+      - no_repair_safety_judgment
+
+  pdr_hail:
+    preferred_terms:
+      prospect: "vehicle owner or customer"
+      inbound_unit: "hail inquiry or estimate request"
+      high_value_sales_unit: "estimate or repair opportunity"
+      job_unit: "vehicle or repair order"
+      event_context: "hail storm or storm market"
+    natural_questions:
+      speed_to_lead: "When a fresh hail inquiry comes in during a busy storm week, how quickly does somebody get back to them?"
+      unsold_estimate_or_proposal: "What happens to a hail estimate that doesn't schedule right away?"
+      reactivation: "What happens to people who got an estimate during the storm but never scheduled the repair?"
+    avoid_claims:
+      - "insurance owes"
+      - "deductible can always be waived"
+      - "claim will be approved"
+
+  restoration:
+    preferred_terms:
+      prospect: "property owner, homeowner or customer"
+      inbound_unit: "emergency call or loss inquiry"
+      scheduling: "dispatch"
+      field_worker: "crew or technician"
+      job_unit: "job or loss"
+    natural_questions:
+      after_hours_lead_handling: "When an emergency water or fire call comes in after hours, what happens today?"
+      simultaneous_call_overflow: "When several emergency calls hit at once, what keeps the next one from sitting?"
+      crm_followup: "Once the initial call is captured, what keeps the job moving through the next handoff?"
+    boundaries:
+      - no_coverage_determination
+      - no_health_or_safety_judgment
+
+  electrical:
+    preferred_terms:
+      prospect: "customer or property owner"
+      inbound_unit: "service call or estimate request"
+      high_value_sales_unit: "estimate"
+      field_worker: "electrician or technician"
+      scheduling: "dispatch or scheduling"
+    natural_questions:
+      simultaneous_call_overflow: "When a new service call comes in while the office is tied up, what happens next?"
+      unsold_estimate_or_proposal: "What happens to a larger electrical estimate that doesn't get approved immediately?"
+    boundaries:
+      - no_electrical_safety_diagnosis
+
+  garage_door:
+    preferred_terms:
+      prospect: "customer or homeowner"
+      inbound_unit: "service call"
+      high_value_sales_unit: "estimate or replacement opportunity"
+      field_worker: "technician"
+      scheduling: "dispatch or scheduling"
+    natural_questions:
+      after_hours_lead_handling: "When somebody calls with a stuck or broken garage door after hours, what happens today?"
+      simultaneous_call_overflow: "When the office is already on calls, what happens to the next service request?"
+      unsold_estimate_or_proposal: "What happens to a replacement estimate that doesn't close right away?"
+
+  general_contractors_remodeling:
+    preferred_terms:
+      prospect: "homeowner, property owner or client"
+      inbound_unit: "project inquiry or consultation request"
+      high_value_sales_unit: "estimate, proposal or project"
+      appointment: "consultation"
+      pipeline_unit: "proposal or project opportunity"
+    natural_questions:
+      speed_to_lead: "When a new project inquiry comes in, what happens before somebody gets a consultation on the calendar?"
+      unsold_estimate_or_proposal: "What normally happens to a proposal that doesn't get signed after the first conversation?"
+      long_term_nurture: "When a homeowner likes the project but isn't ready to start for a few months, what keeps the follow-up going?"
+
+  real_estate_brokerages:
+    preferred_terms:
+      prospect: "seller, buyer or homeowner"
+      inbound_unit: "inquiry or lead"
+      appointment: "consultation, showing or appointment"
+      sales_role: "agent, ISA or team member"
+      pipeline_unit: "lead or opportunity"
+    natural_questions:
+      long_term_nurture: "When a homeowner isn't ready to list yet, what keeps the follow-up going over the next few months?"
+      speed_to_lead: "When a brand-new seller or buyer inquiry comes in, how quickly does somebody normally connect?"
+      reactivation: "What happens to older leads that went quiet but may still move later?"
+    boundaries:
+      - no_fair_housing_sensitive_targeting
+      - no_legal_or_financial_advice
+      - preserve_human_agent_relationship
+
+  law_firms:
+    preferred_terms:
+      prospect: "prospective client or caller"
+      inbound_unit: "new inquiry or intake"
+      appointment: "consultation"
+      process_owner: "intake team or intake director"
+      pipeline_unit: "inquiry or consultation"
+    natural_questions:
+      after_hours_lead_handling: "What happens to a new inquiry that comes in after the office closes?"
+      intake_qualification: "When a new inquiry comes in, what information does intake need before it can move forward?"
+      speed_to_lead: "How quickly does a brand-new inquiry normally hear from intake?"
+    avoid_terms:
+      - "customer lead" when prospect uses prospective_client
+      - "sales rep"
+    boundaries:
+      - no_legal_advice
+      - no_case_merit_decision
+      - no_confidential_case_fact_discussion_beyond_business_process
+
+  dental:
+    preferred_terms:
+      prospect: "patient or prospective patient"
+      inbound_unit: "new-patient inquiry or call"
+      appointment: "appointment"
+      process_owner: "front desk, scheduling or office manager"
+      reactivation_unit: "inactive patient"
+    natural_questions:
+      speed_to_lead: "When a new-patient inquiry comes in and the front desk is busy, what happens next?"
+      appointment_no_show: "When a new patient misses an appointment, what happens after that?"
+      reactivation: "What happens to inactive patients who are overdue and haven't scheduled again?"
+    boundaries:
+      - no_clinical_advice
+      - no_diagnosis
+      - no_treatment_recommendation
+      - privacy_and_health_data_boundary
+
+  med_spas:
+    preferred_terms:
+      prospect: "client, patient or prospective client according to business language"
+      inbound_unit: "consultation request or inquiry"
+      appointment: "consultation or appointment"
+      process_owner: "front desk, coordinator or practice manager"
+      pipeline_unit: "consultation or treatment inquiry"
+    natural_questions:
+      speed_to_lead: "When a new consultation request comes in, how quickly does somebody normally connect with them?"
+      appointment_no_show: "When somebody books a consultation and doesn't show, what happens next?"
+      reactivation: "What happens to past clients who haven't booked again in a while?"
+    boundaries:
+      - no_clinical_advice
+      - no_medical_claims
+      - no_treatment_suitability_judgment
+      - privacy_boundary
+
+fallback:
+  when_vertical_unknown_or_ambiguous:
+    use:
+      - generic_business_process_language
+      - role_based_questions
+    prohibit:
+      - guessed_vertical_jargon
+      - guessed_professional_workflow
+
+prospect_language_learning:
+  rule: >-
+    When the prospect supplies a safe current term such as `repair order`, `intake`, `dispatch`,
+    `inspection`, or `consultation`, working memory should reuse that term naturally in later turns.
+  do_not_learn_as_fact:
+    - unsupported_metric
+    - sarcastic_label
+    - protected_or_sensitive_personal_detail
+    - professional_judgment
+
+qa:
+  flags:
+    - wrong_vertical_terminology
+    - generic_lead_funnel_language_when_vertical_term_known
+    - overuse_of_jargon
+    - fabricated_process_expertise
+    - professional_boundary_violation
+    - failure_to_reuse_prospect_term
+
+core_rule: >-
+  One salesperson, many business vocabularies. Use the words the industry and prospect naturally use, while keeping the same research-first diagnostic sales process and never pretending the AI has professional judgment it does not have.

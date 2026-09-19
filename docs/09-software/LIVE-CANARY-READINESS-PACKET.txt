@@ -1,0 +1,144 @@
+
+LIVE CANARY READINESS PACKET
+  2026-09-09T04:00:37.033Z
+
+
+── what would run it
+
+  branch            feature/outbound-sales-brain
+  commit            c56c559
+  migrations        48 applied of 48
+  workers online    0
+  queue waiting     0
+  open provider tasks 0
+
+── configuration it needs (names only — never paste values into this file)
+
+  [   ] DATAFORSEO_LOGIN
+        Provider account. Half a credential, and an address.
+  [   ] DATAFORSEO_PASSWORD
+        Provider credential.
+  [   ] DATAFORSEO_ENABLED
+        Whether the adapter may run at all.
+  [   ] DATAFORSEO_GOVERNANCE_REVIEWED
+        Records that SB-B3 source governance was signed off. Gates discovery independently of the credential.
+  [   ] DISCOVERY_DAILY_BUDGET_USD
+        The per-day ceiling. A malformed value now stops the process rather than reading as no ceiling.
+  [   ] DISCOVERY_ASSUMED_RUN_COST_USD
+        The worst-case per-search assumption the ceiling arithmetic uses.
+  [   ] DATAFORSEO_RESULT_DEPTH
+        Results requested per search.
+  [   ] DATAFORSEO_MAX_QUERIES_PER_RUN
+        Provider-side ceiling per run.
+
+  governance reviewed   false
+  discovery adapters    none configured
+  daily ceiling         $0.00
+  assumed per search    $0.050
+  canary search ceiling 25
+  collection attempts   20
+
+── the smallest run worth authorising
+
+  5 independent searches, roofing in 32095, ceiling 30c
+  geography         32095
+  strategy          advertiser_first
+  terms available   5
+
+  the queries that would go out:
+     "roof repair 32095" in St. Augustine,Florida,United States
+     "roof replacement 32095" in St. Augustine,Florida,United States
+     "roofer 32095" in St. Augustine,Florida,United States
+     "roofing company 32095" in St. Augustine,Florida,United States
+     "roofing contractor 32095" in St. Augustine,Florida,United States
+  held back         hail, storm (nobody asked for that event)
+
+  estimated         $0.250
+  hard maximum      $0.30
+  spent today       $0.00
+
+  it would refuse today:
+     NO_PROVIDER: No discovery provider is configured, so a live run would find nothing. The plan below is still exactly what would be asked once one is.
+
+── what the provider task should do
+
+  - A row appears in provider_tasks per submitted search, with the provider's own task id and an idempotency key derived from the search fingerprint.
+  - SUBMITTED -> PENDING while the provider works, with each poll recorded as a collection attempt rather than a silent retry.
+  - PENDING -> READY -> COLLECTED once results are fetched, or -> ABANDONED after 20 collection attempts.
+  - A restart mid-flight must resume from the stored task, not re-buy it: the partial unique index on the idempotency key is what prevents a second purchase of the same question.
+
+── what should appear in the database
+
+  - provider_usage: one row per provider call with its own cost, so the day's spend is reconcilable against an invoice.
+  - search_observations: one row per business per search, carrying the query, the position, the ad headline and the provider's observed_at.
+  - accounts: a canonical Account per business, matched to an existing one where identity says so rather than created twice.
+  - evidence_records: advertiser evidence for each observed paid placement, expiring 48 hours after the provider's observation.
+  - jobs: the market_mine job with its outcome, and one account_research job per newly created Account.
+  - opportunity_hypotheses: derived once research and scoring complete.
+
+── what should appear downstream
+
+  - Each new Account is queued for research, and research stamps last_researched_at rather than leaving it null.
+  - Scoring produces a canonical_scores row and a projection, so a tier exists with its working.
+  - An advertiser found in a paid result reads as advertising on the Account page, and the Module 4C rule the profile declares actually fires.
+  - Readiness moves off RESEARCH_NEEDED for at least one Account, or says precisely which requirement is unmet.
+  - A hypothesis with a first question appears, derived from the vertical's own leak_hypotheses.
+
+── what should appear on a screen
+
+  - Mining: the run appears with providerRows, discoveredNew, matchedExisting and adEvidenceWritten, and "Discovered by a search provider" is no longer zero.
+  - Research Health: discovery provider reads ok rather than blocked; spend shows the day's cost against the ceiling; no dimension reads UNKNOWN that this run should have answered.
+  - Find Prospects: the market shows a real count with a saturation state, and the "no search provider" banner is gone.
+  - An Account page for one discovered company shows why it fits, who to ask for, and what to say first.
+
+── before running anything
+
+  npm run migrate            # nothing pending, nothing edited after apply
+  npm run doctor             # no BUILD_SKEW, no open provider task
+  npm run preflight          # dialling still disarmed
+  npm run profiles:validate  # the configuration says nothing the runtime cannot act on
+  npm run manifest           # record the SHA and the scoring policy this run belongs to
+
+── the commands themselves
+
+  npm run miner:canary -- --vertical roofing --location 32095 --count 5 --max-cost-cents 30
+  # read the plan: the queries, the fingerprints, the provider, the ceiling
+  npm run miner:canary -- --vertical roofing --location 32095 --count 5 --max-cost-cents 30 --live --confirm-spend-cents 30
+  # the ceiling is stated twice on purpose: a copied dry command cannot go live
+  npm run doctor             # every task collected, nothing left open
+  npm run support            # one file to keep with the run
+
+── success is all of these
+
+  - Exactly 5 independent provider searches were submitted -- not one, and not 5 terms concatenated into a single query.
+  - Recorded spend is at or below the stated ceiling, and provider_usage reconciles with what the provider reports.
+  - Every submitted task reached COLLECTED or ABANDONED. None left open.
+  - At least one Account traced end to end: observation, evidence, score, hypothesis, and a rep-facing page that reads as sentences.
+  - No suppressed or DNC-screened company was unsuppressed by the run.
+
+── abort the run if
+
+  - Spend reaches the stated ceiling: the run refuses further searches rather than continuing and reporting afterwards.
+  - The provider returns an authentication or authorisation failure: stop, do not retry with variations.
+  - A task cannot be collected within its attempt budget: it is abandoned and reported, never silently retried.
+  - Ingestion rejects more rows than it accepts: stop and read why before spending again.
+
+── do not start at all if
+
+  - OUTBOUND_DIAL_ENABLED or OUTBOUND_EMAIL_ENABLED is anything but false. A discovery canary must not coincide with an armed dialler.
+  - Any migration is pending, edited after apply, or unknown to this build.
+  - A worker is heartbeating a different build from the API.
+  - DATAFORSEO_GOVERNANCE_REVIEWED is not true: SB-B3 is the sign-off, and the credential alone is not it.
+  - DISCOVERY_DAILY_BUDGET_USD is unset or unreadable. No ceiling is not a small ceiling.
+  - An open provider task exists from an earlier run: collect it before buying anything new.
+
+── afterwards
+
+  - Nothing needs undoing to stop: refusing the next search is the whole mechanism, and no outreach is possible with dialling and email disarmed.
+  - Discovered Accounts are ordinary inventory. To remove them, they are the rows whose discovery activity names the provider -- and the retention engine has no delete path, so removal is deliberate and manual.
+  - provider_usage and search_observations are the audit trail of what was bought. Keep them even if the Accounts are removed.
+  - A suppressed company re-found by the run stays suppressed. Mining enriches suppressed Accounts and never unsuppresses one.
+
+  This packet executes nothing. It contacts no provider, needs no
+  credential, and writes nothing. Every number above was read from this
+  build, this schema and this configuration when it ran.

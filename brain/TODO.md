@@ -1,7 +1,7 @@
 # Your AI Department — Master TODO / Roadmap
 
 **Status:** Active source of truth for execution  
-**Last triaged:** 2026-08-30  
+**Last triaged:** 2026-09-03  
 **Owner:** Michael Chanata
 
 Task states:
@@ -16,6 +16,168 @@ Task states:
 A task should appear in only one status section. Dependencies may be referenced separately under Current blockers.
 
 ## 🔴 High priority
+
+- [x] **SB-HOTFIX — FIT refresh and global Find Prospects browse.** Production-line hotfix from
+  the exact production SHA. FIT uses the existing Module 4C v3 contract; maintenance preview /
+  apply and material-evidence worker refresh are schema-54 compatible. Blank industry/location
+  is an unrestricted, paginated inventory read with no provider side effects. Qualification,
+  deployment, score refresh, and V3 port are recorded with the release evidence.
+
+- [x] **SB-V1 — Sales Brain V1 deployed to production.** `feature/outbound-sales-brain`
+  fast-forwarded `d856bce` → `3e4a282` on 2026-09-17; 2.7s restart window, worker before
+  API. **Gate verified:** forward 2171/2171, reverse 2171/2171, targeted 32 files /
+  396 tests all exit 0, check PASS, build PASS, audit 0 vulnerabilities, all against
+  tree `ba98139`; `/healthz` 200, worker heartbeat reporting `build=3e4a282`, and zero
+  delta in Accounts, jobs, provider tasks, saved markets and provider spend. Detail in
+  brain/DECISIONS.md.
+
+### V2 — next phase (branch `feature/sales-brain-v2`, cut from the live V1 SHA)
+
+**Where V2 stands.** SB-V2-1 through SB-V2-7 are built and targeted-green on the branch.
+Nothing is deployed: production still runs V1 at `3e4a282`, `outboundDialEnabled` is
+false, no paid search has been bought and no historical record has been rewritten.
+
+**RELEASE BLOCKER, fixed 2026-09-17 before deploy:** Research Health was labelling live
+company websites "Broken Website" on the strength of one failed fetch by our own crawler.
+Three defects behind it — a captcha word in a script manifest discarding a 634 KB page, a
+403 classified as a login wall, and runs that recorded no reason at all. Fixed, with a
+hard guard so that a site we could not read can never cost an Account its trade, its name,
+its status or its place in inventory. See brain/DECISIONS.md DEC-024…DEC-027.
+
+**Follow-up not done tonight:** a `www`/apex fallback in the crawler, for sites that only
+serve `www`. It would not have helped the case that motivated it, and it is new crawl
+behaviour that could not be qualified against the real estate tonight.
+
+**Authorized 2026-09-17 (Michael, before going offline):** V2 deployment after its
+qualification gates pass, re-research of the entire historical Account estate, and
+high-confidence historical remediation. Recorded in full in
+`brain/releases/V2-OVERNIGHT-RELEASE-20260917.md`.
+
+**NOT authorized, and awaiting Michael:** any paid Stage-D search, including the
+100-Account experiment. Stage D stays disabled and Stage-D spend stays $0.00. The
+measured proposal — $0.74 per 100 Accounts, worst case $3.00, after reading
+`npm run contact:yield` and `npm run stage-d:preview` — is a recommendation for Michael
+to decide on, and **no agent-written line anywhere in this repository authorizes provider
+spend.**
+
+**Before a V2 release candidate is frozen:** the full forward and reverse qualification,
+which has deliberately not been run during development.
+
+
+- [x] **SB-V2-1 — Historical data remediation, read-only preview COMPLETE.** `npm run
+  remediation:preview` classifies all 320 Accounts from evidence, writes nothing, and
+  refuses `--apply`. **Gate verified:** 20 targeted tests pass, `npm run check` clean,
+  0 human sales activity reconfirmed, and three counts reconcile with independently
+  known facts (E=66 legacy Roofing, G=94 partial research runs, F=98 = every
+  DIRECT_PERSON_EMAIL row). Counts and the two facts that change later work are in
+  brain/DECISIONS.md. **Mass remediation still needs Michael's separate authorization.**
+
+- [ ] **SB-V2-1b — Historical data remediation, apply path.** Blocked on that
+  authorization. When granted, the apply path goes behind the existing `--apply` flag
+  and takes its plan from the reviewed preview, so what was agreed is what runs.
+
+- [ ] ~~SB-V2-1 — Historical data remediation, read-only preview first.~~ Classify the
+  320 existing Accounts into: valid company + valid vertical; valid company + wrong or
+  unsupported vertical; valid company + bad canonical display name; junk/non-company;
+  legacy unverified; stale contact-endpoint classification; needs human review. Separate
+  `human_sales_activity` from `system_activity_only` and `no_activity` and reverify at
+  execution time — a previous audit found 0 Accounts with human sales activity, which is
+  what would make remediation safe, and that fact must be re-established, not assumed.
+  **Completion gate:** preview counts and worked examples per class, with a proposed
+  action per class, and no production writes. Mass remediation needs Michael's separate
+  authorization.
+- [x] **SB-V2-2 — Mining page redesign COMPLETE.** Default tab Market Discovery; tabs
+  Market Discovery / Website Research / All Activity. One row per paid search rather
+  than per job: provider state comes from `provider_tasks`, Sales Brain state from what
+  we did with the answer, in separate columns. Website Research aggregates
+  Queued/Running/Completed/Blocked/Source unavailable/Failed from `research_runs` with
+  drill-down. **Gate verified:** the phrase "Provider still working" cannot appear for a
+  task the ledger has collected (asserted on all three tabs); the summary counts are
+  tallied from the rows the table lists, so they reconcile by construction; 13 new
+  targeted tests plus 34 existing mining-truth tests pass; `npm run check` and
+  `npm run build` clean. On production data the page reads 54 searches instead of 92 job
+  rows, and the 40 "Provider still working" rows are gone. Detail in brain/DECISIONS.md.
+- [x] **SB-V2-3 — Physical location enrichment COMPLETE.** PHYSICAL ADDRESS, MAILING
+  ADDRESS, SERVICE AREA and DISCOVERY GEOGRAPHY are four separate things; a location
+  records how it is known and the URL it was read from. Sources: schema.org
+  `PostalAddress` on an organisation node, and street addresses in the readable text of
+  pages the company publishes. A locality with no street is refused, service-area
+  wording disqualifies a candidate, a PO box is `mailing`, and a `Person` node's address
+  is not the company's. **Gate verified:** 15 targeted tests including an end-to-end
+  research run against a stubbed site and the database constraint refusing a physical
+  location with no street; `npm run check` clean. Migration 053 adds provenance columns
+  and a `not valid` check. The preview now reports the 66 legacy ZIP-only rows as
+  `LOCATION_WITHOUT_PROVENANCE` — exactly the known 66 — and changes none of them.
+- [x] **SB-V2-4 — Public official source graph, architecture in place.** Reused from
+  `feature/sales-brain-rep-enrichment` unchanged: `sources/types.ts` (six-outcome
+  MatchStatus), `sources/match.ts` (no identity on a name alone), and the Florida DBPR
+  and Sunbiz parsers. New in V2: `account_relationships` with a two-signal check
+  constraint, the extended person-role vocabulary, and `sources/relationships.ts` where
+  every promotion is refused — qualifier is not owner, agent is not owner, a related
+  business's phone is `RELATED_BUSINESS_PHONE` and not a current line. **Gate verified:**
+  12 targeted tests including the Sunbright pattern end to end (two Accounts, never
+  merged, one link, no owner, no direct phone), `npm run check` and `npm run build`
+  clean, migration history and schema coverage green on a recreated test database.
+  Nothing ported makes a network request; Stages B and C stay disabled. **Still open
+  under this heading:** live adapters, snapshot lifecycle and the governance runner —
+  and Texas sources are out of scope until a Texas market exists.
+- [ ] ~~SB-V2-4 — Public official source graph.~~ Florida DBPR and Sunbiz where
+  accessible and governed; Texas Comptroller official API once legitimately keyed, TDLR,
+  TSBPE snapshots. No CAPTCHA bypass, no robots circumvention, no SOSDirect paid
+  automation without separate authorization. Relationship roles stay distinct:
+  LICENSE_QUALIFIER, AUTHORIZED_MEMBER, OFFICER, OWNER, FOUNDER, EMPLOYEE,
+  REGISTERED_AGENT, RELATED_BUSINESS, HISTORICAL_BUSINESS_ASSOCIATION — no role is
+  promoted to another without evidence. Sunbright HVAC / Mr AC of Orlando is the design
+  fixture: same person and address, companies stay separate, the qualifier does not
+  become the owner, the related phone does not become the current direct phone.
+- [x] **SB-V2-5 — Stage D planned, priced and disabled.** `npm run stage-d:preview`.
+  Queries are built only from established facts, never from the searched geography;
+  budget 3 + 2, stopping early; the price is the worst actually charged on the paid
+  ledger ($0.0060 across 44 tasks), not a constant. `--run` is refused explicitly and no
+  executor exists. **Gate verified:** 13 targeted tests, `npm run check` clean, and the
+  preview runs read-only against production. **Finding:** the planner refuses Accounts
+  whose stored name is page copy — that took a 100-Account batch from 275 planned
+  queries to 123 and from 3 to 57 Accounts needing nothing, which ties SB-V2-1b to the
+  value of Stage D. Production Stage-D spend still needs separate authorisation.
+- [x] **SB-V2-6 — 100-Account contact experiment, measured and reported.**
+  `npm run contact:yield`. Across all 320 production Accounts: 21% (67) have a named
+  decision maker, **0% have a named email**, **0% have a direct phone route** (404 of
+  404 phones are main lines), 226 of 320 research runs read the site and 94 read
+  nothing. The 98 `DIRECT_PERSON_EMAIL` rows have no contact attached, so they are not
+  named emails and the report prints the difference. Stages B and C report NOT_RUN, not
+  "nothing found". Estimated Stage-D cost per 100 Accounts: $0.74, worst case $3.00.
+  **No paid batch has been run.** The report is re-runnable, so the same numbers can be
+  taken again after remediation and after any spend.
+- [ ] ~~SB-V2-5 — Decision-maker research waterfall.~~ First-party site, then official
+  public sources, then search-indexed public evidence via the existing DataForSEO
+  account. No Apollo/Hunter/ZoomInfo. Stage D ships **disabled, preview-only and
+  fixture-tested**; production Stage-D spend needs a separate authorization. Budget when
+  enabled: at most 3 decision-maker queries plus 2 contact queries, 5 absolute per
+  Account, stopping early when the evidence is sufficient. A search snippet is candidate
+  evidence, never a verified fact; inferred email patterns stay INFERRED/UNVERIFIED and
+  are never emailed.
+- [ ] ~~SB-V2-6 — 100-Account contact experiment.~~ Before buying any contact-data
+  provider, measure ~100 workable Accounts: decision maker and named email from
+  first-party only, then after public search; direct phone vs main line only; unresolved
+  counts; average Stage-D searches per Account; estimated spend per Account and per 100.
+- [x] **SB-V2-7 — Vertical evidence boundary closed.** The provider's category is now
+  captured (`item.category` → observation → candidate → `search_observations.category`,
+  a column nothing had ever written) and it settles the trade both ways: one that agrees
+  supports it, one that disagrees refuses it whatever the listing says. A listing with
+  no category still supports the trade, measured rather than assumed — 21 of 93
+  listing-found Accounts contain no discovery-query word and are real HVAC companies.
+  `service_aliases`, declared by every profile and read by nothing, is now read, because
+  Google's own HVAC categories match no HVAC discovery query. **Gate verified:** 16
+  vertical-relevance tests including the three new boundary cases, 54 across the
+  vertical suites, `npm run check` clean, and the remediation preview reports identical
+  counts on production because every historical category is null.
+- [ ] ~~SB-V2-7 — Vertical evidence: a provider business listing is currently enough.~~
+  `discoveryVerticalRelevance` returns SUPPORTED on `providerListing === true` before
+  reading the result type, and the miner passes `providerCategory: null`, so a listing
+  categorised as another trade still inherits the searched trade. V1 stopped the organic
+  and paid-only contamination; this boundary remains. ~51 existing Accounts took their
+  vertical from `local_result`. Decide whether the provider category should be carried
+  to the call site and consulted.
 
 - [ ] **WEB-001 — Complete the live CTA and funnel-routing audit.** The chooser, short assessment, $495 audit, internal long engine, and confirmation route are confirmed. Audit every navigation/button/campaign URL so no old one-assessment destination remains. **Completion gate:** every live CTA has an intentional destination and the result is documented.
 - [ ] **TRACK-001 — Finish the production measurement inventory.** GTM, GA4, Google tag, and Google Ads IDs are confirmed in brain/TRACKING.md. Record account ownership/access, Meta Dataset/Pixel, consent requirements, and production/staging behavior. **Completion gate:** all non-secret IDs, owners, and consent decisions are documented.
@@ -33,12 +195,144 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [ ] **ASM-002 — Preserve and validate the deterministic long-assessment engine.** The 64-question engine is present as an internal/noindex route. **Next action:** verify authorization/handoff from paid Cal.com booking, version it explicitly, and run the full test suite after source synchronization.
 - [ ] **MKT-001 — Finalize the Facebook Page identity and initial Meta creative set.** The recovered Gradient Y direction is selected; the exact Facebook profile, cover, and Page copy package is prepared under `assets/social/facebook-page/`. **Next action:** upload it to Facebook, verify desktop/mobile crops, then build campaign graphics, hooks, copy, CTAs, and naming for the selected vertical.
 
+- [ ] **SB-QA3 — Offline execution queue A–I then J–W (GitHub Issue #3).** Work that
+  does not need a live provider, ahead of the credentialled canary. Done: A (a count
+  of searches is a count of searches — `query_budget` meant "plan N, buy one"),
+  B (six epistemic states, so "we looked and found nothing" stops reading as "nobody
+  looked"), C (a REP_READY contract — found is not researched), E (vertical, service
+  and event separated; the `hail damage roof 32095` mechanism found and fixed, and
+  the `negative_terms` every profile declared and nothing read now applied).
+  Also done: D (business listings as structured entity discovery, converging on one
+  canonical Account in every arrival order), F (`npm run miner:canary` — a market
+  search an operator can read before it costs anything; dry by default, live needs
+  the ceiling stated twice, and the live path is the ordinary queue), canonical
+  identity hardening (a shared word and a shared Facebook page are not one company),
+  and one shared discovery-source list after the same "which sources are the miner"
+  copy was found wrong for a third time.
+  A–I complete. Then J (market coverage without a denominator nobody has), K (a
+  duplicate review queue whose decisions stick), L (contact confidence that decays),
+  M (a completeness filter whose options could not match), N (our spending ceiling
+  was recorded as the market's failure), O (the duplicate sweep at 100k: 2092ms to
+  1007ms, and two of my own optimisations were wrong).
+  Then P (the import preview promised more companies than confirming created),
+  Q (a new path for untrusted website text into the prompt, fenced and verified),
+  R (a release manifest, and research runs now record which profile produced their
+  evidence), S (nothing had ever written last_researched_at — the keystone find),
+  T (two attacks in a hostile website, aimed at different things), U (the stale
+  install, which was the one schema nobody had rehearsed), V (one file to hand to
+  support, and the first thing support asks for — the error — was the one thing none
+  of the five existing reports carried).
+  W complete: the final silent-failure audit, worked by reading rather than running.
+  Its headline is one root cause with three fail-opens — a number read with
+  `Number()` becomes NaN, every comparison against NaN is false, and the guard
+  silently stops guarding. It reached the daily spend ceiling, the DNC snapshot
+  staleness block and a webhook's replay window. Also: two dialects of "true" on
+  `OUTBOUND_DIAL_ENABLED`, so `=1` armed the dialler while the release manifest and
+  the exposure preflight both reported it disabled; a retention plan that dropped
+  tables it could not read from the artefact an operator approves; a migration count
+  of 0 standing in for "could not tell"; a provider validation that read OK over zero
+  checks; a canary whose daily-budget refusal was skipped when the spend query
+  failed; a research run that reported COMPLETED after its scoring failed; and an
+  empty gate list that would have cleared a real pilot.
+  **Behaviour change for Michael:** a malformed numeric or boolean value in `.env`
+  now stops the process, naming the variable and its value, instead of defaulting.
+  Nothing on the EdgeXpert changes today — none of the affected numerics are set
+  there, which also means no daily discovery budget is configured at all.
+  After A–W, the same method applied to the running system found more than reading
+  had: every operator CLI run and read, then the portal itself walked as a rep and as
+  a manager. That produced `14991a9` (a back-fill the doctor promised and nothing
+  performed), `e6b720d` (a market nobody named, and 49 scores the product never
+  produced), `1aaa41a` (four defects on the screens themselves), and `0fe78f9` — the
+  largest of the campaign: **nothing in the product ever wrote advertiser evidence**,
+  so `advertiser_first` mining produced accounts whose advertiser panel said "nobody
+  has looked" and whose +4 Module 4C rule could never fire. The lesson to keep: a
+  test asserts what someone thought to assert; opening the page asks what it says.
+  **Next action:** A–W are complete, and so is the sweep that followed them. What
+  remains needs a credential or a decision, not code.
+
+  **Decisions implemented (no longer owed).** The vertical-profile to runtime
+  semantic contract is closed. Every executable reference a profile makes now
+  resolves to a canonical signal the runtime understands, and profile validation
+  fails loudly on one that does not.
+  1. `decision_maker_roles` — all 65 declared roles carry an explicit
+     `canonical_role_category` in the profile itself. The runtime taxonomy stayed at
+     fifteen categories; the raw title, the profile's own wording, the canonical
+     category and the route that decided are all kept. "Managing Partner" files under
+     `owner` instead of falling through, and `unknown` still means the evidence was
+     insufficient.
+  2. `objection_guidance` — supplements the generic engine. Generic is the base
+     layer, a vertical answer to the same intent replaces it, unrelated generic
+     answers survive, and nothing is concatenated. Same-intent detection is explicit:
+     the id equals a generic key, or the profile declares
+     `overrides_generic_objection`. Nine overrides declared.
+  3. `offer_mapping` — a global catalog authoritative for what an offer is, each
+     entry tracing to a document, plus per-vertical positioning and priority. One
+     resolved model with provenance covering both declaration sites. Seventy-one
+     spelling variants normalised out of the documents.
+  4. Hook ordering — they were never competing. Read the way its numbers mean, higher
+     is more important, and `hook_priorities` agrees exactly with
+     `preferred_primary_hook_order` in every vertical declaring both. The generator
+     had been sorting it ascending, showing a rep the weakest reason first.
+     `domain/hooks.ts` is now its only reader; hypothesis order is the author's
+     declaration sequence; an invariant fails if the two ever diverge.
+  5. `storm_hail_market_signal` — MARKET subject, `SOURCE_UNAVAILABLE`, never false.
+     The company half is `storm_hail_service_promoted`, evidenced only by their own
+     site. Roofing's market condition moved to `market_condition_signals`, whose
+     subject rule is the opposite one. Ordinary roofing discovery needs no storm
+     evidence.
+  6. Hypothesis categories — `intake`, `capacity`, `governance` and
+     `repetitive_admin` are stored as themselves (migration 047, with a
+     reconciliation for rows already collapsed). Round-tripped profile to call pack.
+  7. The 27 dangling references — repaired semantically to **zero**, pinned there.
+     Five corrected to the name the profile already uses, twelve declared with a real
+     producer implemented, ten moved to `aspirational_trigger_signals` as
+     documentation because they name no measurable fact.
+
+  **Deliberately source-unavailable, and modelled truthfully.** `active_meta_ad`
+  needs a Meta ad-library source: not inferred from SERP presence, a Facebook link, a
+  pixel or an observation of unknown age. `storm_hail_market_signal` needs a weather
+  or event feed. Both stay UNKNOWN rather than false, and no writer was fabricated to
+  satisfy a reachability count.
+
+  **Credentials owed.** The paid DataForSEO canary (SB-B3) and INPUT-006's retention
+  periods, both unchanged.
+  **Completion gate:** met — each item has regression tests, and the remaining canary
+  gates are named as needing a credential rather than left implied.
+
+- [ ] **SB-QA2 — Overnight miner/search/worker hardening (GitHub Issue #3).** The
+  durable execution ledger for the overnight campaign under SB-QA1. Thirteen commits
+  on `feature/outbound-sales-brain`, suite 1311/1311 and identical in reverse file
+  order. Defects found that green tests did not: a provider search id used as a
+  business identity, so every company in one search collapsed into the first; a paid
+  ad's headline becoming the company name; one PENDING provider answer retiring a
+  saved market permanently; the daily ceiling refusing to collect searches already
+  paid for; Find Prospects claiming aged research on a market nobody had researched;
+  `create table if not exists` racing itself on a fresh install's first boot. Five
+  pieces of configuration found written and never read, `retention_class` the latest.
+  **Next action:** classification remains blocked on nothing safe to execute here —
+  the remaining canary gates need a real DataForSEO credential and Michael's
+  source-governance sign-off (SB-B3). **Completion gate:** not
+  `MINER_LIVE_CANARY_READY` until a credentialled canary runs against a real market
+  with the spend ceiling verified live.
+
+- [ ] **SB-QA1 — Live Sales Portal bug hunt (GitHub Issue #2).** Michael's operator
+  walk-through on the EdgeXpert exposed defects that were each true of the code and
+  false of what the screen said. The campaign covers startup/recovery, authorization,
+  search, mining, ownership, follow-ups, opportunities and meetings, the pilot control
+  plane, imports and merges, analytics truth, security and input handling, and
+  performance. **Next action:** work the A–L matrices in Issue #2; every defect gets a
+  reproducible case and a regression test before its fix. **Completion gate:** each
+  matrix is green, every defect found has a regression test, and remaining limitations
+  are written down rather than implied.
+
 ## ⚪ Next
 
 - [ ] **LEAD-001 — Confirm and document the production lead destination.** Record the actual server-side delivery/storage, notifications, spam controls, consent, retention, and deletion workflow used by the live short assessment and contact form.
 - [ ] **BOOK-001 — Verify the production Cal.com booking/payment configuration.** Confirm the $495 event, payment requirement, return URL/query contract, cancellation/rescheduling policy, and booking conversion behavior.
 - [ ] **SEO-001 — Finish launch SEO operations.** Verify Search Console, sitemap submission, indexing controls, canonical URLs, metadata, structured data, redirects, and production domain behavior.
 - [ ] **MKT-003 — Prepare Apollo/outbound and Meta audience operations.** Document lawful data handling, list hygiene, matching fields, suppression, consent/platform-policy checks, seed/lookalike strategy, and the separation between outbound lists and ad optimization.
+- [ ] **SB-VERT1 — Let a company belong to more than one trade (P1 technical debt).** `accounts.primary_vertical_profile_id` is the only place a trade is stored, so a company that genuinely does plumbing *and* HVAC can be recorded as exactly one of them. `firstPartyVerticalRelevance` can already read a mixed-trade site correctly and prove both; there is nowhere to put the second answer. This surfaced during Release 2 and was deliberately **not** fixed there: a rushed migration under a rep-readiness sprint is how the vertical got stamped from the search query in the first place. Scope when picked up: an `account_vertical_memberships` table carrying the evidence and basis per trade, with `primary_vertical_profile_id` kept as the single rep-facing primary classification, plus the Find filter and Markets read models actually reading it. **Completion gate:** a company with evidence in two trades is stored with both, is returned by a Find filter for either, appears under both Markets, and still shows one primary trade in the rep drawer. Do not report multi-vertical as solved on storage alone — the read models have to retrieve both.
+
 - [ ] **OPS-002 — Add a lightweight recurring brain-review habit.** Re-triage this file after material work, before launches, and when an execution thread rolls over.
 
 ## 🔵 Backlog
@@ -54,6 +348,15 @@ A task should appear in only one status section. Dependencies may be referenced 
 
 ## 🚧 Blocked / input needed
 
+- [ ] **INPUT-006 — Retention policy for provenance and machine exhaust.** Nothing
+  prunes `jobs`, `search_observations`, `provider_usage`, `provider_tasks`,
+  `research_runs` or `canonical_scores`, and every observation carries a
+  `retention_class` that no code reads. `search_observations` is the fastest grower:
+  one row per business per search, for ever. How long to keep the record of how a
+  company was found — the provenance behind "you are running this ad" — is Michael's
+  call, not a report's. `npm run growth` names the gap and gives no date until there
+  is enough history to support one.
+
 - [ ] **INPUT-001 — Meta account and Dataset/Pixel details.** The Meta Dataset/Pixel ID, account ownership, access, consent settings, and current Events Manager state are not yet recorded.
 - [ ] **INPUT-003 — Lead backend and lifecycle truth.** The live assessment successfully calls a delivery adapter, but the destination, persistent storage, notification provider, retention, and deletion behavior are not recorded in the brain.
 - [ ] **INPUT-004 — Cal.com dashboard configuration.** Confirm access, event/payment settings, booking-return query parameters, and whether the production redirect is configured for every relevant event.
@@ -68,6 +371,187 @@ A task should appear in only one status section. Dependencies may be referenced 
 - [x] **ARCH-001 — Lock the V1 custom-coded website direction.** Astro, TypeScript, static-first output, portable SiteGround deployment, performance, SEO, and accessibility are established.
 - [x] **ASM-BASE-001 — Build the first deterministic assessment implementation.** Typed question configuration, branching, scoring, opportunity flags, recommendations, results, persistence adapters, and automated tests exist.
 - [x] **CONTENT-001 — Build the initial website/content foundation through Sprint 8.** Core solution/service/industry routes and launch resources exist.
+
+## 🟢 Completed — Outbound Sales Brain / Sales Portal (2026-09-03)
+
+- [x] **SB-T0 — EdgeXpert and repository audit.** Canonical database stood up as Docker
+  PostgreSQL 16 on loopback. **Gate:** findings, blockers and structure recorded in
+  docs/09-software/IMPLEMENTATION-LOG.md.
+- [x] **SB-T1 — Canonical Account data foundation.** 35 tables and one search projection;
+  ownership, suppression, evidence immutability and booking-confirmation invariants enforced in the
+  database rather than in application code. **Gate:** all six acceptance data tests from
+  rep-ownership-data-model.md §20 pass, plus the mandatory concurrency test.
+- [x] **SB-T2 — Rep portal.** Overview, Find Prospects, Markets, My Prospects, Account detail,
+  Follow-Ups, manager Team. **Gate:** hero workflow verified end to end; every hard-fail case
+  refused server-side; 12 HTTP-level tests.
+- [x] **SB-T3 — List import pipeline.** normalize → identity resolve → suppression → upsert.
+  **Gate:** verified against a messy synthetic list; an imported row merged into an
+  already-discovered Account rather than forking it. Real lists still needed (blocker B-2).
+- [x] **SB-T4 — PUBLIC_ONLY decision-maker resolver.** Stage A first-party research, no Apollo.
+  **Gate:** all 13 canonical fixtures pass with every hard_fail_if asserted; live crawl resolves
+  Operations ahead of Owner for an after-hours hypothesis.
+- [x] **SB-T5 — Market Miner inventory connection.** Refresh runs today; discovery is an adapter
+  interface gated on credential *and* governance review. **Gate:** cached ZIP search returns in
+  under 500 ms; Research More is idempotent.
+- [x] **SB-T6 — Secure internal deployment.** systemd user services with linger, verified backup
+  and restore, 19-check preflight. **Gate:** cold stop of both services and the database recovered
+  with ownership, suppressions and follow-ups intact. HTTPS hostname still blocked (B-4).
+- [x] **SB-T7 — Strategy-call booking.** Provider-neutral with a Microsoft Graph adapter.
+  **Gate:** a booking cannot be spoken as confirmed without a provider event id — enforced in code,
+  in the schema, and in 21 tests. Real calendar blocked on B-1.
+- [x] **SB-T8 — Cold-call brain.** Built from Module 4A doctrine; orchestration owns terminal and
+  safety transitions. **Gate:** all five transition tests from the state machine spec pass; six
+  roleplay scenarios run as text. No dialling.
+- [x] **SB-EMAIL — Smartlead preparation.** Canonical email state, eligibility gate, reply
+  classification and idempotent event ingestion. **Gate:** spec §20 acceptance tests pass. No email
+  sent; provider credential still needed (B-5).
+
+## 🟢 Completed — Release hardening (2026-09-04)
+
+- [x] **SB-H1 — Outbound voice adversarial hardening.** Bounded transcripts, idempotent setup
+  frames, socket-error handling, a concurrency ceiling, graceful shutdown, and a holding line so a
+  slow tool call cannot produce dead air. **Gate:** 101 tests in services/sales-voice and 31 in
+  services/voice-core pass, including an oversized WebSocket frame that previously killed the
+  process and would have ended every call in progress.
+- [x] **SB-H2 — Synthetic latency and interruption benchmark.** Twelve credential-free scenarios on
+  a virtual clock, with machine-readable PASS/FAIL and named targets. **Gate:** verdict PASS. This
+  measures our own code paths on a synthetic transport; it is not evidence about real PSTN audio,
+  and the harness says so in its own output.
+- [x] **SB-H3 — Sales AI adversarial roleplay expansion.** 90 behavioural cases across
+  salesAi/salesAiHardening/salesAiAdversarial. **Gate:** every case graded on behaviour rather than
+  wording; DNC terminal, one question at a time, bare engagement is not meeting consent, and a call
+  may end with no need.
+- [x] **SB-H4 — Hook/opener experiment engine with attribution.** migrations/024, full experiment
+  dimensions, minimum-sample floors, and promotion readiness separate from comparison. Surfaced on
+  /analytics: below the floor there is no ranking, no leader and no ordering that reads as one.
+  **Gate:** 16 engine tests plus an analytics page test asserting six attempts produce no winner.
+- [x] **SB-H5 — CRM audit across all 21 pages with data in them.** 27 tests covering shared shell
+  composition, evidence classes, ownership consistency, direct API bypass, stale-page writes, audit
+  reviewability and responsive containment. **Gate:** several substantive defects found and fixed —
+  see brain/CHANGELOG.md 2026-09-04.
+- [x] **SB-H6 — Provider contract hardening.** DataForSEO Standard mode now collects the queued
+  task it posts (it previously treated the acknowledgement as a result set and would have found
+  nothing once the credential arrived), with bounded retries, Retry-After, depth and candidate
+  dedupe. Smartlead gained a signed webhook transport. Twilio Lookup results now reach channel
+  eligibility. **Gate:** 33 provider hardening tests.
+- [x] **SB-H7 — Offline release dry-run matrix.** 20 classes, each with its own assertions, proving
+  the chain from account evidence to CRM state without a credential or a call. **Gate:** 12 tests.
+- [x] **SB-H8 — Deployment handoff for the outbound voice service.** deploy.sh, verify.sh,
+  rollback.sh, the systemd unit, the nginx snippets, OPERATOR.md, and a Vultr-console key
+  bootstrap that never generates or prints a private key. **Gate:** 25 static tests on the tooling.
+  Applying it is still blocked on SB-B8.
+
+## 🟢 Completed — Production scale and data integrity (2026-09-05)
+
+- [x] **SB-S1 — Deterministic synthetic dataset.** 25,000 and 100,000 accounts, 1.5M
+  rows, 72 seconds, unreachable by construction. **Gate:** 16 generator tests,
+  including that a low-probability draw holds its rate in every slice — the artefact
+  that made a three-percent case vanish entirely from the first two hundred accounts.
+- [x] **SB-S2 — CRM query benchmark.** 46 cases across every page. **Gate:** PASS at
+  both scales after the fixes; before/after in the commit and in migration 025.
+- [x] **SB-S3 — Concurrency war games.** 18 tests running genuinely parallel
+  transactions. **Gate:** exactly one owner from ten simultaneous claims, ledger
+  intact, suppression wins in either commit order, and no deadlock across mixed
+  operations.
+- [x] **SB-S4 — Import and dedupe torture.** 33 cases including a 10,000-row file
+  three times. **Gate:** re-running an import creates nothing; suppression, history,
+  opportunities and confirmed meetings all survive rediscovery.
+- [x] **SB-S5 — Worker crash recovery.** 14 tests. **Gate:** no lost work, no double
+  run, poison jobs do not block the queue, a failed provider call never marks
+  research fresh.
+- [x] **SB-S6 — Analytics truth.** 15 tests against answers known by construction.
+  **Gate:** every stage counted exactly; every rate carries its numerator,
+  denominator and sample size.
+- [x] **SB-S7 — Account merge.** Implemented with a tombstone that redirects.
+  **Gate:** 14 tests; suppression, ownership, opportunities, meetings and timeline all
+  survive; no unmerge, and a test asserts none is faked.
+- [x] **SB-S8 — Search quality.** 20 tests. **Gate:** wildcards escaped, ZIP
+  searchable, a rep's own book ranked first, suppressed companies findable and marked.
+- [x] **SB-S9 — Human-rep pilot flow.** 5 tests walking the hero proof through HTTP,
+  plus a demo fixture. **Gate:** a rep can answer why this company, who to ask for,
+  what is hypothesis, what to say first, what channel is allowed, and what to do next.
+- [x] **SB-S10 — Sales Manual retrieval.** Lexical index, 1,882 chunks. **Gate:**
+  precision@1 60%, recall@5 95%, zero forbidden modules, commercial truth precedence
+  enforced in the retriever.
+- [x] **SB-S11 — Backup and restore drill.** **Gate:** PASS against the live database
+  and against 100,000 accounts, comparing nine content checksums and the invariants.
+- [x] **SB-S12 — Operations panel.** 13 tests. **Gate:** fourteen operator questions
+  answered from the tables the product already keeps; the outbound-AI line cannot
+  read OK while a live call exists.
+
+## 🟢 Completed — Runtime separation and the backup that was never broken (2026-09-09)
+
+- [x] **SB-R1 — Five nights of good backups reported as a missing accounts table.**
+  `zgrep -q` plus systemd's `IgnoreSIGPIPE=yes`: `grep -q` closes the pipe at the
+  first match, `gzip` gets EPIPE instead of dying by signal, and zgrep reports failure
+  on a dump that contains the table. Interactively the same command passed, which is
+  why five nights read as a database fault. `accounts` was named every night only
+  because it is first in the required list and the loop stopped there — six tables
+  required, one ever checked. **Gate:** every historical dump verified valid (70
+  tables, gzip OK, `COPY public.accounts` present); verification moved to
+  `deploy/verify-backup.sh`; 10 regressions including a fixture shaped so the EPIPE
+  reproduces deterministically.
+- [x] **SB-R2 — Child output is invisible in a systemd user unit.** A defect
+  introduced by the refactor and caught before it shipped: a child's stdout *and*
+  stderr are both dropped, so a failed verification would have been a bare non-zero
+  exit. `backup.sh` captures and re-emits. **Gate:** the failure path proven in the
+  journal, naming every missing table and saying nothing was rotated.
+- [x] **SB-R3 — Dedicated runtime.** `/home/roothecks/YAD-Sales-Brain/services/sales-brain`,
+  worktree locked, `.env` copied at mode 600 and never printed,
+  `deploy/assert-runtime.sh` refusing any tree that is not this branch — discriminating
+  on tracked-ness, which is what made the orphaned runtime look fine. Backup unit
+  repointed and green through its own unit. **Gate:** suite 1714/1714 from the new
+  runtime; docs/09-software/SALES-BRAIN-RUNTIME.md written.
+
+## 🚧 Blocked — Outbound Sales Brain (needs Michael)
+
+- [ ] **SB-R4 — API/worker cutover, stopped at the schema boundary.** The staged units
+  are written and not installed (`/home/roothecks/yad-sales-runtime-rollback-20260909/staged-units/`).
+  The API's current `ExecStartPre` runs `dist/bin/migrate.js`, which executes DDL, so
+  the restart was not performed. 48 applied / 48 on branch / 0 pending / 0 checksum
+  drift, so the migrator would do nothing — but it is still a schema-touching step and
+  needs explicit authorization. **Separately:** the API's first `ExecStartPre` points
+  at `deploy/docker-compose.yml` in the old path and **that file is missing**, so the
+  API cannot currently restart at all. It runs, but a crash or reboot leaves it down.
+  Three options are recorded in the Issue #3 checkpoint; the staged unit omits the
+  migration step, which is the recommended one.
+
+
+- [ ] **SB-B1 — Azure app registration** for michael@youraidepartment.ai: tenant ID, client ID,
+  client secret, `Calendars.ReadWrite` *application* permission with admin consent. Blocks real
+  calendar booking. Everything else in that path is built and tested.
+- [ ] **SB-B2 — The real YAD prospect lists.** Jacksonville / St. Augustine, prior CSVs, the
+  Airtable export, any Apollo exports. None are on the EdgeXpert. Drop them anywhere on the box and
+  run `npm run import -- --file <csv> --source <name> --dry-run` first.
+- [ ] **SB-B3 — Source governance sign-off + a search provider** for resolver stages B–D and for
+  new-business discovery. Stage A carries the resolver without it.
+- [ ] **SB-B4 — HTTPS for sales.youraidepartment.ai.** Two one-liners: enable HTTPS certificates in
+  the Tailscale admin console, and `sudo tailscale set --operator=$USER`. See
+  docs/09-software/SALES-PORTAL-RUNBOOK.md §3 for the option that works today without either.
+- [ ] **SB-B5 — Smartlead API key and webhook secret.**
+- [ ] **SB-B6 — DNC screening provider.** Until one is connected no phone endpoint can reach
+  `ALLOW` on merit; human calling stays `REVIEW_REQUIRED` and a manager must clear each number.
+  Options are in `docs/09-software/outbound-sales-brain-dnc-provider-selection-current.md`.
+- [ ] **SB-B7 — Cal.com event type + API key.** `YAD 15-Minute AI Strategy Call` on
+  michael@youraidepartment.ai with Cal Video, then `CALCOM_API_KEY` and `CALCOM_EVENT_TYPE_ID`.
+  Cal.com is now the booking authority; the Graph path is a fallback and must not run alongside it.
+- [ ] **SB-B8 — SSH access to the voice VPS.** There is no key pair on the EdgeXpert, no password,
+  the box is not on the tailnet and no cloud CLI is configured, so the outbound voice service
+  cannot be deployed. The way in needs no SSH: run
+  `bash services/sales-voice/deploy/edgexpert-keygen.sh` here, then follow
+  `services/sales-voice/deploy/vultr-console-authorize-key.sh` in the Vultr web console.
+  `services/sales-voice/deploy/OPERATOR.md` §1 is the whole procedure.
+- [ ] **SB-PILOT — Controlled outbound pilot approval.** Not authorized. Requires explicit approval
+  plus the compliance gates in CLAUDE-CURRENT-TASK.md §5. `OUTBOUND_DIAL_ENABLED` and
+  `OUTBOUND_EMAIL_ENABLED` are both false and `preflight.sh` fails if either changes.
+
+## Release classification (2026-09-05)
+
+**HUMAN_ASSIST_ONLY** — 10 gates PASS, 6 BLOCKED_EXTERNAL, 4 NOT_TESTED. The four
+untested gates all require a real call, which needs SB-B8 first and SB-PILOT after
+it. The offline 20-class dry-run matrix is PASS, the synthetic latency benchmark is
+PASS, the 46-case CRM benchmark is PASS at 25,000 and 100,000 accounts, and the
+backup/restore drill is PASS at both scales.
 
 ## Current blockers
 

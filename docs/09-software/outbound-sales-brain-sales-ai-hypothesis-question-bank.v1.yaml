@@ -1,0 +1,364 @@
+schema_version: "1.0.0"
+bank: yad_sales_ai_hypothesis_question_bank_v1
+purpose: >-
+  Give one YAD Sales AI a reusable set of business-process question families across industries.
+  Vertical profiles select relevant families; the core agent behavior does not change by industry.
+
+rules:
+  - one_primary_question_at_a_time
+  - select_from_callpack_primary_hypothesis
+  - ask_process_before_pitch
+  - prospect_answer_controls_next_probe
+  - do_not_use_all_probes
+  - do_not_assert_problem_exists
+  - stop_or_switch_when_hypothesis_is_convincingly_handled
+  - at_most_one_supported_backup_hypothesis_before_exit
+  - qualification_depends_on_real_process_gap_not_positive_sentiment
+
+families:
+
+  missed_calls_overflow:
+    use_when:
+      - phone_dependent_business
+      - current_call_volume_or_paid_demand_makes_phone_handling_relevant
+    likely_roles:
+      - operations
+      - office_manager
+      - customer_service
+      - dispatch
+      - general_manager
+      - owner_founder
+    first_questions:
+      - "When a new-business call comes in and everybody's already tied up, what happens next?"
+      - "What happens to a legitimate call your office can't answer immediately?"
+    probes:
+      handoff: "Once the call is missed or captured, who owns the callback?"
+      automation: "Does anything automatically create a task, text, or callback workflow?"
+      visibility: "Can you see which missed calls never actually connected with somebody?"
+      speed: "How quickly does someone normally get back to them?"
+      volume: "Roughly how many legitimate new-business calls hit that situation in a normal month?"
+    strong_gap_signals:
+      - voicemail_only
+      - message_taken_manual_callback
+      - callback_depends_on_memory
+      - no_visibility
+      - frequent_overflow
+    handled_signals:
+      - reliable_live_answering
+      - automated_task_and_followup
+      - measured_service_level
+      - clear_owner_and_visibility
+    meeting_frame: >-
+      map the inbound-call workflow, see what is already covered, and determine whether overflow,
+      after-hours handling or follow-up actually has a business case
+
+  after_hours_response:
+    use_when:
+      - emergency_or_after_hours_business
+      - form_or_phone_inquiries_outside_office_hours
+    likely_roles:
+      - operations
+      - office_manager
+      - service_manager
+      - intake
+      - general_manager
+      - owner_founder
+    first_questions:
+      - "When somebody reaches out after hours looking for a new service, what happens today?"
+      - "If a new inquiry comes in tonight after the office closes, what's the first thing that happens?"
+    probes:
+      responder: "Who actually sees it first?"
+      timing: "Does somebody respond that night or the next business day?"
+      booking: "Can they actually get scheduled, or is it mainly message capture?"
+      consistency: "Is that a defined process or does it depend on who's on call?"
+    strong_gap_signals:
+      - next_day_response
+      - answering_service_message_only
+      - on_call_inconsistent
+      - no_booking_or_qualification
+    handled_signals:
+      - immediate_reliable_response
+      - effective_answering_service
+      - appointment_or_intake_completed
+      - clear_on_call_workflow
+    meeting_frame: >-
+      review the after-hours path from inquiry to response and see whether any part is worth improving
+
+  speed_to_lead:
+    use_when:
+      - competitive_paid_lead_environment
+      - appointment_or_consultation_business
+      - urgent_consumer_choice
+    likely_roles:
+      - sales_leadership
+      - operations
+      - intake
+      - marketing
+      - general_manager
+      - owner_founder
+    first_questions:
+      - "How quickly does a brand-new lead normally hear from somebody?"
+      - "When a new lead comes in while the team is busy, how do you make sure somebody gets to it quickly?"
+    probes:
+      measurement: "Is response time something you actually measure?"
+      routing: "How does the lead get assigned to the right person?"
+      fallback: "What happens if the first person doesn't respond?"
+      automation: "Does the system keep escalating or following up until someone connects?"
+    strong_gap_signals:
+      - unmeasured_response
+      - manual_assignment
+      - no_fallback
+      - leads_wait_until_next_day
+      - individual_rep_dependency
+    handled_signals:
+      - measured_response_sla
+      - automatic_assignment
+      - fallback_escalation
+      - consistent_fast_contact
+    meeting_frame: >-
+      map the lead-response path and determine whether faster or more reliable routing/follow-up is actually valuable
+
+  unsold_estimate_proposal_followup:
+    use_when:
+      - estimates_quotes_proposals_consultations_are_material
+      - high_value_job_or_case_economics
+    likely_roles:
+      - sales_leadership
+      - general_manager
+      - operations
+      - owner_founder
+      - estimating
+    first_questions:
+      - "What normally happens to an estimate that doesn't close the first time?"
+      - "Once somebody says they need to think about the proposal, what happens after that?"
+    probes:
+      ownership: "Who owns the follow-up from there?"
+      consistency: "Is there a standard sequence or does each salesperson handle it differently?"
+      visibility: "Can management see which open estimates haven't been touched recently?"
+      automation: "Does anything automatically remind or re-engage them?"
+      volume: "Roughly how many open estimates or proposals are sitting in that stage in a normal month?"
+    strong_gap_signals:
+      - rep_memory_dependency
+      - no_standard_followup
+      - no_management_visibility
+      - estimates_go_quiet
+      - no_reactivation
+    handled_signals:
+      - defined_sequence
+      - CRM_tasks_and_visibility
+      - ownership_clear
+      - regular_reactivation
+    meeting_frame: >-
+      look at the open-estimate/proposal workflow and see whether follow-up consistency or visibility is worth fixing
+
+  crm_workflow:
+    use_when:
+      - crm_known_or_likely_relevant
+      - lead_followup_reporting_or_handoff_issue
+    likely_roles:
+      - operations
+      - sales_leadership
+      - marketing
+      - general_manager
+      - owner_founder
+    first_questions:
+      - "Once a new lead gets into your CRM, what actually happens automatically?"
+      - "Does every new lead reliably make it into the CRM and get assigned, or are there still manual gaps?"
+    probes:
+      coverage: "Does every channel actually feed into it?"
+      ownership: "How does the right person know it's theirs?"
+      stale: "Can you see opportunities that haven't been touched recently?"
+      automation: "What follow-up runs without somebody having to remember it?"
+      reporting: "What do you wish the CRM showed you that it doesn't today?"
+    strong_gap_signals:
+      - partial_lead_capture
+      - manual_assignment
+      - no_stale_opportunity_visibility
+      - inconsistent_use
+      - disconnected_channels
+    handled_signals:
+      - high_adoption
+      - automated_routing
+      - comprehensive_source_capture
+      - reliable_reporting
+    meeting_frame: >-
+      review how the CRM reflects the real workflow and whether the issue is configuration, integration, process, or nothing at all
+
+  marketing_attribution:
+    use_when:
+      - paid_media_or_multiple_lead_sources
+      - marketing_performance_is_material
+    likely_roles:
+      - marketing
+      - owner_founder
+      - general_manager
+      - operations
+      - sales_leadership
+    first_questions:
+      - "Can you currently trace a lead from the original marketing source all the way to actual revenue?"
+      - "When you look at marketing performance, can you tell which sources are producing actual customers, not just leads?"
+    probes:
+      source: "Where does source attribution live today?"
+      handoff: "Does that source stay attached once sales starts working the lead?"
+      revenue: "Can you connect the final sale back to the original source?"
+      confidence: "Which part of that chain do you trust least today?"
+    strong_gap_signals:
+      - lead_only_reporting
+      - source_lost_after_handoff
+      - disconnected_crm_and_ads
+      - revenue_not_attributed
+    handled_signals:
+      - source_to_revenue_tracking
+      - reliable_crm_attribution
+      - management_trusts_reporting
+    meeting_frame: >-
+      map the marketing-to-revenue chain and determine whether the gap is acquisition, response, sales follow-up, attribution, or already solved
+
+  admin_employee_capacity:
+    use_when:
+      - repetitive_admin_work_visible_or_likely
+      - growth_or_staff_capacity_pressure
+    likely_roles:
+      - operations
+      - office_manager
+      - practice_administrator
+      - general_manager
+      - owner_founder
+    first_questions:
+      - "What repetitive office task eats more employee time than you think it should?"
+      - "If the business grew fifty percent, where would you have to add office capacity first?"
+    probes:
+      frequency: "How often does the team have to do that?"
+      ownership: "Who spends the most time on it?"
+      handoff: "Are they copying information between systems or mostly working inside one platform?"
+      consequence: "What higher-value work gets delayed because of it?"
+      growth: "Would that process scale if volume doubled?"
+    strong_gap_signals:
+      - repeated_copy_paste
+      - manual_data_entry
+      - repetitive_status_updates
+      - hiring_pressure
+      - high_overtime_or_backlog_when_prospect_states_it
+    handled_signals:
+      - low_time_cost
+      - already_automated
+      - no_growth_constraint
+      - process_not_material
+    meeting_frame: >-
+      map the repetitive workload and see whether process, integration, automation or simply leaving it alone makes the most sense
+
+  reactivation_nurture:
+    use_when:
+      - old_leads_customers_patients_cases_or_estimates_have_future_value
+    likely_roles:
+      - sales_leadership
+      - marketing
+      - operations
+      - owner_founder
+      - intake
+    first_questions:
+      - "What happens to old leads that go quiet — does anything consistently bring them back into the pipeline?"
+      - "Do you have a defined process for people who were interested but weren't ready at the time?"
+    probes:
+      segmentation: "How do you decide who should hear from you again?"
+      timing: "Is reactivation scheduled or mostly ad hoc?"
+      ownership: "Who owns it?"
+      system: "Does the CRM do anything automatically there?"
+    strong_gap_signals:
+      - no_reactivation
+      - old_leads_ignored
+      - purely_manual_campaigns
+      - no_segmentation
+    handled_signals:
+      - consistent_reactivation
+      - consent_and_policy_aligned_process
+      - effective_automation
+    meeting_frame: >-
+      look at the dormant-lead/customer workflow and determine whether there is a legitimate reactivation opportunity
+
+  appointment_no_show:
+    use_when:
+      - appointment_consultation_tour_estimate_or_demo_business
+    likely_roles:
+      - operations
+      - office_manager
+      - intake
+      - sales_leadership
+      - general_manager
+    first_questions:
+      - "What happens when somebody books and then doesn't show?"
+      - "Once an appointment is booked, what keeps the customer engaged enough to actually show up?"
+    probes:
+      reminders: "What reminders go out now?"
+      recovery: "If they miss it, does anybody automatically try to reschedule them?"
+      measurement: "Do you track no-shows separately from cancellations?"
+      ownership: "Who owns the recovery?"
+    strong_gap_signals:
+      - no_reminders
+      - no_recovery
+      - no_show_not_measured
+      - manual_reschedule_only
+    handled_signals:
+      - reliable_reminders
+      - automatic_reschedule_flow
+      - measured_no_show_rate
+      - clear_owner
+    meeting_frame: >-
+      review the booked-to-show workflow and see whether reminders, routing or recovery are actually worth improving
+
+  intake_qualification:
+    use_when:
+      - law_medical_professional_service_or_complex_inquiry
+      - qualification_and_routing_are_material
+    likely_roles:
+      - intake
+      - operations
+      - practice_administrator
+      - general_manager
+      - owner_founder
+    first_questions:
+      - "When a brand-new inquiry comes in, what determines whether it gets to the right person quickly?"
+      - "How much of the initial intake is standardized before a professional gets involved?"
+    probes:
+      channel: "Do phone, web and other inquiries all enter the same process?"
+      routing: "What information determines where it goes?"
+      handoff: "Where does a human need to take over?"
+      followup: "What happens if the person doesn't complete the intake the first time?"
+    strong_gap_signals:
+      - fragmented_intake_channels
+      - manual_routing
+      - incomplete_followup
+      - repetitive_prequalification_admin
+    handled_signals:
+      - standardized_intake
+      - strong_human_review_boundary
+      - reliable_routing
+      - consistent_followup
+    meeting_frame: >-
+      map the intake/routing workflow while keeping professional judgment and sensitive decisions with the appropriate humans
+
+selection_logic:
+  primary_family:
+    source: callpack.primary_hypothesis
+    requirement: must_be_supported_by_vertical_profile_and_evidence
+  backup_family:
+    source: callpack.backup_hypothesis
+    use_only_if:
+      - primary_convincingly_handled_or_irrelevant
+      - backup_has_independent_evidence_or_strong_vertical_relevance
+      - prospect_remains_engaged
+    max_backup_families_per_cold_call: 1
+
+booking_rule:
+  book_now_requires:
+    - correct_stakeholder_or_sufficient_authority
+    - meaningful_process_fact_learned
+    - gap_or_question_worth_deeper_review
+    - prospect_openness_to_next_step
+  booking_frame_source:
+    - selected_family.meeting_frame
+    - prospect_confirmed_problem
+  prohibited:
+    - generic_book_because_prospect_is_friendly
+    - promise_specific_solution_before_discovery
+    - promise_roi_or_savings

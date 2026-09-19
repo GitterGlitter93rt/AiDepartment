@@ -1,0 +1,273 @@
+fixture_set: yad_sales_team_access_v1
+version: 1.0.0
+purpose: Regression fixtures for rep prospect access, ownership, channel eligibility, Smartlead coordination, callbacks, suppression, and exports.
+
+fixtures:
+  - id: two_reps_cannot_claim_same_account
+    initial:
+      account_id: acct_hvac_001
+      eligibility: CALL_AND_EMAIL_ELIGIBLE
+      owner: null
+    actions:
+      - rep_a_claims: true
+      - rep_b_claims_after_rep_a: true
+    expected:
+      rep_a_claim_success: true
+      rep_b_claim_success: false
+      visible_owner_to_rep_b: rep_a
+      duplicate_outreach_allowed: false
+
+  - id: dnc_removed_from_all_cold_worklists
+    initial:
+      account_id: acct_roof_001
+      eligibility: CALL_AND_EMAIL_ELIGIBLE
+      phone: "+19045550101"
+      email: owner@example.com
+    action:
+      rep_records_account_dnc: true
+    expected:
+      account_relationship_state: SUPPRESSED
+      in_call_sheet: false
+      in_email_sheet: false
+      in_smartlead_export: false
+      generic_followups_created: false
+      audit_event_required: true
+
+  - id: email_optout_blocks_email_but_policy_controls_phone_scope
+    initial:
+      account_id: acct_plumb_001
+      phone_quality: VERIFIED_BUSINESS_MAIN
+      email_quality: VERIFIED_BUSINESS_EMAIL
+      eligibility: CALL_AND_EMAIL_ELIGIBLE
+    action:
+      smartlead_unsubscribe_received: true
+    expected:
+      email_actionable: false
+      smartlead_sequence_stopped: true
+      phone_actionability: POLICY_EVALUATED_NOT_ASSUMED
+      optout_scope_recorded: true
+
+  - id: smartlead_positive_reply_stops_generic_cold_call_queue
+    initial:
+      account_id: acct_elec_001
+      eligibility: CALL_AND_EMAIL_ELIGIBLE
+      smartlead_sequence_active: true
+    event:
+      reply_class: POSITIVE_INTEREST
+      text: Interested. Can you send times for a call?
+    expected:
+      generic_smartlead_sequence_paused: true
+      generic_cold_call_queue: false
+      relationship_state: ENGAGED
+      human_owner_required: true
+      meeting_or_followup_task_created: true
+      reply_visible_in_account_timeline: true
+
+  - id: hard_bounce_invalidates_email_not_account
+    initial:
+      account_id: acct_gc_001
+      email_quality: VERIFIED_BUSINESS_EMAIL
+      phone_quality: VERIFIED_BUSINESS_MAIN
+    event:
+      smartlead_hard_bounce: true
+    expected:
+      email_quality: BOUNCED
+      email_actionable: false
+      account_disqualified: false
+      phone_may_remain_actionable: true
+      contact_refresh_candidate: true
+
+  - id: wrong_number_invalidates_endpoint_not_company
+    initial:
+      account_id: acct_dental_001
+      phone_quality: VERIFIED_BUSINESS_MAIN
+      email_quality: VERIFIED_BUSINESS_EMAIL
+    action:
+      rep_disposition: WRONG_NUMBER
+    expected:
+      phone_quality: INVALID
+      call_actionable_on_same_endpoint: false
+      account_disqualified: false
+      email_may_remain_actionable: true
+      research_refresh_candidate: true
+
+  - id: requested_callback_becomes_priority_one
+    initial:
+      account_id: acct_hvac_002
+      yad_tier: A
+      cold_queue_rank: 19
+    action:
+      callback_requested_at: "2026-09-04T10:00:00-04:00"
+    expected:
+      relationship_state: ENGAGED
+      at_due_time_queue_section: FOLLOW_UP_CALLBACKS
+      priority_above_new_tier_a: true
+      owner_preserved: true
+      generic_cadence_suspended_until_callback_resolved: true
+
+  - id: active_opportunity_removed_from_generic_cold_lists
+    initial:
+      account_id: acct_law_001
+      relationship_state: QUALIFIED_OPPORTUNITY
+      previous_eligibility: CALL_AND_EMAIL_ELIGIBLE
+    expected:
+      call_now: false
+      email_now: false
+      smartlead_cold_export: false
+      opportunity_followup_visible_to_owner: true
+
+  - id: existing_client_never_recycled_as_cold_prospect
+    initial:
+      account_id: acct_roof_002
+      relationship_state: CLIENT
+      new_google_ad_observation: true
+    expected:
+      new_account_created: false
+      generic_cold_queue: false
+      existing_account_research_may_refresh: true
+      account_expansion_workflow_may_consider_signal: true
+
+  - id: stale_ad_personalization_downgraded_before_email
+    initial:
+      account_id: acct_hvac_003
+      email_queued: true
+      personalization: Saw you are actively advertising emergency AC in Jacksonville.
+      ad_evidence_fresh: false
+    expected:
+      current_tense_ad_line_allowed: false
+      action_any:
+        - refresh_ad_research
+        - downgrade_to_non_current_safe_personalization
+      fabricated_current_ad_claim: false
+
+  - id: manager_reassigns_owned_account
+    initial:
+      account_id: acct_collision_001
+      owner: rep_a
+      active_callback: false
+    action:
+      sales_manager_reassigns_to: rep_b
+    expected:
+      owner: rep_b
+      rep_a_actionable: false
+      rep_b_actionable: true
+      audit_event_required: true
+      history_preserved: true
+
+  - id: export_is_audited_snapshot
+    initial:
+      rep: rep_a
+      assigned_accounts: 25
+    action:
+      export_type: CALL_SHEET
+    expected:
+      maximum_scope: assigned_or_authorized
+      export_audit_created: true
+      required_audit_fields:
+        - user_id
+        - export_type
+        - filter_snapshot
+        - row_count
+        - exported_fields
+        - purpose
+        - created_at
+      canonical_state_changed_by_export: false
+
+  - id: suppressed_account_excluded_even_if_highest_score
+    initial:
+      account_id: acct_restoration_001
+      yad_score: 18
+      yad_tier: A
+      advertiser_strength: VERY_STRONG
+      suppression: DNC
+    expected:
+      queue_rank: null
+      call_sheet: false
+      email_sheet: false
+      combined_worklist: false
+
+  - id: gatekeeper_referral_updates_contact_without_duplicate_account
+    initial:
+      account_id: acct_garage_001
+      current_target_role: owner
+    action:
+      gatekeeper_provides:
+        name: Sarah Jones
+        role: Operations Manager
+        email: sarah@example.com
+    expected:
+      account_count: 1
+      new_contact_candidate_created: true
+      source: GATEKEEPER_REFERRAL
+      contact_role: operations
+      email_confidence: PROSPECT_OR_GATEKEEPER_SUPPLIED
+      future_target_can_change: true
+
+  - id: rep_correction_supersedes_stale_crm_signal
+    initial:
+      account_id: acct_hvac_004
+      research_signal: ServiceTitan detected
+    action:
+      prospect_statement: We switched to Housecall Pro six months ago.
+    expected:
+      old_research_evidence_deleted: false
+      old_evidence_state: SUPERSEDED_OR_CONTRADICTED
+      new_prospect_statement_created: true
+      call_pack_refresh_required: true
+
+  - id: smartlead_duplicate_campaign_blocked
+    initial:
+      account_id: acct_law_002
+      smartlead_campaign_active: campaign_pi_jax_a
+    action:
+      rep_attempts_enqueue_campaign: campaign_pi_jax_b
+    expected:
+      second_enqueue_allowed: false
+      reason: CONFLICTING_ACTIVE_EMAIL_SEQUENCE
+
+  - id: direct_email_after_phone_request_is_not_generic_sequence
+    initial:
+      account_id: acct_roof_003
+      phone_conversation: true
+      disposition: EMAIL_REQUESTED
+      requested_topic: estimate follow-up workflow
+    expected:
+      email_mode: DIRECT_HUMAN_FOLLOWUP
+      draft_uses_actual_requested_topic: true
+      generic_smartlead_sequence_started: false
+      human_review_required: true
+
+  - id: research_review_blocks_actionable_queue
+    initial:
+      account_id: acct_unknown_001
+      company_identity_conflict: true
+      phone: "+19045550123"
+      email: info@example.com
+    expected:
+      eligibility: HUMAN_REVIEW_REQUIRED
+      call_now: false
+      email_now: false
+      reason_visible: AMBIGUOUS_ACCOUNT_IDENTITY
+
+  - id: account_history_shared_between_reps
+    initial:
+      account_id: acct_hvac_005
+      history:
+        - rep_a_called_and_left_voicemail
+        - smartlead_email_sent
+        - prospect_replied_not_until_next_month
+    action:
+      manager_reassigns_to: rep_b
+    expected:
+      rep_b_sees_complete_history: true
+      rep_b_cold_opener_as_if_new: false
+      timing_later_state_preserved: true
+
+pass_standard:
+  zero_tolerance:
+    - dnc_in_actionable_queue
+    - optout_email_in_email_export
+    - active_client_in_generic_cold_queue
+    - same_account_simultaneously_claimed_by_two_reps
+    - smartlead_positive_reply_followed_by_uncoordinated_generic_cold_sequence
+    - export_without_audit

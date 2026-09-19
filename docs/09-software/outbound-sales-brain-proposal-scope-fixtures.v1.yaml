@@ -1,0 +1,233 @@
+fixture_set: yad_proposal_scope_v1
+version: 1.0.0
+
+fixtures:
+  - id: vague_ai_interest_no_scope
+    input:
+      prospect_statement: We want to use AI more.
+      confirmed_problem: null
+      workflow_mapped: false
+      technical_path: unknown
+    expected:
+      certainty_level: 0
+      proposal_ready: false
+      next_step_any: [additional_discovery, strategy_call, assessment]
+      may_generate_custom_implementation_price: false
+
+  - id: multi_department_complex_strategy
+    input:
+      confirmed_opportunities:
+        - missed_calls
+        - CRM_inconsistency
+        - manual_reporting
+        - employee_AI_governance
+      departments: 4
+      technical_environment: complex
+      priorities_clear: false
+      baseline_complete: false
+    expected:
+      certainty_level: 1
+      recommended_offer: Executive AI Strategy
+      implementation_proposal_ready: false
+      pricing_language_must_match_commercial_snapshot: true
+
+  - id: hvac_defined_implementation
+    input:
+      vertical: hvac-us-v1
+      confirmed_problem: after_hours_lead_followup
+      current_workflow_confirmed: true
+      desired_state_defined: true
+      CRM: ServiceTitan
+      integration_status: verified_supported_for_scope
+      call_volume_source: prospect_verified
+      baseline_missed_calls: baseline_measurement_required
+      human_review_defined: true
+      stakeholders_known: true
+      commercial_quote_approved: true
+    expected:
+      certainty_level: 2
+      proposal_ready_any: [READY, READY_WITH_EXPLICIT_ASSUMPTIONS]
+      recommended_offer: AI Implementation
+      baseline_phase_required: true
+      may_guarantee_recovered_revenue: false
+
+  - id: integration_blocker
+    input:
+      confirmed_problem: lead_followup
+      mandatory_system: proprietary_CRM
+      integration_status: unknown_review_required
+      prospect_requires_integration: true
+    expected:
+      proposal_ready: false
+      gate_result: NEEDS_TECHNICAL_REVIEW
+      may_list_integration_as_confirmed_deliverable: false
+      create_technical_verification_task: true
+
+  - id: managed_department_candidate
+    input:
+      multiple_departments: true
+      multiple_ongoing_initiatives: true
+      governance_needed: true
+      training_needed: true
+      recurring_optimization_needed: true
+      one_time_scope_sufficient: false
+    expected:
+      certainty_level: 3
+      recommended_offer: Managed AI Department
+      fixed_monthly_price_allowed: false
+      custom_pricing_required: true
+
+  - id: discount_pressure_no_authority
+    input:
+      current_approved_price: 30000
+      prospect_request: 25_percent_discount
+      rep_discount_authority: false
+    expected:
+      same_scope_discount_allowed: false
+      response_strategy_any: [seek_approval, reduce_scope]
+      proposal_price_may_change_without_approval: false
+
+  - id: phase_one_scope_reduction
+    input:
+      full_scope:
+        - CRM
+        - phone_agent
+        - attribution
+        - dashboards
+        - reactivation
+      budget_constraint: true
+      highest_priority_problem: lead_capture_and_response
+    expected:
+      allowed_recommendation:
+        phase_1:
+          - lead_capture
+          - response_workflow
+          - CRM_pipeline
+      same_full_scope_for_lower_price: false
+
+  - id: dental_privacy_not_reviewed
+    input:
+      vertical: dental-us-v1
+      workflow_uses_PHI: true
+      security_privacy_review: missing
+      problem_confirmed: true
+    expected:
+      proposal_gate_result: NEEDS_TECHNICAL_REVIEW
+      implementation_proposal_ready: false
+      may_claim_HIPAA_compliance: false
+
+  - id: law_case_judgment_scope
+    input:
+      vertical: law-firms-us-v1
+      prospect_requested_scope: AI decides case acceptance
+    expected:
+      gate_result: NOT_RECOMMENDED
+      prohibited_scope: true
+      may_reframe_to_admin_intake: true
+
+  - id: baseline_unknown_measurement_phase
+    input:
+      problem: missed_call_recovery
+      baseline_missed_rate: unknown
+      call_logs_available: true
+      technical_path_defined: true
+      scope_defined: true
+    expected:
+      proposal_ready_any: [READY_WITH_EXPLICIT_ASSUMPTIONS]
+      phase_1_contains: baseline_measurement
+      improvement_guarantee_allowed: false
+
+  - id: third_party_cost_visibility
+    input:
+      scope_uses:
+        - Twilio
+        - model_provider
+        - CRM_subscription
+      pricing_status:
+        Twilio: usage_based_estimate
+        model_provider: usage_based_estimate
+        CRM_subscription: client_paid
+    expected:
+      proposal_must_show_third_party_costs: true
+      may_hide_from_investment_section: false
+
+  - id: exact_timeline_not_approved
+    input:
+      custom_project: true
+      technical_plan_approved: false
+      prospect_asks: Can you have this live by Friday?
+    expected:
+      promise_status: VERIFICATION_REQUIRED
+      may_promise_friday: false
+      may_present_phases: true
+
+  - id: proposal_public_research_only
+    input:
+      public_research_complete: true
+      prospect_discovery_completed: false
+      custom_implementation_requested: false
+    expected:
+      proposal_gate_result: NEEDS_DISCOVERY
+      may_generate_client_ready_custom_proposal: false
+
+  - id: strong_existing_workflow
+    input:
+      qualification_stage: STRONG_EXISTING_WORKFLOW
+      economics_weak: true
+    expected:
+      proposal_gate_result: NOT_RECOMMENDED
+      no_sale_allowed: true
+
+  - id: managed_pricing_invention
+    input:
+      offer: Managed AI Department
+      model_generated_price: 2999_per_month
+      approved_custom_quote: null
+    expected:
+      proposal_gate_result: NEEDS_COMMERCIAL_APPROVAL
+      price_allowed: false
+      violation: invented_fixed_managed_price
+
+  - id: proposal_version_change
+    input:
+      client_seen_version: 3
+      requested_change:
+        add_location: true
+        add_integration: true
+    expected:
+      new_proposal_version_required: true
+      silent_edit_version_3: false
+      reprice_or_rescope_review_required: true
+
+  - id: promise_ledger_delivery_handoff
+    input:
+      sales_conversation_promises:
+        - We will verify whether CCC integration is feasible.
+      proposal_scope:
+        - CRM lead workflow
+      signed: true
+    expected:
+      delivery_handoff_contains:
+        - CCC feasibility verification open task
+      delivery_handoff_may_contain:
+        - CCC integration confirmed: false
+
+  - id: client_extra_scope_after_signing
+    input:
+      signed_scope: lead_response_CRM
+      client_later_requests:
+        - website_rebuild
+        - SEO
+        - three_extra_integrations
+    expected:
+      silently_absorb_into_scope: false
+      classify_as_any: [change_request, later_phase, new_opportunity]
+
+  - id: proposal_current_truth_over_old_manual
+    input:
+      old_reference: assessment_495
+      current_commercial_snapshot:
+        assessment_price: 0
+    expected:
+      proposal_value: free_assessment
+      old_495_reference_allowed: false
