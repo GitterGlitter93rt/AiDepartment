@@ -251,24 +251,68 @@ export async function recomputeStaleScores(options: {
 } = {}): Promise<{ stale: number; recomputed: number }> {
   const { SCORE_VERSION } = await import('../scoring/model.js');
 
+  // Only evidence consumed by recognizeSignals can make a FIT projection stale.
+  // Contact identities and endpoint provenance deliberately do not appear here:
+  // contact quality is a separate commercial dimension, not FIT. This explicit
+  // allow-list keeps an unrelated evidence append from causing a score loop while
+  // still catching a score whose advertising/site evidence was added, contradicted,
+  // or aged out after the last calculation.
+  const MATERIAL_SCORE_CLAIMS = [
+    'active_google_search_ad', 'active_local_service_ad', 'active_hail_search_ad',
+    'active_meta_ad', 'emergency_24_7_service', 'multiple_locations',
+    'online_quote_booking', 'visible_growth_hiring', 'financing_promoted',
+    'website_offer', 'website_cta', 'click_to_call', 'hail_repair_service',
+    'high_value_plumbing_services',
+  ];
+
   const { rows: counts } = await query<{ n: number }>(
-    `select count(*)::int as n from accounts
+    `select count(*)::int as n from accounts a
       where manual_tier is not null
-        and merged_into_account_id is null
-        and (score_version is null or score_version <> $1)`,
-    [SCORE_VERSION],
+        and a.merged_into_account_id is null
+        and not a.is_suppressed
+        and (a.score_version is null or a.score_version <> $1
+          or exists (
+            select 1 from canonical_scores cs
+             where cs.account_id = a.account_id
+               and cs.calculated_at = (select max(calculated_at) from canonical_scores where account_id = a.account_id)
+               and exists (
+                 select 1 from evidence_records e
+                  where e.account_id = a.account_id
+                    and e.claim_key = any($2::text[])
+                    and (e.observed_at > cs.calculated_at
+                      or (e.expires_at is not null and e.expires_at <= now()
+                          and e.expires_at > cs.calculated_at)
+                      or (e.contradicted_by_evidence_id is not null and exists (
+                           select 1 from jsonb_array_elements(cs.components) component
+                            where component->'evidenceIds' ? e.evidence_id::text))))))`,
+    [SCORE_VERSION, MATERIAL_SCORE_CLAIMS],
   );
 
   const { rows } = await query<{ account_id: string }>(
-    `select account_id from accounts
-      where manual_tier is not null
-        and merged_into_account_id is null
-        and (score_version is null or score_version <> $1)
+    `select a.account_id from accounts a
+      where a.manual_tier is not null
+        and a.merged_into_account_id is null
+        and not a.is_suppressed
+        and (a.score_version is null or a.score_version <> $1
+          or exists (
+            select 1 from canonical_scores cs
+             where cs.account_id = a.account_id
+               and cs.calculated_at = (select max(calculated_at) from canonical_scores where account_id = a.account_id)
+               and exists (
+                 select 1 from evidence_records e
+                  where e.account_id = a.account_id
+                    and e.claim_key = any($2::text[])
+                    and (e.observed_at > cs.calculated_at
+                      or (e.expires_at is not null and e.expires_at <= now()
+                          and e.expires_at > cs.calculated_at)
+                      or (e.contradicted_by_evidence_id is not null and exists (
+                           select 1 from jsonb_array_elements(cs.components) component
+                            where component->'evidenceIds' ? e.evidence_id::text))))))
       -- Oldest score first: the ones that have been wrong longest are corrected
       -- first, and the order is stable so a restart resumes rather than reshuffles.
       order by updated_at asc
       limit ${Math.max(1, Math.min(1000, options.limit ?? 100))}`,
-    [SCORE_VERSION],
+    [SCORE_VERSION, MATERIAL_SCORE_CLAIMS],
   );
 
   const { scoreAccount } = await import('../scoring/score.js');

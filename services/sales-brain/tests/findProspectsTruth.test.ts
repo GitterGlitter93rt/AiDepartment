@@ -373,6 +373,26 @@ test('a search with no place is not reported as a fresh market', async () => {
   assert.equal(summary.unclaimedCount, 0, 'the counts are not about a market');
 });
 
+test('blank industry and location browse the researched inventory without provider work', async () => {
+  await seedAccount('Global Browse HVAC');
+  await seedAccount('Global Browse HVAC Two');
+  const before = await query<{ tasks: number; jobs: number }>(
+    `select
+       (select count(*)::int from provider_tasks) as tasks,
+       (select count(*)::int from jobs where job_type = 'market_mine') as jobs`);
+
+  const body = await findPageAt('/find?vertical=&where=&market=');
+  assert.match(body, /Global Browse HVAC/);
+  assert.match(body, /Global Browse HVAC Two/);
+  assert.doesNotMatch(body, /Tell the Sales Brain where you want to prospect/);
+
+  const after = await query<{ tasks: number; jobs: number }>(
+    `select
+       (select count(*)::int from provider_tasks) as tasks,
+       (select count(*)::int from jobs where job_type = 'market_mine') as jobs`);
+  assert.deepEqual(after.rows[0], before.rows[0], 'global browse created provider work');
+});
+
 test('the page does not count a market it was not given', async () => {
   await seedAccount('Countable Air');
   const body = await findPageAt('/find?vertical=hvac');

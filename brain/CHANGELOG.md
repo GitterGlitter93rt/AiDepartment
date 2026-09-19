@@ -1,5 +1,18 @@
 # Operational Brain Changelog
 
+## 2026-09-18 — Narrow FIT refresh and global Find Prospects browse
+
+The production-line hotfix keeps the documented Module 4C v3 FIT formula authoritative and
+adds a maintenance preview/apply command. The stale-score root cause was that the worker only
+looked for an old/missing policy version; material scoring evidence added, contradicted, or
+expired after a current score could leave the projection unchanged. Apollo contact evidence is
+intentionally excluded because contact quality and FIT are separate dimensions.
+
+`/find`, including `/find?vertical=&where=&market=`, now treats blank primary fields as no
+restriction and reads the active researched inventory. Existing filters, server-side pagination,
+suppression rules, and deterministic commercial ordering remain in force. The route does not
+record a market search for the unrestricted state and does not call providers.
+
 ## 2026-09-17 — V2: what the inventory actually contains, and what the product may say about it
 
 Seven work items on `feature/sales-brain-v2`, all built from the live V1 production SHA
@@ -701,4 +714,3 @@ consults.
 
 Still not `MINER_LIVE_CANARY_READY`. Nothing was deployed, no live provider was called, no prospect
 was contacted, and `OUTBOUND_DIAL_ENABLED` remains false.
-
