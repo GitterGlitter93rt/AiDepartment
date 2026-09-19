@@ -1218,6 +1218,14 @@ mailing address are not physical locations.
 **Raw evidence survives remediation.** Suppression, rejection and reclassification are the
 instruments; deleting the observation that produced a record is not.
 
+## 2026-09-18 — FIT refresh and global inventory browsing
+
+| ID | Decision |
+|---|---|
+| DEC-028 | FIT remains the Module 4C v3 score, separate from Apollo contact-quality tiers. Its eleven documented rules total at most 18 points: Google paid +4, Meta +3, multi-channel +1, high-value economics +2, operational lead volume +2, emergency/after-hours +1, appointment/estimate/consultation +1, multiple locations/service territories +1, visible growth/hiring +1, strong phone dependence +1, and prominent forms/booking/quote CTA +1. Tiers are A 9+, B 6–8, C 3–5, D 0–2. Contact names/emails never contribute points. |
+| DEC-029 | FIT refresh is read-only preview/apply through the existing recognizer and scorer. The worker sweep recomputes current-policy scores whose scoring evidence is newer or expired, while ignoring contact-only evidence; it is bounded, idempotent, and does not create provider work. |
+| DEC-030 | `/find` treats blank industry, location, and saved market as unrestricted inventory browsing. It always reads the existing active researched inventory with the existing server-side pagination and deterministic score/contact/research ordering; it never starts discovery or provider work. |
+
 ---
 
 ## 2026-09-17 — A fetch failure is not a broken website (DEC-024 … DEC-027)
