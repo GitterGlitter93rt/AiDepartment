@@ -241,16 +241,43 @@ function marketDiscoverySection(rows: MarketDiscoveryRow[], kpis: any): RawHtml 
  * The columns carry the same numbers; this restates them in their units, because
  * "5 provider rows became 1 new Account" is either good dedupe or a broken filter and
  * the only way to tell is to see the steps in between named.
+ *
+ * Every step, including the one where nothing happens to most of them.
+ *
+ * The line used to run `rows → duplicate → unusable → already held → new`, which
+ * closes only when every identity the resolver kept went on to become a business.
+ * A real Miami HVAC search read 114 rows, dropped 16 duplicates and 19 unusable
+ * ones, and resolved the remaining 79 into 17 businesses — so the page showed
+ * "114 → 16 → 19 → 15 → 2" and silently lost 62 of them between the third arrow
+ * and the fourth. That gap is what an operator reads as a broken filter, and it is
+ * the ordinary case: an organic SERP resolves far more identities than it verifies
+ * as businesses.
+ *
+ * Both new steps are per-search arithmetic over per-search figures, so the chain
+ * closes at every arrow. `needsReview` is deliberately not mixed in: it is counted
+ * per ingest run, which may cover several searches, and a run-wide number inside a
+ * per-search chain is the denominator error this line exists to prevent.
  */
 function searchFunnelLine(row: MarketDiscoveryRow): RawHtml {
   const rows = row.rowsReturned ?? 0;
   if (rows === 0) return raw('');
+  const duplicates = row.duplicateRows ?? 0;
+  const unusable = row.rejectedEntities ?? 0;
+  const matched = row.matchedExisting ?? 0;
+  const created = row.newBusinesses ?? 0;
+  // What the resolver was left holding once duplicate and unusable rows were gone.
+  const identities = Math.max(0, rows - duplicates - unusable);
+  // Identities that did not become businesses: rejected as non-companies, or held
+  // back for review. Never negative, so an unexpected figure cannot invent a step.
+  const notPromoted = Math.max(0, identities - (matched + created));
   const parts = [
     `${rows} provider row(s)`,
-    (row.duplicateRows ?? 0) > 0 ? `${row.duplicateRows} duplicate` : null,
-    (row.rejectedEntities ?? 0) > 0 ? `${row.rejectedEntities} unusable` : null,
-    `${row.matchedExisting ?? 0} already held`,
-    `${row.newBusinesses ?? 0} new`,
+    duplicates > 0 ? `${duplicates} duplicate` : null,
+    unusable > 0 ? `${unusable} unusable` : null,
+    `${identities} identit(ies)`,
+    notPromoted > 0 ? `${notPromoted} not promoted` : null,
+    `${matched} already held`,
+    `${created} new`,
   ].filter(Boolean) as string[];
   return html` <span class="micro">· ${parts.join(' → ')}</span>`;
 }

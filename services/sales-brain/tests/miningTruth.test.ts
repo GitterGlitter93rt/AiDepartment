@@ -564,6 +564,75 @@ test('the mining page shows the arithmetic, not just the answer', async () => {
   assert.match(page.body, /1 unusable/);
   assert.match(page.body, /1 already held/);
   assert.match(page.body, /1 new/);
+  // Five rows, two duplicates and one unusable row leave two identities, and both
+  // became businesses, so the step is named and nothing is unaccounted for.
+  //
+  // Anchored on the arrow chain, not on the words alone: the miner's own reason
+  // sentence next to it says "2 identit(ies) resolved" whatever this line does, so
+  // a bare word match here passes with the step deleted and tests nothing.
+  assert.match(page.body, /1 unusable \u2192 2 identit\(ies\) \u2192 1 already held/);
+});
+
+test('the funnel names the identities that did not become businesses', async () => {
+  // The ordinary shape of an organic SERP, and the one the page used to lose.
+  //
+  // A real Miami HVAC search read 114 provider rows and resolved 79 identities into
+  // 17 businesses. The page showed rows, duplicates, unusable, already-held and new,
+  // and the 62 identities that reached none of those steps simply vanished between
+  // two arrows -- which reads as a broken filter rather than as the resolver
+  // declining to call a ranked page a business.
+  //
+  // Here: one listing that becomes a business, and three organic rows that resolve
+  // to an identity apiece and are held for review. Every arrow must close.
+  registerDiscoveryAdapter({
+    name: 'not-promoted-provider', requiresCredential: false, governanceReviewed: true,
+    isConfigured: () => true,
+    async discover() {
+      return {
+        status: 'OK' as const,
+        observations: [
+          ...observationsFor([{ name: 'Listed Air', phone: '904-555-7601' }]),
+          // Ranked pages: a domain and nothing that says a business is behind it.
+          ...observationsFor([
+            { name: 'Ranked Page Air One', website: 'rankedoneair.example', resultType: 'organic' },
+            { name: 'Ranked Page Air Two', website: 'rankedtwoair.example', resultType: 'organic' },
+            { name: 'Ranked Page Air Three', website: 'rankedthreeair.example', resultType: 'organic' },
+          ]),
+        ],
+      };
+    },
+  });
+
+  await runMarketJob('32095');
+
+  await createUser({
+    email: 'notpromoted.ops@test.local', displayName: 'Not Promoted Ops',
+    role: 'RESEARCH_OPS', password: PASSWORD });
+  const login = await app.inject({
+    method: 'POST', url: '/login',
+    payload: { email: 'notpromoted.ops@test.local', password: PASSWORD } });
+  const session = login.cookies.find((c) => c.name === 'yad_sales_session')!;
+  const page = await app.inject({
+    method: 'GET', url: '/mining',
+    headers: { cookie: `yad_sales_session=${session.value}` } });
+  assert.equal(page.statusCode, 200);
+
+  const funnel = /(\d+) provider row\(s\)(?:[^<]*?(\d+) duplicate)?(?:[^<]*?(\d+) unusable)?[^<]*?(\d+) identit\(ies\)(?:[^<]*?(\d+) not promoted)?[^<]*?(\d+) already held[^<]*?(\d+) new/
+    .exec(page.body);
+  assert.ok(funnel, 'the mining page states the whole funnel for the search');
+  const n = (value: string | undefined): number => Number(value ?? 0);
+  const [rows, duplicates, unusable, identities, notPromoted, held, created] =
+    funnel.slice(1).map(n) as [number, number, number, number, number, number, number];
+
+  // The chain closes at every arrow, which is the property that was missing.
+  assert.equal(identities, rows - duplicates - unusable,
+    'identities are the rows left after duplicates and unusable rows');
+  assert.equal(held + created + notPromoted, identities,
+    'every identity is either held, new, or explicitly not promoted');
+
+  // And the case is the real one: more identities than businesses.
+  assert.ok(notPromoted > 0, 'ranked pages resolve to identities that are not businesses');
+  assert.equal(created, 1, 'only the provider listing became a business');
 });
 
 test('a discovered business is queued for research, not left as a name and a number',
