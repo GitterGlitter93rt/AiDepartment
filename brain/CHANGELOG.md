@@ -827,3 +827,17 @@ was contacted, and `OUTBOUND_DIAL_ENABLED` remains false.
 2026-09-18: Ported the production FIT refresh maintenance path and unrestricted researched-inventory
 Find Prospects browse semantics to V3. FIT remains the Module 4C score; Apollo contact quality stays
 separate. No deployment or provider activity is implied by this port.
+
+2026-09-19: Read-only production audit reconciled a Miami HVAC provider search from 114 raw rows
+down to the 1 Account it actually made newly visible in Find Prospects, and traced why: 16
+duplicate + 19 unusable rows, 79 resolved identities, 17 verified businesses (2 new, 15 already
+known), of which 8 lack an active Miami location and 8 lack a vertical -- leaving 1. Ownership
+was ruled out (ANY_VISIBLE reproduces the same 3 rows already shown). Fixed the Mining page's
+per-search funnel line, which named rows/duplicates/unusable/matched/new but silently skipped the
+identities in between that were never promoted to a business -- the exact gap that read as "114
+became 3." Separately confirmed and reported, but did not fix, a cross-subsystem defect: v2
+remediation clears a vertical using only discovery-time evidence and never checks first-party
+evidence already on file, leaving 135 estate-wide Accounts (including real, evidenced HVAC
+businesses) stuck at a null vertical with no self-healing trigger. See DEC-051. Full reconciliation
+is private: SalesBrain-Audit-Data, research-audits/miami-hvac-reconciliation-2026-09-19/. No
+production writes, no provider or Apollo calls, no deployment.

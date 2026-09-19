@@ -346,6 +346,20 @@ which has deliberately not been run during development.
 - [ ] **SEO-003 — Expand industry and use-case content from measured demand.** Do not delay launch to fill empty repository placeholders.
 - [ ] **PROD-001 — Explore future proprietary products.** Assessment software, client dashboard, AI phone-agent appliance, and vertical solutions remain separate validation projects.
 
+- [ ] **SB-V3-8 — Vertical-evidence-discard defect: `v2_remediation.CLEAR_UNSUPPORTED_VERTICAL`
+  never checks first-party evidence before clearing.** Confirmed 2026-09-19 during the Miami HVAC
+  reconciliation (DEC-051; private detail in `SalesBrain-Audit-Data`,
+  `research-audits/miami-hvac-reconciliation-2026-09-19/`). `src/remediation/classify.ts`'s
+  `verticalSupport()` judges a vertical solely from discovery-time `search_observations`, so it
+  clears `primary_vertical_profile_id` even when `contactResearch.ts` already captured
+  independent first-party evidence (the company's own site) that `firstPartyVerticalRelevance()`
+  would score `SUPPORTED` — verified directly against one real account's captured text. 135
+  Accounts estate-wide were cleared this way; none has been re-researched since, so none can
+  self-heal without a new research run being scheduled for it individually. Needs a product
+  decision before a fix: teach `verticalSupport()` to consult `evidence_records`; enqueue
+  re-research on clear; or run a one-off reconciliation sweep against evidence already on file.
+  Not fixed yet — reported for Michael to prioritize.
+
 ## 🚧 Blocked / input needed
 
 - [ ] **INPUT-006 — Retention policy for provenance and machine exhaust.** Nothing

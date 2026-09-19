@@ -1684,3 +1684,55 @@ Every paid enrichment produced a new attributable professional email, so the mar
 stop rule did not fire. Exact balance and actual provider charges remain unknown. The raw
 rows are private at `SalesBrain-Audit-Data` commit
 `904c8d39f2e6b57a7e078e2e6712eb4d503310a7`; this repository carries no contact export.
+
+## DEC-051 — Miami HVAC "114 → 3" reconciled: one UI defect fixed, one cross-subsystem defect reported
+
+**Date:** 2026-09-19  **Status:** Investigation complete, read-only; one narrow V3 fix qualified and pushed, not deployed
+
+A read-only production audit traced the single Miami/HVAC/city provider search
+(`provider_task_id 5a4a4fb6…`, ingest `job_id fd89ff83…`) end to end: 114 raw
+DataForSEO rows → 16 duplicate + 19 unusable → 79 unique identities → 17 verified
+businesses (2 new, 15 matched existing) → 1 visible in Find Prospects
+(`vertical=hvac, city=Miami, ownership=UNCLAIMED`). Every arithmetic step reconciled
+exactly against `discovery_candidates`/`jobs`/`accounts`, not by assumption. Full
+detail is private: `SalesBrain-Audit-Data`,
+`research-audits/miami-hvac-reconciliation-2026-09-19/`.
+
+Two findings:
+
+1. **Mining UI funnel defect (fixed).** The per-search funnel line named rows,
+   duplicates, unusable, matched and new, but never named the identities in
+   between that were rejected as non-companies or held for review — so "79
+   identities became 17 businesses" silently read as "114 rows became 17
+   businesses," which looks like a broken filter. Fixed on
+   `feature/sales-brain-v3-hvac-scaleout` (`src/web/pages/waveC.ts`): the line now
+   states `identit(ies)` and `not promoted` explicitly, computed from the same
+   per-search figures already on the row. `needsReview` stays out of the chain,
+   since it is deliberately per-ingest-run rather than per-search. Display only;
+   no search predicate, ownership rule, or scoring logic changed.
+
+2. **Vertical-evidence-discard defect (reported, not fixed).** `v2_remediation
+   .CLEAR_UNSUPPORTED_VERTICAL` nulls `primary_vertical_profile_id` whenever
+   discovery-time observations alone don't support the trade — but it never checks
+   whether first-party evidence already captured by `contactResearch.ts` (the
+   company's own site) independently proves it, and clearing the field enqueues no
+   follow-up research. Verified directly: `Climate Systems` had explicit first-party
+   evidence ("Climate Systems offers financing options for heating and cooling
+   needs…HVAC repair, installation, and maintenance…") captured 45 minutes *before*
+   remediation cleared its vertical anyway; re-running the production
+   `firstPartyVerticalRelevance()` against that exact captured text returns
+   `SUPPORTED`. 135 Accounts estate-wide were cleared by this rule, and none has
+   been re-researched since, so none can self-heal until something schedules a
+   fresh research run for each one. This is real and generalized, but the correct
+   fix is a product choice (teach `verticalSupport()` to consult `evidence_records`;
+   enqueue re-research on clear; or run a one-off reconciliation sweep against
+   evidence already on file) that this investigation was not authorized to make
+   unilaterally, so it is reported for Michael to prioritize rather than patched
+   here.
+
+Ownership was checked and ruled out as a cause: re-running the exact production
+search with `ownership=ANY_VISIBLE` reproduces the identical 3 rows the UI already
+shows. The `workableEntitySql` guard and the location predicate were confirmed
+working as designed for these 17 — no strong Miami location evidence was found
+discarded anywhere in this search. No production data was written, no provider or
+Apollo call was made, and V3 was not deployed.
